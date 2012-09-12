@@ -1,0 +1,58 @@
+from neomodel.core import NeoNode, StringProperty, IntegerProperty
+
+
+class User(NeoNode):
+    email = StringProperty(unique_index=True)
+    age = IntegerProperty(index=True)
+
+
+def cleanup():
+    for u in User.category_node.get_related_nodes():
+        User.index.remove_node(u)
+        for r in u.get_relationships():
+            r.delete()
+        u.delete()
+
+
+cleanup()
+
+
+def test_load_one():
+    u = User(email='robin@test.com', age=3)
+    assert u.save()
+    rob = User.load(email='robin@test.com')
+    assert rob.email == 'robin@test.com'
+    assert rob.age == 3
+
+
+def test_load_many():
+    assert User(email='robin1@test.com', age=3).save()
+    assert User(email='robin2@test.com', age=3).save()
+    users = User.load_many(age=3)
+    assert len(users)
+
+
+def test_save_to_model():
+    u = User(email='jim@test.com', age=3)
+    assert u.save()
+    assert u._node
+    assert u.email == 'jim@test.com'
+    assert u.age == 3
+
+
+def test_unique():
+    User(email='jim1@test.com', age=3).save()
+    try:
+        User(email='jim1@test.com', age=3).save()
+    except Exception, e:
+        assert e.__class__.__name__ == 'NotUnique'
+
+
+def test_update():
+    user = User(email='jim2@test.com', age=3).save()
+    assert user
+    user.email = 'jim2000@test.com'
+    user.save()
+    jim = User.load(email='jim2000@test.com')
+    assert jim
+    assert jim.email == 'jim2000@test.com'
