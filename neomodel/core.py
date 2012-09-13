@@ -7,8 +7,8 @@ import os
 class NeoDB(object):
     """ Manage and cache connections to neo4j """
 
-    def __init__(self):
-        self.client = neo4j.GraphDatabaseService(os.environ.get('NEO4J_URL'))
+    def __init__(self, graph_db):
+        self.client = graph_db
         self.category_cache = {}
         self.index_cache = {}
 
@@ -32,13 +32,21 @@ class NeoDB(object):
         return self.category_cache[name]
 
 
+def connection_adapter():
+    try:
+        return connection_adapter.db
+    except AttributeError:
+        graph_db = neo4j.GraphDatabaseService(os.environ.get('NEO4J_URL'))
+        connection_adapter.db = NeoDB(graph_db)
+        return connection_adapter.db
+
+
 class NeoNodeMeta(type):
     def __new__(cls, name, bases, dct):
         if name != 'NeoNode':
-            db = NeoDB()
-            dct['db'] = db
-            dct['index'] = db.index(name)
+            db = connection_adapter()
             dct['category_node'] = db.category(name)
+            dct['index'] = db.index(name)
         return super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
 
 
@@ -67,7 +75,6 @@ class NeoNode(object):
         for node in result:
             properties = node.get_properties()
             neonode = cls(**properties)
-            neonode._db = cls.db
             neonode._node = node
             nodes.append(neonode)
         return nodes
@@ -93,6 +100,12 @@ class NeoNode(object):
     def __init__(self, *args, **kwargs):
         self._validate_args(kwargs)
         self._node = None
+        self._db = connection_adapter()
+        self._type = self.__class__.__name__
+
+    @property
+    def _index(self):
+        return self._db.index(self._type)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
@@ -123,11 +136,11 @@ class NeoNode(object):
 
     def _create(self, props):
         # TODO make this single atomic operation
-        relation_name = self.__class__.__name__.upper()
-        self._node, rel = self.__class__.db.client.create(props,
+        relation_name = self._type.upper()
+        self._node, rel = self._db.client.create(props,
                 (self.__class__.category_node, relation_name, 0))
         if not self._node:
-            Exception('Failed to create new ' + self.__class__.name)
+            Exception('Failed to create new ' + self._type)
 
         # Update indexes
         try:
@@ -141,16 +154,16 @@ class NeoNode(object):
         for key, value in props.iteritems():
             node_property = self.__class__.get_property(key)
             if node_property.unique_index:
-                if not self.__class__.index.add_if_none(key, value, self._node):
+                if not self._index.add_if_none(key, value, self._node):
                     raise NotUnique('{0}: {1} exists in unique index {2}'
-                            .format(key, value, self.__class__.__name__))
+                            .format(key, value, self._type))
             elif node_property.index:
-                self.__class__.index.add(key, value, self._node)
+                self._index.add(key, value, self._node)
 
     def save(self):
         if self._node:
             self._node.set_properties(self.properties)
-            self.__class__.index.remove_node(self._node)
+            self._index.remove_node(self._node)
             self._update_index(self.properties)
         else:
             self._create(self.properties)
