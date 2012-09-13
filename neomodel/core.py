@@ -45,7 +45,6 @@ class NeoNodeMeta(type):
     def __new__(cls, name, bases, dct):
         if name != 'NeoNode':
             db = connection_adapter()
-            dct['category_node'] = db.category(name)
             dct['index'] = db.index(name)
         return super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
 
@@ -89,6 +88,34 @@ class NeoNode(object):
             raise Exception("Multiple nodes returned from query, expected one")
         else:
             raise Exception("No nodes found")
+
+    @classmethod
+    def deploy(cls):
+        db = connection_adapter()
+
+        # create category root node if it doesn't exist
+        try:
+            category_root = db.index('Category').get('category', 'category')[0]
+        except IndexError:
+            print("Category root node doesn't exist, creating...".format(cls.__name__))
+            category_root = db.client.create({'category': 'Category'})[0]
+            if not db.index('Category').add_if_none('category', 'category', category_root):
+                raise Exception("Strange.. Category already exists in category index?")
+            print("OK")
+        else:
+            print("Category root node exists - OK")
+
+        # create new category node for class if it doesn't exist
+        try:
+            db.index('Category').get('category', cls.__name__)[0]
+        except IndexError:
+            print("Category node for {0} doesn't exist, creating...".format(cls.__name__))
+            category, rel = db.client.create({'category': cls.__name__}, (category_root, "Category", 0))
+            if not db.index('Category').add_if_none('category', cls.__name__, category):
+                raise Exception(cls.__name__ + " already exists in category index")
+            print("OK")
+        else:
+            print("Category node exists for {0} - OK".format(cls.__name__))
 
     @classmethod
     def get_property(cls, name):
@@ -138,7 +165,7 @@ class NeoNode(object):
         # TODO make this single atomic operation
         relation_name = self._type.upper()
         self._node, rel = self._db.client.create(props,
-                (self.__class__.category_node, relation_name, 0))
+                (self._db.category(self._type), relation_name, 0))
         if not self._node:
             Exception('Failed to create new ' + self._type)
 

@@ -1,4 +1,4 @@
-from neomodel.core import NeoNode, StringProperty, IntegerProperty
+from neomodel.core import NeoNode, StringProperty, IntegerProperty, connection_adapter
 
 
 class User(NeoNode):
@@ -6,15 +6,9 @@ class User(NeoNode):
     age = IntegerProperty(index=True)
 
 
-def cleanup():
-    for u in User.category_node.get_related_nodes():
-        User.index.remove_node(u)
-        for r in u.get_relationships():
-            r.delete()
-        u.delete()
-
-
-cleanup()
+def setup():
+    connection_adapter().client.clear()
+    User.deploy()
 
 
 def test_load_one():
@@ -56,3 +50,7 @@ def test_update():
     jim = User.load(email='jim2000@test.com')
     assert jim
     assert jim.email == 'jim2000@test.com'
+
+
+def teardown():
+    connection_adapter().client.clear()
