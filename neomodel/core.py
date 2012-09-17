@@ -1,5 +1,6 @@
 from py2neo import neo4j
 from lucenequerybuilder import Q
+import types
 import sys
 import os
 
@@ -41,6 +42,87 @@ def connection_adapter():
         return connection_adapter.db
 
 
+class RelationshipInstaller(object):
+
+    def __init__(self, *args, **kwargs):
+        self._related = {}
+
+        for key, value in self.__class__.__dict__.iteritems():
+            if value.__class__ == Relationship or issubclass(value.__class__, Relationship):
+                self._setup_relationship(key, value)
+
+    def _setup_relationship(self, rel_name, rel_object):
+        self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
+
+
+class RelationshipManager(object):
+    def __init__(self, direction, relation_type, name, node_class, origin):
+        self.direction = direction
+        self.relation_type = relation_type
+        self.node_class = node_class
+        self.name = name
+        self.related = {}
+        self.origin = origin
+
+    @property
+    def client(self):
+        return self.origin._db.client
+
+    def all(self):
+        if not self.related:
+            related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
+            if not related_nodes:
+                return
+            for n in related_nodes:
+                wrapped_node = self.node_class(**(n.get_properties()))
+                wrapped_node._node = n
+                self.related[n.id] = wrapped_node
+            return [v for v in self.related.itervalues()]
+        else:
+            return [v for v in self.related.itervalues()]
+
+    def is_related(self, obj):
+        if obj._node.id in self.related:
+            return True
+        return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
+
+    def relate(self, obj):
+        if obj.__class__ != self.node_class:
+            raise Exception("Expecting object of class " + self.node_class.__name__)
+        if not obj._node:
+            raise Exception("Can't create relationship to unsaved node")
+
+        self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node),)
+        self.related[obj._node.id] = obj
+
+    def unrelate(self, obj):
+        if obj._node.id in self.related:
+            del self.related[obj._node.id]
+        rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)
+        if not rels:
+            return
+        if len(rels) > 1:
+            raise Exception("Expected single relationship got {0}".format(rels))
+        rels[0].delete()
+
+
+class Relationship(object):
+    def __init__(self, relation_type, cls, manager=RelationshipManager):
+        self.relation_type = relation_type
+        self.node_class = cls
+        self.direction = neo4j.Direction.OUTGOING
+        self.manager = manager
+
+    def build_manager(self, origin, name):
+        return self.manager(
+                self.direction,
+                self.relation_type,
+                name,
+                self.node_class,
+                origin
+               )
+
+
 class NeoNodeMeta(type):
     def __new__(cls, name, bases, dct):
         if name != 'NeoNode':
@@ -49,7 +131,7 @@ class NeoNodeMeta(type):
         return super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
 
 
-class NeoNode(object):
+class NeoNode(RelationshipInstaller):
     """ Base class for nodes requiring formal declaration """
 
     __metaclass__ = NeoNodeMeta
@@ -130,6 +212,9 @@ class NeoNode(object):
         self._db = connection_adapter()
         self._type = self.__class__.__name__
 
+        super(NeoNode, self).__init__(*args, **kwargs)
+
+    # DELETE ME
     @property
     def _index(self):
         return self._db.index(self._type)
@@ -146,9 +231,12 @@ class NeoNode(object):
     def properties(self):
         """ Return properties and values of a node """
         props = {}
+        # exclude methods and anything prefixed '_'
         for key, value in self.__dict__.iteritems():
             if not key.startswith('_'):
-                props[key] = value
+                if not isinstance(value, types.MethodType):
+                    if not isinstance(value, RelationshipManager):
+                        props[key] = value
         return props
 
     def _validate_args(self, props):
@@ -200,6 +288,7 @@ class NeoNode(object):
         if self._node:
             for r in self._node.get_relationships():
                 r.delete()
+            self._index.remove_node(self._node)
             self._node.delete()
             self._node = None
         else:
@@ -236,7 +325,6 @@ class IntegerProperty(Property):
             return True
         else:
             raise TypeError("Object of type int or long expected")
-
 
 class NoSuchProperty(Exception):
     pass
