@@ -295,7 +295,7 @@ class NeoNode(RelationshipInstaller):
     def save(self):
         if self._node:
             self._node.set_properties(self.properties)
-            self._index.remove_node(self._node)
+            self._index.remove(entity=self._node)
             self._update_index(self.properties)
         else:
             self._create(self.properties)
@@ -305,7 +305,7 @@ class NeoNode(RelationshipInstaller):
         if self._node:
             for r in self._node.get_relationships():
                 r.delete()
-            self._index.remove_node(self._node)
+            self._index.remove(entity=self._node)
             self._node.delete()
             self._node = None
         else:
