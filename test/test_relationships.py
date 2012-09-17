@@ -1,4 +1,4 @@
-from neomodel.core import NeoNode, StringProperty, IntegerProperty, Relationship, connection_adapter
+from neomodel.core import NeoNode, StringProperty, IntegerProperty, relate, connection_adapter
 
 
 class Country(NeoNode):
@@ -8,7 +8,9 @@ class Country(NeoNode):
 class Person(NeoNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
-    is_from = Relationship('IS_FROM', Country)
+
+
+relate(Person, 'is_from', Country, 'inhabitant')
 
 
 def setup():
@@ -17,7 +19,7 @@ def setup():
     Country.deploy()
 
 
-def test_local_relationship():
+def test_bidirectional_relationships():
     u = Person(name='Jim', age=3).save()
     assert u
 
@@ -32,6 +34,9 @@ def test_local_relationship():
     b = u.is_from.all()[0]
     assert b.__class__.__name__ == 'Country'
     assert b.code == 'DE'
+
+    s = b.inhabitant.all()[0]
+    assert s.name == 'Jim'
 
     u.is_from.unrelate(b)
 

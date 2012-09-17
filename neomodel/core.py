@@ -106,12 +106,28 @@ class RelationshipManager(object):
         rels[0].delete()
 
 
+def relate(outgoing_class, outgoing_property, incoming_class, incoming_property, rel_type=None):
+    """Define relationship of type X from objects of class A to objects of class B"""
+    if not rel_type:
+        rel_type = outgoing_property.upper()
+    if hasattr(outgoing_class, outgoing_property):
+        raise Exception(outgoing_class.__name__ + " already has attribute " + outgoing_property)
+
+    if hasattr(incoming_class, incoming_property):
+        raise Exception(incoming_class.__name__ + " already has attribute " + incoming_property)
+
+    outgoing_rel = Relationship(rel_type, incoming_class, neo4j.Direction.OUTGOING)
+    setattr(outgoing_class, outgoing_property, outgoing_rel)
+    incoming_rel = Relationship(rel_type, outgoing_class, neo4j.Direction.INCOMING)
+    setattr(incoming_class, incoming_property, incoming_rel)
+
+
 class Relationship(object):
-    def __init__(self, relation_type, cls, manager=RelationshipManager):
+    def __init__(self, relation_type, cls, direction, manager=RelationshipManager):
         self.relation_type = relation_type
         self.node_class = cls
-        self.direction = neo4j.Direction.OUTGOING
         self.manager = manager
+        self.direction = direction
 
     def build_manager(self, origin, name):
         return self.manager(

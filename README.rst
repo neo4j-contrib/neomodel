@@ -2,14 +2,14 @@
 NeoModel
 ========
 
-Model like definitions for neo4j, a py2neo wrapper.
+Strict definitions for your nodes, a py2neo wrapper.
 
-=======
-Example
-=======
-Boring example::
+============
+Introduction
+============
+Node definitions::
 
-    from neomodel.core import NeoNode, StringProperty, IntegerProperty, Relationship
+    from neomodel.core import NeoNode, StringProperty, IntegerProperty, relate
 
     class Country(NeoNode):
         code = StringProperty(unique_index=True)
@@ -18,24 +18,45 @@ Boring example::
     class Person(NeoNode):
         name = StringProperty(unique_index=True)
         age = IntegerProperty(index=True)
-        is_from = Relationship('IS_FROM', Country)
 
-    # Deploy category nodes to your db.
+Deploy category nodes for defined models::
+
     Country.deploy()
     Person.deploy()
 
-    # Create a person
+Define relationships between your models::
+
+    # defines relation of type IS_FROM from Person to Country nodes
+    # traverse incoming IS_FROM relations on Country via the inhabitants property
+    relate(Person, 'is_from', Country, 'inhabitants')
+
+Access related nodes through your defined relations::
+
+    germany = Country(code='DE').save()
+    jim.is_from.relate(germany)
+
+    if jim.is_from.is_related(germany):
+        print "Jim's from Germany"
+
+    for p in germany.inhabitants.all()
+        print p.name # Jim
+
+    jim.is_from.unrelate(germany)
+
+CReate Update Delete::
+
     jim = Person(name='Jim', age=3).save()
+    jim.age = 4
+    jim.update()
+    jim.delete()
 
-    # find someone via index
+Make use of the lucene indexes::
+
     jim = Person.get(name='Jim')
-
-    # search for many
-    people = Person.search(age=3)
+    for p in Person.search(age=3):
+        print p.name
 
     germany = Country(code='DE').save()
     # create and destroy relationships
-    jim.is_from.relate(germany)
-    jim.is_from.unrelate(germany)
 
 
