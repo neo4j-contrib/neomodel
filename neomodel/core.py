@@ -137,7 +137,7 @@ class NeoNode(RelationshipInstaller):
     __metaclass__ = NeoNodeMeta
 
     @classmethod
-    def load_many(cls, query=None, **kwargs):
+    def search(cls, query=None, **kwargs):
         """ Load multiple nodes via index """
         for k, v in kwargs.iteritems():
             p = cls.get_property(k)
@@ -161,9 +161,9 @@ class NeoNode(RelationshipInstaller):
         return nodes
 
     @classmethod
-    def load(cls, query=None, **kwargs):
+    def get(cls, query=None, **kwargs):
         """ Load single node via index """
-        nodes = cls.load_many(query, **kwargs)
+        nodes = cls.search(query, **kwargs)
         if len(nodes) == 1:
             return nodes[0]
         elif len(nodes) > 1:

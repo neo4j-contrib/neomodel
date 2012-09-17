@@ -28,10 +28,10 @@ Boring example::
     jim = Person(name='Jim', age=3).save()
 
     # find someone via index
-    jim = Person.load(name='Jim')
+    jim = Person.get(name='Jim')
 
-    # find many
-    people = Person.load_people(age=3)
+    # search for many
+    people = Person.search(age=3)
 
     germany = Country(code='DE').save()
     # create and destroy relationships
