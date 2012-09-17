@@ -57,6 +57,3 @@ Make use of the lucene indexes::
         print p.name
 
     germany = Country(code='DE').save()
-    # create and destroy relationships
-
-
