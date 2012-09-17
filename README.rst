@@ -52,8 +52,8 @@ CReate Update Delete::
 
 Make use of the lucene indexes::
 
-    jim = Person.get(name='Jim')
-    for p in Person.search(age=3):
+    jim = Person.index.get(name='Jim')
+    for p in Person.index.search(age=3):
         print p.name
 
     germany = Country(code='DE').save()

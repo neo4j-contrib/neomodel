@@ -14,7 +14,7 @@ def setup():
 def test_get():
     u = User(email='robin@test.com', age=3)
     assert u.save()
-    rob = User.get(email='robin@test.com')
+    rob = User.index.get(email='robin@test.com')
     assert rob.email == 'robin@test.com'
     assert rob.age == 3
 
@@ -22,7 +22,7 @@ def test_get():
 def test_find():
     assert User(email='robin1@test.com', age=3).save()
     assert User(email='robin2@test.com', age=3).save()
-    users = User.search(age=3)
+    users = User.index.search(age=3)
     assert len(users)
 
 
@@ -47,7 +47,7 @@ def test_update():
     assert user
     user.email = 'jim2000@test.com'
     user.save()
-    jim = User.get(email='jim2000@test.com')
+    jim = User.index.get(email='jim2000@test.com')
     assert jim
     assert jim.email == 'jim2000@test.com'
 

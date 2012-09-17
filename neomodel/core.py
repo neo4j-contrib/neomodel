@@ -122,6 +122,45 @@ def relate(outgoing_class, outgoing_property, incoming_class, incoming_property,
     setattr(incoming_class, incoming_property, incoming_rel)
 
 
+class NeoIndex(object):
+    def __init__(self, node_class, index):
+        self.node_class = node_class
+        self._index = index
+
+    def search(self, query=None, **kwargs):
+        """ Load multiple nodes via index """
+        for k, v in kwargs.iteritems():
+            p = self.node_class.get_property(k)
+            if not p:
+                raise NoSuchProperty(k)
+            if not p.is_indexed:
+                raise PropertyNotIndexed(k)
+            p.validate(v)
+
+        if not query:
+            query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
+
+        result = self._index.query(query)
+        nodes = []
+
+        for node in result:
+            properties = node.get_properties()
+            neonode = self.node_class(**properties)
+            neonode._node = node
+            nodes.append(neonode)
+        return nodes
+
+    def get(self, query=None, **kwargs):
+        """ Load single node via index """
+        nodes = self.search(query, **kwargs)
+        if len(nodes) == 1:
+            return nodes[0]
+        elif len(nodes) > 1:
+            raise Exception("Multiple nodes returned from query, expected one")
+        else:
+            raise Exception("No nodes found")
+
+
 class Relationship(object):
     def __init__(self, relation_type, cls, direction, manager=RelationshipManager):
         self.relation_type = relation_type
@@ -141,51 +180,17 @@ class Relationship(object):
 
 class NeoNodeMeta(type):
     def __new__(cls, name, bases, dct):
-        if name != 'NeoNode':
+        cls = super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
+        if cls.__name__ != 'NeoNode':
             db = connection_adapter()
-            dct['index'] = db.index(name)
-        return super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
+            cls.index = NeoIndex(cls, db.index(name))
+        return cls
 
 
 class NeoNode(RelationshipInstaller):
     """ Base class for nodes requiring formal declaration """
 
     __metaclass__ = NeoNodeMeta
-
-    @classmethod
-    def search(cls, query=None, **kwargs):
-        """ Load multiple nodes via index """
-        for k, v in kwargs.iteritems():
-            p = cls.get_property(k)
-            if not p:
-                raise NoSuchProperty(k)
-            if not p.is_indexed:
-                raise PropertyNotIndexed(k)
-            p.validate(v)
-
-        if not query:
-            query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
-
-        result = cls.index.query(query)
-        nodes = []
-
-        for node in result:
-            properties = node.get_properties()
-            neonode = cls(**properties)
-            neonode._node = node
-            nodes.append(neonode)
-        return nodes
-
-    @classmethod
-    def get(cls, query=None, **kwargs):
-        """ Load single node via index """
-        nodes = cls.search(query, **kwargs)
-        if len(nodes) == 1:
-            return nodes[0]
-        elif len(nodes) > 1:
-            raise Exception("Multiple nodes returned from query, expected one")
-        else:
-            raise Exception("No nodes found")
 
     @classmethod
     def deploy(cls):
@@ -227,13 +232,9 @@ class NeoNode(RelationshipInstaller):
         self._node = None
         self._db = connection_adapter()
         self._type = self.__class__.__name__
+        self._index = self._db.index(self._type)
 
         super(NeoNode, self).__init__(*args, **kwargs)
-
-    # DELETE ME
-    @property
-    def _index(self):
-        return self._db.index(self._type)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
@@ -341,6 +342,7 @@ class IntegerProperty(Property):
             return True
         else:
             raise TypeError("Object of type int or long expected")
+
 
 class NoSuchProperty(Exception):
     pass
