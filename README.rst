@@ -50,10 +50,24 @@ CReate Update Delete::
     jim.update()
     jim.delete()
 
-Make use of the lucene indexes::
+Make use of indexes::
 
     jim = Person.index.get(name='Jim')
     for p in Person.index.search(age=3):
         print p.name
 
     germany = Country(code='DE').save()
+
+Use advanced lucene queries::
+
+    from lucenequerybuilder import Q
+
+    Human(name='sarah', age=3).save()
+    Human(name='jim', age=4).save()
+    Human(name='bob', age=5).save()
+    Human(name='tim', age=2).save()
+
+    for h in Human.index.search(Q('age', inrange=[3, 5])):
+        print h.name
+
+    # prints: sarah, jim, bob

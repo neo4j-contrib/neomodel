@@ -140,7 +140,7 @@ class NeoIndex(object):
         if not query:
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
-        result = self._index.query(query)
+        result = self._index.query(str(query))
         nodes = []
 
         for node in result:

@@ -19,7 +19,7 @@ def test_get():
     assert rob.age == 3
 
 
-def test_find():
+def test_search():
     assert User(email='robin1@test.com', age=3).save()
     assert User(email='robin2@test.com', age=3).save()
     users = User.index.search(age=3)
