@@ -13,19 +13,11 @@ class NeoDB(object):
         self.category_cache = {}
         self.index_cache = {}
 
-    def index(self, name):
-        """ Retrieve index by name """
-        if name not in self.index_cache:
-            index = self.client.get_or_create_index(neo4j.Node, name)
-            self.index_cache[name] = index
-
-        return self.index_cache[name]
-
     def category(self, name):
-        """ Rerieve category node by name """
+        """ Retrieve category node by name """
         if name not in self.category_cache:
             try:
-                category = self.index('Category').get('category', name)[0]
+                category = self.client.get_or_create_index(neo4j.Node, 'Category').get('category', name)[0]
             except IndexError:
                 raise Exception("Category node '" + name + "' doesn't exist in category index")
             self.category_cache[name] = category
@@ -183,7 +175,8 @@ class NeoNodeMeta(type):
         cls = super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ != 'NeoNode':
             db = connection_adapter()
-            cls.index = NeoIndex(cls, db.index(name))
+            index = db.client.get_or_create_index(neo4j.Node, name)
+            cls.index = NeoIndex(cls, index)
         return cls
 
 
@@ -195,14 +188,15 @@ class NeoNode(RelationshipInstaller):
     @classmethod
     def deploy(cls):
         db = connection_adapter()
+        category_index = db.client.get_or_create_index(neo4j.Node, 'Category')
 
         # create category root node if it doesn't exist
         try:
-            category_root = db.index('Category').get('category', 'category')[0]
+            category_root = category_index.get('category', 'category')[0]
         except IndexError:
             print("Category root node doesn't exist, creating...".format(cls.__name__))
             category_root = db.client.create({'category': 'Category'})[0]
-            if not db.index('Category').add_if_none('category', 'category', category_root):
+            if not category_index.add_if_none('category', 'category', category_root):
                 raise Exception("Strange.. Category already exists in category index?")
             print("OK")
         else:
@@ -210,11 +204,11 @@ class NeoNode(RelationshipInstaller):
 
         # create new category node for class if it doesn't exist
         try:
-            db.index('Category').get('category', cls.__name__)[0]
+            category_index.get('category', cls.__name__)[0]
         except IndexError:
             print("Category node for {0} doesn't exist, creating...".format(cls.__name__))
             category, rel = db.client.create({'category': cls.__name__}, (category_root, "Category", 0))
-            if not db.index('Category').add_if_none('category', cls.__name__, category):
+            if not category_index.add_if_none('category', cls.__name__, category):
                 raise Exception(cls.__name__ + " already exists in category index")
             print("OK")
         else:
@@ -232,7 +226,7 @@ class NeoNode(RelationshipInstaller):
         self._node = None
         self._db = connection_adapter()
         self._type = self.__class__.__name__
-        self._index = self._db.index(self._type)
+        self._index = self._db.client.get_or_create_index(neo4j.Node, self._type)
 
         super(NeoNode, self).__init__(*args, **kwargs)
 
