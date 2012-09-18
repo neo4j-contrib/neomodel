@@ -19,16 +19,12 @@ Node definitions::
         name = StringProperty(unique_index=True)
         age = IntegerProperty(index=True)
 
-Deploy category nodes for defined models::
-
-    Country.deploy()
-    Person.deploy()
-
 Define relationships between your models::
 
     # defines relation of type IS_FROM from Person to Country nodes
+    bind(Country, 'inhabitant', 'IS_FROM', INCOMING, Person)
     # traverse incoming IS_FROM relations on Country via the inhabitants property
-    relate(Person, 'is_from', Country, 'inhabitants')
+    bind(Person, 'is_from', 'IS_FROM', OUTGOING, Country)
 
 Access related nodes through your defined relations::
 
