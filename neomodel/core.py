@@ -6,6 +6,11 @@ import sys
 import os
 
 
+OUTGOING = neo4j.Direction.OUTGOING
+INCOMING = neo4j.Direction.INCOMING
+EITHER = neo4j.Direction.EITHER
+
+
 class NeoDB(object):
     """ Manage and cache connections to neo4j """
 
@@ -99,20 +104,11 @@ class RelationshipManager(object):
         rels[0].delete()
 
 
-def relate(outgoing_class, outgoing_property, incoming_class, incoming_property, rel_type=None):
-    """Define relationship of type X from objects of class A to objects of class B"""
-    if not rel_type:
-        rel_type = outgoing_property.upper()
-    if hasattr(outgoing_class, outgoing_property):
-        raise Exception(outgoing_class.__name__ + " already has attribute " + outgoing_property)
-
-    if hasattr(incoming_class, incoming_property):
-        raise Exception(incoming_class.__name__ + " already has attribute " + incoming_property)
-
-    outgoing_rel = Relationship(rel_type, incoming_class, neo4j.Direction.OUTGOING)
-    setattr(outgoing_class, outgoing_property, outgoing_rel)
-    incoming_rel = Relationship(rel_type, outgoing_class, neo4j.Direction.INCOMING)
-    setattr(incoming_class, incoming_property, incoming_rel)
+def bind(node_class, manager_property, rel_type, direction, related_class):
+    if hasattr(node_class, manager_property):
+        raise Exception(node_class.__name__ + " already has attribute " + manager_property)
+    relationship = Relationship(rel_type, related_class, direction)
+    setattr(node_class, manager_property, relationship)
 
 
 class NeoIndex(object):

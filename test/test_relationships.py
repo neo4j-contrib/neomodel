@@ -1,4 +1,4 @@
-from neomodel.core import NeoNode, StringProperty, IntegerProperty, relate, connection_adapter
+from neomodel.core import NeoNode, StringProperty, IntegerProperty, bind, connection_adapter, OUTGOING, INCOMING
 
 
 class Country(NeoNode):
@@ -10,7 +10,8 @@ class Person(NeoNode):
     age = IntegerProperty(index=True)
 
 
-relate(Person, 'is_from', Country, 'inhabitant')
+bind(Person, 'is_from', 'IS_FROM', OUTGOING, Country)
+bind(Country, 'inhabitant', 'IS_FROM', INCOMING, Person)
 
 
 def setup():
