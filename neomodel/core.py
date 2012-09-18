@@ -17,15 +17,13 @@ class NeoDB(object):
     def __init__(self, graph_db):
         self.client = graph_db
         self.category_cache = {}
-        self.index_cache = {}
 
     def category(self, name):
         """ Retrieve category node by name """
+        category_index = self.client.get_or_create_index(neo4j.Node, 'Category')
+
         if name not in self.category_cache:
-            try:
-                category = self.client.get_or_create_index(neo4j.Node, 'Category').get('category', name)[0]
-            except IndexError:
-                raise Exception("Category node '" + name + "' doesn't exist in category index")
+            category = category_index.get_or_create('category', name, {'category': name})
             self.category_cache[name] = category
 
         return self.category_cache[name]
@@ -181,35 +179,6 @@ class NeoNode(RelationshipInstaller):
     """ Base class for nodes requiring formal declaration """
 
     __metaclass__ = NeoNodeMeta
-
-    @classmethod
-    def deploy(cls):
-        db = connection_adapter()
-        category_index = db.client.get_or_create_index(neo4j.Node, 'Category')
-
-        # create category root node if it doesn't exist
-        try:
-            category_root = category_index.get('category', 'category')[0]
-        except IndexError:
-            print("Category root node doesn't exist, creating...".format(cls.__name__))
-            category_root = db.client.create({'category': 'Category'})[0]
-            if not category_index.add_if_none('category', 'category', category_root):
-                raise Exception("Strange.. Category already exists in category index?")
-            print("OK")
-        else:
-            print("Category root node exists - OK")
-
-        # create new category node for class if it doesn't exist
-        try:
-            category_index.get('category', cls.__name__)[0]
-        except IndexError:
-            print("Category node for {0} doesn't exist, creating...".format(cls.__name__))
-            category, rel = db.client.create({'category': cls.__name__}, (category_root, "Category", 0))
-            if not category_index.add_if_none('category', cls.__name__, category):
-                raise Exception(cls.__name__ + " already exists in category index")
-            print("OK")
-        else:
-            print("Category node exists for {0} - OK".format(cls.__name__))
 
     @classmethod
     def get_property(cls, name):

@@ -8,7 +8,6 @@ class User(NeoNode):
 
 def setup():
     connection_adapter().client.clear()
-    User.deploy()
 
 
 def test_get():

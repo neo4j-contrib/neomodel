@@ -9,7 +9,6 @@ class Human(NeoNode):
 
 def setup():
     connection_adapter().client.clear()
-    Human.deploy()
 
 
 def test_lucene_query():

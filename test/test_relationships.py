@@ -16,8 +16,6 @@ bind(Country, 'inhabitant', 'IS_FROM', INCOMING, Person)
 
 def setup():
     connection_adapter().client.clear()
-    Person.deploy()
-    Country.deploy()
 
 
 def test_bidirectional_relationships():
