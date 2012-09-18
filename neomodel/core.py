@@ -1,4 +1,5 @@
 from py2neo import neo4j
+from .indexbatch import IndexBatch
 from lucenequerybuilder import Q
 import types
 import sys
@@ -277,14 +278,15 @@ class NeoNode(RelationshipInstaller):
             raise exc_info[1], None, exc_info[2]
 
     def _update_index(self, props):
+        batch = IndexBatch(self._index)
         for key, value in props.iteritems():
             node_property = self.__class__.get_property(key)
             if node_property.unique_index:
-                if not self._index.add_if_none(key, value, self._node):
-                    raise NotUnique('{0}: {1} exists in unique index {2}'
-                            .format(key, value, self._type))
+                batch.add_if_none(key, value, self._node)
             elif node_property.index:
-                self._index.add(key, value, self._node)
+                batch.add(key, value, self._node)
+        if 200 in [r.status for r in batch.submit()]:
+            raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
         if self._node:
