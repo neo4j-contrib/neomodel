@@ -40,6 +40,8 @@ def test_unique():
         User(email='jim1@test.com', age=3).save()
     except Exception, e:
         assert e.__class__.__name__ == 'NotUnique'
+    else:
+        assert False
 
 
 def test_update():

@@ -303,10 +303,9 @@ class NeoNode(RelationshipInstaller):
 
     def delete(self):
         if self._node:
-            for r in self._node.get_relationships():
-                r.delete()
-            self._index.remove(entity=self._node)
-            self._node.delete()
+            to_delete = self._node.get_relationships()
+            to_delete.append(self._node)
+            self._db.client.delete(*to_delete)
             self._node = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
