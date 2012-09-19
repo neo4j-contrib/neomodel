@@ -9,7 +9,7 @@ Introduction
 ============
 Node definitions::
 
-    from neomodel.core import NeoNode, StringProperty, IntegerProperty, relate
+    from neomodel import NeoNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
 
     class Country(NeoNode):
         code = StringProperty(unique_index=True)

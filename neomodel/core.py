@@ -1,14 +1,10 @@
 from py2neo import neo4j
 from .indexbatch import IndexBatch
+from .relationship import (RelationshipInstaller, RelationshipDefinition, RelationshipManager)
 from lucenequerybuilder import Q
 import types
 import sys
 import os
-
-
-OUTGOING = neo4j.Direction.OUTGOING
-INCOMING = neo4j.Direction.INCOMING
-EITHER = neo4j.Direction.EITHER
 
 
 class NeoDB(object):
@@ -36,72 +32,6 @@ def connection_adapter():
         graph_db = neo4j.GraphDatabaseService(os.environ.get('NEO4J_URL'))
         connection_adapter.db = NeoDB(graph_db)
         return connection_adapter.db
-
-
-class RelationshipInstaller(object):
-    """Replace relationship definitions with instances of RelationshipManager"""
-
-    def __init__(self, *args, **kwargs):
-        self._related = {}
-
-        for key, value in self.__class__.__dict__.iteritems():
-            if value.__class__ == RelationshipDefinition\
-                    or issubclass(value.__class__, RelationshipDefinition):
-                self._setup_relationship(key, value)
-
-    def _setup_relationship(self, rel_name, rel_object):
-        self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
-
-
-class RelationshipManager(object):
-    def __init__(self, direction, relation_type, name, node_class, origin):
-        self.direction = direction
-        self.relation_type = relation_type
-        self.node_class = node_class
-        self.name = name
-        self.related = {}
-        self.origin = origin
-
-    @property
-    def client(self):
-        return self.origin._db.client
-
-    def all(self):
-        if not self.related:
-            related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
-            if not related_nodes:
-                return
-            for n in related_nodes:
-                wrapped_node = self.node_class(**(n.get_properties()))
-                wrapped_node._node = n
-                self.related[n.id] = wrapped_node
-            return [v for v in self.related.itervalues()]
-        else:
-            return [v for v in self.related.itervalues()]
-
-    def is_related(self, obj):
-        if obj._node.id in self.related:
-            return True
-        return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
-
-    def relate(self, obj):
-        if obj.__class__ != self.node_class:
-            raise Exception("Expecting object of class " + self.node_class.__name__)
-        if not obj._node:
-            raise Exception("Can't create relationship to unsaved node")
-
-        self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node),)
-        self.related[obj._node.id] = obj
-
-    def unrelate(self, obj):
-        if obj._node.id in self.related:
-            del self.related[obj._node.id]
-        rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)
-        if not rels:
-            return
-        if len(rels) > 1:
-            raise Exception("Expected single relationship got {0}".format(rels))
-        rels[0].delete()
 
 
 class NeoIndex(object):
@@ -141,23 +71,6 @@ class NeoIndex(object):
             raise Exception("Multiple nodes returned from query, expected one")
         else:
             raise Exception("No nodes found")
-
-
-class RelationshipDefinition(object):
-    def __init__(self, relation_type, cls, direction, manager=RelationshipManager):
-        self.relation_type = relation_type
-        self.node_class = cls
-        self.manager = manager
-        self.direction = direction
-
-    def build_manager(self, origin, name):
-        return self.manager(
-                self.direction,
-                self.relation_type,
-                name,
-                self.node_class,
-                origin
-               )
 
 
 class NeoNodeMeta(type):

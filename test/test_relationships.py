@@ -1,4 +1,5 @@
-from neomodel.core import NeoNode, StringProperty, IntegerProperty, connection_adapter, OUTGOING, INCOMING
+from neomodel import NeoNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
+from neomodel.core import connection_adapter
 
 
 class Country(NeoNode):
