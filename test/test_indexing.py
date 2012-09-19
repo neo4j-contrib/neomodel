@@ -4,12 +4,19 @@ from lucenequerybuilder import Q
 
 
 class Human(NeoNode):
-    name = StringProperty(unique_index=True)
-    age = IntegerProperty(index=True)
+    name = StringProperty(unique_index=True, optional=True)
+    age = IntegerProperty(index=True, optional=True)
 
 
 def setup():
     connection_adapter().client.clear()
+
+
+def test_optional_properties_dont_get_indexed():
+    Human(name=None, age=99).save()
+    h = Human.index.get(age=99)
+    assert h
+    assert h.name == None
 
 
 def test_lucene_query():

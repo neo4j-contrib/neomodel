@@ -127,12 +127,12 @@ class NeoNode(RelationshipInstaller):
     def properties(self):
         """ Return properties and values of a node """
         props = {}
-        # exclude methods and anything prefixed '_'
         for key, value in self.__dict__.iteritems():
-            if not key.startswith('_'):
-                if not isinstance(value, types.MethodType):
-                    if not isinstance(value, RelationshipManager):
-                        props[key] = value
+            if not key.startswith('_')\
+                and not isinstance(value, types.MethodType)\
+                and not isinstance(value, RelationshipManager)\
+                and value != None:
+                    props[key] = value
         return props
 
     def _validate_args(self, props):
@@ -141,12 +141,12 @@ class NeoNode(RelationshipInstaller):
             if key in self.__class__.__dict__:
                 node_property = self.__class__.get_property(key)
                 node_property.validate(value)
-                self.__dict__[key] = value
+                if value != None:
+                    self.__dict__[key] = value
             else:
                 raise NoSuchProperty(key)
 
     def _create(self, props):
-        # TODO make this single atomic operation
         relation_name = self._type.upper()
         self._node, rel = self._db.client.create(props,
                 (self._db.category(self._type), relation_name, 0))
@@ -192,13 +192,11 @@ class NeoNode(RelationshipInstaller):
         return True
 
 
-# TODO handle 'blank' correctly
 class Property(object):
-    def __init__(self, unique_index=False, index=False, blank=False):
+    def __init__(self, unique_index=False, index=False, optional=False):
+        self.optional = optional
         if unique_index and index:
             raise Exception("unique_index and index are mutually exclusive")
-        if unique_index and blank:
-            raise Exception("uniquely indexed properties cannot also be blank")
         self.unique_index = unique_index
         self.index = index
 
@@ -209,6 +207,8 @@ class Property(object):
 
 class StringProperty(Property):
     def validate(self, value):
+        if value == None and self.optional:
+            return True
         if isinstance(value, (str, unicode)):
             return True
         else:
@@ -217,6 +217,28 @@ class StringProperty(Property):
 
 class IntegerProperty(Property):
     def validate(self, value):
+        if value == None and self.optional:
+            return True
+        if isinstance(value, (int, long)):
+            return True
+        else:
+            raise TypeError("Object of type int or long expected")
+
+
+class FloatProperty(Property):
+    def validate(self, value):
+        if value == None and self.optional:
+            return True
+        if isinstance(value, (float)):
+            return True
+        else:
+            raise TypeError("Object of type int or long expected")
+
+
+class BoolProperty(Property):
+    def validate(self, value):
+        if value == None and self.optional:
+            return True
         if isinstance(value, (int, long)):
             return True
         else:
