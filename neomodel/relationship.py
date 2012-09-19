@@ -22,7 +22,7 @@ class RelationshipManager(object):
         if not self.related:
             related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
             if not related_nodes:
-                return
+                return []
 
             props = self.client.get_properties(*related_nodes)
             for node, properties in dict(zip([n for n in related_nodes], props)).iteritems():
@@ -47,15 +47,36 @@ class RelationshipManager(object):
         self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node),)
         self.related[obj._node.id] = obj
 
+    def rerelate(self, old_obj, new_obj):
+        if self.is_related(old_obj):
+            if old_obj._node.id in self.related:
+                del self.related[old_obj._node.id]
+            rels = self.origin._node.get_relationships_with(
+                    old_obj._node, self.direction, self.relation_type)
+            for r in rels:
+                r.delete()
+        else:
+            raise NotConnected(old_obj._node.id)
+
+        self.client.get_or_create_relationships((self.origin._node, self.relation_type, new_obj._node),)
+        self.related[new_obj._node.id] = new_obj
+
     def unrelate(self, obj):
         if obj._node.id in self.related:
             del self.related[obj._node.id]
         rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)
         if not rels:
-            return
+            raise NotConnected(obj._node.id)
         if len(rels) > 1:
             raise Exception("Expected single relationship got {0}".format(rels))
         rels[0].delete()
+
+    def single(self):
+        nodes = self.all()
+        if nodes:
+            return nodes[0]
+        else:
+            return None
 
 
 class RelationshipDefinition(object):
@@ -88,3 +109,7 @@ class RelationshipInstaller(object):
 
     def _setup_relationship(self, rel_name, rel_object):
         self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
+
+
+class NotConnected(Exception):
+    pass

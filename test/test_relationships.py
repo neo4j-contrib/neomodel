@@ -26,7 +26,7 @@ def test_bidirectional_relationships():
     de = Country(code='DE').save()
     assert de
 
-    assert u.is_from.__class__.__name__ == 'RelationshipManager'
+    assert u.is_from.__class__.__name__ == 'ZeroOrMore'
     u.is_from.relate(de)
 
     assert u.is_from.is_related(de)

@@ -2,6 +2,7 @@ from py2neo import neo4j
 from .indexbatch import IndexBatch
 from .relationship import (RelationshipInstaller, RelationshipDefinition, RelationshipManager)
 from lucenequerybuilder import Q
+from .cardinality import ZeroOrMore
 import types
 import sys
 import os
@@ -42,6 +43,7 @@ class NeoIndex(object):
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
         for k, v in kwargs.iteritems():
+            # TODO use client.get_properties!!!
             p = self.node_class.get_property(k)
             if not p:
                 raise NoSuchProperty(k)
@@ -96,11 +98,12 @@ class NeoNode(RelationshipInstaller):
         return node_property
 
     @classmethod
-    def relate(cls, manager_property, relation, to=None):
+    def relate(cls, manager_property, relation, to=None, cardinality=ZeroOrMore):
+        # TODO swap direction and type
         rel_type, direction = relation
         if hasattr(cls, manager_property):
             raise Exception(cls.__name__ + " already has attribute " + manager_property)
-        relationship = RelationshipDefinition(rel_type, to, direction)
+        relationship = RelationshipDefinition(rel_type, to, direction, cardinality)
         setattr(cls, manager_property, relationship)
 
     def __init__(self, *args, **kwargs):
