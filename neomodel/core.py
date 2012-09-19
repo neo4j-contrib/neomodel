@@ -39,12 +39,14 @@ def connection_adapter():
 
 
 class RelationshipInstaller(object):
+    """Replace relationship definitions with instances of RelationshipManager"""
 
     def __init__(self, *args, **kwargs):
         self._related = {}
 
         for key, value in self.__class__.__dict__.iteritems():
-            if value.__class__ == Relationship or issubclass(value.__class__, Relationship):
+            if value.__class__ == RelationshipDefinition\
+                    or issubclass(value.__class__, RelationshipDefinition):
                 self._setup_relationship(key, value)
 
     def _setup_relationship(self, rel_name, rel_object):
@@ -102,13 +104,6 @@ class RelationshipManager(object):
         rels[0].delete()
 
 
-def bind(node_class, manager_property, rel_type, direction, related_class):
-    if hasattr(node_class, manager_property):
-        raise Exception(node_class.__name__ + " already has attribute " + manager_property)
-    relationship = Relationship(rel_type, related_class, direction)
-    setattr(node_class, manager_property, relationship)
-
-
 class NeoIndex(object):
     def __init__(self, node_class, index):
         self.node_class = node_class
@@ -148,7 +143,7 @@ class NeoIndex(object):
             raise Exception("No nodes found")
 
 
-class Relationship(object):
+class RelationshipDefinition(object):
     def __init__(self, relation_type, cls, direction, manager=RelationshipManager):
         self.relation_type = relation_type
         self.node_class = cls
@@ -186,6 +181,14 @@ class NeoNode(RelationshipInstaller):
         if not node_property or not issubclass(node_property.__class__, Property):
             Exception(name + " is not a Property of " + cls.__name__)
         return node_property
+
+    @classmethod
+    def relate(cls, manager_property, relation, to=None):
+        rel_type, direction = relation
+        if hasattr(cls, manager_property):
+            raise Exception(cls.__name__ + " already has attribute " + manager_property)
+        relationship = RelationshipDefinition(rel_type, to, direction)
+        setattr(cls, manager_property, relationship)
 
     def __init__(self, *args, **kwargs):
         self._validate_args(kwargs)

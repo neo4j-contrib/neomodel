@@ -22,9 +22,9 @@ Node definitions::
 Define relationships between your models::
 
     # defines relation of type IS_FROM from Person to Country nodes
-    bind(Country, 'inhabitant', 'IS_FROM', INCOMING, Person)
+    Person.relate('is_from', ('IS_FROM', OUTGOING), to=Country)
     # traverse incoming IS_FROM relations on Country via the inhabitants property
-    bind(Person, 'is_from', 'IS_FROM', OUTGOING, Country)
+    Country.relate('inhabitant', ('IS_FROM', INCOMING), to=Person)
 
 Access related nodes through your defined relations::
 
