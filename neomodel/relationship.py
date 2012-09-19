@@ -23,10 +23,12 @@ class RelationshipManager(object):
             related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
             if not related_nodes:
                 return
-            for n in related_nodes:
-                wrapped_node = self.node_class(**(n.get_properties()))
-                wrapped_node._node = n
-                self.related[n.id] = wrapped_node
+
+            props = self.client.get_properties(*related_nodes)
+            for node, properties in dict(zip([n for n in related_nodes], props)).iteritems():
+                wrapped_node = self.node_class(**(properties))
+                wrapped_node._node = node
+                self.related[node.id] = wrapped_node
             return [v for v in self.related.itervalues()]
         else:
             return [v for v in self.related.itervalues()]
