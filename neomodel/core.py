@@ -100,7 +100,7 @@ class NeoNode(RelationshipInstaller):
     @classmethod
     def relate(cls, manager_property, relation, to=None, cardinality=ZeroOrMore):
         # TODO swap direction and type
-        rel_type, direction = relation
+        direction, rel_type = relation
         if hasattr(cls, manager_property):
             raise Exception(cls.__name__ + " already has attribute " + manager_property)
         relationship = RelationshipDefinition(rel_type, to, direction, cardinality)

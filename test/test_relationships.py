@@ -11,8 +11,8 @@ class Person(NeoNode):
     age = IntegerProperty(index=True)
 
 
-Person.relate('is_from', ('IS_FROM', OUTGOING), to=Country)
-Country.relate('inhabitant', ('IS_FROM', INCOMING), to=Person)
+Person.relate('is_from', (OUTGOING, 'IS_FROM'), to=Country)
+Country.relate('inhabitant', (INCOMING, 'IS_FROM'), to=Person)
 
 
 def setup():
