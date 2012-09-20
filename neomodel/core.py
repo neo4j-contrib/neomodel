@@ -35,7 +35,7 @@ def connection_adapter():
         return connection_adapter.db
 
 
-class NeoIndex(object):
+class NodeIndexManager(object):
     def __init__(self, node_class, index):
         self.node_class = node_class
         self._index = index
@@ -81,7 +81,7 @@ class StructuredNodeMeta(type):
         if cls.__name__ != 'StructuredNode':
             db = connection_adapter()
             index = db.client.get_or_create_index(neo4j.Node, name)
-            cls.index = NeoIndex(cls, index)
+            cls.index = NodeIndexManager(cls, index)
         return cls
 
 
