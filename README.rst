@@ -2,7 +2,13 @@
 NeoModel
 ========
 
-Strict definitions for your nodes, a py2neo wrapper.
+A high level wrapper around to py2neo, providing formal definitions for your data model.
+
+* Structured node definitions with type checking
+* Lazy category node creation
+* Automatic indexing
+* Simple relationship traversal
+* Soft cardinality restrictions
 
 ============
 Installation
@@ -54,6 +60,10 @@ CReate Update Delete::
     jim.update()
     jim.delete()
 
+========
+Indexing
+========
+
 Make use of indexes::
 
     jim = Person.index.get(name='Jim')
@@ -75,3 +85,10 @@ Use advanced lucene queries::
         print h.name
 
     # prints: sarah, jim, bob
+
+=======
+Credits
+=======
+Nigel Small - https://github.com/nigelsmall
+Murtaza Gulamali - https://github.com/mygulamali
+Your Name Here...
