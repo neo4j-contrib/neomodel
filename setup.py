@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
         name='neomodel',
@@ -8,7 +8,8 @@ setup(
         author_email='robin.ge@gmail.com',
         url='http://github.com/robinedwards/neomodel',
         license='MIT',
-        py_modules=['neomodel'],
+        packages=find_packages(),
+        keywords='graph neo4j py2neo model',
         zip_safe=True,
         install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.3.5'],
         classifiers=[
