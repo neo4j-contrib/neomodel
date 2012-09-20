@@ -43,7 +43,6 @@ class NodeIndexManager(object):
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
         for k, v in kwargs.iteritems():
-            # TODO use client.get_properties!!!
             p = self.node_class.get_property(k)
             if not p:
                 raise NoSuchProperty(k)
@@ -54,11 +53,11 @@ class NodeIndexManager(object):
         if not query:
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
-        result = self._index.query(str(query))
+        results = self._index.query(str(query))
+        props = self.client.get_properties(*results)
         nodes = []
 
-        for node in result:
-            properties = node.get_properties()
+        for node, properties in dict(zip(results, props)).iteritems():
             neonode = self.node_class(**properties)
             neonode._node = node
             nodes.append(neonode)
@@ -82,6 +81,7 @@ class StructuredNodeMeta(type):
             db = connection_adapter()
             index = db.client.get_or_create_index(neo4j.Node, name)
             cls.index = NodeIndexManager(cls, index)
+            cls.index.client = db.client
         return cls
 
 
