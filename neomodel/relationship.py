@@ -115,7 +115,6 @@ class RelationshipInstaller(object):
         if not cardinality:
             from .cardinality import ZeroOrMore
             cardinality = ZeroOrMore
-        # TODO swap direction and type
         direction, rel_type = relation
         if hasattr(cls, manager_property):
             raise Exception(cls.__name__ + " already has attribute " + manager_property)
