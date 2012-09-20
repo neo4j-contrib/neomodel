@@ -36,9 +36,18 @@ def connection_adapter():
 
 
 class NodeIndexManager(object):
-    def __init__(self, node_class, index):
+    def __init__(self, node_class, index_name, client):
         self.node_class = node_class
-        self._index = index
+        self.name = index_name
+        self._cached_index = None
+        self.client = client
+
+    @property
+    def _index(self):
+        if not self._cached_index:
+            self._cached_index = self.client.get_or_create_index(neo4j.Node, self.name)
+
+        return self._cached_index
 
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
@@ -79,9 +88,7 @@ class StructuredNodeMeta(type):
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ != 'StructuredNode':
             db = connection_adapter()
-            index = db.client.get_or_create_index(neo4j.Node, name)
-            cls.index = NodeIndexManager(cls, index)
-            cls.index.client = db.client
+            cls.index = NodeIndexManager(cls, name, db.client)
         return cls
 
 
