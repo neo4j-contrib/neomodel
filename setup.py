@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
         name='neomodel',
         version='0.0.1',
-        description='A high level wrapper around to py2neo, providing a formal definition for your data model.',
+        description='A high level wrapper around py2neo, providing a formal definition for your data model.',
         author='Robin Edwards',
         author_email='robin.ge@gmail.com',
         url='http://github.com/robinedwards/neomodel',

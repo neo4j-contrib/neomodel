@@ -2,7 +2,7 @@
 NeoModel
 ========
 
-A high level wrapper around to py2neo, providing formal definitions for your data model.
+A high level wrapper around py2neo, providing a formal definition for your data model.
 
 * Structured node definitions with type checking
 * Lazy category node creation
