@@ -102,7 +102,7 @@ class StructuredNode(RelationshipInstaller):
         self._node = None
         self._db = connection_adapter()
         self._type = self.__class__.__name__
-        self._index = self._db.client.get_or_create_index(neo4j.Node, self._type)
+        self._index = self.client.get_or_create_index(neo4j.Node, self._type)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
@@ -113,6 +113,10 @@ class StructuredNode(RelationshipInstaller):
         prop = self.__class__.get_property(key)
         if prop.validate(value):
             self.__dict__[key] = value
+
+    @property
+    def client(self):
+        return self._db.client
 
     @property
     def properties(self):
@@ -139,7 +143,7 @@ class StructuredNode(RelationshipInstaller):
 
     def _create(self, props):
         relation_name = self._type.upper()
-        self._node, rel = self._db.client.create(props,
+        self._node, rel = self.client.create(props,
                 (self._db.category(self._type), relation_name, 0))
         if not self._node:
             Exception('Failed to create new ' + self._type)
@@ -176,7 +180,7 @@ class StructuredNode(RelationshipInstaller):
         if self._node:
             to_delete = self._node.get_relationships()
             to_delete.append(self._node)
-            self._db.client.delete(*to_delete)
+            self.client.delete(*to_delete)
             self._node = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
