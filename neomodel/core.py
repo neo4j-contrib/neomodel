@@ -75,20 +75,20 @@ class NeoIndex(object):
             raise Exception("No nodes found")
 
 
-class NeoNodeMeta(type):
+class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
-        cls = super(NeoNodeMeta, cls).__new__(cls, name, bases, dct)
-        if cls.__name__ != 'NeoNode':
+        cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
+        if cls.__name__ != 'StructuredNode':
             db = connection_adapter()
             index = db.client.get_or_create_index(neo4j.Node, name)
             cls.index = NeoIndex(cls, index)
         return cls
 
 
-class NeoNode(RelationshipInstaller):
+class StructuredNode(RelationshipInstaller):
     """ Base class for nodes requiring formal declaration """
 
-    __metaclass__ = NeoNodeMeta
+    __metaclass__ = StructuredNodeMeta
 
     @classmethod
     def get_property(cls, name):
@@ -113,7 +113,7 @@ class NeoNode(RelationshipInstaller):
         self._type = self.__class__.__name__
         self._index = self._db.client.get_or_create_index(neo4j.Node, self._type)
 
-        super(NeoNode, self).__init__(*args, **kwargs)
+        super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):

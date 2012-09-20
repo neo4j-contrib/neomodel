@@ -1,8 +1,8 @@
-from neomodel import NeoNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty
 from neomodel.core import connection_adapter
 
 
-class User(NeoNode):
+class User(StructuredNode):
     email = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 

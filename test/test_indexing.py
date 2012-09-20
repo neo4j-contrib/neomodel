@@ -1,9 +1,9 @@
-from neomodel import NeoNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty
 from neomodel.core import connection_adapter
 from lucenequerybuilder import Q
 
 
-class Human(NeoNode):
+class Human(StructuredNode):
     name = StringProperty(unique_index=True, optional=True)
     age = IntegerProperty(index=True, optional=True)
 

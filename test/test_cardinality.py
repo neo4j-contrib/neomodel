@@ -1,25 +1,25 @@
-from neomodel import (NeoNode, StringProperty, IntegerProperty, OUTGOING,
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, OUTGOING,
         OneOrMore, ZeroOrMore, ZeroOrOne, One, AttemptedCardinalityViolation, CardinalityViolation)
 from neomodel.core import connection_adapter
 
 
-class HairDryer(NeoNode):
+class HairDryer(StructuredNode):
     version = IntegerProperty()
 
 
-class ScrewDriver(NeoNode):
+class ScrewDriver(StructuredNode):
     version = IntegerProperty()
 
 
-class Car(NeoNode):
+class Car(StructuredNode):
     version = IntegerProperty()
 
 
-class Monkey(NeoNode):
+class Monkey(StructuredNode):
     name = StringProperty()
 
 
-class ToothBrush(NeoNode):
+class ToothBrush(StructuredNode):
     name = StringProperty()
 
 

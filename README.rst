@@ -9,13 +9,13 @@ Introduction
 ============
 Node definitions::
 
-    from neomodel import NeoNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
+    from neomodel import StructuredNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
 
-    class Country(NeoNode):
+    class Country(StructuredNode):
         code = StringProperty(unique_index=True)
 
 
-    class Person(NeoNode):
+    class Person(StructuredNode):
         name = StringProperty(unique_index=True)
         age = IntegerProperty(index=True)
 
