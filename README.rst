@@ -21,7 +21,9 @@ Install the module via git::
 ============
 Introduction
 ============
-Connecion::
+
+Connection::
+
     export NEO4J_URL=http://localhost:7474/db/data/
 
 Node definitions::
