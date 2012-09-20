@@ -33,12 +33,12 @@ class RelationshipManager(object):
         else:
             return [v for v in self.related.itervalues()]
 
-    def is_related(self, obj):
+    def is_connected(self, obj):
         if obj._node.id in self.related:
             return True
         return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
 
-    def relate(self, obj):
+    def connect(self, obj):
         if obj.__class__ != self.node_class:
             raise Exception("Expecting object of class " + self.node_class.__name__)
         if not obj._node:
@@ -47,8 +47,8 @@ class RelationshipManager(object):
         self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node),)
         self.related[obj._node.id] = obj
 
-    def rerelate(self, old_obj, new_obj):
-        if self.is_related(old_obj):
+    def reconnect(self, old_obj, new_obj):
+        if self.is_connected(old_obj):
             if old_obj._node.id in self.related:
                 del self.related[old_obj._node.id]
             rels = self.origin._node.get_relationships_with(
@@ -61,7 +61,7 @@ class RelationshipManager(object):
         self.client.get_or_create_relationships((self.origin._node, self.relation_type, new_obj._node),)
         self.related[new_obj._node.id] = new_obj
 
-    def unrelate(self, obj):
+    def disconnect(self, obj):
         if obj._node.id in self.related:
             del self.related[obj._node.id]
         rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)

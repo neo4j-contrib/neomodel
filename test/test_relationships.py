@@ -27,9 +27,9 @@ def test_bidirectional_relationships():
     assert de
 
     assert u.is_from.__class__.__name__ == 'ZeroOrMore'
-    u.is_from.relate(de)
+    u.is_from.connect(de)
 
-    assert u.is_from.is_related(de)
+    assert u.is_from.is_connected(de)
 
     b = u.is_from.all()[0]
     assert b.__class__.__name__ == 'Country'
@@ -38,7 +38,7 @@ def test_bidirectional_relationships():
     s = b.inhabitant.all()[0]
     assert s.name == 'Jim'
 
-    u.is_from.unrelate(b)
+    u.is_from.disconnect(b)
 
     assert not u.is_from.all()
-    assert not u.is_from.is_related(b)
+    assert not u.is_from.is_connected(b)

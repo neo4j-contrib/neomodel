@@ -29,15 +29,15 @@ Define relationships between your models::
 Access related nodes through your defined relations::
 
     germany = Country(code='DE').save()
-    jim.is_from.relate(germany)
+    jim.is_from.connect(germany)
 
-    if jim.is_from.is_related(germany):
+    if jim.is_from.is_connected(germany):
         print "Jim's from Germany"
 
     for p in germany.inhabitants.all()
         print p.name # Jim
 
-    jim.is_from.unrelate(germany)
+    jim.is_from.disconnect(germany)
 
 CReate Update Delete::
 
