@@ -25,7 +25,7 @@ class RelationshipManager(object):
                 return []
 
             props = self.client.get_properties(*related_nodes)
-            for node, properties in dict(zip([n for n in related_nodes], props)).iteritems():
+            for node, properties in dict(zip(related_nodes, props)).iteritems():
                 wrapped_node = self.node_class(**(properties))
                 wrapped_node._node = node
                 self.related[node.id] = wrapped_node
