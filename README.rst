@@ -21,6 +21,9 @@ Install the module via git::
 ============
 Introduction
 ============
+Connecion::
+    export NEO4J_URL=http://localhost:7474/db/data/
+
 Node definitions::
 
     from neomodel import StructuredNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
@@ -89,6 +92,6 @@ Use advanced lucene queries::
 =======
 Credits
 =======
-Nigel Small - https://github.com/nigelsmall
-Murtaza Gulamali - https://github.com/mygulamali
-Your Name Here...
+* Nigel Small - https://github.com/nigelsmall
+* Murtaza Gulamali - https://github.com/mygulamali
+* Your Name Here...
