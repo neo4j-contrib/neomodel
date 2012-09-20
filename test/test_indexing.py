@@ -16,7 +16,12 @@ def test_optional_properties_dont_get_indexed():
     Human(name=None, age=99).save()
     h = Human.index.get(age=99)
     assert h
-    assert h.name == None
+    assert h.name is None
+
+    Human(age=98).save()
+    h = Human.index.get(age=98)
+    assert h
+    assert h.name is None
 
 
 def test_lucene_query():
