@@ -5,6 +5,14 @@ NeoModel
 Strict definitions for your nodes, a py2neo wrapper.
 
 ============
+Installation
+============
+
+Install the module via git::
+
+    pip install -e git+git@github.com:robinedwards/neomodel.git@HEAD#egg=neomodel-dev
+
+============
 Introduction
 ============
 Node definitions::
