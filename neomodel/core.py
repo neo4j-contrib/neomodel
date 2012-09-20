@@ -1,8 +1,7 @@
 from py2neo import neo4j
 from .indexbatch import IndexBatch
-from .relationship import (RelationshipInstaller, RelationshipDefinition, RelationshipManager)
+from .relationship import RelationshipInstaller, RelationshipManager
 from lucenequerybuilder import Q
-from .cardinality import ZeroOrMore
 import types
 import sys
 import os
@@ -96,15 +95,6 @@ class StructuredNode(RelationshipInstaller):
         if not node_property or not issubclass(node_property.__class__, Property):
             Exception(name + " is not a Property of " + cls.__name__)
         return node_property
-
-    @classmethod
-    def relate(cls, manager_property, relation, to=None, cardinality=ZeroOrMore):
-        # TODO swap direction and type
-        direction, rel_type = relation
-        if hasattr(cls, manager_property):
-            raise Exception(cls.__name__ + " already has attribute " + manager_property)
-        relationship = RelationshipDefinition(rel_type, to, direction, cardinality)
-        setattr(cls, manager_property, relationship)
 
     def __init__(self, *args, **kwargs):
         self._validate_args(kwargs)

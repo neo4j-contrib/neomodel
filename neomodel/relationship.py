@@ -110,6 +110,18 @@ class RelationshipInstaller(object):
     def _setup_relationship(self, rel_name, rel_object):
         self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
 
+    @classmethod
+    def relate(cls, manager_property, relation, to=None, cardinality=None):
+        if not cardinality:
+            from .cardinality import ZeroOrMore
+            cardinality = ZeroOrMore
+        # TODO swap direction and type
+        direction, rel_type = relation
+        if hasattr(cls, manager_property):
+            raise Exception(cls.__name__ + " already has attribute " + manager_property)
+        relationship = RelationshipDefinition(rel_type, to, direction, cardinality)
+        setattr(cls, manager_property, relationship)
+
 
 class NotConnected(Exception):
     pass
