@@ -49,10 +49,10 @@ An alias is just a name given to a relationship, in order to have access to it
 via python objects. In the above example, there is only one neo4j relationship
 present (IS_FROM), we are just defining two different aliases for it, one
 accessible via the Person objects and one via Country objects. All objects of
-class Person can access that relationship through the `is_from` attribute,
-and all objects of class Country can access it through the `inhabitant` attribute.
+class Person can access that relationship through the *is_from* attribute,
+and all objects of class Country can access it through the *inhabitant* attribute.
 
-The `to` field respects Class inheritance. You can specify an abstract class
+The *to* field respects Class inheritance. You can specify an abstract class
 or superclass and maintain the defined relationship for all its subclasses.
 
 Access related nodes through your defined relations::
