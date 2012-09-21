@@ -77,9 +77,11 @@ And an example showcasing Class inheritance in relatioships::
     # Adding Atlantis to our countries and UltraJoe to our superheroes
     atlantis = Country(code='ATL').save()
     ultrajoe = SuperHero(name='UltraJoe', age=13, power='invisibility').save()
+
     # Connecting UltraJoe to Atlantis. As a Person (as well a SuperHero),
     # UltraJoe inherits the relationship definitions for Person.
     atlantis.inhabitant.connect(ultrajoe)
+
     # Checking if connection was indeed made
     atlantis.inhabitant.is_connected(ultrajoe) # True
 
