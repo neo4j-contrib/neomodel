@@ -50,7 +50,7 @@ def test_abstract_class_relationships():
     j = Person(name='Joe', age=13).save()
     assert j
 
-    u = Person(name='UltraJoe', age=13, power='invisibility').save()
+    u = SuperHero(name='UltraJoe', age=13, power='invisibility').save()
     assert u
 
     gr = Country(code='GR').save()
