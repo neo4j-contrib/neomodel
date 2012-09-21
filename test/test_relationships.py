@@ -14,9 +14,8 @@ class Person(StructuredNode):
 class SuperHero(Person):
     power = StringProperty(index=True)
 
-Person.relate('is_from', (OUTGOING, 'IS_FROM'), to=Country)
-Country.relate('inhabitant', (INCOMING, 'IS_FROM'), to=Person)
-
+Person.outgoing('IS_FROM', 'is_from', to=Country)
+Country.incoming('IS_FROM', 'inhabitant', to=Person)
 
 def setup():
     connection_adapter().client.clear()

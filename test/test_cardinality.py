@@ -28,7 +28,7 @@ def setup():
 
 
 def test_cardinality_zero_or_more():
-    Monkey.relate('dryers', (OUTGOING, 'OWNS_DRYER'), to=HairDryer, cardinality=ZeroOrMore)
+    Monkey.outgoing('OWNS_DRYER', 'dryers', to=HairDryer, cardinality=ZeroOrMore)
 
     m = Monkey(name='tim').save()
     assert m.dryers.all() == []
@@ -45,7 +45,7 @@ def test_cardinality_zero_or_more():
 
 
 def test_cardinality_zero_or_one():
-    Monkey.relate('driver', (OUTGOING, 'HAS_SCREWDRIVER'), to=ScrewDriver, cardinality=ZeroOrOne)
+    Monkey.outgoing('HAS_SCREWDRIVER', 'driver', to=ScrewDriver, cardinality=ZeroOrOne)
 
     m = Monkey(name='bob').save()
     assert m.driver.all() == []
@@ -69,7 +69,7 @@ def test_cardinality_zero_or_one():
 
 
 def test_cardinality_one_or_more():
-    Monkey.relate('car', (OUTGOING, 'HAS_CAR'), to=Car, cardinality=OneOrMore)
+    Monkey.outgoing('HAS_CAR', 'car', to=Car, cardinality=OneOrMore)
     m = Monkey(name='jerry').save()
 
     try:
@@ -99,7 +99,7 @@ def test_cardinality_one_or_more():
 
 
 def test_cardinality_one():
-    Monkey.relate('toothbrush', (OUTGOING, 'HAS_TOOTHBRUSH'), to=ToothBrush, cardinality=One)
+    Monkey.outgoing('HAS_TOOTHBRUSH', 'toothbrush', to=ToothBrush, cardinality=One)
     m = Monkey(name='jerry').save()
 
     try:

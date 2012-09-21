@@ -112,7 +112,19 @@ class RelationshipInstaller(object):
         self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
 
     @classmethod
-    def relate(cls, manager_property, relation, to=None, cardinality=None):
+    def outgoing(cls, relation, alias, to=None, cardinality=None):
+        cls._relate(alias, (OUTGOING, relation), to, cardinality)
+
+    @classmethod
+    def incoming(cls, relation, alias, to=None, cardinality=None):
+        cls._relate(alias, (INCOMING, relation), to, cardinality)
+
+    @classmethod
+    def either(cls, relation, alias, to=None, cardinality=None):
+        cls._relate(alias, (EITHER, relation), to, cardinality)
+
+    @classmethod
+    def _relate(cls, manager_property, relation, to=None, cardinality=None):
         if not cardinality:
             from .cardinality import ZeroOrMore
             cardinality = ZeroOrMore
