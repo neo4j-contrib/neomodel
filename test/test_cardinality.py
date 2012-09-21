@@ -1,5 +1,6 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, OUTGOING,
-        OneOrMore, ZeroOrMore, ZeroOrOne, One, AttemptedCardinalityViolation, CardinalityViolation)
+from neomodel import (StructuredNode, StringProperty, IntegerProperty,
+         AttemptedCardinalityViolation, CardinalityViolation,
+         OneOrMore, ZeroOrMore, ZeroOrOne, One)
 from neomodel.core import connection_adapter
 
 

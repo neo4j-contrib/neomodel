@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
+from neomodel import StructuredNode, StringProperty, IntegerProperty
 from neomodel.core import connection_adapter
 
 
