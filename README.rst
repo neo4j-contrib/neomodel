@@ -28,7 +28,7 @@ Connection::
 
 Node definitions::
 
-    from neomodel import StructuredNode, StringProperty, IntegerProperty, OUTGOING, INCOMING
+    from neomodel import StructuredNode, StringProperty, IntegerProperty
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True)
@@ -41,9 +41,19 @@ Node definitions::
 Define relationships between your models::
 
     # defines relation of type IS_FROM from Person to Country nodes
-    Person.relate('is_from', (OUTGOING, 'IS_FROM'), to=Country)
+    Person.outgoing('IS_FROM', alias='is_from', to=Country)
     # traverse incoming IS_FROM relations on Country via the inhabitants property
-    Country.relate('inhabitant', (INCOMING, 'IS_FROM'), to=Person)
+    Country.incoming('IS_FROM', alias='inhabitant', to=Person)
+
+An alias is just a name given to a relationship, in order to have access to it
+via python objects. In the above example, there is only one neo4j relationship
+present (IS_FROM), we are just defining two different aliases for it, one
+accessible via the Person objects and one via Country objects. All objects of
+class Person can access that relationship through the `is_from` attribute,
+and all objects of class Country can access it through the `inhabitant` attribute.
+
+The `to` field respects Class inheritance. You can specify an abstract class
+or superclass and maintain the defined relationship for all its subclasses.
 
 Access related nodes through your defined relations::
 
@@ -96,4 +106,5 @@ Credits
 =======
 * Nigel Small - https://github.com/nigelsmall
 * Murtaza Gulamali - https://github.com/mygulamali
-* Your Name Here...
+* Marianna Polatoglou - https://github.com/mar-chi-pan
+* Panos Katseas - https://github.com/pkatseas
