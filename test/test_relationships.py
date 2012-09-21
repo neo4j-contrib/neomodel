@@ -11,6 +11,9 @@ class Person(StructuredNode):
     age = IntegerProperty(index=True)
 
 
+class SuperHero(Person):
+    power = StringProperty(index=True)
+
 Person.relate('is_from', (OUTGOING, 'IS_FROM'), to=Country)
 Country.relate('inhabitant', (INCOMING, 'IS_FROM'), to=Person)
 
@@ -42,3 +45,20 @@ def test_bidirectional_relationships():
 
     assert not u.is_from.all()
     assert not u.is_from.is_connected(b)
+
+
+def test_abstract_class_relationships():
+    j = Person(name='Joe', age=13).save()
+    assert j
+
+    u = Person(name='UltraJoe', age=13, power='invisibility').save()
+    assert u
+
+    gr = Country(code='GR').save()
+    assert gr
+
+    gr.inhabitant.connect(j)
+    assert gr.inhabitant.is_connected(j)
+
+    gr.inhabitant.connect(u)
+    assert gr.inhabitant.is_connected(u)

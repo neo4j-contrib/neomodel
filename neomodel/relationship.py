@@ -39,8 +39,9 @@ class RelationshipManager(object):
         return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
 
     def connect(self, obj):
-        if obj.__class__ != self.node_class:
-            raise Exception("Expecting object of class " + self.node_class.__name__)
+        # check if obj class is of node_class type or its subclass
+        if not self.node_class.__subclasscheck__(obj.__class__):
+            raise Exception("Expected object of class (or a subclass of) " + self.node_class.__name__)
         if not obj._node:
             raise Exception("Can't create relationship to unsaved node")
 
