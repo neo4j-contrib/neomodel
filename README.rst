@@ -53,7 +53,7 @@ Access related nodes through your defined relations::
     if jim.is_from.is_connected(germany):
         print "Jim's from Germany"
 
-    for p in germany.inhabitants.all()
+    for p in germany.inhabitant.all()
         print p.name # Jim
 
     jim.is_from.disconnect(germany)
