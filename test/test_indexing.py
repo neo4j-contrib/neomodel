@@ -8,6 +8,10 @@ class Human(StructuredNode):
     age = IntegerProperty(index=True, optional=True)
 
 
+class SuperHuman(Human):
+    power = StringProperty(index=True)
+
+
 def setup():
     connection_adapter().client.clear()
 
@@ -34,3 +38,15 @@ def test_lucene_query():
     assert 'sarah' in names
     assert 'jim' in names
     assert 'bob' in names
+
+def test_abstract_class_index():
+    Human(name='human', age=20).save()
+    SuperHuman(name='super', age=25, power='fireballs').save()
+
+    superhumans = SuperHuman.index.search(power='fireballs')
+
+
+    assert len(superhumans) == 1
+    h = superhumans[0]
+    import ipdb; ipdb.set_trace()
+    assert h.age == 25
