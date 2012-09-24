@@ -92,6 +92,17 @@ CReate Update Delete::
     jim.update()
     jim.delete()
 
+==============
+Category nodes
+==============
+
+Access your instances via the category node::
+
+    country_category = Country.category()
+    for c in country_category.instance.all()
+
+Note that `connect` and `disconnect` are not available through the `instance` relation.
+
 ========
 Indexing
 ========

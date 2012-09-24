@@ -1,6 +1,7 @@
 from py2neo import neo4j
 from .indexbatch import IndexBatch
-from .relationship import RelationshipInstaller, RelationshipManager
+from .relationship import (RelationshipInstaller, RelationshipManager,
+        RelationshipDefinition, OUTGOING)
 from lucenequerybuilder import Q
 import types
 import sys
@@ -103,6 +104,17 @@ class StructuredNode(RelationshipInstaller):
         if not node_property or not issubclass(node_property.__class__, Property):
             Exception(name + " is not a Property of " + cls.__name__)
         return node_property
+
+    @classmethod
+    def category(cls):
+        if not hasattr(cls, '_category'):
+            node = connection_adapter().category(cls.__name__)
+            rel = RelationshipDefinition(cls.__name__.upper(), cls, OUTGOING, CategoryInstanceRM)
+            category_node_class = type(cls.__name__ + 'CategoryNode', (CategoryNode,),
+                    dict(instance=rel))
+            cls._category = category_node_class(node)
+            cls._category._node = node
+        return cls._category
 
     def __init__(self, *args, **kwargs):
         self._validate_args(kwargs)
@@ -253,6 +265,22 @@ class BoolProperty(Property):
             return True
         else:
             raise TypeError("Object of type int or long expected")
+
+
+class CategoryNode(RelationshipInstaller):
+    category = StringProperty()
+
+    def __init__(self, *args, **kwargs):
+        self._db = connection_adapter()
+        super(CategoryNode, self).__init__(*args, **kwargs)
+
+
+class CategoryInstanceRM(RelationshipManager):
+    def connect(self):
+        raise Exception("connect not available from category node")
+
+    def disconnect(self):
+        raise Exception("disconnect not available from category node")
 
 
 class NoSuchProperty(Exception):
