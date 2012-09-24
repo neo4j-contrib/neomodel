@@ -44,9 +44,8 @@ def test_abstract_class_index():
     SuperHuman(name='super', age=25, power='fireballs').save()
 
     superhumans = SuperHuman.index.search(power='fireballs')
-
+    human = Human.index.get(name='super')
 
     assert len(superhumans) == 1
-    h = superhumans[0]
-    import ipdb; ipdb.set_trace()
-    assert h.age == 25
+    assert superhumans[0].age == 25
+    assert human.age == 25

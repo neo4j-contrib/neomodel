@@ -139,14 +139,17 @@ class StructuredNode(RelationshipInstaller):
 
     def _validate_args(self, props):
         """ Validate dict and set node properties """
-        for key, node_property in self.__class__.__dict__.iteritems():
-            if key in props:
-                value = props[key]
-            else:
-                value = None
-            if isinstance(node_property, Property):
-                node_property.validate(value)
-            self.__dict__[key] = value
+        for cls in self.__class__.mro():
+            if cls.__name__ == 'StructuredNode':
+                break
+            for key, node_property in cls.__dict__.iteritems():
+                if key in props:
+                    value = props[key]
+                else:
+                    value = None
+                if isinstance(node_property, Property):
+                    node_property.validate(value)
+                self.__dict__[key] = value
 
     def _create(self, props):
         relation_name = self._type.upper()
