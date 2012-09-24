@@ -164,15 +164,20 @@ class StructuredNode(RelationshipInstaller):
             raise exc_info[1], None, exc_info[2]
 
     def _update_index(self, props):
-        batch = IndexBatch(self._index)
-        for key, value in props.iteritems():
-            node_property = self.__class__.get_property(key)
-            if node_property.unique_index:
-                batch.add_if_none(key, value, self._node)
-            elif node_property.index:
-                batch.add(key, value, self._node)
-        if 200 in [r.status for r in batch.submit()]:
-            raise NotUnique('A supplied value is not unique' + r.uri)
+        uri = self._db.client._uri
+        for cls in self.__class__.mro():
+            if cls.__name__ == 'StructuredNode':
+                break
+            batch = IndexBatch(cls.index._index)
+            for key, value in props.iteritems():
+                if key in cls.__dict__.keys():
+                    node_property = cls.get_property(key)
+                    if node_property.unique_index:
+                        batch.add_if_none(key, value, self._node)
+                    elif node_property.index:
+                        batch.add(key, value, self._node)
+            if 200 in [r.status for r in batch.submit()]:
+                raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
         if self._node:
