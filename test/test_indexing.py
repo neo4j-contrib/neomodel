@@ -39,6 +39,7 @@ def test_lucene_query():
     assert 'jim' in names
     assert 'bob' in names
 
+
 def test_abstract_class_index():
     Human(name='human', age=20).save()
     SuperHuman(name='super', age=25, power='fireballs').save()
