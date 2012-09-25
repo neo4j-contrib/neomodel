@@ -10,17 +10,14 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 * Simple relationship traversal
 * Soft cardinality restrictions
 
-============
 Installation
-============
-
+-------
 Install the module via git::
 
     pip install -e git+git@github.com:robinedwards/neomodel.git@HEAD#egg=neomodel-dev
 
-============
 Introduction
-============
+-------
 
 Connection::
 
@@ -65,9 +62,8 @@ Access related nodes through your defined relations::
 
     jim.is_from.disconnect(germany)
 
-===========
 Inheritance
-===========
+-------
 
 It's possible to subclass node definitions, separate indexes will be
 maintained for each class in the hierarchy.
@@ -89,9 +85,8 @@ The example below demonstrates the use of class inheritance in relationships::
     # Checking if connection was indeed made
     atlantis.inhabitant.is_connected(ultrajoe) # True
 
-=============================
 Relating to different classes
-=============================
+-------
 
 You can define relations of a single relation type to different `StructuredNode` classes.::
 
@@ -109,7 +104,7 @@ You can define relations of a single relation type to different `StructuredNode`
 Remember that when traversing the `has_a` relation you will retrieve objects of different types.
 
 CRUD
-====
+-------
 
 CReate Update Delete::
 
@@ -118,9 +113,8 @@ CReate Update Delete::
     jim.update()
     jim.delete()
 
-==============
 Category nodes
-==============
+-------
 
 Access your instances via the category node::
 
@@ -130,9 +124,8 @@ Access your instances via the category node::
 Note that `connect` and `disconnect` are not available through the `instance` relation.
 As these actions are handled for your via the save() and delete() methods.
 
-========
 Indexing
-========
+-------
 
 Make use of indexes::
 
@@ -156,9 +149,8 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
 
     # prints: sarah, jim, bob
 
-=======
 Credits
-=======
+-------
 * Marianna Polatoglou - https://github.com/mar-chi-pan
 * Murtaza Gulamali - https://github.com/mygulamali
 * Nigel Small - https://github.com/nigelsmall
