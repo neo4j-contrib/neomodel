@@ -179,7 +179,6 @@ class StructuredNode(RelationshipInstaller):
             raise exc_info[1], None, exc_info[2]
 
     def _update_index(self, props):
-        uri = self._db.client._uri
         for cls in self.__class__.mro():
             if cls.__name__ == 'StructuredNode':
                 break
