@@ -17,6 +17,7 @@ class SuperHero(Person):
 Person.outgoing('IS_FROM', 'is_from', to=Country)
 Country.incoming('IS_FROM', 'inhabitant', to=Person)
 
+
 def setup():
     connection_adapter().client.clear()
 
