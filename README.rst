@@ -45,15 +45,12 @@ Define relationships between your models::
     # traverse incoming IS_FROM relations on Country via the inhabitants property
     Country.incoming('IS_FROM', alias='inhabitant', to=Person)
 
-An alias is just a name given to a relationship, in order to have access to it
-via python objects. In the above example, there is only one neo4j relationship
-present (IS_FROM), we are just defining two different aliases for it, one
-accessible via the Person objects and one via Country objects. All objects of
+An alias is just a name given to the attribute for handling relationship.
+In the above example, there is one neo4j relationship present `IS_FROM`,
+we are just defining two different aliases for it,
+one accessible via the Person objects and one via Country objects. All objects of
 class Person can access that relationship through the *is_from* attribute,
 and all objects of class Country can access it through the *inhabitant* attribute.
-
-The *to* field respects Class inheritance. You can specify an abstract class
-or superclass and maintain the defined relationship for all its subclasses.
 
 Access related nodes through your defined relations::
 
@@ -68,7 +65,14 @@ Access related nodes through your defined relations::
 
     jim.is_from.disconnect(germany)
 
-And an example showcasing Class inheritance in relatioships::
+===========
+Inheritance
+===========
+
+It's possible to subclass node definitions, separate indexes will be
+maintained for each class in the hierarchy.
+
+The example below demonstrates the use of class inheritance in relationships::
 
     # Superhero subclass of Person
     class SuperHero(Person):
@@ -84,6 +88,10 @@ And an example showcasing Class inheritance in relatioships::
 
     # Checking if connection was indeed made
     atlantis.inhabitant.is_connected(ultrajoe) # True
+
+====
+CRUD
+====
 
 CReate Update Delete::
 
@@ -102,6 +110,7 @@ Access your instances via the category node::
     for c in country_category.instance.all()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
+As these actions are handled for your via the save() and delete() methods.
 
 ========
 Indexing
@@ -115,7 +124,7 @@ Make use of indexes::
 
     germany = Country(code='DE').save()
 
-Use advanced lucene queries::
+Use advanced Lucene queries with the `lucene-querybuilder` module::
 
     from lucenequerybuilder import Q
 
@@ -132,7 +141,7 @@ Use advanced lucene queries::
 =======
 Credits
 =======
-* Nigel Small - https://github.com/nigelsmall
-* Murtaza Gulamali - https://github.com/mygulamali
 * Marianna Polatoglou - https://github.com/mar-chi-pan
+* Murtaza Gulamali - https://github.com/mygulamali
+* Nigel Small - https://github.com/nigelsmall
 * Panos Katseas - https://github.com/pkatseas
