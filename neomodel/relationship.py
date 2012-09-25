@@ -1,4 +1,4 @@
-from py2neo import neo4j
+from py2neo import neo4j, cypher
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
@@ -6,10 +6,15 @@ EITHER = neo4j.Direction.EITHER
 
 
 class RelationshipManager(object):
-    def __init__(self, direction, relation_type, name, node_class, origin):
+    def __init__(self, direction, relation_type, name, node_classes, origin):
         self.direction = direction
         self.relation_type = relation_type
-        self.node_class = node_class
+        if isinstance(node_classes, list):
+            self.node_classes = node_classes
+            self.class_map = dict(zip([c.__name__.upper() for c in node_classes],
+                node_classes))
+        else:
+            self.node_class = node_classes
         self.name = name
         self.related = {}
         self.origin = origin
@@ -19,19 +24,40 @@ class RelationshipManager(object):
         return self.origin._db.client
 
     def all(self):
-        if not self.related:
-            related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
-            if not related_nodes:
-                return []
-
-            props = self.client.get_properties(*related_nodes)
-            for node, properties in dict(zip(related_nodes, props)).iteritems():
-                wrapped_node = self.node_class(**(properties))
-                wrapped_node._node = node
-                self.related[node.id] = wrapped_node
-            return [v for v in self.related.itervalues()]
+        if hasattr(self, 'node_classes'):
+            return self._all_multi_class()
         else:
-            return [v for v in self.related.itervalues()]
+            return self._all_single_class()
+
+    def _all_multi_class(self):
+        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
+        query = ''' START a=node({0})
+                    MATCH (a)-[{1}]-(x)<-[r:{2}]-()
+                    RETURN x, r
+                '''.format(self.origin._node.id, self.relation_type, cat_types)
+        results = cypher.execute(self.client, query)[0]
+        unwrapped = [row[0] for row in results]
+        classes = [self.class_map[row[1].type] for row in results]
+        props = self.client.get_properties(*unwrapped)
+        nodes = []
+        for node, cls, prop in zip(unwrapped, classes, props):
+            wrapped_node = cls(**prop)
+            wrapped_node._node = node
+            nodes.append(wrapped_node)
+        return nodes
+
+    def _all_single_class(self):
+        related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
+        if not related_nodes:
+            return []
+
+        props = self.client.get_properties(*related_nodes)
+        nodes = []
+        for node, properties in dict(zip(related_nodes, props)).iteritems():
+            wrapped_node = self.node_class(**(properties))
+            wrapped_node._node = node
+            nodes.append(wrapped_node)
+        return nodes
 
     def is_connected(self, obj):
         if obj._node.id in self.related:
@@ -40,8 +66,17 @@ class RelationshipManager(object):
 
     def connect(self, obj):
         # check if obj class is of node_class type or its subclass
-        if not self.node_class.__subclasscheck__(obj.__class__):
-            raise Exception("Expected object of class (or a subclass of) " + self.node_class.__name__)
+        if hasattr(self, 'node_class'):
+            if not self.node_class.__subclasscheck__(obj.__class__):
+                raise Exception("Expected object of class (or a subclass of) " + self.node_class.__name__)
+        elif hasattr(self, 'node_classes'):
+            for cls in self.node_classes:
+                if cls.__subclasscheck__(obj.__class__):
+                    node_class = cls
+            if not node_class:
+                allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
+                raise Exception("Expected object of class of " + allowed_cls)
+
         if not obj._node:
             raise Exception("Can't create relationship to unsaved node")
 

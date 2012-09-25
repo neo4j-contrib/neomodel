@@ -89,7 +89,25 @@ The example below demonstrates the use of class inheritance in relationships::
     # Checking if connection was indeed made
     atlantis.inhabitant.is_connected(ultrajoe) # True
 
-====
+=============================
+Relating to different classes
+=============================
+
+You can define relations of a single relation type to different `StructuredNode` classes.::
+
+    class Humanbeing(StructuredNode):
+        name = StringProperty()
+
+    class Location(StructuredNode):
+        name = StringProperty()
+
+    class Nationality(StructuredNode):
+        name = StringProperty()
+
+    Humanbeing.outgoing('HAS_A', 'has_a', to=[Location, Nationality])
+
+Remember that when traversing the `has_a` relation you will retrieve objects of different types.
+
 CRUD
 ====
 
