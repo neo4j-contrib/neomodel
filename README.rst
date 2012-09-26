@@ -124,6 +124,23 @@ Access your instances via the category node::
 Note that `connect` and `disconnect` are not available through the `instance` relation.
 As these actions are handled for your via the save() and delete() methods.
 
+Read-only nodes
+------
+
+If you have existing nodes you want to protect use the read-only mixin::
+
+    from neomodel import ReadOnlyNode, ReadOnlyError
+
+    class ImmortalBeing(StructuredNode, ReadOnlyNode):
+        name = StringProperty()
+
+Now all operations below raise a *ReadOnlyError*::
+
+    some_immortal_being.delete()
+    some_immortal_being.save()
+    some_immortal_being.update()
+    some_immortal_being.name = 'tim'
+
 Indexing
 -------
 

@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty, ReadOnlyNode
 from neomodel.core import connection_adapter
 
 
@@ -52,6 +52,50 @@ def test_update():
     jim = User.index.get(email='jim2000@test.com')
     assert jim
     assert jim.email == 'jim2000@test.com'
+
+
+def rest_readonly_definition():
+    # create user
+    class MyNormalUser(StructuredNode):
+        _index_name = 'readonly_test'
+        name = StringProperty()
+    MyNormalUser(name='bob').save()
+
+    class MyReadOnlyUser(StructuredNode, ReadOnlyNode):
+        _index_name = 'readonly_test'
+        name = StringProperty()
+
+    # reload as readonly from same index
+    bob = MyReadOnlyUser.index(name='bob')
+    assert bob.name == 'bob'
+
+    try:
+        bob.name = 'tim'
+    except Exception, e:
+        assert e.__class__.__name__ == 'ReadOnlyError'
+    else:
+        assert False
+
+    try:
+        bob.delete()
+    except Exception, e:
+        assert e.__class__.__name__ == 'ReadOnlyError'
+    else:
+        assert False
+
+    try:
+        bob.save()
+    except Exception, e:
+        assert e.__class__.__name__ == 'ReadOnlyError'
+    else:
+        assert False
+
+    try:
+        bob.update()
+    except Exception, e:
+        assert e.__class__.__name__ == 'ReadOnlyError'
+    else:
+        assert False
 
 
 def teardown():
