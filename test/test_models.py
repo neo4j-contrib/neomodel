@@ -61,7 +61,7 @@ def rest_readonly_definition():
         name = StringProperty()
     MyNormalUser(name='bob').save()
 
-    class MyReadOnlyUser(StructuredNode, ReadOnlyNode):
+    class MyReadOnlyUser(ReadOnlyNode):
         _index_name = 'readonly_test'
         name = StringProperty()
 

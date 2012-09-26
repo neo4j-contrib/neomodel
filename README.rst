@@ -127,11 +127,11 @@ As these actions are handled for your via the save() and delete() methods.
 Read-only nodes
 ------
 
-If you have existing nodes you want to protect use the read-only mixin::
+If you have existing nodes you want to protect use the read-only base class::
 
     from neomodel import ReadOnlyNode, ReadOnlyError
 
-    class ImmortalBeing(StructuredNode, ReadOnlyNode):
+    class ImmortalBeing(ReadOnlyNode):
         name = StringProperty()
 
 Now all operations below raise a *ReadOnlyError*::

@@ -88,7 +88,7 @@ class NodeIndexManager(object):
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
-        if cls.__name__ != 'StructuredNode':
+        if cls.__name__ != 'StructuredNode' or cls.__name__ != 'ReadOnlyNode':
             db = connection_adapter()
             if '_index_name' in dct:
                 name = dct['_index_name']
@@ -155,7 +155,7 @@ class StructuredNode(RelationshipInstaller):
     def _validate_args(self, props):
         """ Validate dict and set node properties """
         for cls in self.__class__.mro():
-            if cls.__name__ == 'StructuredNode':
+            if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
                 break
             for key, node_property in cls.__dict__.iteritems():
                 if key in props:
@@ -183,7 +183,7 @@ class StructuredNode(RelationshipInstaller):
 
     def _update_index(self, props):
         for cls in self.__class__.mro():
-            if cls.__name__ == 'StructuredNode':
+            if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
                 break
             batch = IndexBatch(cls.index._index)
             for key, value in props.iteritems():
@@ -230,6 +230,27 @@ class CategoryInstanceRM(RelationshipManager):
 
     def disconnect(self):
         raise Exception("disconnect not available from category node")
+
+
+class ReadOnlyNode(StructuredNode):
+    def delete():
+        raise ReadOnlyError("You cannot delete read-only nodes")
+
+    def update():
+        raise ReadOnlyError("You cannot update read-only nodes")
+
+    def save():
+        raise ReadOnlyError("You cannot save read-only nodes")
+
+    def __setattr__(self, key, value):
+        if key.startswith('_'):
+            self.__dict__[key] = value
+            return
+        raise ReadOnlyError("You cannot save properties on a read-only node")
+
+
+class ReadOnlyError(Exception):
+    pass
 
 
 class NoSuchProperty(Exception):
