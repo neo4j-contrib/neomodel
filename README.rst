@@ -149,6 +149,15 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
 
     # prints: sarah, jim, bob
 
+If you have an existing node index you can change the default name of your index.
+This can be useful for integrating with neo4django schemas::
+
+    class Human(StructuredNode):
+        _index_name = 'myHumans'
+        name = StringProperty(indexed=True)
+
+    Human.index.name # myHumans
+
 Credits
 -------
 * Marianna Polatoglou - https://github.com/mar-chi-pan
