@@ -89,6 +89,8 @@ class StructuredNodeMeta(type):
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ != 'StructuredNode':
             db = connection_adapter()
+            if '_index_name' in dct:
+                name = dct['_index_name']
             cls.index = NodeIndexManager(cls, name, db.client)
         return cls
 

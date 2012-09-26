@@ -50,3 +50,16 @@ def test_abstract_class_index():
     assert len(superhumans) == 1
     assert superhumans[0].age == 25
     assert human.age == 25
+
+
+def test_custom_index_name():
+
+    class SpecialHuman(StructuredNode):
+        _index_name = 'special-Human'
+        name = StringProperty(unique_index=True)
+
+    jim = SpecialHuman(name='timothy').save()
+
+    assert SpecialHuman.index.name == 'special-Human'
+    node = SpecialHuman.index.get(name='timothy')
+    assert node.name == jim.name
