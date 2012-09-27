@@ -6,7 +6,6 @@ EITHER = neo4j.Direction.EITHER
 
 
 class RelationshipManager(object):
-    # TODO: do we need name?
     def __init__(self, direction, relation_type, node_classes, origin):
         self.direction = direction
         self.relation_type = relation_type
