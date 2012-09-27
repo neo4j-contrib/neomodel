@@ -16,7 +16,6 @@ class RelationshipManager(object):
                 node_classes))
         else:
             self.node_class = node_classes
-        self.related = {}
         self.origin = origin
 
     @property
@@ -60,8 +59,6 @@ class RelationshipManager(object):
         return nodes
 
     def is_connected(self, obj):
-        if obj._node.id in self.related:
-            return True
         return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
 
     def connect(self, obj):
@@ -79,14 +76,16 @@ class RelationshipManager(object):
 
         if not obj._node:
             raise Exception("Can't create relationship to unsaved node")
-
-        self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node),)
-        self.related[obj._node.id] = obj
+        # TODO handle 'EITHER' connect correctly
+        if self.direction == OUTGOING or self.direction == EITHER:
+            self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node))
+        elif self.direction == INCOMING:
+            self.client.get_or_create_relationships((obj._node, self.relation_type, self.origin._node))
+        else:
+            raise Exception("Unknown relationship direction {0}".format(self.direction))
 
     def reconnect(self, old_obj, new_obj):
         if self.is_connected(old_obj):
-            if old_obj._node.id in self.related:
-                del self.related[old_obj._node.id]
             rels = self.origin._node.get_relationships_with(
                     old_obj._node, self.direction, self.relation_type)
             for r in rels:
@@ -95,11 +94,8 @@ class RelationshipManager(object):
             raise NotConnected(old_obj._node.id)
 
         self.client.get_or_create_relationships((self.origin._node, self.relation_type, new_obj._node),)
-        self.related[new_obj._node.id] = new_obj
 
     def disconnect(self, obj):
-        if obj._node.id in self.related:
-            del self.related[obj._node.id]
         rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)
         if not rels:
             raise NotConnected(obj._node.id)
