@@ -132,9 +132,13 @@ class StructuredNode(RelationshipInstaller):
         if key.startswith('_'):
             self.__dict__[key] = value
             return
-        prop = self.__class__.get_property(key)
-        if prop.validate(value):
+        try:
+            prop = self.__class__.get_property(key)
+        except NoSuchProperty:
             self.__dict__[key] = value
+        else:
+            if prop.validate(value):
+                self.__dict__[key] = value
 
     @property
     def client(self):
