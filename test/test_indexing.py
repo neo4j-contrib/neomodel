@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty, DoesNotExist
 from neomodel.core import connection_adapter
 from lucenequerybuilder import Q
 
@@ -50,6 +50,15 @@ def test_abstract_class_index():
     assert len(superhumans) == 1
     assert superhumans[0].age == 25
     assert human.age == 25
+
+
+def test_does_not_exist():
+    try:
+        Human.index.get(name='XXXX')
+    except DoesNotExist:
+        assert True
+    else:
+        assert False
 
 
 def test_custom_index_name():

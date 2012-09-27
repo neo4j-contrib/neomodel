@@ -82,7 +82,7 @@ class NodeIndexManager(object):
         elif len(nodes) > 1:
             raise Exception("Multiple nodes returned from query, expected one")
         else:
-            raise Exception("No nodes found")
+            raise DoesNotExist("Can't find node in index matching query")
 
 
 class StructuredNodeMeta(type):
@@ -262,4 +262,8 @@ class PropertyNotIndexed(Exception):
 
 
 class NotUnique(Exception):
+    pass
+
+
+class DoesNotExist(Exception):
     pass
