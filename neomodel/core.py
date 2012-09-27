@@ -103,9 +103,12 @@ class StructuredNode(RelationshipInstaller):
 
     @classmethod
     def get_property(cls, name):
-        node_property = getattr(cls, name)
-        if not node_property or not issubclass(node_property.__class__, Property):
-            Exception(name + " is not a Property of " + cls.__name__)
+        try:
+            node_property = getattr(cls, name)
+        except AttributeError:
+            raise NoSuchProperty
+        if node_property and not issubclass(node_property.__class__, Property):
+            NoSuchProperty(name + " is not a Property of " + cls.__name__)
         return node_property
 
     @classmethod
