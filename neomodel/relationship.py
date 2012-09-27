@@ -29,10 +29,15 @@ class RelationshipManager(object):
 
     def _all_multi_class(self):
         cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
-        query = ''' START a=node({0})
-                    MATCH (a)-[{1}]-(x)<-[r:{2}]-()
-                    RETURN x, r
-                '''.format(self.origin._node.id, self.relation_type, cat_types)
+        query = "START a=node({0}) MATCH (a)"
+        if self.direction == OUTGOING:
+            query += '-[{1}]->'
+        elif self.direction == INCOMING:
+            query += '<-[{1}]-'
+        else:
+            query += '<-[{0}]-'
+        query += "(x)<-[r:{2}]-() RETURN x, r"
+        query = query.format(self.origin._node.id, self.relation_type, cat_types)
         results = cypher.execute(self.client, query)[0]
         unwrapped = [row[0] for row in results]
         classes = [self.class_map[row[1].type] for row in results]
