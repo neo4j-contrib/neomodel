@@ -6,7 +6,8 @@ EITHER = neo4j.Direction.EITHER
 
 
 class RelationshipManager(object):
-    def __init__(self, direction, relation_type, name, node_classes, origin):
+    # TODO: do we need name?
+    def __init__(self, direction, relation_type, node_classes, origin):
         self.direction = direction
         self.relation_type = relation_type
         if isinstance(node_classes, list):
@@ -15,7 +16,6 @@ class RelationshipManager(object):
                 node_classes))
         else:
             self.node_class = node_classes
-        self.name = name
         self.related = {}
         self.origin = origin
 
@@ -123,13 +123,14 @@ class RelationshipDefinition(object):
         self.direction = direction
 
     def build_manager(self, origin, name):
-        return self.manager(
+        rel = self.manager(
                 self.direction,
                 self.relation_type,
-                name,
                 self.node_class,
                 origin
                )
+        rel.name = name
+        return rel
 
 
 class RelationshipInstaller(object):
