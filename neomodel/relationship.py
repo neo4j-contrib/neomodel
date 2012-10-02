@@ -66,6 +66,8 @@ class RelationshipManager(object):
         return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
 
     def connect(self, obj):
+        if self.direction == EITHER:
+            raise Exception("Cannot connect with direction EITHER")
         # check if obj class is of node_class type or its subclass
         if hasattr(self, 'node_class'):
             if not self.node_class.__subclasscheck__(obj.__class__):
