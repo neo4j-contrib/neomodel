@@ -3,6 +3,7 @@ from .indexbatch import IndexBatch
 from .properties import StringProperty, Property
 from .relationship import (RelationshipInstaller, RelationshipManager,
         RelationshipDefinition, OUTGOING)
+from .exception import NotUnique, DoesNotExist
 from lucenequerybuilder import Q
 import types
 import sys
@@ -274,12 +275,4 @@ class NoSuchProperty(Exception):
 
 
 class PropertyNotIndexed(Exception):
-    pass
-
-
-class NotUnique(Exception):
-    pass
-
-
-class DoesNotExist(Exception):
     pass

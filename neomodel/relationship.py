@@ -1,4 +1,5 @@
 from py2neo import neo4j
+from .exception import DoesNotExist
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
@@ -76,6 +77,15 @@ class RelationshipManager(object):
             return []
         props = self.client.get_properties(*related_nodes)
         return _wrap(related_nodes, props, self.node_class)
+
+    def get(self, **kwargs):
+        result = self.search(**kwargs)
+        if len(result) == 1:
+            return result[0]
+        if len(result) > 1:
+            raise Exception("Multiple items returned")
+        if not result:
+            raise DoesNotExist
 
     def search(self, **kwargs):
         if not kwargs:
