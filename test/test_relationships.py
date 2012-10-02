@@ -47,6 +47,18 @@ def test_bidirectional_relationships():
     assert not u.is_from.is_connected(b)
 
 
+def test_search():
+    fred = Person(name='Fred', age=13).save()
+    zz = Country(code='ZZ').save()
+    zx = Country(code='ZX').save()
+    zt = Country(code='ZY').save()
+    fred.is_from.connect(zz)
+    fred.is_from.connect(zx)
+    fred.is_from.connect(zt)
+    result = fred.is_from.search(code='ZX')
+    assert result[0].code == 'ZX'
+
+
 def test_abstract_class_relationships():
     j = Person(name='Joe', age=13).save()
     assert j

@@ -1,8 +1,31 @@
-from py2neo import neo4j, cypher
+from py2neo import neo4j
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
+
+
+def _related(direction):
+    if direction == OUTGOING:
+        return '-[{0}]->'
+    elif direction == INCOMING:
+        return '<-[{0}]-'
+    else:
+        return '-[{0}]-'
+
+
+def _properties(ident, **kwargs):
+    props = [ident + '.' + k + ' = {' + k + '}' for k in kwargs]
+    return '(' + ', '.join(props) + ')'
+
+
+def _wrap(unwrapped, props, cls):
+        nodes = []
+        for node, properties in dict(zip(unwrapped, props)).iteritems():
+            wrapped_node = cls(**(properties))
+            wrapped_node._node = node
+            nodes.append(wrapped_node)
+        return nodes
 
 
 class RelationshipManager(object):
@@ -27,18 +50,9 @@ class RelationshipManager(object):
         else:
             return self._all_single_class()
 
-    def _all_multi_class(self):
-        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
-        query = "START a=node({0}) MATCH (a)"
-        if self.direction == OUTGOING:
-            query += '-[{1}]->'
-        elif self.direction == INCOMING:
-            query += '<-[{1}]-'
-        else:
-            query += '<-[{0}]-'
-        query += "(x)<-[r:{2}]-() RETURN x, r"
-        query = query.format(self.origin._node.id, self.relation_type, cat_types)
-        results = cypher.execute(self.client, query)[0]
+    def _wrap_multi_class_resultset(self, results):
+        """With resultset containing [node,rel] pairs
+        wrap each node in correct neomodel class based on rel.type"""
         unwrapped = [row[0] for row in results]
         classes = [self.class_map[row[1].type] for row in results]
         props = self.client.get_properties(*unwrapped)
@@ -49,18 +63,52 @@ class RelationshipManager(object):
             nodes.append(wrapped_node)
         return nodes
 
+    def _all_multi_class(self):
+        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
+        query = "MATCH (a)" + _related(self.direction).format(self.relation_type)
+        query += "(x)<-[r:{0}]-() RETURN x, r".format(cat_types)
+        results = self.origin.start_cypher(query)[0]
+        return self._wrap_multi_class_resultset(results)
+
     def _all_single_class(self):
         related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
         if not related_nodes:
             return []
-
         props = self.client.get_properties(*related_nodes)
-        nodes = []
-        for node, properties in dict(zip(related_nodes, props)).iteritems():
-            wrapped_node = self.node_class(**(properties))
-            wrapped_node._node = node
-            nodes.append(wrapped_node)
-        return nodes
+        return _wrap(related_nodes, props, self.node_class)
+
+    def search(self, **kwargs):
+        if not kwargs:
+            if hasattr(self, 'node_classes'):
+                return self._all_multi_class()
+            else:
+                return self._all_single_class()
+
+        if hasattr(self, 'node_classes'):
+            return self._search_multi_class(**kwargs)
+        else:
+            return self._search_single_class(**kwargs)
+
+    def _search_single_class(self, **kwargs):
+        query = "MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
+        query += "(b) WHERE " + _properties('b', **kwargs)
+        query += " RETURN b"
+
+        results = self.origin.start_cypher(query, kwargs)[0]
+        unwrapped = [row[0] for row in results]
+        props = self.client.get_properties(*unwrapped)
+        return _wrap(unwrapped, props, self.node_class)
+
+    def _search_multi_class(self, **kwargs):
+        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
+        query = "MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
+        query += "(b)<-[r:{0}]-() ".format(cat_types)
+        query += "WHERE " + _properties('b', **kwargs)
+        query += " RETURN b, r"
+        results = self.origin.start_cypher(query, kwargs)[0]
+        return self._wrap_multi_class_resultset(results)
 
     def is_connected(self, obj):
         return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)

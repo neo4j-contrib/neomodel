@@ -44,8 +44,8 @@ Define relationships between your models::
 
 An alias is just a name given to the attribute for handling relationship.
 In the above example, there is one neo4j relationship present `IS_FROM`,
-we are just defining two different aliases for it,
-one accessible via the Person objects and one via Country objects. All objects of
+we are defining two different aliases for it,
+one accessible via Person objects and one via Country objects. All objects of
 class Person can access that relationship through the *is_from* attribute,
 and all objects of class Country can access it through the *inhabitant* attribute.
 
@@ -61,6 +61,13 @@ Access related nodes through your defined relations::
         print p.name # Jim
 
     jim.is_from.disconnect(germany)
+
+Search related nodes through your defined relations. This example starts at the germany node
+and traverses incoming 'IS_FROM' relations and returns the nodes with the property name
+that is equal to 'Jim'::
+
+    germany.inhabitant.search(name='Jim')
+
 
 Inheritance
 -------

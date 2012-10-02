@@ -1,4 +1,4 @@
-from py2neo import neo4j
+from py2neo import neo4j, cypher
 from .indexbatch import IndexBatch
 from .properties import StringProperty, Property
 from .relationship import (RelationshipInstaller, RelationshipManager,
@@ -96,7 +96,16 @@ class StructuredNodeMeta(type):
         return cls
 
 
-class StructuredNode(RelationshipInstaller):
+class CypherMixin(object):
+    def cypher(self, query, params=None):
+        return cypher.execute(self.client, query, params)
+
+    def start_cypher(self, query, params=None):
+        start = "START a=node({:d}) ".format(self._node.id)
+        return self.cypher(start + query, params)
+
+
+class StructuredNode(RelationshipInstaller, CypherMixin):
     """ Base class for nodes requiring formal declaration """
 
     __metaclass__ = StructuredNodeMeta

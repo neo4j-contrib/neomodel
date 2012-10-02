@@ -35,3 +35,19 @@ def test_multi_class_rels():
     assert results[0].name == 'Belgium'
     assert isinstance(results[1], Nationality)
     assert results[1].name == 'British'
+
+
+def test_multi_class_search():
+    foo = Humanbeing(name='foo').save()
+    lo = Location(name='Birmingham').save()
+    na = Nationality(name='Croatian').save()
+    na2 = Nationality(name='French').save()
+
+    foo.has_a.connect(lo)
+    foo.has_a.connect(na)
+    foo.has_a.connect(na2)
+
+    results = foo.has_a.search(name='French')
+    assert isinstance(results[0], Nationality)
+    results = foo.has_a.search(name='Birmingham')
+    assert isinstance(results[0], Location)
