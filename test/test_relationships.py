@@ -10,9 +10,16 @@ class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 
+    def special_power(self):
+        return "I have no powers"
+
 
 class SuperHero(Person):
     power = StringProperty(index=True)
+
+    def special_power(self):
+        return "I have powers"
+
 
 Person.outgoing('IS_FROM', 'is_from', to=Country)
 Country.incoming('IS_FROM', 'inhabitant', to=Person)
@@ -57,6 +64,13 @@ def test_search():
     fred.is_from.connect(zt)
     result = fred.is_from.search(code='ZX')
     assert result[0].code == 'ZX'
+
+
+def test_custom_methods():
+    u = Person(name='Joe90', age=13).save()
+    assert u.special_power() == "I have no powers"
+    u = SuperHero(name='Joe91', age=13, power='xxx').save()
+    assert u.special_power() == "I have powers"
 
 
 def test_abstract_class_relationships():

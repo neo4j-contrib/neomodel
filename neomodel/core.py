@@ -175,6 +175,8 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
             if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
                 break
             for key, node_property in cls.__dict__.iteritems():
+                if isinstance(node_property, types.FunctionType):
+                    continue
                 if key in props:
                     value = props[key]
                 else:
