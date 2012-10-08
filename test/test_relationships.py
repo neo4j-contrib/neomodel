@@ -10,6 +10,10 @@ class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 
+    @property
+    def special_name(self):
+        return self.name
+
     def special_power(self):
         return "I have no powers"
 
@@ -71,6 +75,7 @@ def test_custom_methods():
     assert u.special_power() == "I have no powers"
     u = SuperHero(name='Joe91', age=13, power='xxx').save()
     assert u.special_power() == "I have powers"
+    assert u.special_name == 'Joe91'
 
 
 def test_abstract_class_relationships():
