@@ -105,6 +105,10 @@ class CypherMixin(object):
         start = "START a=node({:d}) ".format(self._node.id)
         return self.cypher(start + query, params)
 
+    @property
+    def client(self):
+        return self._db.client
+
 
 class StructuredNode(RelationshipInstaller, CypherMixin):
     """ Base class for nodes requiring formal declaration """
@@ -152,10 +156,6 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         else:
             if prop.validate(value):
                 self.__dict__[key] = value
-
-    @property
-    def client(self):
-        return self._db.client
 
     @property
     def properties(self):
