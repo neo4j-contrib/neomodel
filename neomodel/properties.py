@@ -1,10 +1,17 @@
+from .exception import RequiredProperty
+
+
 class Property(object):
-    def __init__(self, unique_index=False, index=False, optional=False):
-        self.optional = optional
+    def __init__(self, unique_index=False, index=False, required=False):
+        self.required = required
         if unique_index and index:
             raise Exception("unique_index and index are mutually exclusive")
         self.unique_index = unique_index
         self.index = index
+
+    def validate(self, value):
+        if value == None and self.required:
+            raise RequiredProperty()
 
     @property
     def is_indexed(self):
@@ -13,8 +20,7 @@ class Property(object):
 
 class StringProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
-            return True
+        super(StringProperty, self).validate(value)
         if isinstance(value, (str, unicode)):
             return True
         else:
@@ -23,8 +29,7 @@ class StringProperty(Property):
 
 class IntegerProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
-            return True
+        super(IntegerProperty, self).validate(value)
         if isinstance(value, (int, long)):
             return True
         else:
@@ -33,8 +38,7 @@ class IntegerProperty(Property):
 
 class FloatProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
-            return True
+        super(FloatProperty, self).validate(value)
         if isinstance(value, (float)):
             return True
         else:
@@ -43,9 +47,8 @@ class FloatProperty(Property):
 
 class BoolProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
-            return True
-        if isinstance(value, (int, long)):
+        super(BoolProperty, self).validate(value)
+        if isinstance(value, (int, long, bool)):
             return True
         else:
             raise TypeError("Object of type int or long expected")

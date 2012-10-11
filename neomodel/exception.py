@@ -4,3 +4,7 @@ class NotUnique(Exception):
 
 class DoesNotExist(Exception):
     pass
+
+
+class RequiredProperty(Exception):
+    pass
