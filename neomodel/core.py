@@ -235,7 +235,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         return True
 
 
-class CategoryNode(RelationshipInstaller):
+class CategoryNode(RelationshipInstaller, CypherMixin):
     category = StringProperty()
 
     def __init__(self, *args, **kwargs):
