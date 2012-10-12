@@ -137,7 +137,15 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         return cls._category
 
     def __init__(self, *args, **kwargs):
-        self._validate_args(kwargs)
+        for key, value in kwargs.iteritems():
+            setattr(self, key, value)
+
+        # set missing props to none.
+        for key, prop in self.__class__.__dict__.iteritems():
+            if key.startswith('_'):
+                continue
+            if issubclass(prop.__class__, Property) and not key in self.__dict__:
+                super(StructuredNode, self).__setattr__(key, None)
         self._node = None
         self._db = connection_adapter()
         self._type = self.__class__.__name__
@@ -147,15 +155,15 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
-            self.__dict__[key] = value
-            return
+            return super(StructuredNode, self).__setattr__(key, value)
         try:
             prop = self.__class__.get_property(key)
         except NoSuchProperty:
-            self.__dict__[key] = value
+            super(StructuredNode, self).__setattr__(key, value)
         else:
-            if prop.validate(value):
-                self.__dict__[key] = value
+            if hasattr(prop, 'validate') and callable(prop.validate):
+                prop.validate(value)
+            super(StructuredNode, self).__setattr__(key, value)
 
     @property
     def properties(self):
@@ -167,23 +175,8 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                 and not isinstance(value, RelationshipManager)\
                 and value != None:
                     props[key] = value
-        return props
 
-    def _validate_args(self, props):
-        """ Validate dict and set node properties """
-        for cls in self.__class__.mro():
-            if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
-                break
-            for key, node_property in cls.__dict__.iteritems():
-                if isinstance(node_property, types.FunctionType):
-                    continue
-                if key in props:
-                    value = props[key]
-                else:
-                    value = None
-                if isinstance(node_property, Property):
-                    node_property.validate(value)
-                self.__dict__[key] = value
+        return props
 
     def _create(self, props):
         relation_name = self._type.upper()
@@ -260,12 +253,6 @@ class ReadOnlyNode(StructuredNode):
 
     def save(self):
         raise ReadOnlyError("You cannot save read-only nodes")
-
-    def __setattr__(self, key, value):
-        if key.startswith('_'):
-            self.__dict__[key] = value
-            return
-        raise ReadOnlyError("You cannot save properties on a read-only node")
 
 
 class ReadOnlyError(Exception):

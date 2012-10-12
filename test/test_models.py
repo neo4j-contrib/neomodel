@@ -11,7 +11,7 @@ class User(StructuredNode):
         return self.email
 
     @email_alias.setter
-    def email_alias_set(self, value):
+    def email_alias(self, value):
         self.email = value
 
 
@@ -62,6 +62,21 @@ def test_update():
     assert jim.email == 'jim2000@test.com'
 
 
+def test_save_through_magic_property():
+    user = User(email_alias='blah@test.com', age=8).save()
+    assert user.email_alias == 'blah@test.com'
+    user = User.index.get(email='blah@test.com')
+    assert user.email == 'blah@test.com'
+    assert user.email_alias == 'blah@test.com'
+
+    user1 = User(email='blah1@test.com', age=8).save()
+    assert user1.email_alias == 'blah1@test.com'
+    user1.email_alias = 'blah2@test.com'
+    assert user1.save()
+    user2 = User.index.get(email='blah2@test.com')
+    assert user2
+
+
 def test_readonly_definition():
     # create user
     class MyNormalUser(StructuredNode):
@@ -76,13 +91,6 @@ def test_readonly_definition():
     # reload as readonly from same index
     bob = MyReadOnlyUser.index.get(name='bob')
     assert bob.name == 'bob'
-
-    try:
-        bob.name = 'tim'
-    except Exception, e:
-        assert e.__class__.__name__ == 'ReadOnlyError'
-    else:
-        assert False
 
     try:
         bob.delete()
