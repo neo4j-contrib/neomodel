@@ -32,7 +32,7 @@ def connection_adapter():
     try:
         return connection_adapter.db
     except AttributeError:
-        url = os.environ.get('NEO4J_URL', 'http://localhost:7474/db/data/')
+        url = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
         graph_db = neo4j.GraphDatabaseService(url)
         connection_adapter.db = NeoDB(graph_db)
         return connection_adapter.db
