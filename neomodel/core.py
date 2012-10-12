@@ -36,7 +36,7 @@ def connection_adapter():
         url = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 
         u = urlparse(url)
-        if u.netloc.index('@'):
+        if u.netloc.find('@') > -1:
             credentials, host = u.netloc.split('@')
             user, password, = credentials.split(':')
             neo4j.authenticate(host, user, password)
