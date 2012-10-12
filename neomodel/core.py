@@ -252,13 +252,13 @@ class CategoryInstanceRM(RelationshipManager):
 
 
 class ReadOnlyNode(StructuredNode):
-    def delete():
+    def delete(self):
         raise ReadOnlyError("You cannot delete read-only nodes")
 
-    def update():
+    def update(self):
         raise ReadOnlyError("You cannot update read-only nodes")
 
-    def save():
+    def save(self):
         raise ReadOnlyError("You cannot save read-only nodes")
 
     def __setattr__(self, key, value):

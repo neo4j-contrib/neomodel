@@ -6,6 +6,14 @@ class User(StructuredNode):
     email = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 
+    @property
+    def email_alias(self):
+        return self.email
+
+    @email_alias.setter
+    def email_alias_set(self, value):
+        self.email = value
+
 
 def setup():
     connection_adapter().client.clear()
@@ -54,19 +62,19 @@ def test_update():
     assert jim.email == 'jim2000@test.com'
 
 
-def rest_readonly_definition():
+def test_readonly_definition():
     # create user
     class MyNormalUser(StructuredNode):
         _index_name = 'readonly_test'
-        name = StringProperty()
+        name = StringProperty(index=True)
     MyNormalUser(name='bob').save()
 
     class MyReadOnlyUser(ReadOnlyNode):
         _index_name = 'readonly_test'
-        name = StringProperty()
+        name = StringProperty(index=True)
 
     # reload as readonly from same index
-    bob = MyReadOnlyUser.index(name='bob')
+    bob = MyReadOnlyUser.index.get(name='bob')
     assert bob.name == 'bob'
 
     try:
