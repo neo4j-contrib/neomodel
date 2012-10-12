@@ -7,6 +7,7 @@ from .exception import NotUnique, DoesNotExist
 from lucenequerybuilder import Q
 import types
 import sys
+from urlparse import urlparse
 import os
 
 
@@ -33,6 +34,14 @@ def connection_adapter():
         return connection_adapter.db
     except AttributeError:
         url = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
+
+        u = urlparse(url)
+        if u.netloc.index('@'):
+            credentials, host = u.netloc.split('@')
+            user, password, = credentials.split(':')
+            neo4j.authenticate(host, user, password)
+            url = ''.join([u.scheme, '://', host, u.path, u.query])
+
         graph_db = neo4j.GraphDatabaseService(url)
         connection_adapter.db = NeoDB(graph_db)
         return connection_adapter.db
