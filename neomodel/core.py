@@ -246,10 +246,10 @@ class CategoryNode(RelationshipInstaller, CypherMixin):
 
 
 class CategoryInstanceRM(RelationshipManager):
-    def connect(self):
+    def connect(self, node):
         raise Exception("connect not available from category node")
 
-    def disconnect(self):
+    def disconnect(self, node):
         raise Exception("disconnect not available from category node")
 
 
