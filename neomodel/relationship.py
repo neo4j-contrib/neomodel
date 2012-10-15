@@ -43,7 +43,7 @@ class RelationshipManager(object):
 
     @property
     def client(self):
-        return self.origin._db.client
+        return self.origin.client
 
     def all(self):
         if hasattr(self, 'node_classes'):

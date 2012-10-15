@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty
-from neomodel.core import connection_adapter
 
 
 class Country(StructuredNode):
@@ -27,10 +26,6 @@ class SuperHero(Person):
 
 Person.outgoing('IS_FROM', 'is_from', to=Country)
 Country.incoming('IS_FROM', 'inhabitant', to=Person)
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_bidirectional_relationships():

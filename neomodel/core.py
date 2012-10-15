@@ -1,8 +1,7 @@
 from py2neo import neo4j, cypher
 from .indexbatch import IndexBatch
-from .properties import StringProperty, Property
-from .relationship import (RelationshipInstaller, RelationshipManager,
-        RelationshipDefinition, OUTGOING)
+from .properties import Property
+from .relationship import RelationshipInstaller, RelationshipManager, OUTGOING
 from .exception import NotUnique, DoesNotExist
 from lucenequerybuilder import Q
 import types
@@ -10,30 +9,14 @@ import sys
 from urlparse import urlparse
 import os
 
-
-class NeoDB(object):
-    """ Manage and cache connections to neo4j """
-
-    def __init__(self, graph_db):
-        self.client = graph_db
-        self.category_cache = {}
-
-    def category(self, name):
-        """ Retrieve category node by name """
-        category_index = self.client.get_or_create_index(neo4j.Node, 'Category')
-
-        if name not in self.category_cache:
-            category = category_index.get_or_create('category', name, {'category': name})
-            self.category_cache[name] = category
-
-        return self.category_cache[name]
+DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 
 
-def connection_adapter():
+def connection():
     try:
-        return connection_adapter.db
+        return connection.db
     except AttributeError:
-        url = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
+        url = DATABASE_URL
 
         u = urlparse(url)
         if u.netloc.find('@') > -1:
@@ -42,24 +25,20 @@ def connection_adapter():
             neo4j.authenticate(host, user, password)
             url = ''.join([u.scheme, '://', host, u.path, u.query])
 
-        graph_db = neo4j.GraphDatabaseService(url)
-        connection_adapter.db = NeoDB(graph_db)
-        return connection_adapter.db
+        connection.db = neo4j.GraphDatabaseService(url)
+        return connection.db
 
 
-class NodeIndexManager(object):
-    def __init__(self, node_class, index_name, client):
+class Client(object):
+    @property
+    def client(self):
+        return connection()
+
+
+class NodeIndexManager(Client):
+    def __init__(self, node_class, index_name):
         self.node_class = node_class
         self.name = index_name
-        self._cached_index = None
-        self.client = client
-
-    @property
-    def _index(self):
-        if not self._cached_index:
-            self._cached_index = self.client.get_or_create_index(neo4j.Node, self.name)
-
-        return self._cached_index
 
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
@@ -94,29 +73,28 @@ class NodeIndexManager(object):
         else:
             raise DoesNotExist("Can't find node in index matching query")
 
+    @property
+    def _index(self):
+        return self.client.get_or_create_index(neo4j.Node, self.name)
+
 
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ != 'StructuredNode' or cls.__name__ != 'ReadOnlyNode':
-            db = connection_adapter()
             if '_index_name' in dct:
                 name = dct['_index_name']
-            cls.index = NodeIndexManager(cls, name, db.client)
+            cls.index = NodeIndexManager(cls, name)
         return cls
 
 
-class CypherMixin(object):
+class CypherMixin(Client):
     def cypher(self, query, params=None):
         return cypher.execute(self.client, query, params)
 
     def start_cypher(self, query, params=None):
         start = "START a=node({:d}) ".format(self._node.id)
         return self.cypher(start + query, params)
-
-    @property
-    def client(self):
-        return self._db.client
 
 
 class StructuredNode(RelationshipInstaller, CypherMixin):
@@ -136,14 +114,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
 
     @classmethod
     def category(cls):
-        if not hasattr(cls, '_category'):
-            node = connection_adapter().category(cls.__name__)
-            rel = RelationshipDefinition(cls.__name__.upper(), cls, OUTGOING, CategoryInstanceRM)
-            category_node_class = type(cls.__name__ + 'CategoryNode', (CategoryNode,),
-                    dict(instance=rel))
-            cls._category = category_node_class(node)
-            cls._category._node = node
-        return cls._category
+        return category_factory(cls)
 
     def __init__(self, *args, **kwargs):
         for key, value in kwargs.iteritems():
@@ -156,9 +127,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
             if issubclass(prop.__class__, Property) and not key in self.__dict__:
                 super(StructuredNode, self).__setattr__(key, None)
         self._node = None
-        self._db = connection_adapter()
         self._type = self.__class__.__name__
-        self._index = self.client.get_or_create_index(neo4j.Node, self._type)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
@@ -188,11 +157,11 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         return props
 
     def _create(self, props):
-        relation_name = self._type.upper()
+        relation_name = self.__class__.__name__.upper()
         self._node, rel = self.client.create(props,
-                (self._db.category(self._type), relation_name, 0))
+                (category_factory(self.__class__)._node, relation_name, 0))
         if not self._node:
-            Exception('Failed to create new ' + self._type)
+            Exception('Failed to create new ' + self.__class__.name)
 
         # Update indexes
         try:
@@ -220,7 +189,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
     def save(self):
         if self._node:
             self._node.set_properties(self.properties)
-            self._index.remove(entity=self._node)
+            self.__class__.index._index.remove(entity=self._node)
             self._update_index(self.properties)
         else:
             self._create(self.properties)
@@ -237,20 +206,36 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         return True
 
 
-class CategoryNode(RelationshipInstaller, CypherMixin):
-    category = StringProperty()
-
-    def __init__(self, *args, **kwargs):
-        self._db = connection_adapter()
+class CategoryNode(CypherMixin):
+    def __init__(self, name, *args, **kwargs):
+        self.name = name
         super(CategoryNode, self).__init__(*args, **kwargs)
 
 
-class CategoryInstanceRM(RelationshipManager):
+class InstanceManager(RelationshipManager):
+    """Manage 'instance' rel of category nodes"""
     def connect(self, node):
         raise Exception("connect not available from category node")
 
     def disconnect(self, node):
         raise Exception("disconnect not available from category node")
+
+
+def category_factory(instance_cls):
+        """ Retrieve category node by name """
+        name = instance_cls.__name__
+
+        if not hasattr(category_factory, 'cache'):
+            category_factory.cache = {}
+
+        if not name in category_factory.cache:
+            category_index = connection().get_or_create_index(neo4j.Node, 'Category')
+            node = category_index.get_or_create('category', name, {'category': name})
+            category = CategoryNode(name)
+            category._node = node
+            category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
+            category_factory.cache[name] = category
+        return category_factory.cache[name]
 
 
 class ReadOnlyNode(StructuredNode):

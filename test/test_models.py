@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, ReadOnlyNode
-from neomodel.core import connection_adapter
 
 
 class User(StructuredNode):
@@ -13,10 +12,6 @@ class User(StructuredNode):
     @email_alias.setter
     def email_alias(self, value):
         self.email = value
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_get():
@@ -112,7 +107,3 @@ def test_readonly_definition():
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
-
-
-def teardown():
-    connection_adapter().client.clear()
