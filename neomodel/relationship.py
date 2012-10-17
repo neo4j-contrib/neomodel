@@ -22,7 +22,7 @@ def _properties(ident, **kwargs):
 
 def _wrap(unwrapped, props, cls):
         nodes = []
-        for node, properties in dict(zip(unwrapped, props)).iteritems():
+        for node, properties in zip(unwrapped, props):
             wrapped_node = cls(**(properties))
             wrapped_node._node = node
             nodes.append(wrapped_node)
