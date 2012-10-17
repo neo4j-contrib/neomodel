@@ -161,7 +161,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         self._node, rel = self.client.create(props,
                 (category_factory(self.__class__)._node, relation_name, 0))
         if not self._node:
-            Exception('Failed to create new ' + self.__class__.name)
+            Exception('Failed to create new ' + self.__class__.__name__)
 
         # Update indexes
         try:
@@ -183,8 +183,9 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                         batch.add_if_none(key, value, self._node)
                     elif node_property.index:
                         batch.add(key, value, self._node)
-            if 200 in [r.status for r in batch.submit()]:
-                raise NotUnique('A supplied value is not unique' + r.uri)
+            for r in batch.submit():
+                if r.status == 200:
+                    raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
         if self._node:
