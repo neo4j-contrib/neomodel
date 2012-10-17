@@ -29,7 +29,8 @@ Or with authentication::
 
 Node definitions::
 
-    from neomodel.core import StructuredNode, StringProperty, IntegerProperty
+    from neomodel.core import StructuredNode
+    from neomodel.properties import StringProperty, IntegerProperty
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)
