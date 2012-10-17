@@ -71,7 +71,7 @@ class NodeIndexManager(Client):
         elif len(nodes) > 1:
             raise Exception("Multiple nodes returned from query, expected one")
         else:
-            raise DoesNotExist("Can't find node in index matching query")
+            raise self.node_class.DoesNotExist("Can't find node in index matching query")
 
     @property
     def _index(self):
@@ -80,8 +80,10 @@ class NodeIndexManager(Client):
 
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
+        exc = type('DoesNotExist', (DoesNotExist,), {})
+        dct.update({exc.__name__: exc})
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
-        if cls.__name__ != 'StructuredNode' or cls.__name__ != 'ReadOnlyNode':
+        if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
             if '_index_name' in dct:
                 name = dct['_index_name']
             cls.index = NodeIndexManager(cls, name)
