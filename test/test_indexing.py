@@ -1,19 +1,14 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, DoesNotExist
-from neomodel.core import connection_adapter
 from lucenequerybuilder import Q
 
 
 class Human(StructuredNode):
-    name = StringProperty(unique_index=True, optional=True)
-    age = IntegerProperty(index=True, optional=True)
+    name = StringProperty(unique_index=True)
+    age = IntegerProperty(index=True)
 
 
 class SuperHuman(Human):
     power = StringProperty(index=True)
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_optional_properties_dont_get_indexed():

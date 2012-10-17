@@ -1,14 +1,27 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, ReadOnlyNode
-from neomodel.core import connection_adapter
+from neomodel.exception import RequiredProperty
 
 
 class User(StructuredNode):
-    email = StringProperty(unique_index=True)
+    email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
+    @property
+    def email_alias(self):
+        return self.email
 
-def setup():
-    connection_adapter().client.clear()
+    @email_alias.setter
+    def email_alias(self, value):
+        self.email = value
+
+
+def test_required():
+    try:
+        User(age=3).save()
+    except RequiredProperty:
+        assert True
+    else:
+        assert False
 
 
 def test_get():
@@ -54,27 +67,35 @@ def test_update():
     assert jim.email == 'jim2000@test.com'
 
 
-def rest_readonly_definition():
+def test_save_through_magic_property():
+    user = User(email_alias='blah@test.com', age=8).save()
+    assert user.email_alias == 'blah@test.com'
+    user = User.index.get(email='blah@test.com')
+    assert user.email == 'blah@test.com'
+    assert user.email_alias == 'blah@test.com'
+
+    user1 = User(email='blah1@test.com', age=8).save()
+    assert user1.email_alias == 'blah1@test.com'
+    user1.email_alias = 'blah2@test.com'
+    assert user1.save()
+    user2 = User.index.get(email='blah2@test.com')
+    assert user2
+
+
+def test_readonly_definition():
     # create user
     class MyNormalUser(StructuredNode):
         _index_name = 'readonly_test'
-        name = StringProperty()
+        name = StringProperty(index=True)
     MyNormalUser(name='bob').save()
 
     class MyReadOnlyUser(ReadOnlyNode):
         _index_name = 'readonly_test'
-        name = StringProperty()
+        name = StringProperty(index=True)
 
     # reload as readonly from same index
-    bob = MyReadOnlyUser.index(name='bob')
+    bob = MyReadOnlyUser.index.get(name='bob')
     assert bob.name == 'bob'
-
-    try:
-        bob.name = 'tim'
-    except Exception, e:
-        assert e.__class__.__name__ == 'ReadOnlyError'
-    else:
-        assert False
 
     try:
         bob.delete()
@@ -96,7 +117,3 @@ def rest_readonly_definition():
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
-
-
-def teardown():
-    connection_adapter().client.clear()

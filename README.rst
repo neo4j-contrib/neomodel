@@ -21,7 +21,11 @@ Introduction
 
 Connection::
 
-    export NEO4J_URL=http://localhost:7474/db/data/
+    export NEO4J_REST_URL=http://localhost:7474/db/data/
+
+Or with authentication::
+
+    export NEO4J_REST_URL=http://user:password@localhost:7474/db/data/
 
 Node definitions::
 

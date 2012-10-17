@@ -10,7 +10,7 @@ class Property(object):
         self.index = index
 
     def validate(self, value):
-        if value == None and self.required:
+        if value is None and self.required:
             raise RequiredProperty()
 
     @property
@@ -20,8 +20,7 @@ class Property(object):
 
 class StringProperty(Property):
     def validate(self, value):
-        super(StringProperty, self).validate(value)
-        if isinstance(value, (str, unicode)):
+        if value is None or isinstance(value, (str, unicode)):
             return True
         else:
             raise TypeError("Object of type str expected got " + str(value))
@@ -30,7 +29,7 @@ class StringProperty(Property):
 class IntegerProperty(Property):
     def validate(self, value):
         super(IntegerProperty, self).validate(value)
-        if isinstance(value, (int, long)):
+        if value is None or isinstance(value, (int, long)):
             return True
         else:
             raise TypeError("Object of type int or long expected")
@@ -39,7 +38,7 @@ class IntegerProperty(Property):
 class FloatProperty(Property):
     def validate(self, value):
         super(FloatProperty, self).validate(value)
-        if isinstance(value, (float)):
+        if value is None or isinstance(value, (float)):
             return True
         else:
             raise TypeError("Object of type int or long expected")
@@ -48,7 +47,7 @@ class FloatProperty(Property):
 class BoolProperty(Property):
     def validate(self, value):
         super(BoolProperty, self).validate(value)
-        if isinstance(value, (int, long, bool)):
+        if value is None or isinstance(value, (int, long, bool)):
             return True
         else:
             raise TypeError("Object of type int or long expected")

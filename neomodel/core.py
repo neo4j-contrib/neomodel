@@ -1,56 +1,44 @@
 from py2neo import neo4j, cypher
 from .indexbatch import IndexBatch
-from .properties import StringProperty, Property
-from .relationship import (RelationshipInstaller, RelationshipManager,
-        RelationshipDefinition, OUTGOING)
-from .exception import NotUnique, DoesNotExist
+from .properties import Property
+from .relationship import RelationshipInstaller, RelationshipManager, OUTGOING
+from .exception import NotUnique, DoesNotExist, RequiredProperty
 from lucenequerybuilder import Q
 import types
 import sys
+from urlparse import urlparse
 import os
 
-
-class NeoDB(object):
-    """ Manage and cache connections to neo4j """
-
-    def __init__(self, graph_db):
-        self.client = graph_db
-        self.category_cache = {}
-
-    def category(self, name):
-        """ Retrieve category node by name """
-        category_index = self.client.get_or_create_index(neo4j.Node, 'Category')
-
-        if name not in self.category_cache:
-            category = category_index.get_or_create('category', name, {'category': name})
-            self.category_cache[name] = category
-
-        return self.category_cache[name]
+DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 
 
-def connection_adapter():
+def connection():
     try:
-        return connection_adapter.db
+        return connection.db
     except AttributeError:
-        url = os.environ.get('NEO4J_URL', 'http://localhost:7474/db/data/')
-        graph_db = neo4j.GraphDatabaseService(url)
-        connection_adapter.db = NeoDB(graph_db)
-        return connection_adapter.db
+        url = DATABASE_URL
+
+        u = urlparse(url)
+        if u.netloc.find('@') > -1:
+            credentials, host = u.netloc.split('@')
+            user, password, = credentials.split(':')
+            neo4j.authenticate(host, user, password)
+            url = ''.join([u.scheme, '://', host, u.path, u.query])
+
+        connection.db = neo4j.GraphDatabaseService(url)
+        return connection.db
 
 
-class NodeIndexManager(object):
-    def __init__(self, node_class, index_name, client):
+class Client(object):
+    @property
+    def client(self):
+        return connection()
+
+
+class NodeIndexManager(Client):
+    def __init__(self, node_class, index_name):
         self.node_class = node_class
         self.name = index_name
-        self._cached_index = None
-        self.client = client
-
-    @property
-    def _index(self):
-        if not self._cached_index:
-            self._cached_index = self.client.get_or_create_index(neo4j.Node, self.name)
-
-        return self._cached_index
 
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
@@ -85,19 +73,22 @@ class NodeIndexManager(object):
         else:
             raise DoesNotExist("Can't find node in index matching query")
 
+    @property
+    def _index(self):
+        return self.client.get_or_create_index(neo4j.Node, self.name)
+
 
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ != 'StructuredNode' or cls.__name__ != 'ReadOnlyNode':
-            db = connection_adapter()
             if '_index_name' in dct:
                 name = dct['_index_name']
-            cls.index = NodeIndexManager(cls, name, db.client)
+            cls.index = NodeIndexManager(cls, name)
         return cls
 
 
-class CypherMixin(object):
+class CypherMixin(Client):
     def cypher(self, query, params=None):
         return cypher.execute(self.client, query, params)
 
@@ -123,39 +114,36 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
 
     @classmethod
     def category(cls):
-        if not hasattr(cls, '_category'):
-            node = connection_adapter().category(cls.__name__)
-            rel = RelationshipDefinition(cls.__name__.upper(), cls, OUTGOING, CategoryInstanceRM)
-            category_node_class = type(cls.__name__ + 'CategoryNode', (CategoryNode,),
-                    dict(instance=rel))
-            cls._category = category_node_class(node)
-            cls._category._node = node
-        return cls._category
+        return category_factory(cls)
 
     def __init__(self, *args, **kwargs):
-        self._validate_args(kwargs)
+        for key, value in kwargs.iteritems():
+            setattr(self, key, value)
+
+        # set missing props to none.
+        for key, prop in self.__class__.__dict__.iteritems():
+            if key.startswith('_'):
+                continue
+            if issubclass(prop.__class__, Property) and not key in self.__dict__:
+                if prop.required:
+                    raise RequiredProperty(key)
+                else:
+                    super(StructuredNode, self).__setattr__(key, None)
         self._node = None
-        self._db = connection_adapter()
-        self._type = self.__class__.__name__
-        self._index = self.client.get_or_create_index(neo4j.Node, self._type)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
-            self.__dict__[key] = value
-            return
+            return super(StructuredNode, self).__setattr__(key, value)
         try:
             prop = self.__class__.get_property(key)
         except NoSuchProperty:
-            self.__dict__[key] = value
+            super(StructuredNode, self).__setattr__(key, value)
         else:
-            if prop.validate(value):
-                self.__dict__[key] = value
-
-    @property
-    def client(self):
-        return self._db.client
+            if hasattr(prop, 'validate') and callable(prop.validate):
+                prop.validate(value)
+            super(StructuredNode, self).__setattr__(key, value)
 
     @property
     def properties(self):
@@ -167,30 +155,15 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                 and not isinstance(value, RelationshipManager)\
                 and value != None:
                     props[key] = value
+
         return props
 
-    def _validate_args(self, props):
-        """ Validate dict and set node properties """
-        for cls in self.__class__.mro():
-            if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
-                break
-            for key, node_property in cls.__dict__.iteritems():
-                if isinstance(node_property, types.FunctionType):
-                    continue
-                if key in props:
-                    value = props[key]
-                else:
-                    value = None
-                if isinstance(node_property, Property):
-                    node_property.validate(value)
-                self.__dict__[key] = value
-
     def _create(self, props):
-        relation_name = self._type.upper()
+        relation_name = self.__class__.__name__.upper()
         self._node, rel = self.client.create(props,
-                (self._db.category(self._type), relation_name, 0))
+                (category_factory(self.__class__)._node, relation_name, 0))
         if not self._node:
-            Exception('Failed to create new ' + self._type)
+            Exception('Failed to create new ' + self.__class__.__name__)
 
         # Update indexes
         try:
@@ -212,13 +185,14 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                         batch.add_if_none(key, value, self._node)
                     elif node_property.index:
                         batch.add(key, value, self._node)
-            if 200 in [r.status for r in batch.submit()]:
-                raise NotUnique('A supplied value is not unique' + r.uri)
+            for r in batch.submit():
+                if r.status == 200:
+                    raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
         if self._node:
             self._node.set_properties(self.properties)
-            self._index.remove(entity=self._node)
+            self.__class__.index._index.remove(entity=self._node)
             self._update_index(self.properties)
         else:
             self._create(self.properties)
@@ -235,37 +209,47 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         return True
 
 
-class CategoryNode(RelationshipInstaller):
-    category = StringProperty()
-
-    def __init__(self, *args, **kwargs):
-        self._db = connection_adapter()
+class CategoryNode(CypherMixin):
+    def __init__(self, name, *args, **kwargs):
+        self.name = name
         super(CategoryNode, self).__init__(*args, **kwargs)
 
 
-class CategoryInstanceRM(RelationshipManager):
-    def connect(self):
+class InstanceManager(RelationshipManager):
+    """Manage 'instance' rel of category nodes"""
+    def connect(self, node):
         raise Exception("connect not available from category node")
 
-    def disconnect(self):
+    def disconnect(self, node):
         raise Exception("disconnect not available from category node")
 
 
+def category_factory(instance_cls):
+        """ Retrieve category node by name """
+        name = instance_cls.__name__
+
+        if not hasattr(category_factory, 'cache'):
+            category_factory.cache = {}
+
+        if not name in category_factory.cache:
+            category_index = connection().get_or_create_index(neo4j.Node, 'Category')
+            node = category_index.get_or_create('category', name, {'category': name})
+            category = CategoryNode(name)
+            category._node = node
+            category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
+            category_factory.cache[name] = category
+        return category_factory.cache[name]
+
+
 class ReadOnlyNode(StructuredNode):
-    def delete():
+    def delete(self):
         raise ReadOnlyError("You cannot delete read-only nodes")
 
-    def update():
+    def update(self):
         raise ReadOnlyError("You cannot update read-only nodes")
 
-    def save():
+    def save(self):
         raise ReadOnlyError("You cannot save read-only nodes")
-
-    def __setattr__(self, key, value):
-        if key.startswith('_'):
-            self.__dict__[key] = value
-            return
-        raise ReadOnlyError("You cannot save properties on a read-only node")
 
 
 class ReadOnlyError(Exception):
