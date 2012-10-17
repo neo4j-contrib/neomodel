@@ -3,8 +3,8 @@ from lucenequerybuilder import Q
 
 
 class Human(StructuredNode):
-    name = StringProperty(unique_index=True, optional=True)
-    age = IntegerProperty(index=True, optional=True)
+    name = StringProperty(unique_index=True)
+    age = IntegerProperty(index=True)
 
 
 class SuperHuman(Human):

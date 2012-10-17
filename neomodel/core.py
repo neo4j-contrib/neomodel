@@ -2,7 +2,7 @@ from py2neo import neo4j, cypher
 from .indexbatch import IndexBatch
 from .properties import Property
 from .relationship import RelationshipInstaller, RelationshipManager, OUTGOING
-from .exception import NotUnique, DoesNotExist
+from .exception import NotUnique, DoesNotExist, RequiredProperty
 from lucenequerybuilder import Q
 import types
 import sys
@@ -126,9 +126,11 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
             if key.startswith('_'):
                 continue
             if issubclass(prop.__class__, Property) and not key in self.__dict__:
-                super(StructuredNode, self).__setattr__(key, None)
+                if prop.required:
+                    raise RequiredProperty(key)
+                else:
+                    super(StructuredNode, self).__setattr__(key, None)
         self._node = None
-        self._type = self.__class__.__name__
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 

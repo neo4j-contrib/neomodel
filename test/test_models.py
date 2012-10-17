@@ -1,8 +1,9 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, ReadOnlyNode
+from neomodel.exception import RequiredProperty
 
 
 class User(StructuredNode):
-    email = StringProperty(unique_index=True)
+    email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
     @property
@@ -12,6 +13,15 @@ class User(StructuredNode):
     @email_alias.setter
     def email_alias(self, value):
         self.email = value
+
+
+def test_required():
+    try:
+        User(age=3).save()
+    except RequiredProperty:
+        assert True
+    else:
+        assert False
 
 
 def test_get():

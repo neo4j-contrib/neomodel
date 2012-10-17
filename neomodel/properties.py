@@ -1,24 +1,26 @@
+from .exception import RequiredProperty
+
+
 class Property(object):
-    def __init__(self, unique_index=False, index=False, optional=False):
-        self.optional = optional
+    def __init__(self, unique_index=False, index=False, required=False):
+        self.required = required
         if unique_index and index:
             raise Exception("unique_index and index are mutually exclusive")
         self.unique_index = unique_index
         self.index = index
 
+    def validate(self, value):
+        if value is None and self.required:
+            raise RequiredProperty()
+
     @property
     def is_indexed(self):
         return self.unique_index or self.index
 
-    def validate(self, value):
-        pass
-
 
 class StringProperty(Property):
     def validate(self, value):
-        if value is None and self.optional:
-            return True
-        if isinstance(value, (str, unicode)):
+        if value is None or isinstance(value, (str, unicode)):
             return True
         else:
             raise TypeError("Object of type str expected got " + str(value))
@@ -26,9 +28,8 @@ class StringProperty(Property):
 
 class IntegerProperty(Property):
     def validate(self, value):
-        if value is None and self.optional:
-            return True
-        if isinstance(value, (int, long)):
+        super(IntegerProperty, self).validate(value)
+        if value is None or isinstance(value, (int, long)):
             return True
         else:
             raise TypeError("Object of type int or long expected")
@@ -36,9 +37,8 @@ class IntegerProperty(Property):
 
 class FloatProperty(Property):
     def validate(self, value):
-        if value is None and self.optional:
-            return True
-        if isinstance(value, (float)):
+        super(FloatProperty, self).validate(value)
+        if value is None or isinstance(value, (float)):
             return True
         else:
             raise TypeError("Object of type int or long expected")
@@ -46,9 +46,8 @@ class FloatProperty(Property):
 
 class BoolProperty(Property):
     def validate(self, value):
-        if value is None and self.optional:
-            return True
-        if isinstance(value, (int, long)):
+        super(BoolProperty, self).validate(value)
+        if value is None or isinstance(value, (int, long, bool)):
             return True
         else:
             raise TypeError("Object of type int or long expected")
