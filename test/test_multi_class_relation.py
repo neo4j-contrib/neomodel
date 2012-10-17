@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty
-from neomodel.core import connection_adapter
 
 
 class Humanbeing(StructuredNode):
@@ -15,10 +14,6 @@ class Nationality(StructuredNode):
 
 
 Humanbeing.outgoing('HAS_A', 'has_a', to=[Location, Nationality])
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_multi_class_rels():

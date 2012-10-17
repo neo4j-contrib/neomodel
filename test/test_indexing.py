@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, DoesNotExist
-from neomodel.core import connection_adapter
 from lucenequerybuilder import Q
 
 
@@ -10,10 +9,6 @@ class Human(StructuredNode):
 
 class SuperHuman(Human):
     power = StringProperty(index=True)
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_optional_properties_dont_get_indexed():

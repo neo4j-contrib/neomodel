@@ -1,7 +1,6 @@
 from neomodel import (StructuredNode, StringProperty, IntegerProperty,
          AttemptedCardinalityViolation, CardinalityViolation,
          OneOrMore, ZeroOrMore, ZeroOrOne, One)
-from neomodel.core import connection_adapter
 
 
 class HairDryer(StructuredNode):
@@ -22,10 +21,6 @@ class Monkey(StructuredNode):
 
 class ToothBrush(StructuredNode):
     name = StringProperty()
-
-
-def setup():
-    connection_adapter().client.clear()
 
 
 def test_cardinality_zero_or_more():
