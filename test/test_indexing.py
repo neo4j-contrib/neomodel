@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty, DoesNotExist
+from neomodel import StructuredNode, StringProperty, IntegerProperty
 from lucenequerybuilder import Q
 
 
@@ -50,7 +50,7 @@ def test_abstract_class_index():
 def test_does_not_exist():
     try:
         Human.index.get(name='XXXX')
-    except DoesNotExist:
+    except Human.DoesNotExist:
         assert True
     else:
         assert False
