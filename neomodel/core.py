@@ -80,8 +80,7 @@ class NodeIndexManager(Client):
 
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
-        exc = type('DoesNotExist', (DoesNotExist,), {})
-        dct.update({exc.__name__: exc})
+        dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
         if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
             if '_index_name' in dct:

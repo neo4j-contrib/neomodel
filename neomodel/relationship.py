@@ -1,4 +1,5 @@
 from py2neo import neo4j
+from .exception import DoesNotExist
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
@@ -84,10 +85,7 @@ class RelationshipManager(object):
         if len(result) > 1:
             raise Exception("Multiple items returned")
         if not result:
-            if hasattr(self, 'node_class'):
-                raise self.node_class.DoesNotExist
-            else:
-                raise self.node_classes[0].DoesNotExist
+            raise DoesNotExist("No items exist for the specified arguments")
 
     def search(self, **kwargs):
         if not kwargs:
