@@ -29,10 +29,10 @@ Or with authentication::
 
 Node definitions::
 
-    from neomodel import StructuredNode, StringProperty, IntegerProperty
+    from neomodel.core import StructuredNode, StringProperty, IntegerProperty
 
     class Country(StructuredNode):
-        code = StringProperty(unique_index=True)
+        code = StringProperty(unique_index=True, required=True)
 
 
     class Person(StructuredNode):
@@ -140,7 +140,7 @@ Read-only nodes
 
 If you have existing nodes you want to protect use the read-only base class::
 
-    from neomodel import ReadOnlyNode, ReadOnlyError
+    from neomodel.core import ReadOnlyNode, ReadOnlyError
 
     class ImmortalBeing(ReadOnlyNode):
         name = StringProperty()
