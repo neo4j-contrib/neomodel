@@ -10,10 +10,13 @@ class Property(object):
     def is_indexed(self):
         return self.unique_index or self.index
 
+    def validate(self, value):
+        pass
+
 
 class StringProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
+        if value is None and self.optional:
             return True
         if isinstance(value, (str, unicode)):
             return True
@@ -23,7 +26,7 @@ class StringProperty(Property):
 
 class IntegerProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
+        if value is None and self.optional:
             return True
         if isinstance(value, (int, long)):
             return True
@@ -33,7 +36,7 @@ class IntegerProperty(Property):
 
 class FloatProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
+        if value is None and self.optional:
             return True
         if isinstance(value, (float)):
             return True
@@ -43,7 +46,7 @@ class FloatProperty(Property):
 
 class BoolProperty(Property):
     def validate(self, value):
-        if value == None and self.optional:
+        if value is None and self.optional:
             return True
         if isinstance(value, (int, long)):
             return True
