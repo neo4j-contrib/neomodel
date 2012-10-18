@@ -1,5 +1,4 @@
-from py2neo import neo4j, cypher
-from .indexbatch import IndexBatch
+from py2neo import neo4j, cypher, rest
 from .properties import Property
 from .relationship import RelationshipInstaller, RelationshipManager, OUTGOING
 from .exception import NotUnique, DoesNotExist, RequiredProperty
@@ -178,17 +177,23 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
         for cls in self.__class__.mro():
             if cls.__name__ == 'StructuredNode' or cls.__name__ == 'ReadOnlyNode':
                 break
-            batch = IndexBatch(cls.index._index)
+            batch = neo4j.WriteBatch(self.client)
             for key, value in props.iteritems():
                 if key in cls.__dict__.keys():
                     node_property = cls.get_property(key)
                     if node_property.unique_index:
-                        batch.add_if_none(key, value, self._node)
+                        try:
+                            batch.add_indexed_node_or_fail(cls.index._index, key, value, self._node)
+                        except NotImplementedError:
+                            batch.get_or_add_indexed_node(cls.index._index, key, value, self._node)
                     elif node_property.index:
-                        batch.add(key, value, self._node)
-            for r in batch.submit():
-                if r.status == 200:
-                    raise NotUnique('A supplied value is not unique' + r.uri)
+                        batch.add_indexed_node(cls.index._index, key, value, self._node)
+            try:
+                for r in batch._submit():
+                    if r.status == 200:
+                        raise NotUnique('A supplied value is not unique' + r.uri)
+            except rest.ResourceConflict as r:
+                raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
         if self._node:
