@@ -44,9 +44,9 @@ class FloatProperty(Property):
             raise TypeError("Object of type int or long expected")
 
 
-class BoolProperty(Property):
+class BooleanProperty(Property):
     def validate(self, value):
-        super(BoolProperty, self).validate(value)
+        super(BooleanProperty, self).validate(value)
         if value is None or isinstance(value, (int, long, bool)):
             return True
         else:
