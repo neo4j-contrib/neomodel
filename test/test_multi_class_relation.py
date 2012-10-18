@@ -1,8 +1,9 @@
-from neomodel import StructuredNode, StringProperty
+from neomodel import StructuredNode, StringProperty, RelationshipTo
 
 
 class Humanbeing(StructuredNode):
     name = StringProperty(unique_index=True)
+    has_a = RelationshipTo(['Location', 'Nationality'], 'HAS_A')
 
 
 class Location(StructuredNode):
@@ -11,9 +12,6 @@ class Location(StructuredNode):
 
 class Nationality(StructuredNode):
     name = StringProperty(unique_index=True)
-
-
-Humanbeing.outgoing('HAS_A', 'has_a', to=[Location, Nationality])
 
 
 def test_multi_class_rels():

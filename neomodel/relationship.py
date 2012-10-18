@@ -1,4 +1,5 @@
 from py2neo import neo4j
+import sys
 from .exception import DoesNotExist
 
 OUTGOING = neo4j.Direction.OUTGOING
@@ -176,59 +177,59 @@ class RelationshipManager(object):
 
 
 class RelationshipDefinition(object):
-    def __init__(self, relation_type, cls, direction, manager=RelationshipManager):
+    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager):
+        self.module_name = sys._getframe(4).f_globals['__name__']
         self.relation_type = relation_type
-        self.node_class = cls
+        self.node_class = cls_name
         self.manager = manager
         self.direction = direction
+
+    def lookup_classes(self):
+        if isinstance(self.node_class, list):
+            return [self._lookup(name) for name in self.node_class]
+        else:
+            return self._lookup(self.node_class)
+
+    def _lookup(self, name):
+        if name.find('.') is -1:
+            module = self.module_name
+        else:
+            module, _, name = name.rpartition('.')
+
+        if not module in sys.modules:
+            __import__(module)
+        return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
         rel = self.manager(
                 self.direction,
                 self.relation_type,
-                self.node_class,
+                self.lookup_classes(),
                 origin
                )
         rel.name = name
         return rel
 
 
-class RelationshipInstaller(object):
-    """Replace relationship definitions with instances of RelationshipManager"""
+def _relate(cls_name, direction, rel_type, cardinality=None):
+    if not isinstance(cls_name, (str, unicode, list)):
+        raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
+    if not cardinality: # TODO do we need this? - avoid circular ref
+        from .cardinality import ZeroOrMore
+        cardinality = ZeroOrMore
+    return RelationshipDefinition(rel_type, cls_name, direction, cardinality)
 
-    def __init__(self, *args, **kwargs):
-        self._related = {}
 
-        for key, value in self.__class__.__dict__.iteritems():
-            if value.__class__ == RelationshipDefinition\
-                    or issubclass(value.__class__, RelationshipDefinition):
-                self._setup_relationship(key, value)
+def RelationshipTo(cls_name, rel_type, cardinality=None):
+    return _relate(cls_name, OUTGOING, rel_type, cardinality)
 
-    def _setup_relationship(self, rel_name, rel_object):
-        self.__dict__[rel_name] = rel_object.build_manager(self, rel_name)
 
-    @classmethod
-    def outgoing(cls, relation, alias, to=None, cardinality=None):
-        cls._relate(alias, (OUTGOING, relation), to, cardinality)
+def RelationshipFrom(cls_name, rel_type, cardinality=None):
+    return _relate(cls_name, INCOMING, rel_type, cardinality)
 
-    @classmethod
-    def incoming(cls, relation, alias, to=None, cardinality=None):
-        cls._relate(alias, (INCOMING, relation), to, cardinality)
 
-    @classmethod
-    def either(cls, relation, alias, to=None, cardinality=None):
-        cls._relate(alias, (EITHER, relation), to, cardinality)
-
-    @classmethod
-    def _relate(cls, manager_property, relation, to=None, cardinality=None):
-        if not cardinality:
-            from .cardinality import ZeroOrMore
-            cardinality = ZeroOrMore
-        direction, rel_type = relation
-        if hasattr(cls, manager_property):
-            raise Exception(cls.__name__ + " already has attribute " + manager_property)
-        relationship = RelationshipDefinition(rel_type, to, direction, cardinality)
-        setattr(cls, manager_property, relationship)
+def Relationship(cls_name, rel_type, cardinality=None):
+    return _relate(cls_name, EITHER, rel_type, cardinality)
 
 
 class NotConnected(Exception):

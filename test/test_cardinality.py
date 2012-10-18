@@ -1,5 +1,5 @@
 from neomodel import (StructuredNode, StringProperty, IntegerProperty,
-         AttemptedCardinalityViolation, CardinalityViolation,
+        RelationshipTo, AttemptedCardinalityViolation, CardinalityViolation,
          OneOrMore, ZeroOrMore, ZeroOrOne, One)
 
 
@@ -17,6 +17,10 @@ class Car(StructuredNode):
 
 class Monkey(StructuredNode):
     name = StringProperty()
+    dryers = RelationshipTo('HairDryer', 'OWNS_DRYER', cardinality=ZeroOrMore)
+    driver = RelationshipTo('ScrewDriver', 'HAS_SCREWDRIVER', cardinality=ZeroOrOne)
+    car = RelationshipTo('Car', 'HAS_CAR', cardinality=OneOrMore)
+    toothbrush = RelationshipTo('ToothBrush', 'HAS_TOOTHBRUSH', cardinality=One)
 
 
 class ToothBrush(StructuredNode):
@@ -24,8 +28,6 @@ class ToothBrush(StructuredNode):
 
 
 def test_cardinality_zero_or_more():
-    Monkey.outgoing('OWNS_DRYER', 'dryers', to=HairDryer, cardinality=ZeroOrMore)
-
     m = Monkey(name='tim').save()
     assert m.dryers.all() == []
     assert m.dryers.single() == None
@@ -41,8 +43,6 @@ def test_cardinality_zero_or_more():
 
 
 def test_cardinality_zero_or_one():
-    Monkey.outgoing('HAS_SCREWDRIVER', 'driver', to=ScrewDriver, cardinality=ZeroOrOne)
-
     m = Monkey(name='bob').save()
     assert m.driver.all() == []
     assert m.driver.single() == None
@@ -65,7 +65,6 @@ def test_cardinality_zero_or_one():
 
 
 def test_cardinality_one_or_more():
-    Monkey.outgoing('HAS_CAR', 'car', to=Car, cardinality=OneOrMore)
     m = Monkey(name='jerry').save()
 
     try:
@@ -95,7 +94,6 @@ def test_cardinality_one_or_more():
 
 
 def test_cardinality_one():
-    Monkey.outgoing('HAS_TOOTHBRUSH', 'toothbrush', to=ToothBrush, cardinality=One)
     m = Monkey(name='jerry').save()
 
     try:

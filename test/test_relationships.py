@@ -1,13 +1,10 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty
-
-
-class Country(StructuredNode):
-    code = StringProperty(unique_index=True)
+from neomodel import StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom
 
 
 class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
+    is_from = RelationshipTo('Country', 'IS_FROM')
 
     @property
     def special_name(self):
@@ -17,15 +14,16 @@ class Person(StructuredNode):
         return "I have no powers"
 
 
+class Country(StructuredNode):
+    code = StringProperty(unique_index=True)
+    inhabitant = RelationshipFrom('Person', 'IS_FROM')
+
+
 class SuperHero(Person):
     power = StringProperty(index=True)
 
     def special_power(self):
         return "I have powers"
-
-
-Person.outgoing('IS_FROM', 'is_from', to=Country)
-Country.incoming('IS_FROM', 'inhabitant', to=Person)
 
 
 def test_bidirectional_relationships():

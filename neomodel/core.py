@@ -1,6 +1,6 @@
 from py2neo import neo4j, cypher, rest
 from .properties import Property
-from .relationship import RelationshipInstaller, RelationshipManager, OUTGOING
+from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import NotUnique, DoesNotExist, RequiredProperty
 from lucenequerybuilder import Q
 import types
@@ -97,7 +97,7 @@ class CypherMixin(Client):
         return self.cypher(start + query, params)
 
 
-class StructuredNode(RelationshipInstaller, CypherMixin):
+class StructuredNode(CypherMixin):
     """ Base class for nodes requiring formal declaration """
 
     __metaclass__ = StructuredNodeMeta
@@ -122,6 +122,9 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
 
         # set missing props to none.
         for key, prop in self.__class__.__dict__.iteritems():
+            if prop.__class__ is RelationshipDefinition:
+                self.__dict__[key] = prop.build_manager(self, key)
+
             if key.startswith('_'):
                 continue
             if issubclass(prop.__class__, Property) and not key in self.__dict__:
@@ -130,8 +133,6 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                 else:
                     super(StructuredNode, self).__setattr__(key, None)
         self._node = None
-
-        super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
