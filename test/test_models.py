@@ -42,7 +42,7 @@ def test_search():
 def test_save_to_model():
     u = User(email='jim@test.com', age=3)
     assert u.save()
-    assert u._node
+    assert u.__node__
     assert u.email == 'jim@test.com'
     assert u.age == 3
 

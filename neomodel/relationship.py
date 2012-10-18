@@ -24,7 +24,7 @@ def _wrap(unwrapped, props, cls):
         nodes = []
         for node, properties in zip(unwrapped, props):
             wrapped_node = cls(**(properties))
-            wrapped_node._node = node
+            wrapped_node.__node__ = node
             nodes.append(wrapped_node)
         return nodes
 
@@ -60,7 +60,7 @@ class RelationshipManager(object):
         nodes = []
         for node, cls, prop in zip(unwrapped, classes, props):
             wrapped_node = cls(**prop)
-            wrapped_node._node = node
+            wrapped_node.__node__ = node
             nodes.append(wrapped_node)
         return nodes
 
@@ -72,7 +72,7 @@ class RelationshipManager(object):
         return self._wrap_multi_class_resultset(results)
 
     def _all_single_class(self):
-        related_nodes = self.origin._node.get_related_nodes(self.direction, self.relation_type)
+        related_nodes = self.origin.__node__.get_related_nodes(self.direction, self.relation_type)
         if not related_nodes:
             return []
         props = self.client.get_properties(*related_nodes)
@@ -121,7 +121,7 @@ class RelationshipManager(object):
         return self._wrap_multi_class_resultset(results)
 
     def is_connected(self, obj):
-        return self.origin._node.has_relationship_with(obj._node, self.direction, self.relation_type)
+        return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
 
     def connect(self, obj):
         if self.direction == EITHER:
@@ -138,31 +138,31 @@ class RelationshipManager(object):
                 allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
                 raise Exception("Expected object of class of " + allowed_cls)
 
-        if not obj._node:
+        if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
         # TODO handle 'EITHER' connect correctly
         if self.direction == OUTGOING or self.direction == EITHER:
-            self.client.get_or_create_relationships((self.origin._node, self.relation_type, obj._node))
+            self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__))
         elif self.direction == INCOMING:
-            self.client.get_or_create_relationships((obj._node, self.relation_type, self.origin._node))
+            self.client.get_or_create_relationships((obj.__node__, self.relation_type, self.origin.__node__))
         else:
             raise Exception("Unknown relationship direction {0}".format(self.direction))
 
     def reconnect(self, old_obj, new_obj):
         if self.is_connected(old_obj):
-            rels = self.origin._node.get_relationships_with(
-                    old_obj._node, self.direction, self.relation_type)
+            rels = self.origin.__node__.get_relationships_with(
+                    old_obj.__node__, self.direction, self.relation_type)
             for r in rels:
                 r.delete()
         else:
-            raise NotConnected(old_obj._node.id)
+            raise NotConnected(old_obj.__node__.id)
 
-        self.client.get_or_create_relationships((self.origin._node, self.relation_type, new_obj._node),)
+        self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, new_obj.__node__),)
 
     def disconnect(self, obj):
-        rels = self.origin._node.get_relationships_with(obj._node, self.direction, self.relation_type)
+        rels = self.origin.__node__.get_relationships_with(obj.__node__, self.direction, self.relation_type)
         if not rels:
-            raise NotConnected(obj._node.id)
+            raise NotConnected(obj.__node__.id)
         if len(rels) > 1:
             raise Exception("Expected single relationship got {0}".format(rels))
         rels[0].delete()

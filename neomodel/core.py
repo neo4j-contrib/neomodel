@@ -58,7 +58,7 @@ class NodeIndexManager(Client):
 
         for node, properties in dict(zip(results, props)).iteritems():
             neonode = self.node_class(**properties)
-            neonode._node = node
+            neonode.__node__ = node
             nodes.append(neonode)
         return nodes
 
@@ -93,7 +93,7 @@ class CypherMixin(Client):
         return cypher.execute(self.client, query, params)
 
     def start_cypher(self, query, params=None):
-        start = "START a=node({:d}) ".format(self._node.id)
+        start = "START a=node({:d}) ".format(self.__node__.id)
         return self.cypher(start + query, params)
 
 
@@ -129,7 +129,7 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                     raise RequiredProperty(key)
                 else:
                     super(StructuredNode, self).__setattr__(key, None)
-        self._node = None
+        self.__node__ = None
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
@@ -160,9 +160,9 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
 
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
-        self._node, rel = self.client.create(props,
-                (category_factory(self.__class__)._node, relation_name, 0))
-        if not self._node:
+        self.__node__, rel = self.client.create(props,
+                (category_factory(self.__class__).__node__, relation_name, 0))
+        if not self.__node__:
             Exception('Failed to create new ' + self.__class__.__name__)
 
         # Update indexes
@@ -183,11 +183,11 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                     node_property = cls.get_property(key)
                     if node_property.unique_index:
                         try:
-                            batch.add_indexed_node_or_fail(cls.index._index, key, value, self._node)
+                            batch.add_indexed_node_or_fail(cls.index._index, key, value, self.__node__)
                         except NotImplementedError:
-                            batch.get_or_add_indexed_node(cls.index._index, key, value, self._node)
+                            batch.get_or_add_indexed_node(cls.index._index, key, value, self.__node__)
                     elif node_property.index:
-                        batch.add_indexed_node(cls.index._index, key, value, self._node)
+                        batch.add_indexed_node(cls.index._index, key, value, self.__node__)
             try:
                 for r in batch._submit():
                     if r.status == 200:
@@ -196,20 +196,20 @@ class StructuredNode(RelationshipInstaller, CypherMixin):
                 raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
-        if self._node:
-            self._node.set_properties(self.properties)
-            self.__class__.index._index.remove(entity=self._node)
+        if self.__node__:
+            self.__node__.set_properties(self.properties)
+            self.__class__.index._index.remove(entity=self.__node__)
             self._update_index(self.properties)
         else:
             self._create(self.properties)
         return self
 
     def delete(self):
-        if self._node:
-            to_delete = self._node.get_relationships()
-            to_delete.append(self._node)
+        if self.__node__:
+            to_delete = self.__node__.get_relationships()
+            to_delete.append(self.__node__)
             self.client.delete(*to_delete)
-            self._node = None
+            self.__node__ = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
         return True
@@ -241,7 +241,7 @@ def category_factory(instance_cls):
             category_index = connection().get_or_create_index(neo4j.Node, 'Category')
             node = category_index.get_or_create('category', name, {'category': name})
             category = CategoryNode(name)
-            category._node = node
+            category.__node__ = node
             category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
             category_factory.cache[name] = category
         return category_factory.cache[name]
