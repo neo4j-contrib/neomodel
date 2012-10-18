@@ -187,6 +187,13 @@ This can be useful for integrating with neo4django schemas::
 
     Human.index.name # myHumans
 
+Properties
+---
+
+The following property classes are available::
+
+    StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+
 Credits
 -------
 * Marianna Polatoglou - https://github.com/mar-chi-pan
