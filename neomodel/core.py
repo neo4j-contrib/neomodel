@@ -125,34 +125,24 @@ class StructuredNode(CypherMixin):
         return category_factory(cls)
 
     def __init__(self, *args, **kwargs):
+        self.__node__ = None
+
+        for key, val in self.__class__.__dict__.iteritems():
+            if val.__class__ is RelationshipDefinition:
+                self.__dict__[key] = val.build_manager(self, key)
+            if issubclass(val.__class__, Property):
+                    self.__dict__[key] = None
         for key, value in kwargs.iteritems():
             setattr(self, key, value)
 
-        # set missing props to none.
+    def _validate(self):
+        node_props = self.properties
         for key, prop in self.__class__.__dict__.iteritems():
-            if prop.__class__ is RelationshipDefinition:
-                self.__dict__[key] = prop.build_manager(self, key)
-
-            if key.startswith('_'):
-                continue
-            if issubclass(prop.__class__, Property) and not key in self.__dict__:
-                if prop.required:
-                    raise RequiredProperty(key)
-                else:
-                    super(StructuredNode, self).__setattr__(key, None)
-        self.__node__ = None
-
-    def __setattr__(self, key, value):
-        if key.startswith('_'):
-            return super(StructuredNode, self).__setattr__(key, value)
-        try:
-            prop = self.__class__.get_property(key)
-        except NoSuchProperty:
-            super(StructuredNode, self).__setattr__(key, value)
-        else:
-            if hasattr(prop, 'validate') and callable(prop.validate):
-                prop.validate(value)
-            super(StructuredNode, self).__setattr__(key, value)
+            if issubclass(prop.__class__, Property):
+                if key in node_props:
+                    prop.validate(node_props[key])
+                elif prop.required:
+                    raise RequiredProperty(key + " on " + self.__class__.__name__)
 
     @property
     def properties(self):
@@ -205,6 +195,7 @@ class StructuredNode(CypherMixin):
                 raise NotUnique('A supplied value is not unique' + r.uri)
 
     def save(self):
+        self._validate()
         if self.__node__:
             self.__node__.set_properties(self.properties)
             self.__class__.index._index.remove(entity=self.__node__)
