@@ -55,7 +55,7 @@ CReate Update Delete::
 
     jim = Person(name='Jim', age=3).save()
     jim.age = 4
-    jim.update()
+    jim.save()
     jim.delete()
 
 Relationships

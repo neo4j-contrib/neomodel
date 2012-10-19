@@ -251,8 +251,5 @@ class ReadOnlyNode(StructuredNode):
     def delete(self):
         raise ReadOnlyError("You cannot delete read-only nodes")
 
-    def update(self):
-        raise ReadOnlyError("You cannot update read-only nodes")
-
     def save(self):
         raise ReadOnlyError("You cannot save read-only nodes")

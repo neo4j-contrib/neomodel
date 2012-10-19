@@ -110,10 +110,3 @@ def test_readonly_definition():
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
-
-    try:
-        bob.update()
-    except Exception, e:
-        assert e.__class__.__name__ == 'ReadOnlyError'
-    else:
-        assert False
