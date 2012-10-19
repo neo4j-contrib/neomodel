@@ -110,6 +110,8 @@ On attempting to break a cardinality restriction a *AttemptedCardinalityViolatio
 Inheritance
 -------
 
+*EXPERIMENTAL*
+
 It's possible to subclass node definitions, separate indexes will be
 maintained for each class in the hierarchy.
 
