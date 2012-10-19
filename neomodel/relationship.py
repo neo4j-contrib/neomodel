@@ -67,9 +67,10 @@ class RelationshipManager(object):
 
     def _all_multi_class(self):
         cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
-        query = "MATCH (a)" + _related(self.direction).format(self.relation_type)
+        query = "START a=node({self}) MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
         query += "(x)<-[r:{0}]-() RETURN x, r".format(cat_types)
-        results = self.origin.start_cypher(query)[0]
+        results = self.origin.cypher(query)[0]
         return self._wrap_multi_class_resultset(results)
 
     def _all_single_class(self):
@@ -101,24 +102,24 @@ class RelationshipManager(object):
             return self._search_single_class(**kwargs)
 
     def _search_single_class(self, **kwargs):
-        query = "MATCH (a)"
+        query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(b) WHERE " + _properties('b', **kwargs)
         query += " RETURN b"
 
-        results = self.origin.start_cypher(query, kwargs)[0]
+        results = self.origin.cypher(query, kwargs)[0]
         unwrapped = [row[0] for row in results]
         props = self.client.get_properties(*unwrapped)
         return _wrap(unwrapped, props, self.node_class)
 
     def _search_multi_class(self, **kwargs):
         cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
-        query = "MATCH (a)"
+        query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(b)<-[r:{0}]-() ".format(cat_types)
         query += "WHERE " + _properties('b', **kwargs)
         query += " RETURN b, r"
-        results = self.origin.start_cypher(query, kwargs)[0]
+        results = self.origin.cypher(query, kwargs)[0]
         return self._wrap_multi_class_resultset(results)
 
     def is_connected(self, obj):

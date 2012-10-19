@@ -1,7 +1,8 @@
 from py2neo import neo4j, cypher, rest
 from .properties import Property
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
-from .exception import NotUnique, DoesNotExist, RequiredProperty
+from .exception import (NotUnique, DoesNotExist, RequiredProperty, CypherException,
+        ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
 from lucenequerybuilder import Q
 import types
 import sys
@@ -77,6 +78,22 @@ class NodeIndexManager(Client):
         return self.client.get_or_create_index(neo4j.Node, self.name)
 
 
+class CypherMixin(Client):
+    def cypher(self, query, params={}):
+        assert hasattr(self, '__node__')
+        params.update({'self': self.__node__.id})
+        try:
+            return cypher.execute(self.client, query, params)
+        except cypher.CypherError as e:
+            message, etype, jtrace = e.args
+            raise CypherException(query, params, message, etype, jtrace)
+
+    def start_cypher(self, query, params={}):
+        print "DEPRECATION 19/10/2012: start_cypher not longer supported, please use cypher"
+        start = "START a=node({self}) "
+        return self.cypher(start + query, params)
+
+
 class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
@@ -86,15 +103,6 @@ class StructuredNodeMeta(type):
                 name = dct['_index_name']
             cls.index = NodeIndexManager(cls, name)
         return cls
-
-
-class CypherMixin(Client):
-    def cypher(self, query, params=None):
-        return cypher.execute(self.client, query, params)
-
-    def start_cypher(self, query, params=None):
-        start = "START a=node({:d}) ".format(self.__node__.id)
-        return self.cypher(start + query, params)
 
 
 class StructuredNode(CypherMixin):
@@ -257,15 +265,3 @@ class ReadOnlyNode(StructuredNode):
 
     def save(self):
         raise ReadOnlyError("You cannot save read-only nodes")
-
-
-class ReadOnlyError(Exception):
-    pass
-
-
-class NoSuchProperty(Exception):
-    pass
-
-
-class PropertyNotIndexed(Exception):
-    pass
