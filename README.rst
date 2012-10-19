@@ -63,15 +63,15 @@ Relationships
 Access related nodes through your defined relations::
 
     germany = Country(code='DE').save()
-    jim.is_from.connect(germany)
+    jim.country.connect(germany)
 
-    if jim.is_from.is_connected(germany):
+    if jim.country.is_connected(germany):
         print "Jim's from Germany"
 
     for p in germany.inhabitant.all()
         print p.name # Jim
 
-    jim.is_from.disconnect(germany)
+    jim.country.disconnect(germany)
 
 Search related nodes through your defined relations. This example starts at the germany node
 and traverses incoming 'IS_FROM' relations and returns the nodes with the property name
