@@ -71,7 +71,10 @@ class RelationshipManager(object):
         if len(result) > 1:
             raise Exception("Multiple items returned")
         if not result:
-            raise DoesNotExist("No items exist for the specified arguments")
+            if hasattr(self, 'node_class'):
+                raise self.node_class.DoesNotExist("No items exist for the specified arguments")
+            else:
+                raise DoesNotExist("No items exist for the specified arguments")
 
     def search(self, **kwargs):
         if not kwargs:
