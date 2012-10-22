@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
         name='neomodel',
-        version='0.0.5',
+        version='0.0.6',
         description='A high level wrapper around py2neo, providing a formal definition for your data model.',
         author='Robin Edwards',
         author_email='robin.ge@gmail.com',
@@ -11,7 +11,7 @@ setup(
         packages=find_packages(),
         keywords='graph neo4j py2neo model',
         zip_safe=True,
-        install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.4.1'],
+        install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.4.2'],
         classifiers=[
             'Development Status :: 4 - Beta',
             'Intended Audience :: Developers',

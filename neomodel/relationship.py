@@ -21,15 +21,6 @@ def _properties(ident, **kwargs):
     return '(' + ', '.join(props) + ')'
 
 
-def _wrap(unwrapped, props, cls):
-        nodes = []
-        for node, properties in zip(unwrapped, props):
-            wrapped_node = cls(**(properties))
-            wrapped_node.__node__ = node
-            nodes.append(wrapped_node)
-        return nodes
-
-
 class RelationshipManager(object):
     def __init__(self, direction, relation_type, node_classes, origin):
         self.direction = direction
@@ -52,18 +43,12 @@ class RelationshipManager(object):
         else:
             return self._all_single_class()
 
-    def _wrap_multi_class_resultset(self, results):
-        """With resultset containing [node,rel] pairs
+    def _inflate_nodes_by_rel(self, results):
+        """With resultset containing [node, rel] pairs
         wrap each node in correct neomodel class based on rel.type"""
-        unwrapped = [row[0] for row in results]
+        nodes = [row[0] for row in results]
         classes = [self.class_map[row[1].type] for row in results]
-        props = self.client.get_properties(*unwrapped)
-        nodes = []
-        for node, cls, prop in zip(unwrapped, classes, props):
-            wrapped_node = cls(**prop)
-            wrapped_node.__node__ = node
-            nodes.append(wrapped_node)
-        return nodes
+        return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
     def _all_multi_class(self):
         cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
@@ -71,14 +56,13 @@ class RelationshipManager(object):
         query += _related(self.direction).format(self.relation_type)
         query += "(x)<-[r:{0}]-() RETURN x, r".format(cat_types)
         results = self.origin.cypher(query)[0]
-        return self._wrap_multi_class_resultset(results)
+        return self._inflate_nodes_by_rel(results)
 
     def _all_single_class(self):
-        related_nodes = self.origin.__node__.get_related_nodes(self.direction, self.relation_type)
-        if not related_nodes:
+        nodes = self.origin.__node__.get_related_nodes(self.direction, self.relation_type)
+        if not nodes:
             return []
-        props = self.client.get_properties(*related_nodes)
-        return _wrap(related_nodes, props, self.node_class)
+        return [self.node_class.inflate(n) for n in nodes]
 
     def get(self, **kwargs):
         result = self.search(**kwargs)
@@ -108,9 +92,7 @@ class RelationshipManager(object):
         query += " RETURN b"
 
         results = self.origin.cypher(query, kwargs)[0]
-        unwrapped = [row[0] for row in results]
-        props = self.client.get_properties(*unwrapped)
-        return _wrap(unwrapped, props, self.node_class)
+        return [self.node_class.inflate(row[0]) for row in results]
 
     def _search_multi_class(self, **kwargs):
         cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
@@ -120,7 +102,7 @@ class RelationshipManager(object):
         query += "WHERE " + _properties('b', **kwargs)
         query += " RETURN b, r"
         results = self.origin.cypher(query, kwargs)[0]
-        return self._wrap_multi_class_resultset(results)
+        return self._inflate_nodes_by_rel(results)
 
     def is_connected(self, obj):
         return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
@@ -128,10 +110,11 @@ class RelationshipManager(object):
     def connect(self, obj):
         if self.direction == EITHER:
             raise Exception("Cannot connect with direction EITHER")
-        # check if obj class is of node_class type or its subclass
+        # is single class rel
         if hasattr(self, 'node_class'):
             if not self.node_class.__subclasscheck__(obj.__class__):
                 raise Exception("Expected object of class (or a subclass of) " + self.node_class.__name__)
+        # or is multi class rel
         elif hasattr(self, 'node_classes'):
             for cls in self.node_classes:
                 if cls.__subclasscheck__(obj.__class__):
@@ -142,8 +125,7 @@ class RelationshipManager(object):
 
         if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
-        # TODO handle 'EITHER' connect correctly
-        if self.direction == OUTGOING or self.direction == EITHER:
+        if self.direction == OUTGOING:
             self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__))
         elif self.direction == INCOMING:
             self.client.get_or_create_relationships((obj.__node__, self.relation_type, self.origin.__node__))

@@ -55,7 +55,7 @@ CReate Update Delete::
 
     jim = Person(name='Jim', age=3).save()
     jim.age = 4
-    jim.save()
+    jim.save() # validation happens here
     jim.delete()
 
 Relationships
@@ -106,6 +106,20 @@ The following cardinality classes are available::
 
 If cardinality is broken by existing data a *CardinalityViolation* exception is raised.
 On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
+
+Custom cypher queries
+-------------
+
+You may handle more complex queries via cypher. Each node provides an 'inflate' class method,
+this inflates py2neo nodes to neomodel node objects::
+
+    class Person(StructuredNode):
+        def friends(self):
+            results = self.cypher("START a=node({self}) MATCH a-[:FRIEND]->(b) RETURN b");
+            return [self.__class__.inflate(row[0]) for row in results]
+
+The self query parameter is prepopulated with the current node id. It's possible to pass in your
+own query parameters to the cypher method.
 
 Inheritance
 -------

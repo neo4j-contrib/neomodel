@@ -52,14 +52,8 @@ class NodeIndexManager(Client):
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
         results = self._index.query(str(query))
-        props = self.client.get_properties(*results)
-        nodes = []
 
-        for node, properties in dict(zip(results, props)).iteritems():
-            neonode = self.node_class(**properties)
-            neonode.__node__ = node
-            nodes.append(neonode)
-        return nodes
+        return [self.node_class.inflate(n) for n in results]
 
     def get(self, query=None, **kwargs):
         """ Load single node via index """
@@ -121,6 +115,12 @@ class StructuredNode(CypherMixin):
     @classmethod
     def category(cls):
         return category_factory(cls)
+
+    @classmethod
+    def inflate(cls, node):
+        snode = cls(**node.__metadata__['data'])
+        snode.__node__ = node
+        return snode
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
