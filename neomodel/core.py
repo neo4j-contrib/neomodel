@@ -43,17 +43,13 @@ class NodeIndexManager(Client):
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
         for k, v in kwargs.iteritems():
-            p = self.node_class.get_property(k)
-            if not p.is_indexed:
+            if not self.node_class.get_property(k).is_indexed:
                 raise PropertyNotIndexed(k)
-            p.validate(v)
 
         if not query:
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
-        results = self._index.query(str(query))
-
-        return [self.node_class.inflate(n) for n in results]
+        return [self.node_class.inflate(n) for n in self._index.query(str(query))]
 
     def get(self, query=None, **kwargs):
         """ Load single node via index """
@@ -90,6 +86,10 @@ class StructuredNodeMeta(type):
     def __new__(cls, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
+        for key, value in dct.iteritems():
+            if issubclass(value.__class__, Property):
+                value.name = key
+                value.owner = cls
         if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
             if '_index_name' in dct:
                 name = dct['_index_name']
@@ -118,29 +118,28 @@ class StructuredNode(CypherMixin):
 
     @classmethod
     def inflate(cls, node):
-        snode = cls(**node.__metadata__['data'])
+        props = {}
+        for scls in cls.mro():
+            for key, prop in scls.__dict__.iteritems():
+                if issubclass(prop.__class__, Property):
+                    if key in node.__metadata__['data']:
+                        props[key] = prop.inflate(node.__metadata__['data'][key])
+                    else:
+                        props[key] = None
+
+        snode = cls(**props)
         snode.__node__ = node
         return snode
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
 
-        for key, val in self.__class__.__dict__.iteritems():
-            if val.__class__ is RelationshipDefinition:
-                self.__dict__[key] = val.build_manager(self, key)
-            if issubclass(val.__class__, Property):
-                    self.__dict__[key] = None
+        for cls in self.__class__.mro():
+            for key, val in cls.__dict__.iteritems():
+                if val.__class__ is RelationshipDefinition:
+                    self.__dict__[key] = val.build_manager(self, key)
         for key, value in kwargs.iteritems():
             setattr(self, key, value)
-
-    def _validate(self):
-        node_props = self.properties
-        for key, prop in self.__class__.__dict__.iteritems():
-            if issubclass(prop.__class__, Property):
-                if key in node_props:
-                    prop.validate(node_props[key])
-                elif prop.required:
-                    raise RequiredProperty(key + " on " + self.__class__.__name__)
 
     @property
     def properties(self):
@@ -192,14 +191,26 @@ class StructuredNode(CypherMixin):
             except rest.ResourceConflict as r:
                 raise NotUnique('A supplied value is not unique' + r.uri)
 
+    def _deflate(self):
+        node_props = self.properties
+        deflated = {}
+        for cls in self.__class__.mro():
+            for key, prop in cls.__dict__.iteritems():
+                if issubclass(prop.__class__, Property):
+                    if key in node_props and node_props[key] is not None:
+                        deflated[key] = prop.deflate(node_props[key])
+                    elif prop.required:
+                        raise RequiredProperty(key, self.__class__)
+        return deflated
+
     def save(self):
-        self._validate()
+        props = self._deflate()
         if self.__node__:
-            self.__node__.set_properties(self.properties)
+            self.__node__.set_properties(props)
             self.__class__.index._index.remove(entity=self.__node__)
-            self._update_index(self.properties)
+            self._update_index(props)
         else:
-            self._create(self.properties)
+            self._create(props)
         return self
 
     def delete(self):
@@ -229,20 +240,20 @@ class InstanceManager(RelationshipManager):
 
 
 def category_factory(instance_cls):
-        """ Retrieve category node by name """
-        name = instance_cls.__name__
+    """ Retrieve category node by name """
+    name = instance_cls.__name__
 
-        if not hasattr(category_factory, 'cache'):
-            category_factory.cache = {}
+    if not hasattr(category_factory, 'cache'):
+        category_factory.cache = {}
 
-        if not name in category_factory.cache:
-            category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-            node = category_index.get_or_create('category', name, {'category': name})
-            category = CategoryNode(name)
-            category.__node__ = node
-            category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
-            category_factory.cache[name] = category
-        return category_factory.cache[name]
+    if not name in category_factory.cache:
+        category_index = connection().get_or_create_index(neo4j.Node, 'Category')
+        node = category_index.get_or_create('category', name, {'category': name})
+        category = CategoryNode(name)
+        category.__node__ = node
+        category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
+        category_factory.cache[name] = category
+    return category_factory.cache[name]
 
 
 class ReadOnlyNode(StructuredNode):

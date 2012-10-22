@@ -3,3 +3,4 @@ from .relationship import NotConnected, OUTGOING, INCOMING, EITHER, Relationship
 from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+from .exception import InflateError, DeflateError

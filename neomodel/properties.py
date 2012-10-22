@@ -1,4 +1,20 @@
-from .exception import RequiredProperty
+from neomodel.exception import InflateError, DeflateError
+
+
+def validator(fn):
+    if fn.func_name is 'inflate':
+        exc_class = InflateError
+    elif fn.func_name == 'deflate':
+        exc_class = DeflateError
+    else:
+        raise Exception("Unknown Property method " + fn.func_name)
+
+    def validator(self, value):
+        try:
+            return fn(self, value)
+        except ValueError as e:
+            raise exc_class(self.name, self.owner, e.message)
+    return validator
 
 
 class Property(object):
@@ -9,45 +25,46 @@ class Property(object):
         self.unique_index = unique_index
         self.index = index
 
-    def validate(self, value):
-        if value is None and self.required:
-            raise RequiredProperty()
-
     @property
     def is_indexed(self):
         return self.unique_index or self.index
 
 
 class StringProperty(Property):
-    def validate(self, value):
-        if value is None or isinstance(value, (str, unicode)):
-            return True
-        else:
-            raise TypeError("Object of type str expected got " + str(value))
+    @validator
+    def inflate(self, value):
+        return str(value)
+
+    @validator
+    def deflate(self, value):
+        return str(value)
 
 
 class IntegerProperty(Property):
-    def validate(self, value):
-        super(IntegerProperty, self).validate(value)
-        if value is None or isinstance(value, (int, long)):
-            return True
-        else:
-            raise TypeError("Object of type int or long expected")
+    @validator
+    def inflate(self, value):
+        return int(value)
+
+    @validator
+    def deflate(self, value):
+        return int(value)
 
 
 class FloatProperty(Property):
-    def validate(self, value):
-        super(FloatProperty, self).validate(value)
-        if value is None or isinstance(value, (float)):
-            return True
-        else:
-            raise TypeError("Object of type int or long expected")
+    @validator
+    def inflate(self, value):
+        return float(value)
+
+    @validator
+    def deflate(self, value):
+        return float(value)
 
 
 class BooleanProperty(Property):
-    def validate(self, value):
-        super(BooleanProperty, self).validate(value)
-        if value is None or isinstance(value, (int, long, bool)):
-            return True
-        else:
-            raise TypeError("Object of type int or long expected")
+    @validator
+    def inflate(self, value):
+        return bool(value)
+
+    @validator
+    def deflate(self, value):
+        return bool(value)

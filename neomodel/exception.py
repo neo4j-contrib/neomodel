@@ -7,7 +7,13 @@ class DoesNotExist(Exception):
 
 
 class RequiredProperty(Exception):
-    pass
+    def __init__(self, key, cls):
+        self.property_name = key
+        self.node_class = cls
+
+    def __str__(self):
+        return "property {} on objects of class {}".format(
+                self.property_name, self.node_class.__name__)
 
 
 class CypherException(Exception):
@@ -22,6 +28,28 @@ class CypherException(Exception):
         trace = "\n    ".join(self.java_trace)
         return "\n{}: {}\nQuery: {}\nParams: {}\nTrace: {}\n".format(
             self.java_exception, self.message, self.query, repr(self.query_parameters), trace)
+
+
+class InflateError(ValueError):
+    def __init__(self, key, cls, msg):
+        self.property_name = key
+        self.node_class = cls
+        self.msg = msg
+
+    def __str__(self):
+        return "Attempting to inflate property '{}' on object of class '{}': {}".format(
+                self.property_name, self.node_class.__name__, self.msg)
+
+
+class DeflateError(ValueError):
+    def __init__(self, key, cls, msg):
+        self.property_name = key
+        self.node_class = cls
+        self.msg = msg
+
+    def __str__(self):
+        return "Attempting to deflate property '{}' on object of class '{}': {}".format(
+                self.property_name, self.node_class.__name__, self.msg)
 
 
 class ReadOnlyError(Exception):
