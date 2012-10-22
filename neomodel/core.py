@@ -44,8 +44,6 @@ class NodeIndexManager(Client):
         """ Load multiple nodes via index """
         for k, v in kwargs.iteritems():
             p = self.node_class.get_property(k)
-            if not p:
-                raise NoSuchProperty(k)
             if not p.is_indexed:
                 raise PropertyNotIndexed(k)
             p.validate(v)
