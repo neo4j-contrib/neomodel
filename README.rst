@@ -132,7 +132,7 @@ The example below demonstrates the use of class inheritance in relationships::
     # Checking if connection was indeed made
     atlantis.inhabitant.is_connected(ultrajoe) # True
 
-Relating to different classes
+Relating to different node types
 -------
 
 You can define relations of a single relation type to different `StructuredNode` classes.::
