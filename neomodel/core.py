@@ -1,7 +1,7 @@
 from py2neo import neo4j, cypher, rest
 from .properties import Property
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
-from .exception import (NotUnique, DoesNotExist, RequiredProperty, CypherException,
+from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
 from lucenequerybuilder import Q
 import types
@@ -49,7 +49,7 @@ class NodeIndexManager(Client):
         if not query:
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
-        return [self.node_class.inflate(n) for n in self._index.query(str(query))]
+        return [self.node_class.inflate(n) for n in self.__index__.query(str(query))]
 
     def get(self, query=None, **kwargs):
         """ Load single node via index """
@@ -62,7 +62,7 @@ class NodeIndexManager(Client):
             raise self.node_class.DoesNotExist("Can't find node in index matching query")
 
     @property
-    def _index(self):
+    def __index__(self):
         return self.client.get_or_create_index(neo4j.Node, self.name)
 
 
@@ -179,17 +179,20 @@ class StructuredNode(CypherMixin):
                     node_property = cls.get_property(key)
                     if node_property.unique_index:
                         try:
-                            batch.add_indexed_node_or_fail(cls.index._index, key, value, self.__node__)
+                            batch.add_indexed_node_or_fail(cls.index.__index__, key, value, self.__node__)
                         except NotImplementedError:
-                            batch.get_or_add_indexed_node(cls.index._index, key, value, self.__node__)
+                            batch.get_or_add_indexed_node(cls.index.__index__, key, value, self.__node__)
                     elif node_property.index:
-                        batch.add_indexed_node(cls.index._index, key, value, self.__node__)
+                        batch.add_indexed_node(cls.index.__index__, key, value, self.__node__)
+            requests = batch.requests
             try:
+                i = 0
                 for r in batch._submit():
                     if r.status == 200:
-                        raise NotUnique('A supplied value is not unique' + r.uri)
+                        raise UniqueProperty(requests[i], cls.index.name)
+                    i = i + 1
             except rest.ResourceConflict as r:
-                raise NotUnique('A supplied value is not unique' + r.uri)
+                raise UniqueProperty(requests[r.id], cls.index.name)
 
     def _deflate(self):
         node_props = self.properties
@@ -207,7 +210,7 @@ class StructuredNode(CypherMixin):
         props = self._deflate()
         if self.__node__:
             self.__node__.set_properties(props)
-            self.__class__.index._index.remove(entity=self.__node__)
+            self.__class__.index.__index__.remove(entity=self.__node__)
             self._update_index(props)
         else:
             self._create(props)

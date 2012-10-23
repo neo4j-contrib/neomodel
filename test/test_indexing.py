@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueProperty
 from lucenequerybuilder import Q
 
 
@@ -9,6 +9,19 @@ class Human(StructuredNode):
 
 class SuperHuman(Human):
     power = StringProperty(index=True)
+
+
+def test_unique_error():
+    Human(name="j1m", age=13).save()
+    try:
+        Human(name="j1m", age=14).save()
+    except UniqueProperty as e:
+        assert True
+        assert str(e).find('j1m')
+        assert str(e).find('name')
+        assert str(e).find('FooBarr')
+    else:
+        assert False
 
 
 def test_optional_properties_dont_get_indexed():
