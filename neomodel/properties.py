@@ -35,11 +35,11 @@ class Property(object):
 class StringProperty(Property):
     @validator
     def inflate(self, value):
-        return str(value)
+        return unicode(value)
 
     @validator
     def deflate(self, value):
-        return str(value)
+        return unicode(value)
 
 
 class IntegerProperty(Property):
