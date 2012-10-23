@@ -1,5 +1,6 @@
 from neomodel.exception import InflateError, DeflateError
 from datetime import datetime
+from datetime import date
 import time
 
 
@@ -72,19 +73,32 @@ class BooleanProperty(Property):
         return bool(value)
 
 
+class DateProperty(Property):
+    @validator
+    def inflate(self, value):
+        value = unicode(value)
+        return datetime.strptime(value, "%Y-%m-%d").date()
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, date):
+            raise ValueError('datetime.date object is required, found %s.' % type(value) )
+        return value.isoformat()
+
+
 class DatetimeProperty(Property):
     @validator
     # get property from database to obj
     def inflate(self, value):
         if not isinstance(value, (int, long, float)):
-            raise ValueError('Not a number.')
+            raise ValueError('number is required, found %s.' % type(value))
         return datetime.utcfromtimestamp(value)
 
     @validator
     # save object to db
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('Not a datetime object.')
+            raise ValueError('datetime.datetime object is required, found %s.' % type(value))
         if not value.tzinfo:
             raise Exception('Datetime object must be timezone aware.')
         return time.mktime(value.utctimetuple())

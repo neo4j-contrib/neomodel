@@ -1,4 +1,5 @@
-from neomodel.properties import IntegerProperty, DatetimeProperty
+from neomodel.properties import IntegerProperty, DatetimeProperty,\
+    DateProperty
 from neomodel.exception import InflateError, DeflateError
 from datetime import datetime
 
@@ -56,6 +57,29 @@ def test_datetime():
     naive = datetime.now()
     try:
         prop.deflate(naive)
+    except DeflateError as e:
+        assert True
+        assert str(e).index('deflate property')
+    else:
+        assert False
+
+
+def test_date_exceptions():
+    prop = DateProperty()
+    prop.name = 'date'
+    prop.owner = FooBar
+    faulty = '2012-14-13'
+
+    try:
+        prop.inflate(faulty)
+    except InflateError as e:
+        assert True
+        assert str(e).index('inflate property')
+    else:
+        assert False
+
+    try:
+        prop.deflate(faulty)
     except DeflateError as e:
         assert True
         assert str(e).index('deflate property')
