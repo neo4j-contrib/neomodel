@@ -13,7 +13,11 @@ def validator(fn):
         try:
             return fn(self, value)
         except ValueError as e:
-            raise exc_class(self.name, self.owner, e.message)
+            if hasattr(e, 'message') and e.message:
+                message = e.message
+            else:
+                message = str(e)
+            raise exc_class(self.name, self.owner, message)
     return validator
 
 
