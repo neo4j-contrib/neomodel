@@ -1,10 +1,14 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty, ReadOnlyNode
+from neomodel import StructuredNode, StringProperty, IntegerProperty,\
+    ReadOnlyNode, DatetimeProperty
 from neomodel.exception import RequiredProperty
+from datetime import datetime
+from pytz import timezone
 
 
 class User(StructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
+    timestamp = DatetimeProperty()
 
     @property
     def email_alias(self):
@@ -25,7 +29,8 @@ def test_required():
 
 
 def test_get():
-    u = User(email='robin@test.com', age=3)
+    t = datetime.now()
+    u = User(email='robin@test.com', age=3, )
     assert u.save()
     rob = User.index.get(email='robin@test.com')
     assert rob.email == 'robin@test.com'
@@ -110,3 +115,15 @@ def test_readonly_definition():
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
+
+
+def test_datetimes_timezones():
+    t = datetime.utcnow()
+    gr = timezone('Europe/Athens')
+    gb = timezone('Europe/London')
+    dt1 = gr.localize(t)
+    dt2 = gb.localize(t)
+    u1 = User(email='la', age=5, timestamp=dt1)
+    u2 = User(email='bla', age=10, timestamp=dt2)
+    assert (u1.timestamp < u2.timestamp) == (dt1.utctimetuple() < dt2.utctimetuple())
+    assert (u1.timestamp > u2.timestamp) == (dt1.utctimetuple() > dt2.utctimetuple())
