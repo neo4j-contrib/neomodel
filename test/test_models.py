@@ -125,5 +125,7 @@ def test_datetimes_timezones():
     dt2 = gb.localize(t)
     u1 = User(email='la', age=5, timestamp=dt1)
     u2 = User(email='bla', age=10, timestamp=dt2)
-    assert (u1.timestamp < u2.timestamp) == (dt1.utctimetuple() < dt2.utctimetuple())
-    assert (u1.timestamp > u2.timestamp) == (dt1.utctimetuple() > dt2.utctimetuple())
+    assert (u1.timestamp < u2.timestamp) ==\
+        (dt1.utctimetuple() < dt2.utctimetuple())
+    assert (u1.timestamp > u2.timestamp) ==\
+        (dt1.utctimetuple() > dt2.utctimetuple())

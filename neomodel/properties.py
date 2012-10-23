@@ -82,7 +82,9 @@ class DateProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, date):
-            raise ValueError('datetime.date object is required, found %s.' % type(value) )
+            raise ValueError(
+                'datetime.date object is required, found %s.' % type(value)
+                )
         return value.isoformat()
 
 
@@ -91,7 +93,9 @@ class DatetimeProperty(Property):
     # get property from database to obj
     def inflate(self, value):
         if not isinstance(value, (int, long, float)):
-            raise ValueError('number is required, found %s.' % type(value))
+            raise ValueError(
+                'number is required, found %s.' % type(value)
+                )
         return datetime.utcfromtimestamp(value)
 
     @validator

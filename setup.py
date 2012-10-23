@@ -11,7 +11,7 @@ setup(
         packages=find_packages(),
         keywords='graph neo4j py2neo model',
         zip_safe=True,
-        install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.4.2', 'pytz==2012g'],
+        install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.4.3', 'pytz==2012g'],
         classifiers=[
             'Development Status :: 4 - Beta',
             'Intended Audience :: Developers',
