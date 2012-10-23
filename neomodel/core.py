@@ -1,7 +1,7 @@
 from py2neo import neo4j, cypher, rest
 from .properties import Property
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
-from .exception import (NotUnique, DoesNotExist, RequiredProperty, CypherException,
+from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
 from lucenequerybuilder import Q
 import types
@@ -184,12 +184,15 @@ class StructuredNode(CypherMixin):
                             batch.get_or_add_indexed_node(cls.index._index, key, value, self.__node__)
                     elif node_property.index:
                         batch.add_indexed_node(cls.index._index, key, value, self.__node__)
+            requests = batch.requests
             try:
+                i = 0
                 for r in batch._submit():
                     if r.status == 200:
-                        raise NotUnique('A supplied value is not unique' + r.uri)
+                        raise UniqueProperty(requests[i], cls.index.name)
+                    i = i + 1
             except rest.ResourceConflict as r:
-                raise NotUnique('A supplied value is not unique' + r.uri)
+                raise UniqueProperty(requests[r.id], cls.index.name)
 
     def _deflate(self):
         node_props = self.properties

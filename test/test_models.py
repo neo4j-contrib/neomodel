@@ -52,7 +52,7 @@ def test_unique():
     try:
         User(email='jim1@test.com', age=3).save()
     except Exception, e:
-        assert e.__class__.__name__ == 'NotUnique'
+        assert e.__class__.__name__ == 'UniqueProperty'
     else:
         assert False
 

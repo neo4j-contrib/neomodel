@@ -1,5 +1,12 @@
-class NotUnique(Exception):
-    pass
+class UniqueProperty(ValueError):
+    def __init__(self, request, index):
+        self.property_name = request.body['key']
+        self.value = request.body['value']
+        self.index_name = index
+
+    def __str__(self):
+        return "Value '{}' of property {} in index {} is not unique".format(
+                self.value, self.property_name, self.index_name)
 
 
 class DoesNotExist(Exception):
