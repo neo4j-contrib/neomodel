@@ -2,6 +2,7 @@ from neomodel.exception import InflateError, DeflateError
 from datetime import datetime
 from datetime import date
 import time
+import pytz
 
 
 def validator(fn):
@@ -96,7 +97,7 @@ class DatetimeProperty(Property):
             raise ValueError(
                 'number is required, found %s.' % type(value)
                 )
-        return datetime.utcfromtimestamp(value)
+        return datetime.utcfromtimestamp(value).replace(tzinfo=pytz.utc)
 
     @validator
     # save object to db
