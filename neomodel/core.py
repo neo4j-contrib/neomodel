@@ -88,7 +88,7 @@ class CypherMixin(Client):
             raise CypherException(query, params, message, etype, jtrace)
 
     def start_cypher(self, query, params={}):
-        print "DEPRECATION 19/10/2012: start_cypher not longer supported, please use cypher"
+        sys.stderr.write("DEPRECATION 19/10/2012: start_cypher not supported, please use cypher\n")
         start = "START a=node({self}) "
         return self.cypher(start + query, params)
 
