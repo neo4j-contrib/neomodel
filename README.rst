@@ -70,10 +70,10 @@ Access related nodes through your defined relations::
     jim.country.connect(germany)
 
     if jim.country.is_connected(germany):
-        print "Jim's from Germany"
+        print("Jim's from Germany")
 
     for p in germany.inhabitant.all()
-        print p.name # Jim
+        print(p.name) # Jim
 
     jim.country.disconnect(germany)
 
@@ -202,7 +202,7 @@ Make use of indexes::
 
     jim = Person.index.get(name='Jim')
     for p in Person.index.search(age=3):
-        print p.name
+        print(p.name)
 
     germany = Country(code='DE').save()
 
@@ -216,7 +216,7 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
     Human(name='tim', age=2).save()
 
     for h in Human.index.search(Q('age', inrange=[3, 5])):
-        print h.name
+        print(h.name)
 
     # prints: sarah, jim, bob
 
