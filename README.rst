@@ -10,6 +10,8 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 * Relationship traversal
 * Soft cardinality restrictions
 
+*Travis-CI*: https://travis-ci.org/#!/robinedwards/neomodel/
+
 Installation
 -------
 Install the module via git::
