@@ -226,11 +226,17 @@ This can be useful for integrating with neo4django schemas::
     Human.index.name # myHumans
 
 Properties
----
+--------
 
 The following property classes are available::
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, DateProperty, DateTimeProperty
+
+The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
+
+These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
+
+The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
 Credits
 -------
