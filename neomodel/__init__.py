@@ -5,5 +5,5 @@ from .relationship import (NotConnected, OUTGOING, INCOMING, EITHER, Relationshi
 from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty,
-        FloatProperty, BooleanProperty, DatetimeProperty, DateProperty)
+        FloatProperty, BooleanProperty, DateTimeProperty, DateProperty)
 from .exception import InflateError, DeflateError
