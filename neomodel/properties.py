@@ -16,7 +16,7 @@ def validator(fn):
         try:
             return fn(self, value)
         except Exception as e:
-            raise exc_class(self.name, self.owner, e.message)
+            raise exc_class(self.name, self.owner, str(e))
     return validator
 
 
