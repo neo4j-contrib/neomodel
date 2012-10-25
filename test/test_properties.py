@@ -92,10 +92,11 @@ def test_datetime_exceptions():
     # Test naive datetime
     naive = datetime.now()
     try:
-        prop.deflate(naive)
+        prop.deflate(naive, 4)
     except DeflateError as e:
         assert True
         assert str(e).index('deflate property')
+        assert str(e).index('node 4')
     else:
         assert False
 

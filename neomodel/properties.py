@@ -12,11 +12,11 @@ def validator(fn):
     else:
         raise Exception("Unknown Property method " + fn.func_name)
 
-    def validator(self, value):
+    def validator(self, value, node_id=None):
         try:
             return fn(self, value)
         except Exception as e:
-            raise exc_class(self.name, self.owner, str(e))
+            raise exc_class(self.name, self.owner, str(e), node_id)
     return validator
 
 

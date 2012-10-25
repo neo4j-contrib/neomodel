@@ -138,7 +138,7 @@ class StructuredNode(CypherMixin):
             for key, prop in scls.__dict__.iteritems():
                 if issubclass(prop.__class__, Property):
                     if key in node.__metadata__['data']:
-                        props[key] = prop.inflate(node.__metadata__['data'][key])
+                        props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
                     else:
                         props[key] = None
 
@@ -217,7 +217,8 @@ class StructuredNode(CypherMixin):
             for key, prop in cls.__dict__.iteritems():
                 if issubclass(prop.__class__, Property):
                     if key in node_props and node_props[key] is not None:
-                        deflated[key] = prop.deflate(node_props[key])
+                        node_id = self.__node__.id if self.__node__ else None
+                        deflated[key] = prop.deflate(node_props[key], node_id=node_id)
                     elif prop.required:
                         raise RequiredProperty(key, self.__class__)
         return deflated

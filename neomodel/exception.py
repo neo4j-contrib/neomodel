@@ -38,25 +38,27 @@ class CypherException(Exception):
 
 
 class InflateError(ValueError):
-    def __init__(self, key, cls, msg):
+    def __init__(self, key, cls, msg, nid):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
+        self.node_id = "node {}".format(nid) if nid else "object"
 
     def __str__(self):
-        return "Attempting to inflate property '{0}' on object of class '{1}': {2}".format(
-                self.property_name, self.node_class.__name__, self.msg)
+        return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
+                self.property_name, self.node_id, self.node_class.__name__, self.msg)
 
 
 class DeflateError(ValueError):
-    def __init__(self, key, cls, msg):
+    def __init__(self, key, cls, msg, nid):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
+        self.node_id = "node {}".format(nid) if nid else "object"
 
     def __str__(self):
-        return "Attempting to deflate property '{0}' on object of class '{1}': {2}".format(
-                self.property_name, self.node_class.__name__, self.msg)
+        return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
+                self.property_name, self.node_id, self.node_class.__name__, self.msg)
 
 
 class ReadOnlyError(Exception):
