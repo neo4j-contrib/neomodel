@@ -1,4 +1,7 @@
 from neomodel.exception import InflateError, DeflateError
+from datetime import datetime, date
+import time
+import pytz
 
 
 def validator(fn):
@@ -12,12 +15,8 @@ def validator(fn):
     def validator(self, value):
         try:
             return fn(self, value)
-        except ValueError as e:
-            if hasattr(e, 'message') and e.message:
-                message = e.message
-            else:
-                message = str(e)
-            raise exc_class(self.name, self.owner, message)
+        except Exception as e:
+            raise exc_class(self.name, self.owner, e.message)
     return validator
 
 
@@ -72,3 +71,34 @@ class BooleanProperty(Property):
     @validator
     def deflate(self, value):
         return bool(value)
+
+
+class DateProperty(Property):
+    @validator
+    def inflate(self, value):
+        return datetime.strptime(unicode(value), "%Y-%m-%d").date()
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, date):
+            msg = 'datetime.date object expected, got {}'.format(repr(value))
+            raise ValueError(msg)
+        return value.isoformat()
+
+
+class DateTimeProperty(Property):
+    @validator
+    def inflate(self, value):
+        try:
+            epoch = int(value)
+        except ValueError:
+            raise ValueError('integer expected, got {} cant inflate to datetime'.format(value))
+        return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError('datetime object expected, got {}'.format(value))
+        if not value.tzinfo:
+            raise ValueError('datetime object {} must have a timezone'.format(value))
+        return time.mktime(value.utctimetuple())
