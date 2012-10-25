@@ -81,7 +81,7 @@ class DateProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, date):
-            msg = 'datetime.date object expected, got {}'.format(repr(value))
+            msg = 'datetime.date object expected, got {0}'.format(repr(value))
             raise ValueError(msg)
         return value.isoformat()
 
@@ -92,13 +92,13 @@ class DateTimeProperty(Property):
         try:
             epoch = int(value)
         except ValueError:
-            raise ValueError('integer expected, got {} cant inflate to datetime'.format(value))
+            raise ValueError('integer expected, got {0} cant inflate to datetime'.format(value))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {}'.format(value))
+            raise ValueError('datetime object expected, got {0}'.format(value))
         if not value.tzinfo:
-            raise ValueError('datetime object {} must have a timezone'.format(value))
+            raise ValueError('datetime object {0} must have a timezone'.format(value))
         return time.mktime(value.utctimetuple())

@@ -5,7 +5,7 @@ class UniqueProperty(ValueError):
         self.index_name = index
 
     def __str__(self):
-        return "Value '{}' of property {} in index {} is not unique".format(
+        return "Value '{0}' of property {1} in index {2} is not unique".format(
                 self.value, self.property_name, self.index_name)
 
 
@@ -19,7 +19,7 @@ class RequiredProperty(Exception):
         self.node_class = cls
 
     def __str__(self):
-        return "property {} on objects of class {}".format(
+        return "property {0} on objects of class {1}".format(
                 self.property_name, self.node_class.__name__)
 
 
@@ -33,7 +33,7 @@ class CypherException(Exception):
 
     def __str__(self):
         trace = "\n    ".join(self.java_trace)
-        return "\n{}: {}\nQuery: {}\nParams: {}\nTrace: {}\n".format(
+        return "\n{0}: {1}\nQuery: {2}\nParams: {3}\nTrace: {4}\n".format(
             self.java_exception, self.message, self.query, repr(self.query_parameters), trace)
 
 
@@ -44,7 +44,7 @@ class InflateError(ValueError):
         self.msg = msg
 
     def __str__(self):
-        return "Attempting to inflate property '{}' on object of class '{}': {}".format(
+        return "Attempting to inflate property '{0}' on object of class '{1}': {2}".format(
                 self.property_name, self.node_class.__name__, self.msg)
 
 
@@ -55,7 +55,7 @@ class DeflateError(ValueError):
         self.msg = msg
 
     def __str__(self):
-        return "Attempting to deflate property '{}' on object of class '{}': {}".format(
+        return "Attempting to deflate property '{0}' on object of class '{1}': {2}".format(
                 self.property_name, self.node_class.__name__, self.msg)
 
 
