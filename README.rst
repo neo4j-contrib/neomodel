@@ -10,6 +10,8 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 * Relationship traversal
 * Soft cardinality restrictions
 
+Supports: neo4j 1.8+, python 2.6, 2.7
+
 *Travis-CI*: https://travis-ci.org/#!/robinedwards/neomodel/
 
 Installation
@@ -230,15 +232,29 @@ This can be useful for integrating with neo4django schemas::
 Properties
 --------
 
-The following property classes are available::
+The following basic properties are available::
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, DateProperty, DateTimeProperty
+    StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+
+Additionally there is also::
+
+    DateProperty, DateTimeProperty, AliasProperty
 
 The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
 
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
+
+The *AliasProperty* a special property for aliasing other properties and providing 'magic' behaviour::
+
+    class Person(StructuredNode):
+        full_name = StringProperty(index=True)
+        name = AliasProperty(to='full_name')
+
+    Person.index.search(name='Jim') # just works
+
+Custom properties can provide a setup method which will get invoked on class definition.
 
 Credits
 -------

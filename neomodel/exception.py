@@ -64,7 +64,13 @@ class ReadOnlyError(Exception):
 
 
 class NoSuchProperty(Exception):
-    pass
+    def __init__(self, key, cls):
+        self.property_name = key
+        self.node_class = cls
+
+    def __str__(self):
+        return "No property '{0}' on object of class '{1}'".format(
+                self.property_name, self.node_class.__name__)
 
 
 class PropertyNotIndexed(Exception):

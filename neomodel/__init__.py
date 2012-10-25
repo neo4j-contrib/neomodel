@@ -4,6 +4,6 @@ from .relationship import (NotConnected, OUTGOING, INCOMING, EITHER, Relationshi
         RelationshipFrom, Relationship)
 from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)
-from .properties import (StringProperty, IntegerProperty,
+from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty)
 from .exception import InflateError, DeflateError

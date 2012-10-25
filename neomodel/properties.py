@@ -102,3 +102,26 @@ class DateTimeProperty(Property):
         if not value.tzinfo:
             raise ValueError('datetime object {0} must have a timezone'.format(value))
         return time.mktime(value.utctimetuple())
+
+
+class AliasProperty(property, Property):
+    def __init__(self, to=None):
+        self.target = to
+        self.required = False
+
+    def aliased_to(self):
+        return self.target
+
+    def __get__(self, node, cls):
+        return getattr(node, self.aliased_to()) if node else self
+
+    def __set__(self, node, value):
+        setattr(node, self.aliased_to(), value)
+
+    @property
+    def index(self):
+        return getattr(self.owner, self.aliased_to()).index
+
+    @property
+    def unique_index(self):
+        return getattr(self.owner, self.aliased_to()).unique_index

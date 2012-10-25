@@ -1,5 +1,5 @@
 from py2neo import neo4j, cypher, rest
-from .properties import Property
+from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
@@ -40,12 +40,23 @@ class NodeIndexManager(Client):
         self.node_class = node_class
         self.name = index_name
 
+    def _check_params(self, params):
+        """checked args are indexed and convert aliases"""
+        for key in params.keys():
+            prop = self.node_class.get_property(key)
+            if not prop.is_indexed:
+                raise PropertyNotIndexed(key)
+            if isinstance(prop, AliasProperty):
+                real_key = prop.aliased_to()
+                if real_key in params:
+                    msg = "Can't alias {0} to {1} in {2}, key {0} exists."
+                    raise Exception(msg.format(key, real_key, repr(params)))
+                params[real_key] = params[key]
+                del params[key]
+
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
-        for k, v in kwargs.iteritems():
-            if not self.node_class.get_property(k).is_indexed:
-                raise PropertyNotIndexed(k)
-
+        self._check_params(kwargs)
         if not query:
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
@@ -90,6 +101,9 @@ class StructuredNodeMeta(type):
             if issubclass(value.__class__, Property):
                 value.name = key
                 value.owner = cls
+                # support for 'magic' properties
+                if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
+                    value.setup()
         if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
             if '_index_name' in dct:
                 name = dct['_index_name']
@@ -107,9 +121,10 @@ class StructuredNode(CypherMixin):
         try:
             node_property = getattr(cls, name)
         except AttributeError:
-            raise NoSuchProperty
-        if node_property and not issubclass(node_property.__class__, Property):
-            NoSuchProperty(name + " is not a Property of " + cls.__name__)
+            raise NoSuchProperty(name, cls)
+        if not issubclass(node_property.__class__, Property)\
+                or not issubclass(node_property.__class__, AliasProperty):
+            NoSuchProperty(name, cls)
         return node_property
 
     @classmethod
@@ -149,6 +164,7 @@ class StructuredNode(CypherMixin):
             if not key.startswith('_')\
                 and not isinstance(value, types.MethodType)\
                 and not isinstance(value, RelationshipManager)\
+                and not isinstance(value, AliasProperty)\
                 and value != None:
                     props[key] = value
 
