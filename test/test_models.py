@@ -52,7 +52,7 @@ def test_unique():
     User(email='jim1@test.com', age=3).save()
     try:
         User(email='jim1@test.com', age=3).save()
-    except Exception, e:
+    except Exception as e:
         assert e.__class__.__name__ == 'UniqueProperty'
     else:
         assert False
@@ -100,14 +100,14 @@ def test_readonly_definition():
 
     try:
         bob.delete()
-    except Exception, e:
+    except Exception as e:
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
 
     try:
         bob.save()
-    except Exception, e:
+    except Exception as e:
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
