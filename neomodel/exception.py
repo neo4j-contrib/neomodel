@@ -42,7 +42,7 @@ class InflateError(ValueError):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.node_id = "node {}".format(nid) if nid else "object"
+        self.node_id = "node {0}".format(nid) if nid else "object"
 
     def __str__(self):
         return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
@@ -54,7 +54,7 @@ class DeflateError(ValueError):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.node_id = "node {}".format(nid) if nid else "object"
+        self.node_id = "node {0}".format(nid) if nid else "object"
 
     def __str__(self):
         return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
