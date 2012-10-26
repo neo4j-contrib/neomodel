@@ -136,7 +136,8 @@ class StructuredNode(CypherMixin):
         props = {}
         for scls in cls.mro():
             for key, prop in scls.__dict__.iteritems():
-                if issubclass(prop.__class__, Property):
+                if (issubclass(prop.__class__, Property)
+                    and not isinstance(prop, AliasProperty)):
                     if key in node.__metadata__['data']:
                         props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
                     else:

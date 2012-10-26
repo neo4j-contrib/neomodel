@@ -25,4 +25,6 @@ def test_alias():
     assert 'full_name' not in jim.properties
     jim = AliasTestNode.index.get(full_name='Jim')
     assert jim
+    assert jim.name == 'Jim'
+    assert jim.full_name == 'Jim'
     assert 'full_name' not in jim.properties
