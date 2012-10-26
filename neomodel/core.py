@@ -164,7 +164,6 @@ class StructuredNode(CypherMixin):
             if not key.startswith('_')\
                 and not isinstance(value, types.MethodType)\
                 and not isinstance(value, RelationshipManager)\
-                and not isinstance(value, AliasProperty)\
                 and value != None:
                     props[key] = value
 
