@@ -1,5 +1,6 @@
-from neomodel.properties import IntegerProperty, DateTimeProperty, DateProperty
+from neomodel.properties import IntegerProperty, DateTimeProperty, DateProperty, StringProperty
 from neomodel.exception import InflateError, DeflateError
+from neomodel import StructuredNode
 from pytz import timezone
 from datetime import datetime, date
 
@@ -122,3 +123,29 @@ def test_date_exceptions():
         assert str(e).index('deflate property')
     else:
         assert False
+
+
+def test_default_value():
+    class DefaultTestValue(StructuredNode):
+        name_xx = StringProperty(default='jim', index=True)
+
+    a = DefaultTestValue()
+    assert a.name_xx == 'jim'
+    a.save()
+    return
+    b = DefaultTestValue.index.get(name='jim')
+    assert b.name == 'jim'
+
+    c = DefaultTestValue(name=None)
+    assert c.name == 'jim'
+
+
+def test_default_value_callable():
+    def uid_generator():
+        return 'xx'
+
+    class DefaultTestValueTwo(StructuredNode):
+        uid = StringProperty(default=uid_generator, index=True)
+
+    a = DefaultTestValueTwo().save()
+    assert a.uid == 'xx'

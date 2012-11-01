@@ -21,12 +21,27 @@ def validator(fn):
 
 
 class Property(object):
-    def __init__(self, unique_index=False, index=False, required=False):
-        self.required = required
+    def __init__(self, unique_index=False, index=False, required=False, default=None):
+        if default and required:
+            raise Exception("required and default are mutually exclusive")
+
         if unique_index and index:
             raise Exception("unique_index and index are mutually exclusive")
+
+        self.required = required
         self.unique_index = unique_index
         self.index = index
+        self.default = default
+        self.has_default = True if self.default is not None else False
+
+    def default_value(self):
+        if self.has_default:
+            if hasattr(self.default, '__call__'):
+                return self.default()
+            else:
+                return self.default
+        else:
+            raise Exception("No default value specified")
 
     @property
     def is_indexed(self):
@@ -108,6 +123,7 @@ class AliasProperty(property, Property):
     def __init__(self, to=None):
         self.target = to
         self.required = False
+        self.has_default = False
 
     def aliased_to(self):
         return self.target

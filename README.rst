@@ -43,7 +43,7 @@ Node definitions::
 
     class Person(StructuredNode):
         name = StringProperty(unique_index=True)
-        age = IntegerProperty(index=True)
+        age = IntegerProperty(index=True, default=0)
 
         # traverse outgoing IS_FROM relations, inflate to Country objects
         country = RelationshipTo('Country', 'IS_FROM')
@@ -63,7 +63,7 @@ CReate Update Delete::
     jim.delete()
 
 Relationships
------
+-------------
 Access related nodes through your defined relations::
 
     germany = Country(code='DE').save()
@@ -230,7 +230,7 @@ This can be useful for integrating with neo4django schemas::
     Human.index.name # myHumans
 
 Properties
---------
+----------
 
 The following basic properties are available::
 
@@ -245,6 +245,15 @@ The *DateTimeProperty* accepts datetime.datetime objects of any timezone and sto
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
+
+
+*Default values* you may provide a default value to any property, this can also be a function or any callable::
+
+        def uid_generator():
+            # your algorithm here
+            pass
+
+        name = StringProperty(unique_index=True, default=uid_generator)
 
 The *AliasProperty* a special property for aliasing other properties and providing 'magic' behaviour::
 

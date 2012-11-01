@@ -140,6 +140,8 @@ class StructuredNode(CypherMixin):
                     and not isinstance(prop, AliasProperty)):
                     if key in node.__metadata__['data']:
                         props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                    elif prop.has_default:
+                        props[key] = prop.default_value()
                     else:
                         props[key] = None
 
@@ -154,21 +156,15 @@ class StructuredNode(CypherMixin):
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
                     self.__dict__[key] = val.build_manager(self, key)
+                # handle default values
+                elif issubclass(val.__class__, Property)\
+                        and not isinstance(val, AliasProperty)\
+                        and not issubclass(val.__class__, AliasProperty):
+                    if not key in kwargs or kwargs[key] is None:
+                        if val.has_default:
+                            kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
             setattr(self, key, value)
-
-    @property
-    def properties(self):
-        """ Return properties and values of a node """
-        props = {}
-        for key, value in self.__dict__.iteritems():
-            if not key.startswith('_')\
-                and not isinstance(value, types.MethodType)\
-                and not isinstance(value, RelationshipManager)\
-                and value != None:
-                    props[key] = value
-
-        return props
 
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
@@ -211,15 +207,25 @@ class StructuredNode(CypherMixin):
                 raise UniqueProperty(requests[r.id], cls.index.name)
 
     def _deflate(self):
-        node_props = self.properties
+        node_props = {}
+        for key, value in self.__dict__.iteritems():
+            if not key.startswith('_')\
+                and not isinstance(value, types.MethodType)\
+                and not isinstance(value, RelationshipManager)\
+                and not isinstance(value, AliasProperty)\
+                and value != None:
+                    node_props[key] = value
+
         deflated = {}
         for cls in self.__class__.mro():
             for key, prop in cls.__dict__.iteritems():
                 if (not isinstance(prop, AliasProperty)
                     and issubclass(prop.__class__, Property)):
+                    node_id = self.__node__.id if self.__node__ else None
                     if key in node_props and node_props[key] is not None:
-                        node_id = self.__node__.id if self.__node__ else None
                         deflated[key] = prop.deflate(node_props[key], node_id=node_id)
+                    elif prop.has_default:
+                        deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
                     elif prop.required:
                         raise RequiredProperty(key, self.__class__)
         return deflated
