@@ -116,7 +116,8 @@ class RelationshipManager(object):
         # is single class rel
         if hasattr(self, 'node_class'):
             if not self.node_class.__subclasscheck__(obj.__class__):
-                raise Exception("Expected object of class (or a subclass of) " + self.node_class.__name__)
+                raise Exception("Expected object of class (or a subclass of) "
+                        + self.node_class.__name__ + " got " + obj.__class__.__name__)
         # or is multi class rel
         elif hasattr(self, 'node_classes'):
             for cls in self.node_classes:
@@ -124,7 +125,8 @@ class RelationshipManager(object):
                     node_class = cls
             if not node_class:
                 allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
-                raise Exception("Expected object of class of " + allowed_cls)
+                raise Exception("Expected object of class of "
+                        + allowed_cls + " got " + obj.__class__.__name__)
 
         if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
