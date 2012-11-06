@@ -1,5 +1,5 @@
 ========
-NeoModel
+neomodel
 ========
 
 A high level wrapper around py2neo, providing a formal definition for your data model.
