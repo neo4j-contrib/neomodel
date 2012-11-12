@@ -17,7 +17,7 @@ def _related(direction):
 
 
 def _properties(ident, **kwargs):
-    props = [ident + '.' + k + ' = {' + k + '}' for k in kwargs]
+    props = [ident + '.' + k + '! = {' + k + '}' for k in kwargs]
     return '(' + ', '.join(props) + ')'
 
 
