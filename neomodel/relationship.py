@@ -9,11 +9,11 @@ EITHER = neo4j.Direction.EITHER
 
 def _related(direction):
     if direction == OUTGOING:
-        return '-[{0}]->'
+        return '-[:{0}]->'
     elif direction == INCOMING:
-        return '<-[{0}]-'
+        return '<-[:{0}]-'
     else:
-        return '-[{0}]-'
+        return '-[:{0}]-'
 
 
 def _properties(ident, **kwargs):
