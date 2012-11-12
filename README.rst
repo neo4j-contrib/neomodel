@@ -9,6 +9,7 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 * Automatic indexing
 * Relationship traversal
 * Soft cardinality restrictions
+* pre and post save / delete hooks
 
 Supports: neo4j 1.8+, python 2.6, 2.7
 
@@ -53,7 +54,7 @@ we are defining two different methods for traversing it
 one accessible via Person objects and one via Country objects.
 
 CRUD
--------
+----
 
 CReate Update Delete::
 
@@ -61,6 +62,12 @@ CReate Update Delete::
     jim.age = 4
     jim.save() # validation happens here
     jim.delete()
+
+Hooks
+-----
+You may define the following hooks on your nodes::
+
+    pre_save, post_save, pre_delete, post_delete
 
 Relationships
 -------------
