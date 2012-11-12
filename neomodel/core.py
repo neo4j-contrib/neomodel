@@ -231,6 +231,9 @@ class StructuredNode(CypherMixin):
         return deflated
 
     def save(self):
+        if hasattr(self, 'pre_save'):
+            self.pre_save()
+
         props = self._deflate()
         if self.__node__:
             self.__node__.set_properties(props)
@@ -238,9 +241,15 @@ class StructuredNode(CypherMixin):
             self._update_index(props)
         else:
             self._create(props)
+
+        if hasattr(self, 'post_save'):
+            self.post_save()
         return self
 
     def delete(self):
+        if hasattr(self, 'pre_delete'):
+            self.pre_delete()
+
         if self.__node__:
             to_delete = self.__node__.get_relationships()
             to_delete.append(self.__node__)
@@ -248,6 +257,9 @@ class StructuredNode(CypherMixin):
             self.__node__ = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
+
+        if hasattr(self, 'post_delete'):
+            self.post_delete()
         return True
 
 
