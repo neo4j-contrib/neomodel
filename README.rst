@@ -13,7 +13,7 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 
 Supports: neo4j 1.8+, python 2.6, 2.7
 
-*Travis-CI*: https://secure.travis-ci.org/robinedwards/neomodel.png?branch=feature_datetime_timestamp
+image:: https://secure.travis-ci.org/robinedwards/neomodel.png?branch=feature_datetime_timestamp
 
 Installation
 -------
