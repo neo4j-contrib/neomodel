@@ -78,8 +78,9 @@ class NodeIndexManager(Client):
 
 
 class CypherMixin(Client):
-    def cypher(self, query, params={}):
+    def cypher(self, query, params=None):
         assert hasattr(self, '__node__')
+        params = params or {}
         params.update({'self': self.__node__.id})
         try:
             return cypher.execute(self.client, query, params)
@@ -87,10 +88,10 @@ class CypherMixin(Client):
             message, etype, jtrace = e.args
             raise CypherException(query, params, message, etype, jtrace)
 
-    def start_cypher(self, query, params={}):
+    def start_cypher(self, query, params=None):
         sys.stderr.write("DEPRECATION 19/10/2012: start_cypher not supported, please use cypher\n")
         start = "START a=node({self}) "
-        return self.cypher(start + query, params)
+        return self.cypher(start + query, params or {})
 
 
 class StructuredNodeMeta(type):
