@@ -132,6 +132,9 @@ class StructuredNode(CypherMixin):
     def category(cls):
         return category_factory(cls)
 
+    def parent(self):
+        return self.__parent__
+
     @classmethod
     def inflate(cls, node):
         props = {}
@@ -152,7 +155,7 @@ class StructuredNode(CypherMixin):
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
-
+        self.__parent__ = None
         for cls in self.__class__.mro():
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
@@ -165,12 +168,23 @@ class StructuredNode(CypherMixin):
                         if val.has_default:
                             kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
-            setattr(self, key, value)
+            if key.startswith("__") and key.endswith("__"):
+                if key == "__parent__":
+                    self.__parent__ = value
+            else:
+                setattr(self, key, value)
 
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
-        self.__node__, rel = self.client.create(props,
-                (category_factory(self.__class__).__node__, relation_name, 0))
+        category, parent = category_factory(self.__class__), self.parent()
+        abstract_rels = []
+        if category:
+            abstract_rels.append((category.__node__, relation_name, 0))
+        if parent:
+            abstract_rels.append((parent.__node__, relation_name, 0))
+            print parent.__node__
+        entities = self.client.create(props, *abstract_rels)
+        self.__node__ = entities[0]
         if not self.__node__:
             Exception('Failed to create new ' + self.__class__.__name__)
 
@@ -214,7 +228,7 @@ class StructuredNode(CypherMixin):
                 and not isinstance(value, types.MethodType)\
                 and not isinstance(value, RelationshipManager)\
                 and not isinstance(value, AliasProperty)\
-                and value != None:
+                and value is not None:
                     node_props[key] = value
 
         deflated = {}
@@ -236,6 +250,8 @@ class StructuredNode(CypherMixin):
             self.pre_save()
 
         props = self._deflate()
+
+        # create or update instance node
         if self.__node__:
             self.__node__.set_properties(props)
             self.__class__.index.__index__.remove(entity=self.__node__)

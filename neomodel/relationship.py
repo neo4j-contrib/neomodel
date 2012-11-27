@@ -220,5 +220,10 @@ def Relationship(cls_name, rel_type, cardinality=None):
     return _relate(cls_name, EITHER, rel_type, cardinality)
 
 
+def Parent(cls_name, rel_type):
+    from .cardinality import One
+    return _relate(cls_name, INCOMING, rel_type, One)
+
+
 class NotConnected(Exception):
     pass

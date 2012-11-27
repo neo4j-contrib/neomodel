@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom
+from neomodel import StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom, Parent
 
 
 class Person(StructuredNode):
@@ -17,6 +17,11 @@ class Person(StructuredNode):
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom('Person', 'IS_FROM')
+
+
+class Nationality(StructuredNode):
+    country = Parent('Country', "NATIONALITY")
+    code = StringProperty(unique_index=True)
 
 
 class SuperHero(Person):
@@ -86,3 +91,11 @@ def test_abstract_class_relationships():
 
     gr.inhabitant.connect(u)
     assert gr.inhabitant.is_connected(u)
+
+
+def test_parental_relationships():
+    gb = Country(code="GB").save()
+    cy = Country(code="CY").save()
+    british = Nationality(__parent__=gb, code="GB-GB").save()
+    greek_cypriot = Nationality(__parent__=cy, code="CY-GR").save()
+    turkish_cypriot = Nationality(__parent__=cy, code="CY-TR").save()
