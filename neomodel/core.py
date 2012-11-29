@@ -189,6 +189,10 @@ class StructuredNode(CypherMixin):
         return snode
 
     def __init__(self, *args, **kwargs):
+        try:
+            super(StructuredNode, self).__init__(*args, **kwargs)
+        except TypeError:
+            super(StructuredNode, self).__init__()
         self.__node__ = None
         self._create_hooks = []
         for cls in self.__class__.mro():
