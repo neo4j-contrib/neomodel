@@ -95,21 +95,59 @@ class CypherMixin(Client):
 
 
 class StructuredNodeMeta(type):
-    def __new__(cls, name, bases, dct):
+
+    NODE_CLASSES = ('StructuredNode', 'ReadOnlyNode')
+
+    def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
-        cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
+        inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
         for key, value in dct.iteritems():
             if issubclass(value.__class__, Property):
                 value.name = key
-                value.owner = cls
+                value.owner = inst
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                     value.setup()
-        if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
+        if inst.__name__ not in StructuredNodeMeta.NODE_CLASSES:
             if '_index_name' in dct:
                 name = dct['_index_name']
-            cls.index = NodeIndexManager(cls, name)
-        return cls
+            inst.index = NodeIndexManager(inst, name)
+        return inst
+
+
+class Hierarchical(object):
+
+    def __init__(self, *args, **kwargs):
+        try:
+            super(Hierarchical, self).__init__(*args, **kwargs)
+        except TypeError:
+            super(Hierarchical, self).__init__()
+        self.__parent__ = None
+        for key, value in kwargs.iteritems():
+            if key == "__parent__":
+                self.__parent__ = value
+        if hasattr(self, "_create_hooks"):
+            def hook(node):
+                if self.__parent__:
+                    rel_type = self.__class__.__name__.upper()
+                    node.client.create(
+                        (self.__parent__.__node__, rel_type, self.__node__, {"__child__": True})
+                    )
+            self._create_hooks.append(hook)
+
+    def parent(self):
+        return self.__parent__
+
+    def children(self):
+        if hasattr(self, "__node__"):
+            child_nodes = [
+                rel.end_node
+                for rel in self.__node__.get_relationships(neo4j.Direction.OUTGOING)
+                if rel["__child__"]
+            ]
+            return []
+        else:
+            return []
 
 
 class StructuredNode(CypherMixin):
@@ -132,9 +170,6 @@ class StructuredNode(CypherMixin):
     def category(cls):
         return category_factory(cls)
 
-    def parent(self):
-        return self.__parent__
-
     @classmethod
     def inflate(cls, node):
         props = {}
@@ -155,7 +190,7 @@ class StructuredNode(CypherMixin):
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
-        self.__parent__ = None
+        self._create_hooks = []
         for cls in self.__class__.mro():
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
@@ -169,20 +204,24 @@ class StructuredNode(CypherMixin):
                             kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
             if key.startswith("__") and key.endswith("__"):
-                if key == "__parent__":
-                    self.__parent__ = value
+                pass
             else:
                 setattr(self, key, value)
 
+    def __eq__(self, other):
+        # equality provider
+        return self.__node__ == other.__node__
+
+    def __ne__(self, other):
+        # inequality provider
+        return self.__node__ != other.__node__
+
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
-        category, parent = category_factory(self.__class__), self.parent()
+        category = category_factory(self.__class__)
         abstract_rels = []
         if category:
             abstract_rels.append((category.__node__, relation_name, 0))
-        if parent:
-            abstract_rels.append((parent.__node__, relation_name, 0))
-            print parent.__node__
         entities = self.client.create(props, *abstract_rels)
         self.__node__ = entities[0]
         if not self.__node__:
@@ -195,6 +234,8 @@ class StructuredNode(CypherMixin):
             exc_info = sys.exc_info()
             self.delete()
             raise exc_info[1], None, exc_info[2]
+        for hook in self._create_hooks:
+            hook(self)
 
     def _update_index(self, props):
         for cls in self.__class__.mro():
