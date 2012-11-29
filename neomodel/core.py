@@ -128,7 +128,7 @@ class Hierarchical(object):
                 self.__parent__ = value
         if hasattr(self, "_create_hooks"):
             def hook(node):
-                if self.__parent__:
+                if self.__parent__ and hasattr(self, "__node__"):
                     rel_type = self.__class__.__name__.upper()
                     node.client.create(
                         (self.__parent__.__node__, rel_type, self.__node__, {"__child__": True})
