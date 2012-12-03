@@ -116,7 +116,13 @@ class StructuredNodeMeta(type):
 
 
 class StructuredNode(CypherMixin):
-    """ Base class for nodes requiring formal declaration """
+    """ Base class for nodes requiring declaration of formal structure.
+
+        :ivar __node__: neo4j.Node instance bound to database for this instance
+        :ivar post_create_hooks: list of functions called after this instance
+            is created in the database; each function takes the
+            `StructuredNode` instance as its sole argument
+    """
 
     __metaclass__ = StructuredNodeMeta
 
@@ -226,7 +232,7 @@ class StructuredNode(CypherMixin):
                 for r in batch._submit():
                     if r.status == 200:
                         raise UniqueProperty(requests[i], cls.index.name)
-                    i = i + 1
+                    i += 1
             except rest.ResourceConflict as r:
                 raise UniqueProperty(requests[r.id], cls.index.name)
 
