@@ -43,6 +43,12 @@ class RelationshipManager(object):
         else:
             return self._all_single_class()
 
+    def __len__(self):
+        query = "START a=node({self}) MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
+        query += "(x) RETURN COUNT(x)"
+        return int(self.origin.cypher(query)[0][0][0])
+
     def _inflate_nodes_by_rel(self, results):
         """With resultset containing [node, rel] pairs
         wrap each node in correct neomodel class based on rel.type"""

@@ -83,6 +83,8 @@ Access related nodes through your defined relations::
     for p in germany.inhabitant.all()
         print(p.name) # Jim
 
+    len(germany.inhabitant) # 1
+
     jim.country.disconnect(germany)
 
 Search related nodes through your defined relations. This example starts at the germany node
