@@ -1,4 +1,5 @@
 from neomodel import *
+from neomodel.contrib import Hierarchical
 
 
 class Person(StructuredNode):

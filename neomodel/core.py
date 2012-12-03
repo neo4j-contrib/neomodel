@@ -115,42 +115,6 @@ class StructuredNodeMeta(type):
         return inst
 
 
-class Hierarchical(object):
-
-    def __init__(self, *args, **kwargs):
-        try:
-            super(Hierarchical, self).__init__(*args, **kwargs)
-        except TypeError:
-            super(Hierarchical, self).__init__()
-        self.__parent__ = None
-        for key, value in kwargs.iteritems():
-            if key == "__parent__":
-                self.__parent__ = value
-        if hasattr(self, "post_create_hooks"):
-            def hook(node):
-                if self.__parent__ and hasattr(self, "__node__"):
-                    rel_type = self.__class__.__name__.upper()
-                    node.client.create(
-                        (self.__parent__.__node__, rel_type, self.__node__, {"__child__": True})
-                    )
-            self.post_create_hooks.append(hook)
-
-    def parent(self):
-        return self.__parent__
-
-    def children(self, cls):
-        if hasattr(self, "__node__"):
-            rel_type = cls.__name__.upper()
-            child_nodes = [
-                rel.end_node
-                for rel in self.__node__.get_relationships(neo4j.Direction.OUTGOING, rel_type)
-                if rel["__child__"]
-            ]
-            return [cls.inflate(node) for node in child_nodes]
-        else:
-            return []
-
-
 class StructuredNode(CypherMixin):
     """ Base class for nodes requiring formal declaration """
 
