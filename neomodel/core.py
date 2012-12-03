@@ -126,26 +126,27 @@ class Hierarchical(object):
         for key, value in kwargs.iteritems():
             if key == "__parent__":
                 self.__parent__ = value
-        if hasattr(self, "_create_hooks"):
+        if hasattr(self, "post_create_hooks"):
             def hook(node):
                 if self.__parent__ and hasattr(self, "__node__"):
                     rel_type = self.__class__.__name__.upper()
                     node.client.create(
                         (self.__parent__.__node__, rel_type, self.__node__, {"__child__": True})
                     )
-            self._create_hooks.append(hook)
+            self.post_create_hooks.append(hook)
 
     def parent(self):
         return self.__parent__
 
-    def children(self):
+    def children(self, cls):
         if hasattr(self, "__node__"):
+            rel_type = cls.__name__.upper()
             child_nodes = [
                 rel.end_node
-                for rel in self.__node__.get_relationships(neo4j.Direction.OUTGOING)
+                for rel in self.__node__.get_relationships(neo4j.Direction.OUTGOING, rel_type)
                 if rel["__child__"]
             ]
-            return []
+            return [cls.inflate(node) for node in child_nodes]
         else:
             return []
 
@@ -194,7 +195,7 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        self._create_hooks = []
+        self.post_create_hooks = []
         for cls in self.__class__.mro():
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
@@ -222,12 +223,11 @@ class StructuredNode(CypherMixin):
 
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
-        category = category_factory(self.__class__)
-        abstract_rels = []
-        if category:
-            abstract_rels.append((category.__node__, relation_name, 0))
-        entities = self.client.create(props, *abstract_rels)
-        self.__node__ = entities[0]
+        self.__category__ = category_factory(self.__class__)
+        self.__node__, category_rel = self.client.create(
+            props,
+            (self.__category__.__node__, relation_name, 0, {"__instance__": True}),
+        )
         if not self.__node__:
             Exception('Failed to create new ' + self.__class__.__name__)
 
@@ -238,7 +238,7 @@ class StructuredNode(CypherMixin):
             exc_info = sys.exc_info()
             self.delete()
             raise exc_info[1], None, exc_info[2]
-        for hook in self._create_hooks:
+        for hook in self.post_create_hooks:
             hook(self)
 
     def _update_index(self, props):

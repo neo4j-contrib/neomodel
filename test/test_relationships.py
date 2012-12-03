@@ -102,4 +102,4 @@ def test_hierarchies():
     assert british.parent() == gb
     assert greek_cypriot.parent() == cy
     assert turkish_cypriot.parent() == cy
-    assert greek_cypriot in cy.children()
+    assert greek_cypriot in cy.children(Nationality)
