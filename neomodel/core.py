@@ -95,25 +95,34 @@ class CypherMixin(Client):
 
 
 class StructuredNodeMeta(type):
-    def __new__(cls, name, bases, dct):
+
+    NODE_CLASSES = ('StructuredNode', 'ReadOnlyNode')
+
+    def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
-        cls = super(StructuredNodeMeta, cls).__new__(cls, name, bases, dct)
+        inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
         for key, value in dct.iteritems():
             if issubclass(value.__class__, Property):
                 value.name = key
-                value.owner = cls
+                value.owner = inst
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                     value.setup()
-        if cls.__name__ not in ['StructuredNode', 'ReadOnlyNode']:
+        if inst.__name__ not in StructuredNodeMeta.NODE_CLASSES:
             if '_index_name' in dct:
                 name = dct['_index_name']
-            cls.index = NodeIndexManager(cls, name)
-        return cls
+            inst.index = NodeIndexManager(inst, name)
+        return inst
 
 
 class StructuredNode(CypherMixin):
-    """ Base class for nodes requiring formal declaration """
+    """ Base class for nodes requiring declaration of formal structure.
+
+        :ivar __node__: neo4j.Node instance bound to database for this instance
+        :ivar post_create_hooks: list of functions called after this instance
+            is created in the database; each function takes the
+            `StructuredNode` instance as its sole argument
+    """
 
     __metaclass__ = StructuredNodeMeta
 
@@ -151,8 +160,12 @@ class StructuredNode(CypherMixin):
         return snode
 
     def __init__(self, *args, **kwargs):
+        try:
+            super(StructuredNode, self).__init__(*args, **kwargs)
+        except TypeError:
+            super(StructuredNode, self).__init__()
         self.__node__ = None
-
+        self.post_create_hooks = []
         for cls in self.__class__.mro():
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
@@ -165,12 +178,26 @@ class StructuredNode(CypherMixin):
                         if val.has_default:
                             kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
-            setattr(self, key, value)
+            if key.startswith("__") and key.endswith("__"):
+                pass
+            else:
+                setattr(self, key, value)
+
+    def __eq__(self, other):
+        # equality provider
+        return self.__node__ == other.__node__
+
+    def __ne__(self, other):
+        # inequality provider
+        return self.__node__ != other.__node__
 
     def _create(self, props):
         relation_name = self.__class__.__name__.upper()
-        self.__node__, rel = self.client.create(props,
-                (category_factory(self.__class__).__node__, relation_name, 0))
+        self.__category__ = category_factory(self.__class__)
+        self.__node__, category_rel = self.client.create(
+            props,
+            (self.__category__.__node__, relation_name, 0, {"__instance__": True}),
+        )
         if not self.__node__:
             Exception('Failed to create new ' + self.__class__.__name__)
 
@@ -181,6 +208,8 @@ class StructuredNode(CypherMixin):
             exc_info = sys.exc_info()
             self.delete()
             raise exc_info[1], None, exc_info[2]
+        for hook in self.post_create_hooks:
+            hook(self)
 
     def _update_index(self, props):
         for cls in self.__class__.mro():
@@ -203,7 +232,7 @@ class StructuredNode(CypherMixin):
                 for r in batch._submit():
                     if r.status == 200:
                         raise UniqueProperty(requests[i], cls.index.name)
-                    i = i + 1
+                    i += 1
             except rest.ResourceConflict as r:
                 raise UniqueProperty(requests[r.id], cls.index.name)
 
@@ -214,7 +243,7 @@ class StructuredNode(CypherMixin):
                 and not isinstance(value, types.MethodType)\
                 and not isinstance(value, RelationshipManager)\
                 and not isinstance(value, AliasProperty)\
-                and value != None:
+                and value is not None:
                     node_props[key] = value
 
         deflated = {}
@@ -236,6 +265,8 @@ class StructuredNode(CypherMixin):
             self.pre_save()
 
         props = self._deflate()
+
+        # create or update instance node
         if self.__node__:
             self.__node__.set_properties(props)
             self.__class__.index.__index__.remove(entity=self.__node__)

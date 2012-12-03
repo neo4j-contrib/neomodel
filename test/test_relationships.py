@@ -1,4 +1,5 @@
-from neomodel import StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom
+from neomodel import *
+from neomodel.contrib import Hierarchical
 
 
 class Person(StructuredNode):
@@ -14,9 +15,13 @@ class Person(StructuredNode):
         return "I have no powers"
 
 
-class Country(StructuredNode):
+class Country(Hierarchical, StructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom('Person', 'IS_FROM')
+
+
+class Nationality(Hierarchical, StructuredNode):
+    code = StringProperty(unique_index=True)
 
 
 class SuperHero(Person):
@@ -90,3 +95,16 @@ def test_abstract_class_relationships():
 
     gr.inhabitant.connect(u)
     assert gr.inhabitant.is_connected(u)
+
+
+def test_hierarchies():
+    gb = Country(code="GB").save()
+    print "GB node = {0}".format(gb.__node__)
+    cy = Country(code="CY").save()
+    british = Nationality(__parent__=gb, code="GB-GB").save()
+    greek_cypriot = Nationality(__parent__=cy, code="CY-GR").save()
+    turkish_cypriot = Nationality(__parent__=cy, code="CY-TR").save()
+    assert british.parent() == gb
+    assert greek_cypriot.parent() == cy
+    assert turkish_cypriot.parent() == cy
+    assert greek_cypriot in cy.children(Nationality)
