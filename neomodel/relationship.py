@@ -37,6 +37,15 @@ class RelationshipManager(object):
     def client(self):
         return self.origin.client
 
+    def __len__(self):
+        query = "START a=node({self}) MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
+        query += "(x) RETURN COUNT(x)"
+        return int(self.origin.cypher(query)[0][0][0])
+
+    def count(self):
+        return self.__len__()
+
     def all(self):
         if hasattr(self, 'node_classes'):
             return self._all_multi_class()
