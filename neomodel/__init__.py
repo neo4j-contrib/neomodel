@@ -1,5 +1,4 @@
-from .core import (StructuredNode, ReadOnlyNode, ReadOnlyError, DoesNotExist,
-        UniqueProperty, CypherException)
+from .core import *
 from .relationship import (NotConnected, OUTGOING, INCOMING, EITHER, RelationshipTo,
         RelationshipFrom, Relationship)
 from .cardinality import (AttemptedCardinalityViolation,
