@@ -326,7 +326,7 @@ def category_factory(instance_cls):
         node = category_index.get_or_create('category', name, {'category': name})
         category = CategoryNode(name)
         category.__node__ = node
-        category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
+        category.instance = InstanceManager(OUTGOING, camel_to_upper(name), instance_cls, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
 
