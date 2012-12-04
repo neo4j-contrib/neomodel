@@ -1,4 +1,4 @@
-
+from ..core import StructuredNode
 
 class Hierarchical(object):
     """ The Hierarchical mixin provides parent-child context for
@@ -33,6 +33,8 @@ class Hierarchical(object):
         Note also that the `Hierarchical` constructor registers a
         post_create_hook with the instance which allows this relationship
         to be created.
+
+        :ivar __parent__: parent object according to defined hierarchy
     """
 
     def __init__(self, *args, **kwargs):
@@ -44,24 +46,24 @@ class Hierarchical(object):
         for key, value in kwargs.iteritems():
             if key == "__parent__":
                 self.__parent__ = value
-        if hasattr(self, "post_create_hooks"):
-            def hook(node):
-                if self.__parent__ and hasattr(self, "__node__"):
-                    rel_type = self.__class__.__name__.upper()
-                    node.client.create(
-                        (self.__parent__.__node__, rel_type, self.__node__, {"__child__": True})
-                    )
-            self.post_create_hooks.append(hook)
+
+    def __create__(self):
+        """ Called by StructuredNode class on creation of new instance. Will
+            build relationship from parent to child (this) node.
+        """
+        if self.__parent__ and isinstance(self, StructuredNode):
+            self.client.create(
+                (self.__parent__.__node__, self.relationship_type(), self.__node__, {"__child__": True})
+            )
 
     def parent(self):
         return self.__parent__
 
     def children(self, cls):
-        if hasattr(self, "__node__"):
-            rel_type = cls.__name__.upper()
+        if isinstance(self, StructuredNode):
             child_nodes = [
                 rel.end_node
-                for rel in self.__node__.get_relationships(1, rel_type)
+                for rel in self.__node__.get_relationships(1, cls.relationship_type())
                 if rel["__child__"]
             ]
             return [cls.inflate(node) for node in child_nodes]
