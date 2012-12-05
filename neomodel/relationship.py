@@ -64,7 +64,7 @@ class RelationshipManager(object):
         cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
-        query += "(x)<-[r:{0}]-() RETURN x, r".format(cat_types)
+        query += "(x)<-[r:{0}]-() WHERE r.__instance__ = true RETURN x, r".format(cat_types)
         results = self.origin.cypher(query)[0]
         return self._inflate_nodes_by_rel(results)
 
