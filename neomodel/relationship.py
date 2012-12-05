@@ -112,7 +112,7 @@ class RelationshipManager(object):
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(b)<-[r:{0}]-() ".format(cat_types)
-        query += "WHERE " + _properties('b', **kwargs)
+        query += "WHERE r.__instance__ = true AND " + _properties('b', **kwargs)
         query += " RETURN b, r"
         results = self.origin.cypher(query, kwargs)[0]
         return self._inflate_nodes_by_rel(results)
