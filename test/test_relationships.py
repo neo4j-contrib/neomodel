@@ -1,8 +1,8 @@
 from neomodel import *
-from neomodel.contrib import Hierarchical
+from neomodel.contrib import Hierarchical, Multilingual, Language
 
 
-class Person(StructuredNode):
+class Person(Multilingual, StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
@@ -13,6 +13,9 @@ class Person(StructuredNode):
 
     def special_power(self):
         return "I have no powers"
+
+    def speaks(self, lang):
+        self.attach_language(lang)
 
 
 class Country(Hierarchical, StructuredNode):
@@ -108,3 +111,9 @@ def test_hierarchies():
     assert greek_cypriot.parent() == cy
     assert turkish_cypriot.parent() == cy
     assert greek_cypriot in cy.children(Nationality)
+
+
+def test_multilingual():
+    french = Language(code="fr", name="Francais").save()
+    bob = Person(name="Bob", age=77).save()
+    bob.speaks(french)

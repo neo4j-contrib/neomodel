@@ -126,8 +126,7 @@ class RelationshipManager(object):
         # is single class rel
         if hasattr(self, 'node_class'):
             if not self.node_class.__subclasscheck__(obj.__class__):
-                raise Exception("Expected object of class (or a subclass of) "
-                        + self.node_class.__name__ + " got " + obj.__class__.__name__)
+                raise Exception("Expected object of class (or a subclass of) {0} got {1}".format(self.node_class, obj.__class__))
         # or is multi class rel
         elif hasattr(self, 'node_classes'):
             for cls in self.node_classes:
