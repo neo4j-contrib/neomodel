@@ -1,4 +1,5 @@
-from neomodel import *
+from neomodel import (StructuredNode, StringProperty, IntegerProperty,
+        RelationshipTo, RelationshipFrom)
 from neomodel.contrib import Hierarchical
 
 
