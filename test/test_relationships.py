@@ -14,10 +14,6 @@ class Person(Multilingual, StructuredNode):
     def special_power(self):
         return "I have no powers"
 
-    def speaks(self, *languages):
-        for language in languages:
-            self.attach_language(language)
-
 
 class Country(Hierarchical, StructuredNode):
     code = StringProperty(unique_index=True)
@@ -116,6 +112,11 @@ def test_hierarchies():
 
 def test_multilingual():
     bob = Person(name="Bob", age=77).save()
-    bob.speaks(Language.get("fr"))
-    bob.speaks(Language.get("ar"))
-    print bob.__node__
+    bob.attach_language(Language.get("fr"))
+    bob.attach_language("ar")
+    bob.attach_language(Language.get("pl"))
+    print "Multilingual bob is node " + str(bob.__node__)
+    assert bob.has_language("fr")
+    assert not bob.has_language("es")
+    bob.detach_language("fr")
+    assert not bob.has_language("fr")

@@ -9,8 +9,14 @@ class Language(StructuredNode):
     name = StringProperty()
 
     @classmethod
-    def get(cls, code):
-        return _lang[code]
+    def get(cls, lang):
+        if isinstance(lang, Language):
+            return lang
+        else:
+            try:
+                return _lang[str(lang)]
+            except KeyError:
+                raise ValueError("No such language: {0}".format(lang))
 
 
 class Multilingual(object):
@@ -23,13 +29,13 @@ class Multilingual(object):
             super(Multilingual, self).__init__()
 
     def attach_language(self, lang):
-        self.languages.connect(lang)
+        self.languages.connect(Language.get(lang))
 
     def detach_language(self, lang):
-        self.languages.disconnect(lang)
+        self.languages.disconnect(Language.get(lang))
 
     def has_language(self, lang):
-        pass
+        return self.languages.is_connected(Language.get(lang))
 
 _lang = {
     "ar": Language(code="ar", name=u"العربية", name_en="Arabic").save(),
