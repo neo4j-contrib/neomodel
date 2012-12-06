@@ -19,7 +19,7 @@ class RequiredProperty(Exception):
         self.node_class = cls
 
     def __str__(self):
-        return "property {0} on objects of class {1}".format(
+        return "property '{0}' on objects of class {1}".format(
                 self.property_name, self.node_class.__name__)
 
 
