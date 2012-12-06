@@ -99,7 +99,6 @@ def test_abstract_class_relationships():
 
 def test_hierarchies():
     gb = Country(code="GB").save()
-    print "GB node = {0}".format(gb.__node__)
     cy = Country(code="CY").save()
     british = Nationality(__parent__=gb, code="GB-GB").save()
     greek_cypriot = Nationality(__parent__=cy, code="CY-GR").save()
