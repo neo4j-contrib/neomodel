@@ -25,7 +25,8 @@ def connection():
             neo4j.authenticate(host, user, password)
             url = ''.join([u.scheme, '://', host, u.path, u.query])
 
-        return neo4j.GraphDatabaseService(url)
+        connection.db = neo4j.GraphDatabaseService(url)
+        return connection.db
 
 
 class Client(object):
