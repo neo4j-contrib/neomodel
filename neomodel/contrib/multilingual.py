@@ -1,8 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from .. import RelationshipTo, StructuredNode, StringProperty
+
 
 class Language(StructuredNode):
     code = StringProperty(unique_index=True)
     name = StringProperty()
+
+    @classmethod
+    def get(cls, code):
+        return _lang[code]
+
 
 class Multilingual(object):
     languages = RelationshipTo("Language", "LANGUAGE")
@@ -21,3 +30,13 @@ class Multilingual(object):
 
     def has_language(self, lang):
         pass
+
+_lang = {
+    "ar": Language(code="ar", name=u"العربية", name_en="Arabic").save(),
+    "bg": Language(code="bg", name=u"български език", name_en="Bulgarian").save(),
+    "en": Language(code="en", name=u"english", name_en="English").save(),
+    "es": Language(code="es", name=u"español", name_en="Spanish").save(),
+    "fr": Language(code="fr", name=u"français", name_en="French").save(),
+    "pl": Language(code="pl", name=u"język polski", name_en="Polish").save(),
+    "ro": Language(code="ro", name=u"limba română", name_en="Romanian").save(),
+}
