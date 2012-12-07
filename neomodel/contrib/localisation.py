@@ -1,0 +1,62 @@
+from .. import RelationshipTo, StructuredNode, StringProperty
+from ..core import NodeIndexManager
+
+
+class Locale(StructuredNode):
+    code = StringProperty(unique_index=True)
+    name = StringProperty()
+
+    def __repr__(self):
+        return self.code
+
+    def __str__(self):
+        return self.code
+
+    _locale_cache = {}
+
+    @classmethod
+    def get(cls, code):
+        if not code in cls._locale_cache:
+            cls._locale_cache[code] = Locale.index.get(code=code)
+        return cls._locale_cache[code]
+
+
+class LocalisedIndexManager(NodeIndexManager):
+    """ Only return results in current locale """
+    def __init__(self, locale_code, *args, **kwargs):
+        super(LocalisedIndexManager, self).__init__(*args, **kwargs)
+        self.locale_code = locale_code
+
+    def _execute(self, query):
+        locale = Locale.get(self.locale_code)
+        cquery = """
+            START lang = node({self}),
+            lnode = node:%s({query})
+            MATCH (lnode)-[:LANGUAGE]->(lang)
+            RETURN lnode
+            """ % (self.name) # set index name
+        result, meta = locale.cypher(cquery, {'query': query})
+        return result[0] if result else []
+
+
+class Localised(object):
+    locales = RelationshipTo("Locale", "LANGUAGE")
+
+    def __init__(self, *args, **kwargs):
+        try:
+            super(Localised, self).__init__(*args, **kwargs)
+        except TypeError:
+            super(Localised, self).__init__()
+
+    def attach_locale(self, lang):
+        self.locales.connect(Locale.get(lang))
+
+    def detach_locale(self, lang):
+        self.locales.disconnect(Locale.get(lang))
+
+    def has_locale(self, lang):
+        return self.locales.is_connected(Locale.get(lang))
+
+    @classmethod
+    def locale_index(cls, code):
+        return LocalisedIndexManager(code, cls, cls.__name__)
