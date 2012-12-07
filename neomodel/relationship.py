@@ -1,6 +1,7 @@
 from py2neo import neo4j
 import sys
 from .exception import DoesNotExist
+from .util import camel_to_upper
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
@@ -27,7 +28,7 @@ class RelationshipManager(object):
         self.relation_type = relation_type
         if isinstance(node_classes, list):
             self.node_classes = node_classes
-            self.class_map = dict(zip([c.__name__.upper() for c in node_classes],
+            self.class_map = dict(zip([camel_to_upper(c.__name__) for c in node_classes],
                 node_classes))
         else:
             self.node_class = node_classes
@@ -60,10 +61,10 @@ class RelationshipManager(object):
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
     def _all_multi_class(self):
-        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
+        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
-        query += "(x)<-[r:{0}]-() RETURN x, r".format(cat_types)
+        query += "(x)<-[r:{0}]-() WHERE r.__instance__ = true RETURN x, r".format(cat_types)
         results = self.origin.cypher(query)[0]
         return self._inflate_nodes_by_rel(results)
 
@@ -107,11 +108,11 @@ class RelationshipManager(object):
         return [self.node_class.inflate(row[0]) for row in results]
 
     def _search_multi_class(self, **kwargs):
-        cat_types = "|".join([c.__name__.upper() for c in self.node_classes])
+        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(b)<-[r:{0}]-() ".format(cat_types)
-        query += "WHERE " + _properties('b', **kwargs)
+        query += "WHERE r.__instance__ = true AND " + _properties('b', **kwargs)
         query += " RETURN b, r"
         results = self.origin.cypher(query, kwargs)[0]
         return self._inflate_nodes_by_rel(results)
@@ -125,8 +126,7 @@ class RelationshipManager(object):
         # is single class rel
         if hasattr(self, 'node_class'):
             if not self.node_class.__subclasscheck__(obj.__class__):
-                raise Exception("Expected object of class (or a subclass of) "
-                        + self.node_class.__name__ + " got " + obj.__class__.__name__)
+                raise Exception("Expected object of class (or a subclass of) {0} got {1}".format(self.node_class, obj.__class__))
         # or is multi class rel
         elif hasattr(self, 'node_classes'):
             for cls in self.node_classes:
