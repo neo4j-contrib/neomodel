@@ -3,6 +3,7 @@ from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
+from .util import camel_to_upper, upper_to_camel
 from lucenequerybuilder import Q
 import types
 import sys
@@ -122,9 +123,6 @@ class StructuredNode(CypherMixin):
     """ Base class for nodes requiring declaration of formal structure.
 
         :ivar __node__: neo4j.Node instance bound to database for this instance
-        :ivar post_create_hooks: list of functions called after this instance
-            is created in the database; each function takes the
-            `StructuredNode` instance as its sole argument
     """
 
     __metaclass__ = StructuredNodeMeta
@@ -168,7 +166,6 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        self.post_create_hooks = []
         for cls in self.__class__.mro():
             for key, val in cls.__dict__.iteritems():
                 if val.__class__ is RelationshipDefinition:
@@ -194,16 +191,25 @@ class StructuredNode(CypherMixin):
         # inequality provider
         return self.__node__ != other.__node__
 
+    @classmethod
+    def relationship_type(cls):
+        return camel_to_upper(cls.__name__)
+
     def _create(self, props):
-        relation_name = self.__class__.__name__.upper()
+        # get or create category node
         self.__category__ = category_factory(self.__class__)
+        # create instance node and relationship from category node
         self.__node__, category_rel = self.client.create(
             props,
-            (self.__category__.__node__, relation_name, 0, {"__instance__": True}),
+            (self.__category__.__node__, self.relationship_type(), 0, {"__instance__": True}),
         )
-        if not self.__node__:
-            Exception('Failed to create new ' + self.__class__.__name__)
-
+        # iterate base classes, calling `__create__` method
+        for base in self.__class__.__bases__:
+            if base is not StructuredNode:
+                try:
+                    base.__create__(self)
+                except AttributeError:
+                    pass
         # Update indexes
         try:
             self._update_index(props)
@@ -211,8 +217,6 @@ class StructuredNode(CypherMixin):
             exc_info = sys.exc_info()
             self.delete()
             raise exc_info[1], None, exc_info[2]
-        for hook in self.post_create_hooks:
-            hook(self)
 
     def _update_index(self, props):
         for cls in self.__class__.mro():
@@ -325,7 +329,7 @@ def category_factory(instance_cls):
         node = category_index.get_or_create('category', name, {'category': name})
         category = CategoryNode(name)
         category.__node__ = node
-        category.instance = InstanceManager(OUTGOING, name.upper(), instance_cls, category)
+        category.instance = InstanceManager(OUTGOING, camel_to_upper(name), instance_cls, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
 

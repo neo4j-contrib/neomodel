@@ -1,9 +1,8 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty,
-        RelationshipTo, RelationshipFrom)
-from neomodel.contrib import Hierarchical
+from neomodel import *
+from neomodel.contrib import Hierarchical, Multilingual, Language
 
 
-class Person(StructuredNode):
+class Person(Multilingual, StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
@@ -100,6 +99,7 @@ def test_abstract_class_relationships():
 
 def test_hierarchies():
     gb = Country(code="GB").save()
+    print "GB node = {0}".format(gb.__node__)
     cy = Country(code="CY").save()
     british = Nationality(__parent__=gb, code="GB-GB").save()
     greek_cypriot = Nationality(__parent__=cy, code="CY-GR").save()
@@ -108,3 +108,19 @@ def test_hierarchies():
     assert greek_cypriot.parent() == cy
     assert turkish_cypriot.parent() == cy
     assert greek_cypriot in cy.children(Nationality)
+
+
+def test_multilingual():
+    bob = Person(name="Bob", age=77).save()
+    bob.attach_language(Language.get("fr"))
+    bob.attach_language("ar")
+    bob.attach_language(Language.get("ar"))
+    bob.attach_language(Language.get("pl"))
+    print "Multilingual bob is node " + str(bob.__node__)
+    assert bob.has_language("fr")
+    assert not bob.has_language("es")
+    bob.detach_language("fr")
+    assert not bob.has_language("fr")
+    assert len(bob.languages()) == 2
+    assert Language.get("pl") in bob.languages()
+    assert Language.get("ar") in bob.languages()
