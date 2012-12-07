@@ -55,17 +55,20 @@ class NodeIndexManager(Client):
                 params[real_key] = params[key]
                 del params[key]
 
+    def _execute(self, query):
+        return self.__index__.query(query)
+
     def search(self, query=None, **kwargs):
         """ Load multiple nodes via index """
-        self._check_params(kwargs)
         if not query:
+            self._check_params(kwargs)
             query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
 
-        return [self.node_class.inflate(n) for n in self.__index__.query(str(query))]
+        return [self.node_class.inflate(n) for n in self._execute(str(query))]
 
     def get(self, query=None, **kwargs):
         """ Load single node via index """
-        nodes = self.search(query, **kwargs)
+        nodes = self.search(query=query, **kwargs)
         if len(nodes) == 1:
             return nodes[0]
         elif len(nodes) > 1:
