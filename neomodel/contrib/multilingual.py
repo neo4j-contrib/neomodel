@@ -7,6 +7,10 @@ from .. import RelationshipTo, StructuredNode, StringProperty
 class Language(StructuredNode):
     code = StringProperty(unique_index=True)
     name = StringProperty()
+    name_en = StringProperty()
+
+    def __repr__(self):
+        return self.code
 
     @classmethod
     def get(cls, lang):
@@ -20,7 +24,7 @@ class Language(StructuredNode):
 
 
 class Multilingual(object):
-    languages = RelationshipTo("Language", "LANGUAGE")
+    _languages = RelationshipTo("Language", "LANGUAGE")
 
     def __init__(self, *args, **kwargs):
         try:
@@ -29,13 +33,17 @@ class Multilingual(object):
             super(Multilingual, self).__init__()
 
     def attach_language(self, lang):
-        self.languages.connect(Language.get(lang))
+        self._languages.connect(Language.get(lang))
 
     def detach_language(self, lang):
-        self.languages.disconnect(Language.get(lang))
+        self._languages.disconnect(Language.get(lang))
 
     def has_language(self, lang):
-        return self.languages.is_connected(Language.get(lang))
+        return self._languages.is_connected(Language.get(lang))
+
+    def languages(self):
+        return self._languages.all()
+
 
 _lang = {
     "ar": Language(code="ar", name=u"العربية", name_en="Arabic").save(),

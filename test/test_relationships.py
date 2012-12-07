@@ -120,3 +120,4 @@ def test_multilingual():
     assert not bob.has_language("es")
     bob.detach_language("fr")
     assert not bob.has_language("fr")
+    print bob.languages()
