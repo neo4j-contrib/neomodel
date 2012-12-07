@@ -13,15 +13,15 @@ def setup():
 
 def test_localised():
     bob = Student(name="Bob").save()
-    bob.attach_locale(Locale.get("fr"))
-    bob.attach_locale("ar")
-    bob.attach_locale(Locale.get("ar"))
-    bob.attach_locale(Locale.get("pl"))
+    bob.add_locale(Locale.get("fr"))
+    bob.add_locale("ar")
+    bob.add_locale(Locale.get("ar"))
+    bob.add_locale(Locale.get("pl"))
 
     assert bob.has_locale("fr")
     assert not bob.has_locale("es")
 
-    bob.detach_locale("fr")
+    bob.remove_locale("fr")
     assert not bob.has_locale("fr")
 
     assert len(bob.locales) == 2
@@ -34,9 +34,9 @@ def test_localised_index():
     jim = Student(name="Jim").save()
     katie = Student(name="Katie").save()
 
-    fred.attach_locale(Locale.get('fr'))
-    jim.attach_locale(Locale.get('fr'))
-    katie.attach_locale(Locale.get('ar'))
+    fred.add_locale(Locale.get('fr'))
+    jim.add_locale(Locale.get('fr'))
+    katie.add_locale(Locale.get('ar'))
 
     assert Student.locale_index('fr').get(name='Fred')
 

@@ -48,10 +48,10 @@ class Localised(object):
         except TypeError:
             super(Localised, self).__init__()
 
-    def attach_locale(self, lang):
+    def add_locale(self, lang):
         self.locales.connect(Locale.get(lang))
 
-    def detach_locale(self, lang):
+    def remove_locale(self, lang):
         self.locales.disconnect(Locale.get(lang))
 
     def has_locale(self, lang):
