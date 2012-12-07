@@ -3,7 +3,7 @@ from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
-from .util import camel_to_upper, upper_to_camel
+from .util import camel_to_upper
 from lucenequerybuilder import Q
 import types
 import sys
