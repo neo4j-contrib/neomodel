@@ -5,12 +5,6 @@ class User2(StructuredNode):
     email = StringProperty()
 
 
-def test_start_cypher():
-    jim = User2(email='jim@test.com').save()
-    email = jim.start_cypher("RETURN a.email")[0][0][0]
-    assert email == 'jim@test.com'
-
-
 def test_cypher():
     jim = User2(email='jim1@test.com').save()
     email = jim.cypher("START a=node({self}) RETURN a.email")[0][0][0]
