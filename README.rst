@@ -17,13 +17,35 @@ Supports: neo4j 1.8+, python 2.6, 2.7
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
 
 Installation
--------
+------------
 Install the module via git::
 
     pip install -e git+git@github.com:robinedwards/neomodel.git@HEAD#egg=neomodel-dev
 
+Upgrading from a version prior to 0.2.0?
+----------------------------------------
+Relationships between category nodes and there instances changed slightly as of version 0.2.0.
+Instance relationships are now upper case separated by underscores ie: FeedEntry rels used to be FEEDENTRY,
+They are now called FEED_ENTRY. An `__instance__: true` property has also been added to help distinguish them from other relationships. Please run the following on each of your category node classes::
+
+    def camel_to_upper(name):
+        return "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", name)[1::2])
+
+    def fix_category_rels(cls):
+        old_rel_name, new_rel_neame = cls.__name__.upper(), camel_to_upper(cls.__name__)
+        query = """START z=node:%s(category="%s")
+        MATCH (z)-[R0:%s]->(i)
+        CREATE UNIQUE (z)-[R1:%s {__instance__:true}]->(i)
+        DELETE R0 RETURN R1""" % (cls.__name__, cls.__name__, old_rel_name, new_rel_name)
+        cls.category().cypher(query)
+
+    for cls in []: # list of StructuredNodes here
+        if len(cls.category().instance):
+            fix_category_rels(cls)
+
+
 Introduction
--------
+------------
 
 Connection::
 
