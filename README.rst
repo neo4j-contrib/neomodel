@@ -32,11 +32,13 @@ They are now called FEED_ENTRY. An `__instance__: true` property has also been a
         return "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", name)[1::2])
 
     def fix_category_rels(cls):
-        old_rel_name, new_rel_neame = cls.__name__.upper(), camel_to_upper(cls.__name__)
-        query = """START z=node:%s(category="%s")
+        old_rel_name = cls.__name__.upper()
+        new_rel_name = camel_to_upper(cls.__name__)
+        query = """START z=node({self})
         MATCH (z)-[R0:%s]->(i)
+        DELETE R0
         CREATE UNIQUE (z)-[R1:%s {__instance__:true}]->(i)
-        DELETE R0 RETURN R1""" % (cls.__name__, cls.__name__, old_rel_name, new_rel_name)
+        RETURN R1""" % (old_rel_name, new_rel_name)
         cls.category().cypher(query)
 
     for cls in []: # list of StructuredNodes here
