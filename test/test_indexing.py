@@ -7,10 +7,6 @@ class Human(StructuredNode):
     age = IntegerProperty(index=True)
 
 
-class SuperHuman(Human):
-    power = StringProperty(index=True)
-
-
 def test_unique_error():
     Human(name="j1m", age=13).save()
     try:
@@ -46,18 +42,6 @@ def test_lucene_query():
     assert 'sarah' in names
     assert 'jim' in names
     assert 'bob' in names
-
-
-def test_abstract_class_index():
-    Human(name='human', age=20).save()
-    SuperHuman(name='super', age=25, power='fireballs').save()
-
-    superhumans = SuperHuman.index.search(power='fireballs')
-    human = Human.index.get(name='super')
-
-    assert len(superhumans) == 1
-    assert superhumans[0].age == 25
-    assert human.age == 25
 
 
 def test_does_not_exist():

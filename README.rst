@@ -159,30 +159,6 @@ this inflates py2neo nodes to neomodel node objects::
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
 
-Inheritance
--------
-
-*EXPERIMENTAL*
-
-It's possible to subclass node definitions, separate indexes will be
-maintained for each class in the hierarchy.
-
-The example below demonstrates the use of class inheritance in relationships::
-
-    # Superhero subclass of Person
-    class SuperHero(Person):
-        power = StringProperty(index=True)
-
-    # Adding Atlantis to our countries and UltraJoe to our superheroes
-    atlantis = Country(code='ATL').save()
-    ultrajoe = SuperHero(name='UltraJoe', age=13, power='invisibility').save()
-
-    # Connecting UltraJoe to Atlantis. As a Person (as well a SuperHero),
-    # UltraJoe inherits the relationship definitions for Person.
-    atlantis.inhabitant.connect(ultrajoe)
-
-    # Checking if connection was indeed made
-    atlantis.inhabitant.is_connected(ultrajoe) # True
 
 Relating to different node types
 -------
