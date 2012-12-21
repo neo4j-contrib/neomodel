@@ -14,7 +14,7 @@ class ZeroOrOne(RelationshipManager):
             return nodes[0]
         if len(nodes) > 1:
             raise CardinalityViolation(
-                    "Expected zero or one related nodes got " + len(nodes))
+                    "Expected zero or one related nodes got " + str(len(nodes)))
 
     def all(self):
         node = self.single()
