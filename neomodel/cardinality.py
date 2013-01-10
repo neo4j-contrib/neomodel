@@ -14,7 +14,7 @@ class ZeroOrOne(RelationshipManager):
             return nodes[0]
         if len(nodes) > 1:
             raise CardinalityViolation(
-                    "Expected zero or one related nodes got " + len(nodes))
+                    "Expected zero or one related nodes got " + str(len(nodes)))
 
     def all(self):
         node = self.single()
@@ -51,9 +51,12 @@ class One(RelationshipManager):
     def single(self):
         nodes = super(One, self).all()
         if nodes:
-            return nodes[0]
+            if len(nodes) == 1:
+                return nodes[0]
+            else:
+                raise CardinalityViolation("Expected one relationship got " + len(nodes))
         else:
-            raise CardinalityViolation("Expected at least one relation with one or more")
+            raise CardinalityViolation("Expected one relation with a cardinality of one, got none")
 
     def all(self):
         return [self.single()]
