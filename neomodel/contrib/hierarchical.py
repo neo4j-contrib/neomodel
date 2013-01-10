@@ -1,5 +1,6 @@
 from ..core import StructuredNode
 
+
 class Hierarchical(object):
     """ The Hierarchical mixin provides parent-child context for
         StructuredNodes. On construction of a new object, the `__parent__`

@@ -65,6 +65,8 @@ class One(RelationshipManager):
         raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use rerelate")
 
     def connect(self, obj):
+        if not self.origin.__node__:
+            raise Exception("Node has not been saved cannot connect!")
         if self.origin.__node__.has_relationship(self.direction, self.relation_type):
             raise AttemptedCardinalityViolation("Node already has one relationship")
         else:
