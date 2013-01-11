@@ -8,7 +8,7 @@ class Customer(StructuredNode):
 
 
 def test_batch_create():
-    users = Customer.batch_create(
+    users = Customer.create(
             {'email': 'jim1@aol.com', 'age': 11},
             {'email': 'jim2@aol.com', 'age': 7},
             {'email': 'jim3@aol.com', 'age': 9},
@@ -25,7 +25,7 @@ def test_batch_create():
 def test_batch_validation():
     # test validation in batch create
     try:
-        Customer.batch_create(
+        Customer.create(
             {'email': 'jim1@aol.com', 'age': 'x'},
         )
     except DeflateError:
@@ -38,12 +38,12 @@ def test_batch_index_violation():
     for u in Customer.category().instance.all():
         u.delete()
 
-    users = Customer.batch_create(
+    users = Customer.create(
         {'email': 'jim6@aol.com', 'age': 3},
     )
     assert users
     try:
-        Customer.batch_create(
+        Customer.create(
             {'email': 'jim6@aol.com', 'age': 3},
             {'email': 'jim7@aol.com', 'age': 5},
         )

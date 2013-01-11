@@ -190,7 +190,7 @@ class StructuredNode(CypherMixin):
         return camel_to_upper(cls.__name__)
 
     @classmethod
-    def batch_create(cls, *props):
+    def create(cls, *props):
         category = cls.category()
         batch = neo4j.WriteBatch(connection())
         deflated = [cls.deflate(p) for p in list(props)]
@@ -253,7 +253,7 @@ class StructuredNode(CypherMixin):
 
     @classmethod
     def deflate(cls, node_props, node_id=None):
-        """ deflate dict ready to be stored, also used in batch_create"""
+        """ deflate dict ready to be stored """
         deflated = {}
         for mcls in cls.mro():
             for key, prop in mcls.__dict__.iteritems():
@@ -279,7 +279,7 @@ class StructuredNode(CypherMixin):
             batch = self.__class__._update_index_batch(self.__node__, props)
             self._submit_index_batch(batch)
         else:
-            self.__node__ = self.__class__.batch_create(self.__properties__)[0].__node__
+            self.__node__ = self.__class__.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
                 self.post_create()
 

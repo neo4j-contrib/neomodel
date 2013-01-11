@@ -64,9 +64,9 @@ CReate Update Delete::
     jim.save() # validation happens here
     jim.delete()
 
-Batch create (atomic) which validates and indexes::
+Batch create (atomic) which also validates and indexes::
 
-    people = Person.batch_create(
+    people = Person.create(
         {'name': 'Tim', 'age': 83},
         {'name': 'Bob', 'age': 23},
         {'name': 'Jill', 'age': 34},
@@ -76,7 +76,7 @@ Hooks
 -----
 You may define the following hooks on your nodes::
 
-    pre_save, post_save, pre_delete, post_delete
+    pre_save, post_save, pre_delete, post_delete, post_create
 
 Also checkout neomodel.contrib.signals for django signals support
 
