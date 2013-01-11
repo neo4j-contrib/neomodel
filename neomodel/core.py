@@ -192,24 +192,18 @@ class StructuredNode(CypherMixin):
 
     @classmethod
     def batch_create(cls, *props):
-        props = list(props)
-        __category__ = cls.category()
-        client = connection()
-        num_nodes = len(props)
-        # add category rels
-        for i in range(0, len(props)):
-            props.append(
-                    (__category__.__node__, cls.relationship_type(),
-                        i, {"__instance__": True}))
-        nodes_and_rels = client.create(*props)
-        nodes = nodes_and_rels[:num_nodes]
-
+        category = cls.category()
+        batch = neo4j.WriteBatch(connection())
+        deflated = [cls.deflate(p) for p in list(props)]
+        for p in deflated:
+            batch.create_node(p)
+        for i in range(0, len(deflated)):
+            batch.create_relationship(category.__node__,
+                    cls.relationship_type(), i, {"__instance__": True})
+            cls._update_index_batch(i, deflated[i], batch)
         # build index batch
-        index_batch = neo4j.WriteBatch(connection())
-        for node in nodes:
-            cls._update_index_batch(node, node.__metadata__['data'], batch=index_batch)
-        cls._submit_index_batch(index_batch)
-        return [cls.inflate(node) for node in nodes]
+        results = cls._submit_index_batch(batch)
+        return [cls.inflate(node) for node in results[:len(props)]]
 
     def _create(self, props):
         # get or create category node
@@ -254,44 +248,55 @@ class StructuredNode(CypherMixin):
     @classmethod
     def _submit_index_batch(cls, batch):
         requests = batch.requests
+        results = []
         try:
             i = 0
-            for r in batch._submit():
+            results = batch._submit()
+            for r in results:
                 if r.status == 200:
                     raise UniqueProperty(requests[i], cls.index.name)
                 i += 1
         except rest.ResourceConflict as r:
             raise UniqueProperty(requests[r.id], cls.index.name)
+        else:
+            return [
+                batch._graph_db._resolve(response.body, response.status, id_=response.id)
+                for response in results
+            ]
 
-    def _deflate(self):
+    @property
+    def __properties__(self):
         node_props = {}
-        for key, value in self.__dict__.iteritems():
+        for key, value in super(StructuredNode, self).__dict__.iteritems():
             if not key.startswith('_')\
                 and not isinstance(value, types.MethodType)\
                 and not isinstance(value, RelationshipManager)\
                 and not isinstance(value, AliasProperty)\
                 and value is not None:
                     node_props[key] = value
+        return node_props
 
+    @classmethod
+    def deflate(cls, node_props, node_id=None):
+        """ deflate dict ready to be stored, also used in batch_create"""
         deflated = {}
-        for cls in self.__class__.mro():
-            for key, prop in cls.__dict__.iteritems():
+        for mcls in cls.mro():
+            for key, prop in mcls.__dict__.iteritems():
                 if (not isinstance(prop, AliasProperty)
                     and issubclass(prop.__class__, Property)):
-                    node_id = self.__node__.id if self.__node__ else None
                     if key in node_props and node_props[key] is not None:
                         deflated[key] = prop.deflate(node_props[key], node_id=node_id)
                     elif prop.has_default:
                         deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
                     elif prop.required:
-                        raise RequiredProperty(key, self.__class__)
+                        raise RequiredProperty(key, cls)
         return deflated
 
     def save(self):
         if hasattr(self, 'pre_save'):
             self.pre_save()
-
-        props = self._deflate()
+        nid = self.__node__.id if self.__node__ else None
+        props = self.deflate(self.__properties__, nid)
 
         # create or update instance node
         if self.__node__:

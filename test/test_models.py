@@ -16,21 +16,6 @@ class User(StructuredNode):
         self.email = value
 
 
-def test_batch_create():
-    users = User.batch_create(
-            {'email': 'jim1@aol.com', 'age': 11},
-            {'email': 'jim2@aol.com', 'age': 7},
-            {'email': 'jim3@aol.com', 'age': 9},
-            {'email': 'jim4@aol.com', 'age': 7},
-            {'email': 'jim5@aol.com', 'age': 99},
-            )
-    assert len(users) == 5
-    assert users[0].age == 11
-    assert users[1].age == 7
-    assert users[1].email == 'jim2@aol.com'
-    assert User.index.get(email='jim1@aol.com')
-
-
 def test_required():
     try:
         User(age=3).save()

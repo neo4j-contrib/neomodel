@@ -22,9 +22,9 @@ def test_alias():
     jim = AliasTestNode(full_name='Jim').save()
     assert jim.name == 'Jim'
     assert jim.full_name == 'Jim'
-    assert 'full_name' not in jim._deflate()
+    assert 'full_name' not in AliasTestNode.deflate(jim.__properties__)
     jim = AliasTestNode.index.get(full_name='Jim')
     assert jim
     assert jim.name == 'Jim'
     assert jim.full_name == 'Jim'
-    assert 'full_name' not in jim._deflate()
+    assert 'full_name' not in AliasTestNode.deflate(jim.__properties__)
