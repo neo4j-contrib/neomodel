@@ -48,7 +48,7 @@ class Hierarchical(object):
             if key == "__parent__":
                 self.__parent__ = value
 
-    def __create__(self):
+    def post_create(self):
         """ Called by StructuredNode class on creation of new instance. Will
             build relationship from parent to child (this) node.
         """

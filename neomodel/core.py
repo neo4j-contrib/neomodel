@@ -6,7 +6,6 @@ from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherEx
 from .util import camel_to_upper
 from lucenequerybuilder import Q
 import types
-import sys
 from urlparse import urlparse
 import os
 
@@ -205,30 +204,6 @@ class StructuredNode(CypherMixin):
         results = cls._submit_index_batch(batch)
         return [cls.inflate(node) for node in results[:len(props)]]
 
-    def _create(self, props):
-        # get or create category node
-        self.__category__ = category_factory(self.__class__)
-        # create instance node and relationship from category node
-        self.__node__, category_rel = self.client.create(
-            props,
-            (self.__category__.__node__, self.relationship_type(), 0, {"__instance__": True}),
-        )
-        # iterate base classes, calling `__create__` method
-        for base in self.__class__.__bases__:
-            if base is not StructuredNode:
-                try:
-                    base.__create__(self)
-                except AttributeError:
-                    pass
-        # Update indexes
-        try:
-            batch = self.__class__._update_index_batch(self.__node__, props)
-            self._submit_index_batch(batch)
-        except Exception:
-            exc_info = sys.exc_info()
-            self.delete()
-            raise exc_info[1], None, exc_info[2]
-
     @classmethod
     def _update_index_batch(cls, node, props, batch=None):
         if batch is None:
@@ -295,17 +270,18 @@ class StructuredNode(CypherMixin):
     def save(self):
         if hasattr(self, 'pre_save'):
             self.pre_save()
-        nid = self.__node__.id if self.__node__ else None
-        props = self.deflate(self.__properties__, nid)
 
         # create or update instance node
         if self.__node__:
+            props = self.deflate(self.__properties__, self.__node__.id)
             self.__node__.set_properties(props)
             self.__class__.index.__index__.remove(entity=self.__node__)
             batch = self.__class__._update_index_batch(self.__node__, props)
             self._submit_index_batch(batch)
         else:
-            self._create(props)
+            self.__node__ = self.__class__.batch_create(self.__properties__)[0].__node__
+            if hasattr(self, 'post_create'):
+                self.post_create()
 
         if hasattr(self, 'post_save'):
             self.post_save()
