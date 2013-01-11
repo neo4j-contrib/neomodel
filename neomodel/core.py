@@ -29,13 +29,23 @@ def connection():
         return connection.db
 
 
-class Client(object):
+class CypherMixin(object):
     @property
     def client(self):
         return connection()
 
+    def cypher(self, query, params=None):
+        assert hasattr(self, '__node__')
+        params = params or {}
+        params.update({'self': self.__node__.id})
+        try:
+            return cypher.execute(self.client, query, params)
+        except cypher.CypherError as e:
+            message, etype, jtrace = e.args
+            raise CypherException(query, params, message, etype, jtrace)
 
-class NodeIndexManager(Client):
+
+class NodeIndexManager(object):
     def __init__(self, node_class, index_name):
         self.node_class = node_class
         self.name = index_name
@@ -77,19 +87,7 @@ class NodeIndexManager(Client):
 
     @property
     def __index__(self):
-        return self.client.get_or_create_index(neo4j.Node, self.name)
-
-
-class CypherMixin(Client):
-    def cypher(self, query, params=None):
-        assert hasattr(self, '__node__')
-        params = params or {}
-        params.update({'self': self.__node__.id})
-        try:
-            return cypher.execute(self.client, query, params)
-        except cypher.CypherError as e:
-            message, etype, jtrace = e.args
-            raise CypherException(query, params, message, etype, jtrace)
+        return connection().get_or_create_index(neo4j.Node, self.name)
 
 
 class StructuredNodeMeta(type):
