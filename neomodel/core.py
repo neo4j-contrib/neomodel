@@ -227,6 +227,7 @@ class StructuredNode(CypherMixin):
         try:
             i = 0
             results = batch._submit()
+            # pre create or fail support need to catch 200 response
             for r in results:
                 if r.status == 200:
                     raise UniqueProperty(requests[i], cls.index.name)
