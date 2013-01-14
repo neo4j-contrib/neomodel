@@ -1,6 +1,6 @@
 from neomodel import (StructuredNode, StringProperty, IntegerProperty,
     ReadOnlyNode)
-from neomodel.exception import RequiredProperty
+from neomodel.exception import RequiredProperty, UniqueProperty
 
 
 class User(StructuredNode):
@@ -111,3 +111,22 @@ def test_readonly_definition():
         assert e.__class__.__name__ == 'ReadOnlyError'
     else:
         assert False
+
+
+class Customer2(StructuredNode):
+    email = StringProperty(unique_index=True, required=True)
+    age = IntegerProperty(index=True)
+
+
+def test_not_updated_on_unique_error():
+    Customer2(email='jim@bob.com', age=7).save()
+    test = Customer2(email='jim1@bob.com', age=2).save()
+    test.email = 'jim@bob.com'
+    try:
+        test.save()
+    except UniqueProperty:
+        pass
+    customers = Customer2.category().instance.all()
+    assert customers[0].email != customers[1].email
+    assert Customer2.index.get(email='jim@bob.com').age == 7
+    assert Customer2.index.get(email='jim1@bob.com').age == 2

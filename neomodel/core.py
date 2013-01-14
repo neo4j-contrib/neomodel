@@ -1,9 +1,9 @@
-from py2neo import neo4j, cypher, rest
+from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
-from .exception import (UniqueProperty, DoesNotExist, RequiredProperty, CypherException,
+from .exception import (DoesNotExist, RequiredProperty, CypherException,
         ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
-from .util import camel_to_upper
+from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
 from urlparse import urlparse
@@ -190,22 +190,20 @@ class StructuredNode(CypherMixin):
     @classmethod
     def create(cls, *props):
         category = cls.category()
-        batch = neo4j.WriteBatch(connection())
+        batch = CustomBatch(connection(), cls.index.name)
         deflated = [cls.deflate(p) for p in list(props)]
         for p in deflated:
             batch.create_node(p)
         for i in range(0, len(deflated)):
             batch.create_relationship(category.__node__,
                     cls.relationship_type(), i, {"__instance__": True})
-            cls._update_index_batch(i, deflated[i], batch)
+            cls._update_indexes(i, deflated[i], batch)
         # build index batch
-        results = cls._submit_index_batch(batch)
+        results = batch.submit()
         return [cls.inflate(node) for node in results[:len(props)]]
 
     @classmethod
-    def _update_index_batch(cls, node, props, batch=None):
-        if batch is None:
-            batch = neo4j.WriteBatch(connection())
+    def _update_indexes(cls, node, props, batch):
         for key, value in props.iteritems():
             if key in cls.__dict__.keys():
                 node_property = cls.get_property(key)
@@ -217,38 +215,6 @@ class StructuredNode(CypherMixin):
                 elif node_property.index:
                     batch.add_indexed_node(cls.index.__index__, key, value, node)
         return batch
-
-    @classmethod
-    def _submit_index_batch(cls, batch):
-        requests = batch.requests
-        results = []
-        try:
-            i = 0
-            results = batch._submit()
-            # pre create or fail support need to catch 200 response
-            for r in results:
-                if r.status == 200:
-                    raise UniqueProperty(requests[i], cls.index.name)
-                i += 1
-        except rest.ResourceConflict as r:
-            raise UniqueProperty(requests[r.id], cls.index.name)
-        else:
-            return [
-                batch._graph_db._resolve(response.body, response.status, id_=response.id)
-                for response in results
-            ]
-
-    @property
-    def __properties__(self):
-        node_props = {}
-        for key, value in super(StructuredNode, self).__dict__.iteritems():
-            if not key.startswith('_')\
-                and not isinstance(value, types.MethodType)\
-                and not isinstance(value, RelationshipManager)\
-                and not isinstance(value, AliasProperty)\
-                and value is not None:
-                    node_props[key] = value
-        return node_props
 
     @classmethod
     def deflate(cls, node_props, node_id=None):
@@ -266,17 +232,29 @@ class StructuredNode(CypherMixin):
                         raise RequiredProperty(key, cls)
         return deflated
 
+    @property
+    def __properties__(self):
+        node_props = {}
+        for key, value in super(StructuredNode, self).__dict__.iteritems():
+            if not key.startswith('_')\
+                and not isinstance(value, types.MethodType)\
+                and not isinstance(value, RelationshipManager)\
+                and not isinstance(value, AliasProperty)\
+                and value is not None:
+                    node_props[key] = value
+        return node_props
+
     def save(self):
         if hasattr(self, 'pre_save'):
             self.pre_save()
 
         # create or update instance node
         if self.__node__:
+            batch = CustomBatch(connection(), self.__class__.index.name)
             props = self.deflate(self.__properties__, self.__node__.id)
-            self.__node__.set_properties(props)
-            self.__class__.index.__index__.remove(entity=self.__node__)
-            batch = self.__class__._update_index_batch(self.__node__, props)
-            self._submit_index_batch(batch)
+            batch.set_node_properties(self.__node__, props)
+            self.__class__._update_indexes(self.__node__, props, batch)
+            batch.submit()
         else:
             self.__node__ = self.__class__.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
