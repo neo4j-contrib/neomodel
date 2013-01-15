@@ -1,17 +1,14 @@
-from neomodel import (StructuredNode, StringProperty)
 from nose.plugins.skip import SkipTest
-try:
-    from django.conf import settings
-    settings.configure()
-    from neomodel.contrib.signals import SignalsMixin
-    from django.db.models import signals
-except ImportError as e:
-    raise SkipTest("Couldn't import django signals skipping")
+from neomodel import StructuredNode, StringProperty
 
 
-class TestSignals(StructuredNode, SignalsMixin):
+class TestSignals(StructuredNode):
     name = StringProperty()
 
+if not TestSignals.signals_support:
+    raise SkipTest("Couldn't import django signals skipping")
+else:
+    from django.db.models import signals
 
 SENT_SIGNAL = {}
 
@@ -37,6 +34,8 @@ signals.post_delete.connect(post_delete, sender=TestSignals)
 
 
 def test_signals():
+    assert TestSignals.signals_support
+
     test = TestSignals(name=1).save()
     assert 'post_save' in SENT_SIGNAL
     assert 'pre_save' in SENT_SIGNAL

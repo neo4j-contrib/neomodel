@@ -7,7 +7,9 @@ from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
 from urlparse import urlparse
+from .signals import Signals
 import os
+
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 
@@ -111,7 +113,7 @@ class StructuredNodeMeta(type):
         return inst
 
 
-class StructuredNode(CypherMixin):
+class StructuredNode(CypherMixin, Signals):
     """ Base class for nodes requiring declaration of formal structure.
 
         :ivar __node__: neo4j.Node instance bound to database for this instance
