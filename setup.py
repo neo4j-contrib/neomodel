@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
         name='neomodel',
-        version='0.2.0',
+        version='0.2.1',
         description='A high level wrapper around py2neo, providing a formal definition for your data model.',
         author='Robin Edwards',
         author_email='robin.ge@gmail.com',
