@@ -19,7 +19,7 @@ class CustomBatch(neo4j.WriteBatch):
         try:
             results = self._submit()
             # pre create or fail support need to catch 200 response
-            if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            if self._graph_db.neo4j_version < (1, 8, 'M07'):
                 self._check_for_conflicts(results, requests)
         except rest.ResourceConflict as r:
             key = requests[r.id].body['key']

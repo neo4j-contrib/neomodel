@@ -58,6 +58,16 @@ def test_unique():
         assert False
 
 
+def test_update_unique():
+    u = User(email='jimxx@test.com', age=3).save()
+    try:
+        u.save() # this shouldn't fail
+    except UniqueProperty:
+        assert False
+    else:
+        assert True
+
+
 def test_update():
     user = User(email='jim2@test.com', age=3).save()
     assert user

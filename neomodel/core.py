@@ -208,9 +208,13 @@ class StructuredNode(CypherMixin, Signals):
     def _check_for_conflicts(cls, node, props):
         for key, value in props.iteritems():
             if key in cls.__dict__.keys():
-                node_property = cls.get_property(key)
-                if node_property.unique_index and cls.index.__index__.get(key, value):
-                    raise UniqueProperty(key, value, cls.index.name, node)
+                if cls.get_property(key).unique_index:
+                    results = cls.index.__index__.get(key, value)
+                    if len(results):
+                        if isinstance(node, (int,)): # node ref
+                            raise UniqueProperty(key, value, cls.index.name)
+                        elif hasattr(node, 'id') and results[0].id != node.id:
+                            raise UniqueProperty(key, value, cls.index.name, node)
 
     @classmethod
     def _update_indexes(cls, node, props, batch):
@@ -265,6 +269,7 @@ class StructuredNode(CypherMixin, Signals):
         # create or update instance node
         if self.__node__:
             batch = CustomBatch(connection(), self.__class__.index.name, self.__node__.id)
+            batch.remove_indexed_node(index=self.__class__.index.__index__, node=self.__node__)
             props = self.deflate(self.__properties__, self.__node__.id)
             batch.set_node_properties(self.__node__, props)
             self.__class__._update_indexes(self.__node__, props, batch)
