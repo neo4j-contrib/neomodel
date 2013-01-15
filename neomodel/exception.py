@@ -1,12 +1,40 @@
 class UniqueProperty(ValueError):
-    def __init__(self, request, index):
+    def __init__(self, key, value, index, node='(unsaved)'):
+        self.property_name = key
+        self.value = value
+        self.index_name = index
+        self.node = node
+
+    def __str__(self):
+        return "Value '{0}' of property {1} of node {2} in index {3}"\
+            + " is not unique".format(self.value, self.property_name, self.index_name,
+                    str(self.node))
+
+
+class DataInconsistencyError(ValueError):
+    def __init__(self, request, index, node='(unsaved)'):
         self.property_name = request.body['key']
         self.value = request.body['value']
         self.index_name = index
+        self.node = node
 
     def __str__(self):
-        return "Value '{0}' of property {1} in index {2} is not unique".format(
-                self.value, self.property_name, self.index_name)
+        return """DATA INCONSISTENCY ERROR - PLEASE READ.
+
+        Setting value '{0}' for unique property '{1}' in index '{2}' for node {3} failed!
+
+        Neo4j servers before version 1.9.M03 do not support unique index
+        enforcement via the ?unique=create_or_fail:
+        http://docs.neo4j.org/chunked/1.9.M03/rest-api-unique-indexes.html
+        Due to this, neomodel checks indexes for uniqueness conflicts prior to
+        executing a batch which would update the node's properties and the index.
+
+        Here lies a race condition that your code has hit, the index value has
+        probably been taken in between checking for conflicts and executing the batch,
+        the properties in neo4j for node {3} don't match those in the index '{2}'.
+
+        You must resolve this manually. Try removing the node from the index entirely.
+        """.format(self.value, self.property_name, self.index_name, str(self.node))
 
 
 class DoesNotExist(Exception):

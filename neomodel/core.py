@@ -2,7 +2,7 @@ from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        ReadOnlyError, NoSuchProperty, PropertyNotIndexed)
+        ReadOnlyError, NoSuchProperty, PropertyNotIndexed, UniqueProperty)
 from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
@@ -203,7 +203,19 @@ class StructuredNode(CypherMixin):
         return [cls.inflate(node) for node in results[:len(props)]]
 
     @classmethod
+    def _check_for_conflicts(cls, node, props):
+        for key, value in props.iteritems():
+            if key in cls.__dict__.keys():
+                node_property = cls.get_property(key)
+                if node_property.unique_index and cls.index.__index__.get(key, value):
+                    raise UniqueProperty(key, value, cls.index, node)
+
+    @classmethod
     def _update_indexes(cls, node, props, batch):
+        # check for conflicts prior to execution
+        if batch._graph_db.neo4j_version < (1, 8, 'M07'):
+            cls._check_for_conflicts(node, props)
+
         for key, value in props.iteritems():
             if key in cls.__dict__.keys():
                 node_property = cls.get_property(key)
@@ -250,7 +262,7 @@ class StructuredNode(CypherMixin):
 
         # create or update instance node
         if self.__node__:
-            batch = CustomBatch(connection(), self.__class__.index.name)
+            batch = CustomBatch(connection(), self.__class__.index.name, self.__node__.id)
             props = self.deflate(self.__properties__, self.__node__.id)
             batch.set_node_properties(self.__node__, props)
             self.__class__._update_indexes(self.__node__, props, batch)
