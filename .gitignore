@@ -1,6 +1,7 @@
 venv
 *.egg-info
 *.swp
+*.swn
 *.swo
 *.pyc
 .idea
