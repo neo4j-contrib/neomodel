@@ -6,9 +6,8 @@ class UniqueProperty(ValueError):
         self.node = node
 
     def __str__(self):
-        return "Value '{0}' of property {1} of node {2} in index {3}"\
-            + " is not unique".format(self.value, self.property_name, self.index_name,
-                    str(self.node))
+        msg = "Value '{0}' of property {1} of node {2} in index {3} is not unique"
+        return msg.format(self.value, self.property_name, self.node, self.index_name)
 
 
 class DataInconsistencyError(ValueError):

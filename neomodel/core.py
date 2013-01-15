@@ -210,7 +210,7 @@ class StructuredNode(CypherMixin, Signals):
             if key in cls.__dict__.keys():
                 node_property = cls.get_property(key)
                 if node_property.unique_index and cls.index.__index__.get(key, value):
-                    raise UniqueProperty(key, value, cls.index, node)
+                    raise UniqueProperty(key, value, cls.index.name, node)
 
     @classmethod
     def _update_indexes(cls, node, props, batch):

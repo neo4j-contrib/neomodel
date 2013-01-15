@@ -8,7 +8,7 @@ upper_to_camel = lambda x: "".join(word.title() for word in x.split("_"))
 
 class CustomBatch(neo4j.WriteBatch):
 
-    def __init__(self, graph, index_name, node='?'):
+    def __init__(self, graph, index_name, node='(unsaved)'):
         super(CustomBatch, self).__init__(graph)
         self.index_name = index_name
         self.node = node
