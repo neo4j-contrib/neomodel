@@ -11,7 +11,7 @@ A high level wrapper around py2neo, providing a formal definition for your data 
 * Soft cardinality restrictions
 * pre and post save / delete hooks (and django signals!)
 
-Supports: neo4j 1.8+, python 2.6, 2.7
+Supports: neo4j 1.8+ (1.9 recommended), python 2.6, 2.7
 
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
