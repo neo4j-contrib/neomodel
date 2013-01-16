@@ -265,6 +265,7 @@ class StructuredNode(CypherMixin, Signals):
     def save(self):
         if hasattr(self, 'pre_save'):
             self.pre_save()
+        self.pre_save_signal()
 
         # create or update instance node
         if self.__node__:
@@ -281,11 +282,13 @@ class StructuredNode(CypherMixin, Signals):
 
         if hasattr(self, 'post_save'):
             self.post_save()
+        self.post_save_signal()
         return self
 
     def delete(self):
         if hasattr(self, 'pre_delete'):
             self.pre_delete()
+        self.pre_delete_signal()
 
         if self.__node__:
             to_delete = self.__node__.get_relationships()
@@ -297,6 +300,7 @@ class StructuredNode(CypherMixin, Signals):
 
         if hasattr(self, 'post_delete'):
             self.post_delete()
+        self.post_delete_signal()
         return True
 
 

@@ -1,6 +1,18 @@
 class NoSignalsSupport(object):
     signals_support = False
 
+    def pre_save_signal(self):
+        pass
+
+    def post_save_signal(self):
+        pass
+
+    def pre_delete_signal(self):
+        pass
+
+    def post_delete_signal(self):
+        pass
+
 import os
 
 try:
@@ -25,16 +37,16 @@ else:
 
         signals_support = True
 
-        def pre_save(self):
+        def pre_save_signal(self):
             signals.pre_save.send(sender=self.__class__, instance=self)
 
-        def post_save(self):
+        def post_save_signal(self):
             signals.post_save.send(sender=self.__class__, instance=self)
 
-        def pre_delete(self):
+        def pre_delete_signal(self):
             signals.pre_delete.send(sender=self.__class__, instance=self)
 
-        def post_delete(self):
+        def post_delete_signal(self):
             signals.post_delete.send(sender=self.__class__, instance=self)
 
     Signals = SignalsSupport
