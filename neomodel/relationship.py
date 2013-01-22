@@ -8,6 +8,15 @@ INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
 
 
+def _dir_2_str(direction):
+    if direction == OUTGOING:
+        return 'a outgoing'
+    elif direction == INCOMING:
+        return 'a incoming'
+    else:
+        return 'either'
+
+
 def _related(direction):
     if direction == OUTGOING:
         return '-[:{0}]->'
@@ -34,9 +43,20 @@ class RelationshipManager(object):
             self.node_class = node_classes
         self.origin = origin
 
+    def __str__(self):
+        return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
+                self._cardinality_as_str(), _dir_2_str(self.direction),
+                self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
+
     @property
     def client(self):
         return self.origin.client
+
+    def __bool__(self):
+        return self.__len__() > 0
+
+    def __nonezero__(self):
+        return self.__len__() > 0
 
     def __len__(self):
         query = "START a=node({self}) MATCH (a)"

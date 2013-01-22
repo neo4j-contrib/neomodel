@@ -2,10 +2,14 @@ from .relationship import RelationshipManager
 
 
 class ZeroOrMore(RelationshipManager):
-    pass
+    def _cardinality_as_str(self):
+        return "zero or more relationships"
 
 
 class ZeroOrOne(RelationshipManager):
+    def _cardinality_as_str(self):
+        return "zero or one relationship"
+
     def single(self):
         nodes = super(ZeroOrOne, self).all()
         if not nodes:
@@ -13,8 +17,7 @@ class ZeroOrOne(RelationshipManager):
         if len(nodes) == 1:
             return nodes[0]
         if len(nodes) > 1:
-            raise CardinalityViolation(
-                    "Expected zero or one related nodes got " + str(len(nodes)))
+            raise CardinalityViolation(self, len(nodes))
 
     def all(self):
         node = self.single()
@@ -31,12 +34,15 @@ class ZeroOrOne(RelationshipManager):
 
 
 class OneOrMore(RelationshipManager):
+    def _cardinality_as_str(self):
+        return "one or more relationships"
+
     def single(self):
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes[0]
         else:
-            raise CardinalityViolation("Expected at least one relation with one or more")
+            raise CardinalityViolation(self, 'none')
 
     def all(self):
         return [self.single()]
@@ -48,15 +54,18 @@ class OneOrMore(RelationshipManager):
 
 
 class One(RelationshipManager):
+    def _cardinality_as_str(self):
+        return "one relationship"
+
     def single(self):
         nodes = super(One, self).all()
         if nodes:
             if len(nodes) == 1:
                 return nodes[0]
             else:
-                raise CardinalityViolation("Expected one relationship got " + len(nodes))
+                raise CardinalityViolation(self, len(nodes))
         else:
-            raise CardinalityViolation("Expected one relation with a cardinality of one, got none")
+            raise CardinalityViolation(self, 'none')
 
     def all(self):
         return [self.single()]
@@ -78,4 +87,9 @@ class AttemptedCardinalityViolation(Exception):
 
 
 class CardinalityViolation(Exception):
-    pass
+    def __init__(self, rel_manager, actual):
+        self.rel_manager = str(rel_manager)
+        self.actual = str(actual)
+
+    def __str__(self):
+        return "CardinalityViolation: Expected {0} got {1}".format(self.rel_manager, self.actual)
