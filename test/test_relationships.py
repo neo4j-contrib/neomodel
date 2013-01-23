@@ -35,11 +35,13 @@ def test_bidirectional_relationships():
     assert de
 
     assert len(u.is_from) == 0
+    assert not u.is_from
 
     assert u.is_from.__class__.__name__ == 'ZeroOrMore'
     u.is_from.connect(de)
 
     assert len(u.is_from) == 1
+    assert u.is_from
 
     assert u.is_from.is_connected(de)
 

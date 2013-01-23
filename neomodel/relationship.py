@@ -48,10 +48,6 @@ class RelationshipManager(object):
                 self._cardinality_as_str(), _dir_2_str(self.direction),
                 self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
 
-    @property
-    def client(self):
-        return self.origin.client
-
     def __bool__(self):
         return self.__len__() > 0
 
@@ -63,6 +59,10 @@ class RelationshipManager(object):
         query += _related(self.direction).format(self.relation_type)
         query += "(x) RETURN COUNT(x)"
         return int(self.origin.cypher(query)[0][0][0])
+
+    @property
+    def client(self):
+        return self.origin.client
 
     def count(self):
         return self.__len__()
