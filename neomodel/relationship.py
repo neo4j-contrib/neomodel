@@ -89,10 +89,10 @@ class RelationshipManager(object):
         return self._inflate_nodes_by_rel(results)
 
     def _all_single_class(self):
-        nodes = self.origin.__node__.get_related_nodes(self.direction, self.relation_type)
-        if not nodes:
-            return []
-        return [self.node_class.inflate(n) for n in nodes]
+        query = "START a=node({self}) MATCH (a)"
+        query += _related(self.direction).format(self.relation_type) + "(x) RETURN x"
+        results = self.origin.cypher(query)
+        return [self.node_class.inflate(n[0]) for n in results[0]] if results else []
 
     def get(self, **kwargs):
         result = self.search(**kwargs)
