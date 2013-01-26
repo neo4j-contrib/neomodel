@@ -7,7 +7,7 @@ from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
 from urlparse import urlparse
-from .signals import Signals
+from .signals import hooks
 import os
 
 
@@ -113,7 +113,7 @@ class StructuredNodeMeta(type):
         return inst
 
 
-class StructuredNode(CypherMixin, Signals):
+class StructuredNode(CypherMixin):
     """ Base class for nodes requiring declaration of formal structure.
 
         :ivar __node__: neo4j.Node instance bound to database for this instance
@@ -262,11 +262,8 @@ class StructuredNode(CypherMixin, Signals):
                     node_props[key] = value
         return node_props
 
+    @hooks
     def save(self):
-        if hasattr(self, 'pre_save'):
-            self.pre_save()
-        self.pre_save_signal()
-
         # create or update instance node
         if self.__node__:
             batch = CustomBatch(connection(), self.__class__.index.name, self.__node__.id)
@@ -279,17 +276,10 @@ class StructuredNode(CypherMixin, Signals):
             self.__node__ = self.__class__.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
                 self.post_create()
-
-        if hasattr(self, 'post_save'):
-            self.post_save()
-        self.post_save_signal()
         return self
 
+    @hooks
     def delete(self):
-        if hasattr(self, 'pre_delete'):
-            self.pre_delete()
-        self.pre_delete_signal()
-
         if self.__node__:
             to_delete = self.__node__.get_relationships()
             to_delete.append(self.__node__)
@@ -297,10 +287,6 @@ class StructuredNode(CypherMixin, Signals):
             self.__node__ = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
-
-        if hasattr(self, 'post_delete'):
-            self.post_delete()
-        self.post_delete_signal()
         return True
 
 

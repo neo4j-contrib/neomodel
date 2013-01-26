@@ -1,5 +1,11 @@
 from nose.plugins.skip import SkipTest
-from neomodel import StructuredNode, StringProperty
+from neomodel import StructuredNode, StringProperty, SIGNAL_SUPPORT
+
+
+if not SIGNAL_SUPPORT:
+    raise SkipTest("Couldn't import django signals skipping")
+else:
+    from django.db.models import signals
 
 
 SENT_SIGNAL = {}
@@ -11,12 +17,6 @@ class TestSignals(StructuredNode):
 
     def pre_save(self):
         HOOK_CALLED['pre_save'] = True
-
-
-if not TestSignals.signals_support:
-    raise SkipTest("Couldn't import django signals skipping")
-else:
-    from django.db.models import signals
 
 
 def pre_save(sender, instance, signal):
@@ -40,8 +40,6 @@ signals.post_delete.connect(post_delete, sender=TestSignals)
 
 
 def test_signals():
-    assert TestSignals.signals_support
-
     test = TestSignals(name=1).save()
     assert 'post_save' in SENT_SIGNAL
     assert 'pre_save' in SENT_SIGNAL

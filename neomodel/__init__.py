@@ -6,3 +6,4 @@ from .cardinality import (AttemptedCardinalityViolation,
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty)
 from .exception import InflateError, DeflateError, UniqueProperty
+from .signals import SIGNAL_SUPPORT

@@ -1,52 +1,27 @@
-class NoSignalsSupport(object):
-    signals_support = False
-
-    def pre_save_signal(self):
-        pass
-
-    def post_save_signal(self):
-        pass
-
-    def pre_delete_signal(self):
-        pass
-
-    def post_delete_signal(self):
-        pass
-
 import os
-
+signals = None
 try:
     if not 'DJANGO_SETTINGS_MODULE' in os.environ:
         from django.conf import settings
         settings.configure()
     from django.db.models import signals
+    SIGNAL_SUPPORT = True
 except ImportError:
-    Signals = NoSignalsSupport
-else:
-    class SignalsSupport(object):
-        """ Provide support for pre_save, post_save, pre_delete and post_delete django signals::
+    SIGNAL_SUPPORT = False
 
-            def greeting(sender, instance, signal):
-                print("Hello {0}!".format(instance.name))
 
-            class Person(StructuredNode):
-                name = StringProperty()
+def exec_hook(hook_name, self, *args, **kwargs):
+    if hasattr(self, hook_name):
+        getattr(self, hook_name)(*args, **kwargs)
+    if signals and hasattr(signals, hook_name):
+        sig = getattr(signals, hook_name)
+        sig.send(sender=self.__class__, instance=self)
 
-            signals.post_save.connect(greeting, sender=Person)
-        """
 
-        signals_support = True
-
-        def pre_save_signal(self):
-            signals.pre_save.send(sender=self.__class__, instance=self)
-
-        def post_save_signal(self):
-            signals.post_save.send(sender=self.__class__, instance=self)
-
-        def pre_delete_signal(self):
-            signals.pre_delete.send(sender=self.__class__, instance=self)
-
-        def post_delete_signal(self):
-            signals.post_delete.send(sender=self.__class__, instance=self)
-
-    Signals = SignalsSupport
+def hooks(fn):
+    def hooked(self, *args, **kwargs):
+        exec_hook('pre_' + fn.func_name, self, *args, **kwargs)
+        val = fn(self, *args, **kwargs)
+        exec_hook('post_' + fn.func_name, self, *args, **kwargs)
+        return val
+    return hooked
