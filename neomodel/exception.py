@@ -23,16 +23,19 @@ class DataInconsistencyError(ValueError):
         Setting value '{0}' for unique property '{1}' in index '{2}' for node {3} failed!
 
         Neo4j servers before version 1.9.M03 do not support unique index
-        enforcement via the ?unique=create_or_fail:
+        enforcement via ?unique=create_or_fail:
         http://docs.neo4j.org/chunked/1.9.M03/rest-api-unique-indexes.html
         Due to this, neomodel checks indexes for uniqueness conflicts prior to
-        executing a batch which would update the node's properties and the index.
+        executing a batch which then updates the node's properties and the index.
 
         Here lies a race condition that your code has hit, the index value has
         probably been taken in between checking for conflicts and executing the batch,
         the properties in neo4j for node {3} don't match those in the index '{2}'.
 
-        You must resolve this manually. Try removing the node from the index entirely.
+        You must resolve this manually. To find the node currently indexed under the given
+        key, value pair run the following cypher query:
+
+        START a=node:{2}({1}="{0}") RETURN a;
         """.format(self.value, self.property_name, self.index_name, str(self.node))
 
 
