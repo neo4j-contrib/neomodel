@@ -139,16 +139,15 @@ class StructuredNode(CypherMixin):
     @classmethod
     def inflate(cls, node):
         props = {}
-        for scls in cls.mro():
-            for key, prop in scls.__dict__.iteritems():
-                if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                    if key in node.__metadata__['data']:
-                        props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
-                    elif prop.has_default:
-                        props[key] = prop.default_value()
-                    else:
-                        props[key] = None
+        for key, prop in cls._class_properties().iteritems():
+            if (issubclass(prop.__class__, Property)
+                and not isinstance(prop, AliasProperty)):
+                if key in node.__metadata__['data']:
+                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                elif prop.has_default:
+                    props[key] = prop.default_value()
+                else:
+                    props[key] = None
 
         snode = cls(**props)
         snode.__node__ = node
@@ -160,17 +159,16 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        for cls in self.__class__.mro():
-            for key, val in cls.__dict__.iteritems():
-                if val.__class__ is RelationshipDefinition:
-                    self.__dict__[key] = val.build_manager(self, key)
-                # handle default values
-                elif issubclass(val.__class__, Property)\
-                        and not isinstance(val, AliasProperty)\
-                        and not issubclass(val.__class__, AliasProperty):
-                    if not key in kwargs or kwargs[key] is None:
-                        if val.has_default:
-                            kwargs[key] = val.default_value()
+        for key, val in self.__class__._class_properties().iteritems():
+            if val.__class__ is RelationshipDefinition:
+                self.__dict__[key] = val.build_manager(self, key)
+            # handle default values
+            elif issubclass(val.__class__, Property)\
+                    and not isinstance(val, AliasProperty)\
+                    and not issubclass(val.__class__, AliasProperty):
+                if not key in kwargs or kwargs[key] is None:
+                    if val.has_default:
+                        kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
             if key.startswith("__") and key.endswith("__"):
                 pass
@@ -236,26 +234,27 @@ class StructuredNode(CypherMixin):
 
     @classmethod
     def _class_properties(cls):
-        keys = []
-        for scls in cls.mro():
-            for key in scls.__dict__:
-                keys.append(key)
-        return set(keys)
+        props = {}
+        # get all dict values for inherited classes
+        # reverse is done to keep inheritance order
+        for scls in reversed(cls.mro()):
+            for key, value in scls.__dict__.iteritems():
+                props[key] = value
+        return props
 
     @classmethod
     def deflate(cls, node_props, node_id=None):
         """ deflate dict ready to be stored """
         deflated = {}
-        for mcls in cls.mro():
-            for key, prop in mcls.__dict__.iteritems():
-                if (not isinstance(prop, AliasProperty)
-                    and issubclass(prop.__class__, Property)):
-                    if key in node_props and node_props[key] is not None:
-                        deflated[key] = prop.deflate(node_props[key], node_id=node_id)
-                    elif prop.has_default:
-                        deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
-                    elif prop.required:
-                        raise RequiredProperty(key, cls)
+        for key, prop in cls._class_properties().iteritems():
+            if (not isinstance(prop, AliasProperty)
+                and issubclass(prop.__class__, Property)):
+                if key in node_props and node_props[key] is not None:
+                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
+                elif prop.has_default:
+                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
+                elif prop.required:
+                    raise RequiredProperty(key, cls)
         return deflated
 
     @property
