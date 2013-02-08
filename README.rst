@@ -72,13 +72,16 @@ Batch create (atomic) which also validates and indexes::
         {'name': 'Jill', 'age': 34},
     )
 
-Hooks
------
-You may define the following hooks on your nodes::
+Hooks and Signals
+-----------------
+You may define the following hook methods on your nodes::
 
     pre_save, post_save, pre_delete, post_delete, post_create
 
-Also checkout neomodel.contrib.signals for django signals support
+Signals are also supported *if* django is available::
+
+    from django.db.models import signals
+    signals.post_save.connect(your_func, sender=Person)
 
 Relationships
 -------------
