@@ -64,3 +64,18 @@ def test_custom_index_name():
     assert SpecialHuman.index.name == 'special-Human'
     node = SpecialHuman.index.get(name='timothy')
     assert node.name == jim.name
+
+
+def test_index_inherited_props():
+
+    class Mixin(object):
+        extra = StringProperty(unique_index=True)
+
+    class MixedHuman(Human, Mixin):
+        pass
+
+    jim = MixedHuman(age=23, name='jimmy', extra='extra').save()
+
+    assert MixedHuman.index.name == 'MixedHuman'
+    node = MixedHuman.index.get(extra='extra')
+    assert node.name == jim.name
