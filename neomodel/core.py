@@ -207,7 +207,7 @@ class StructuredNode(CypherMixin):
     @classmethod
     def _check_for_conflicts(cls, node, props):
         for key, value in props.iteritems():
-            if key in cls.__dict__.keys():
+            if key in cls._class_properties():
                 if cls.get_property(key).unique_index:
                     results = cls.index.__index__.get(key, value)
                     if len(results):
@@ -223,7 +223,7 @@ class StructuredNode(CypherMixin):
             cls._check_for_conflicts(node, props)
 
         for key, value in props.iteritems():
-            if key in cls.__dict__.keys():
+            if key in cls._class_properties():
                 node_property = cls.get_property(key)
                 if node_property.unique_index:
                     try:
@@ -233,6 +233,14 @@ class StructuredNode(CypherMixin):
                 elif node_property.index:
                     batch.add_indexed_node(cls.index.__index__, key, value, node)
         return batch
+
+    @classmethod
+    def _class_properties(cls):
+        keys = []
+        for scls in cls.mro():
+            for key in scls.__dict__:
+                keys.append(key)
+        return set(keys)
 
     @classmethod
     def deflate(cls, node_props, node_id=None):
