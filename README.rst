@@ -16,12 +16,6 @@ Supports: neo4j 1.8+ (1.9 recommended), python 2.6, 2.7
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
 
-Installation
-------------
-Install the module via git::
-
-    pip install -e git+git@github.com:robinedwards/neomodel.git@HEAD#egg=neomodel-dev
-
 Introduction
 ------------
 
