@@ -2,6 +2,7 @@ venv
 venv2
 venv3
 build
+dist
 *.egg-info
 *.swp
 *.swn
