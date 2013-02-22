@@ -217,11 +217,10 @@ class RelationshipDefinition(object):
 
     def build_manager(self, origin, name):
         rel = self.manager(
-                self.direction,
-                self.relation_type,
-                self.lookup_classes(),
-                origin
-                )
+            self.direction,
+            self.relation_type,
+            self.lookup_classes(),
+            origin)
         rel.name = name
         return rel
 
