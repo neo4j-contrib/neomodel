@@ -117,7 +117,7 @@ You may also reference classes from another module::
         car = RelationshipTo('transport.models.Car', 'CAR')
 
 Cardinality
--------
+-----------
 It's possible to enforce cardinality restrictions on your relationships.
 Remember this needs to be declared on both sides of the relationship for it to work::
 
@@ -135,7 +135,7 @@ If cardinality is broken by existing data a *CardinalityViolation* exception is 
 On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
 
 Custom cypher queries
--------------
+---------------------
 
 You may handle more complex queries via cypher. Each node provides an 'inflate' class method,
 this inflates py2neo nodes to neomodel node objects::
@@ -150,7 +150,7 @@ own query parameters to the cypher method.
 
 
 Relating to different node types
--------
+--------------------------------
 
 You can define relations of a single relation type to different `StructuredNode` classes.::
 
@@ -168,7 +168,7 @@ Remember that when traversing the `has_a` relation you will retrieve objects of 
 
 
 Category nodes
--------
+--------------
 
 Access your instances via the category node::
 
@@ -179,7 +179,7 @@ Note that `connect` and `disconnect` are not available through the `instance` re
 As these actions are handled for your via the save() and delete() methods.
 
 Read-only nodes
-------
+---------------
 
 If you have existing nodes you want to protect use the read-only base class::
 
@@ -195,7 +195,7 @@ Now all write operations below raise a *ReadOnlyError*::
     some_immortal_being.update()
 
 Indexing
--------
+--------
 
 Make use of indexes::
 
