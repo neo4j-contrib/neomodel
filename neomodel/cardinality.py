@@ -1,8 +1,5 @@
 from .relationship import RelationshipManager
-
-
-class ZeroOrMore(RelationshipManager):
-    description = "zero or more relationships"
+from .relationship import ZeroOrMore
 
 
 class ZeroOrOne(RelationshipManager):

@@ -225,24 +225,25 @@ class RelationshipDefinition(object):
         return rel
 
 
+class ZeroOrMore(RelationshipManager):
+    description = "zero or more relationships"
+
+
 def _relate(cls_name, direction, rel_type, cardinality=None):
     if not isinstance(cls_name, (str, unicode, list)):
         raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
-    if not cardinality: # TODO do we need this? - avoid circular ref
-        from .cardinality import ZeroOrMore
-        cardinality = ZeroOrMore
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality)
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=None):
+def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore):
     return _relate(cls_name, OUTGOING, rel_type, cardinality)
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=None):
+def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore):
     return _relate(cls_name, INCOMING, rel_type, cardinality)
 
 
-def Relationship(cls_name, rel_type, cardinality=None):
+def Relationship(cls_name, rel_type, cardinality=ZeroOrMore):
     return _relate(cls_name, EITHER, rel_type, cardinality)
 
 
