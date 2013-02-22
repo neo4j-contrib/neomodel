@@ -1,6 +1,6 @@
 from py2neo import neo4j
 import sys
-from .exception import DoesNotExist
+from .exception import DoesNotExist, NotConnected
 from .util import camel_to_upper
 
 OUTGOING = neo4j.Direction.OUTGOING
@@ -171,14 +171,14 @@ class RelationshipManager(object):
             for r in rels:
                 r.delete()
         else:
-            raise NotConnected(old_obj.__node__.id)
+            raise NotConnected('reconnect', self.origin, old_obj)
 
         self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, new_obj.__node__),)
 
     def disconnect(self, obj):
         rels = self.origin.__node__.get_relationships_with(obj.__node__, self.direction, self.relation_type)
         if not rels:
-            raise NotConnected(obj.__node__.id)
+            raise NotConnected('disconnect', self.origin, obj)
         if len(rels) > 1:
             raise Exception("Expected single relationship got {0}".format(rels))
         rels[0].delete()
@@ -245,7 +245,3 @@ def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore):
 
 def Relationship(cls_name, rel_type, cardinality=ZeroOrMore):
     return _relate(cls_name, EITHER, rel_type, cardinality)
-
-
-class NotConnected(Exception):
-    pass

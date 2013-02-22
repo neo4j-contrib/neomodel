@@ -1,5 +1,6 @@
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
         StringProperty, IntegerProperty)
+from neomodel.exception import NotConnected
 
 
 class Person(StructuredNode):
@@ -53,6 +54,12 @@ def test_bidirectional_relationships():
     assert s.name == 'Jim'
 
     u.is_from.disconnect(b)
+    try:
+        u.is_from.disconnect(b)
+    except NotConnected:
+        assert True
+    else:
+        assert False
 
     assert not u.is_from.all()
     assert not u.is_from.is_connected(b)
