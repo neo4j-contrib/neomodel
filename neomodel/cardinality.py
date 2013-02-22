@@ -21,10 +21,7 @@ class ZeroOrOne(RelationshipManager):
 
     def all(self):
         node = self.single()
-        if node:
-            return [node]
-        else:
-            return []
+        return [node] if node else []
 
     def connect(self, obj):
         if self.origin.__node__.has_relationship(self.direction, self.relation_type):
@@ -41,8 +38,7 @@ class OneOrMore(RelationshipManager):
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes[0]
-        else:
-            raise CardinalityViolation(self, 'none')
+        raise CardinalityViolation(self, 'none')
 
     def all(self):
         return [self.single()]
