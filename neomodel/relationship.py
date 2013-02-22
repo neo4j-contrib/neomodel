@@ -167,7 +167,7 @@ class RelationshipManager(object):
     def reconnect(self, old_obj, new_obj):
         if self.is_connected(old_obj):
             rels = self.origin.__node__.get_relationships_with(
-                    old_obj.__node__, self.direction, self.relation_type)
+                old_obj.__node__, self.direction, self.relation_type)
             for r in rels:
                 r.delete()
         else:
