@@ -41,7 +41,10 @@ class OneOrMore(RelationshipManager):
         raise CardinalityViolation(self, 'none')
 
     def all(self):
-        return [self.single()]
+        nodes = super(OneOrMore, self).all()
+        if nodes:
+            return nodes
+        raise CardinalityViolation(self, 'none')
 
     def disconnect(self, obj):
         if len(self.origin.__node__.get_related_nodes(self.direction, self.relation_type)) < 2:
