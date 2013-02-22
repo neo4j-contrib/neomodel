@@ -183,12 +183,9 @@ class RelationshipManager(object):
             raise Exception("Expected single relationship got {0}".format(rels))
         rels[0].delete()
 
-    def single(self):
+    def single(self): # TODO should limit this query
         nodes = self.all()
-        if nodes:
-            return nodes[0]
-        else:
-            return None
+        return nodes[0] if nodes else None
 
 
 class RelationshipDefinition(object):
