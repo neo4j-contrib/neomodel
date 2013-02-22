@@ -13,8 +13,7 @@ def _dir_2_str(direction):
         return 'a outgoing'
     elif direction == INCOMING:
         return 'a incoming'
-    else:
-        return 'either'
+    return 'either'
 
 
 def _related(direction):
@@ -22,8 +21,7 @@ def _related(direction):
         return '-[:{0}]->'
     elif direction == INCOMING:
         return '<-[:{0}]-'
-    else:
-        return '-[:{0}]-'
+    return '-[:{0}]-'
 
 
 def _properties(ident, **kwargs):
@@ -37,16 +35,16 @@ class RelationshipManager(object):
         self.relation_type = relation_type
         if isinstance(node_classes, list):
             self.node_classes = node_classes
-            self.class_map = dict(zip([camel_to_upper(c.__name__) for c in node_classes],
-                node_classes))
+            self.class_map = dict(zip([camel_to_upper(c.__name__)
+                for c in node_classes], node_classes))
         else:
             self.node_class = node_classes
         self.origin = origin
 
     def __str__(self):
         return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
-                self._cardinality_as_str(), _dir_2_str(self.direction),
-                self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
+            self.description, _dir_2_str(self.direction),
+            self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
 
     def __bool__(self):
         return self.__len__() > 0
@@ -223,7 +221,7 @@ class RelationshipDefinition(object):
                 self.relation_type,
                 self.lookup_classes(),
                 origin
-               )
+                )
         rel.name = name
         return rel
 

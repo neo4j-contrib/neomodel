@@ -2,13 +2,11 @@ from .relationship import RelationshipManager
 
 
 class ZeroOrMore(RelationshipManager):
-    def _cardinality_as_str(self):
-        return "zero or more relationships"
+    description = "zero or more relationships"
 
 
 class ZeroOrOne(RelationshipManager):
-    def _cardinality_as_str(self):
-        return "zero or one relationship"
+    description = "zero or one relationship"
 
     def single(self):
         nodes = super(ZeroOrOne, self).all()
@@ -31,8 +29,7 @@ class ZeroOrOne(RelationshipManager):
 
 
 class OneOrMore(RelationshipManager):
-    def _cardinality_as_str(self):
-        return "one or more relationships"
+    description = "one or more relationships"
 
     def single(self):
         nodes = super(OneOrMore, self).all()
@@ -53,8 +50,7 @@ class OneOrMore(RelationshipManager):
 
 
 class One(RelationshipManager):
-    def _cardinality_as_str(self):
-        return "one relationship"
+    description = "one relationship"
 
     def single(self):
         nodes = super(One, self).all()
