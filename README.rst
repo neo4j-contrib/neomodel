@@ -263,34 +263,3 @@ The *AliasProperty* a special property for aliasing other properties and providi
     Person.index.search(name='Jim') # just works
 
 Custom properties can provide a setup method which will get invoked on class definition.
-
-
-Upgrading from a version prior to 0.2.0?
-----------------------------------------
-Relationships between category nodes and there instances changed slightly as of version 0.2.0.
-Instance relationships are now upper case separated by underscores ie: FeedEntry rels used to be FEEDENTRY,
-They are now called FEED_ENTRY. An `__instance__: true` property has also been added to help distinguish them from other relationships. Please run the following on each of your category node classes::
-
-    def camel_to_upper(name):
-        return "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", name)[1::2])
-
-    def fix_category_rels(cls):
-        old_rel_name = cls.__name__.upper()
-        new_rel_name = camel_to_upper(cls.__name__)
-        query = """START z=node({self})
-        MATCH (z)-[R0:%s]->(i)
-        DELETE R0
-        CREATE UNIQUE (z)-[R1:%s {__instance__:true}]->(i)
-        RETURN R1""" % (old_rel_name, new_rel_name)
-        cls.category().cypher(query)
-
-    for cls in []: # list of StructuredNodes here
-        if len(cls.category().instance):
-            fix_category_rels(cls)
-
-Credits
--------
-* Marianna Polatoglou - https://github.com/mar-chi-pan
-* Murtaza Gulamali - https://github.com/mygulamali
-* Nigel Small - https://github.com/nigelsmall
-* Panos Katseas - https://github.com/pkatseas
