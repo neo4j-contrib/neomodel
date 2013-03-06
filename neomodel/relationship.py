@@ -33,12 +33,9 @@ class RelationshipManager(object):
     def __init__(self, direction, relation_type, node_classes, origin):
         self.direction = direction
         self.relation_type = relation_type
-        if isinstance(node_classes, list):
-            self.node_classes = node_classes
-            self.class_map = dict(zip([camel_to_upper(c.__name__)
-                for c in node_classes], node_classes))
-        else:
-            self.node_class = node_classes
+        self.node_classes = node_classes if isinstance(node_classes, list) else [node_classes]
+        self.class_map = dict(zip([camel_to_upper(c.__name__)
+            for c in self.node_classes], self.node_classes))
         self.origin = origin
 
     def __str__(self):
@@ -66,10 +63,12 @@ class RelationshipManager(object):
         return self.__len__()
 
     def all(self):
-        if hasattr(self, 'node_classes'):
-            return self._all_multi_class()
-        else:
-            return self._all_single_class()
+        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
+        query = "START a=node({self}) MATCH (a)"
+        query += _related(self.direction).format(self.relation_type)
+        query += "(x)<-[r:{0}]-() WHERE r.__instance__! = true RETURN x, r".format(cat_types)
+        results = self.origin.cypher(query)[0]
+        return self._inflate_nodes_by_rel(results)
 
     def _inflate_nodes_by_rel(self, results):
         """With resultset containing [node, rel] pairs
@@ -78,20 +77,6 @@ class RelationshipManager(object):
         classes = [self.class_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
-    def _all_multi_class(self):
-        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type)
-        query += "(x)<-[r:{0}]-() WHERE r.__instance__! = true RETURN x, r".format(cat_types)
-        results = self.origin.cypher(query)[0]
-        return self._inflate_nodes_by_rel(results)
-
-    def _all_single_class(self):
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type) + "(x) RETURN x"
-        results = self.origin.cypher(query)
-        return [self.node_class.inflate(n[0]) for n in results[0]] if results else []
-
     def get(self, **kwargs):
         result = self.search(**kwargs)
         if len(result) == 1:
@@ -99,33 +84,11 @@ class RelationshipManager(object):
         if len(result) > 1:
             raise Exception("Multiple items returned")
         if not result:
-            if hasattr(self, 'node_class'):
-                raise self.node_class.DoesNotExist("No items exist for the specified arguments")
-            else:
                 raise DoesNotExist("No items exist for the specified arguments")
 
     def search(self, **kwargs):
         if not kwargs:
-            if hasattr(self, 'node_classes'):
-                return self._all_multi_class()
-            else:
-                return self._all_single_class()
-
-        if hasattr(self, 'node_classes'):
-            return self._search_multi_class(**kwargs)
-        else:
-            return self._search_single_class(**kwargs)
-
-    def _search_single_class(self, **kwargs):
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type)
-        query += "(b) WHERE " + _properties('b', **kwargs)
-        query += " RETURN b"
-
-        results = self.origin.cypher(query, kwargs)[0]
-        return [self.node_class.inflate(row[0]) for row in results]
-
-    def _search_multi_class(self, **kwargs):
+            return self.all()
         cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
@@ -139,24 +102,19 @@ class RelationshipManager(object):
         return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
 
     def connect(self, obj, properties=None):
-        if self.direction == EITHER:
-            raise Exception("Cannot connect with direction EITHER")
-        # is single class rel
-        if hasattr(self, 'node_class'):
-            if not self.node_class.__subclasscheck__(obj.__class__):
-                raise Exception("Expected object of class (or a subclass of) {0} got {1}".format(self.node_class, obj.__class__))
-        # or is multi class rel
-        elif hasattr(self, 'node_classes'):
-            for cls in self.node_classes:
-                if cls.__subclasscheck__(obj.__class__):
-                    node_class = cls
-            if not node_class:
-                allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
-                raise Exception("Expected object of class of "
-                        + allowed_cls + " got " + obj.__class__.__name__)
-
         if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
+        if self.direction == EITHER:
+            raise Exception("Cannot connect with direction EITHER")
+
+        for cls in self.node_classes:
+            if cls.__subclasscheck__(obj.__class__):
+                node_class = cls
+        if not node_class:
+            allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
+            raise Exception("Expected object of class of "
+                    + allowed_cls + " got " + obj.__class__.__name__)
+
         if self.direction == OUTGOING:
             self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__, properties))
         elif self.direction == INCOMING:
@@ -202,7 +160,7 @@ class RelationshipDefinition(object):
         if isinstance(self.node_class, list):
             return [self._lookup(name) for name in self.node_class]
         else:
-            return self._lookup(self.node_class)
+            return [self._lookup(self.node_class)]
 
     def _lookup(self, name):
         if name.find('.') is -1:
