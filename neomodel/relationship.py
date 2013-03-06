@@ -138,7 +138,7 @@ class RelationshipManager(object):
     def is_connected(self, obj):
         return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
 
-    def connect(self, obj):
+    def connect(self, obj, properties=None):
         if self.direction == EITHER:
             raise Exception("Cannot connect with direction EITHER")
         # is single class rel
@@ -158,22 +158,24 @@ class RelationshipManager(object):
         if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
         if self.direction == OUTGOING:
-            self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__))
+            self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__, properties))
         elif self.direction == INCOMING:
-            self.client.get_or_create_relationships((obj.__node__, self.relation_type, self.origin.__node__))
+            self.client.get_or_create_relationships((obj.__node__, self.relation_type, self.origin.__node__, properties))
         else:
             raise Exception("Unknown relationship direction {0}".format(self.direction))
 
     def reconnect(self, old_obj, new_obj):
+        properties = {}
         if self.is_connected(old_obj):
             rels = self.origin.__node__.get_relationships_with(
                 old_obj.__node__, self.direction, self.relation_type)
             for r in rels:
+                properties.update(r.get_properties())
                 r.delete()
         else:
             raise NotConnected('reconnect', self.origin, old_obj)
 
-        self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, new_obj.__node__),)
+        self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, new_obj.__node__, properties),)
 
     def disconnect(self, obj):
         rels = self.origin.__node__.get_relationships_with(obj.__node__, self.direction, self.relation_type)
