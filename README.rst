@@ -95,7 +95,7 @@ Access related nodes through your defined relations::
     jim.country.disconnect(germany)
 
 You can also add properties when creating relationships, for example the
-previous example could be::
+previous code could be::
 
     jim.country.connect(germany, properties={'city': 'Munich'})
 
