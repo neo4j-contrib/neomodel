@@ -100,3 +100,30 @@ def test_abstract_class_relationships():
 
     gr.inhabitant.connect(u)
     assert gr.inhabitant.is_connected(u)
+
+
+def test_props_relationship():
+    u = Person(name='Mar', age=20).save()
+    assert u
+
+    c = Country(code='AT').save()
+    assert c
+
+    c2 = Country(code='LA').save()
+    assert c2
+
+    c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
+    assert c.inhabitant.is_connected(u)
+
+    # Check if properties were inserted
+    result = u.cypher('START root=node:Person(name={name})' +
+        ' MATCH root-[r:IS_FROM]->() RETURN r.city', {'name': u.name})[0]
+    assert result and result[0][0] == 'Thessaloniki'
+
+    u.is_from.reconnect(c, c2)
+    assert u.is_from.is_connected(c2)
+
+    # Check if properties are transferred correctly
+    result = u.cypher('START root=node:Person(name={name})' +
+        ' MATCH root-[r:IS_FROM]->() RETURN r.city', {'name': u.name})[0]
+    assert result and result[0][0] == 'Thessaloniki'
