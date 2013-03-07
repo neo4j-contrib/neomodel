@@ -57,7 +57,7 @@ CReate Update Delete::
     jim.age = 4
     jim.save() # validation happens here
     jim.delete()
-    jim.refresh() # refreshes object properties if node exists, otherwise raises exception
+    jim.refresh() # reload properties if node exists, otherwise raises DoesNotExist
 
 Batch create (atomic) which also validates and indexes::
 
