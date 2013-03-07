@@ -141,7 +141,7 @@ class StructuredNode(CypherMixin):
         props = {}
         for key, prop in cls._class_properties().iteritems():
             if (issubclass(prop.__class__, Property)
-                and not isinstance(prop, AliasProperty)):
+                    and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
                     props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
                 elif prop.has_default:
@@ -209,7 +209,7 @@ class StructuredNode(CypherMixin):
                 if cls.get_property(key).unique_index:
                     results = cls.index.__index__.get(key, value)
                     if len(results):
-                        if isinstance(node, (int,)): # node ref
+                        if isinstance(node, (int,)):  # node ref
                             raise UniqueProperty(key, value, cls.index.name)
                         elif hasattr(node, 'id') and results[0].id != node.id:
                             raise UniqueProperty(key, value, cls.index.name, node)
@@ -248,7 +248,7 @@ class StructuredNode(CypherMixin):
         deflated = {}
         for key, prop in cls._class_properties().iteritems():
             if (not isinstance(prop, AliasProperty)
-                and issubclass(prop.__class__, Property)):
+                    and issubclass(prop.__class__, Property)):
                 if key in node_props and node_props[key] is not None:
                     deflated[key] = prop.deflate(node_props[key], node_id=node_id)
                 elif prop.has_default:
@@ -261,12 +261,12 @@ class StructuredNode(CypherMixin):
     def __properties__(self):
         node_props = {}
         for key, value in super(StructuredNode, self).__dict__.iteritems():
-            if not key.startswith('_')\
-                and not isinstance(value, types.MethodType)\
-                and not isinstance(value, RelationshipManager)\
-                and not isinstance(value, AliasProperty)\
-                and value is not None:
-                    node_props[key] = value
+            if (not key.startswith('_')
+                    and not isinstance(value, types.MethodType)
+                    and not isinstance(value, RelationshipManager)
+                    and not isinstance(value, AliasProperty)
+                    and value is not None):
+                node_props[key] = value
         return node_props
 
     @hooks
@@ -295,6 +295,18 @@ class StructuredNode(CypherMixin):
         else:
             raise Exception("Node has not been saved so cannot be deleted")
         return True
+
+    def refresh(self):
+        """Reload this object from its node in the database"""
+        if self.__node__:
+            if self.__node__.exists():
+                props = self.inflate(
+                    self.client.get_node(self.__node__._id)).__properties__
+                for key, val in props.iteritems():
+                    setattr(self, key, val)
+            else:
+                msg = 'Node %s does not exist in the database anymore'
+                raise self.DoesNotExist(msg % self.__node__._id)
 
 
 class CategoryNode(CypherMixin):
