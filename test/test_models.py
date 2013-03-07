@@ -140,3 +140,17 @@ def test_not_updated_on_unique_error():
     assert customers[0].email != customers[1].email
     assert Customer2.index.get(email='jim@bob.com').age == 7
     assert Customer2.index.get(email='jim1@bob.com').age == 2
+
+
+def test_refresh():
+    c = Customer2(email='my@email.com', age=16).save()
+    c.my_custom_prop = 'value'
+    copy = Customer2.index.get(email='my@email.com')
+    copy.age = 20
+    copy.save()
+
+    assert c.age == 16
+
+    c.refresh()
+    assert c.age == 20
+    assert c.my_custom_prop == 'value'
