@@ -311,6 +311,12 @@ class InstanceManager(RelationshipManager):
     def disconnect(self, node):
         raise Exception("disconnect not available from category node")
 
+    def all(self):
+        query = "START a=node({self}) MATCH (a)"
+        query += "-[:{0}]->(x) RETURN x".format(self.relation_type)
+        results = self.origin.cypher(query)
+        return [self.node_classes[0].inflate(n[0]) for n in results[0]] if results else []
+
 
 def category_factory(instance_cls):
     """ Retrieve category node by name """
