@@ -300,8 +300,10 @@ class StructuredNode(CypherMixin):
         """Reload this object from its node in the database"""
         if self.__node__:
             if self.__node__.exists():
-                self.__node__.update_properties(
-                    self.client.get_properties(self.__node__))
+                props = self.inflate(
+                    self.client.get_node(self.__node__._id)).__properties__
+                for key, val in props.iteritems():
+                    setattr(self, key, val)
             else:
                 msg = 'Node %s does not exist in the database anymore'
                 raise self.DoesNotExist(msg % self.__node__._id)
