@@ -8,14 +8,6 @@ INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
 
 
-def _dir_2_str(direction):
-    if direction == OUTGOING:
-        return 'a outgoing'
-    elif direction == INCOMING:
-        return 'a incoming'
-    return 'either'
-
-
 def _related(direction):
     if direction == OUTGOING:
         return '-[:{0}]->'
@@ -39,8 +31,14 @@ class RelationshipManager(object):
         self.origin = origin
 
     def __str__(self):
+        direction = 'either'
+        if self.direction == OUTGOING:
+            direction = 'a outgoing'
+        elif self.direction == INCOMING:
+            direction = 'a incoming'
+
         return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
-            self.description, _dir_2_str(self.direction),
+            self.description, direction,
             self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
 
     def __bool__(self):
@@ -115,9 +113,11 @@ class RelationshipManager(object):
                     + allowed_cls + " got " + obj.__class__.__name__)
 
         if self.direction == OUTGOING:
-            self.client.get_or_create_relationships((self.origin.__node__, self.relation_type, obj.__node__, properties))
+            self.client.get_or_create_relationships((self.origin.__node__, self.relation_type,
+                obj.__node__, properties))
         elif self.direction == INCOMING:
-            self.client.get_or_create_relationships((obj.__node__, self.relation_type, self.origin.__node__, properties))
+            self.client.get_or_create_relationships((obj.__node__, self.relation_type,
+                self.origin.__node__, properties))
         else:
             raise Exception("Unknown relationship direction {0}".format(self.direction))
 
