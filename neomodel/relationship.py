@@ -71,8 +71,7 @@ class RelationshipManager(object):
         return self._inflate_nodes_by_rel(results)
 
     def _inflate_nodes_by_rel(self, results):
-        """With resultset containing [node, rel] pairs
-        wrap each node in correct neomodel class based on rel.type"""
+        "wrap each node in correct class based on rel.type"
         nodes = [row[0] for row in results]
         classes = [self.class_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
