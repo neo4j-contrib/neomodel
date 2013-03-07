@@ -1,0 +1,7 @@
+Version 0.2.8 2013-03-07
+------------------------
+ * connect() with properties (Marianna Polatoglou)
+ * refresh() method (Panos Katseas)
+ * refactor RelationshipManager (Robin Edwards)
+ * NotConnected exception (Robin Edwards)
+ * Fix OneOrMore bug (Robin Edwards)
