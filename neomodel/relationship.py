@@ -29,6 +29,11 @@ class RelationshipManager(object):
         self.class_map = dict(zip([camel_to_upper(c.__name__)
             for c in self.node_classes], self.node_classes))
         self.origin = origin
+        self.description = {
+            'type': self.relation_type,
+            'direction': self.direction,
+            'target_map': self.class_map
+        }
 
     def __str__(self):
         direction = 'either'
