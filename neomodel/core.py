@@ -159,7 +159,7 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        for key, val in self.__class__._class_properties().iteritems():
+        for key, val in self._class_properties().iteritems():
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)
             # handle default values
@@ -273,14 +273,14 @@ class StructuredNode(CypherMixin):
     def save(self):
         # create or update instance node
         if self.__node__:
-            batch = CustomBatch(connection(), self.__class__.index.name, self.__node__.id)
-            batch.remove_indexed_node(index=self.__class__.index.__index__, node=self.__node__)
+            batch = CustomBatch(connection(), self.index.name, self.__node__.id)
+            batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
             props = self.deflate(self.__properties__, self.__node__.id)
             batch.set_node_properties(self.__node__, props)
-            self.__class__._update_indexes(self.__node__, props, batch)
+            self._update_indexes(self.__node__, props, batch)
             batch.submit()
         else:
-            self.__node__ = self.__class__.create(self.__properties__)[0].__node__
+            self.__node__ = self.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
                 self.post_create()
         return self
