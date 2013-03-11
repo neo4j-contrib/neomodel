@@ -288,6 +288,7 @@ class StructuredNode(CypherMixin):
     @hooks
     def delete(self):
         if self.__node__:
+            # TODO - use single cypher query
             to_delete = self.__node__.get_relationships()
             to_delete.append(self.__node__)
             self.client.delete(*to_delete)
@@ -315,7 +316,8 @@ class InstanceManager(RelationshipManager):
         query = "START a=node({self}) MATCH (a)"
         query += "-[:{0}]->(x) RETURN x".format(self.relation_type)
         results = self.origin.cypher(query)
-        return [self.node_classes[0].inflate(n[0]) for n in results[0]] if results else []
+        cls = self.target_map[self.relation_type]
+        return [cls.inflate(n[0]) for n in results[0]] if results else []
 
 
 def category_factory(instance_cls):
@@ -327,10 +329,15 @@ def category_factory(instance_cls):
 
     if not name in category_factory.cache:
         category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-        node = category_index.get_or_create('category', name, {'category': name})
         category = CategoryNode(name)
-        category.__node__ = node
-        category.instance = InstanceManager(OUTGOING, camel_to_upper(name), instance_cls, category)
+        category.__node__ = category_index.get_or_create('category', name, {'category': name})
+        rel_type = camel_to_upper(instance_cls.__name__)
+        definition = {
+            'direction': OUTGOING,
+            'relation_type': rel_type,
+            'target_map': {rel_type: instance_cls}
+        }
+        category.instance = InstanceManager(definition, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
 

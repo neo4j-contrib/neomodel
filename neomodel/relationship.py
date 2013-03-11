@@ -22,19 +22,12 @@ def _properties(ident, **kwargs):
 
 
 class RelationshipManager(object):
-    def __init__(self, direction, relation_type, node_classes, origin):
-        self.direction = direction
-        self.relation_type = relation_type
-        # move all this stuff and decription into rel_manager
-        self.node_classes = node_classes if isinstance(node_classes, list) else [node_classes]
-        self.class_map = dict(zip([camel_to_upper(c.__name__)
-            for c in self.node_classes], self.node_classes))
+    def __init__(self, definition, origin):
+        self.direction = definition['direction']
+        self.relation_type = definition['relation_type']
+        self.target_map = definition['target_map']
+        self.definition = definition
         self.origin = origin
-        self.description = {
-            'type': self.relation_type,
-            'direction': self.direction,
-            'target_map': self.class_map
-        }
 
     def __str__(self):
         direction = 'either'
@@ -67,7 +60,7 @@ class RelationshipManager(object):
         return self.__len__()
 
     def all(self):
-        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
+        cat_types = "|".join([rel for rel in self.target_map])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(x)<-[r:{0}]-() WHERE r.__instance__! = true RETURN x, r".format(cat_types)
@@ -77,7 +70,7 @@ class RelationshipManager(object):
     def _inflate_nodes_by_rel(self, results):
         "wrap each node in correct class based on rel.type"
         nodes = [row[0] for row in results]
-        classes = [self.class_map[row[1].type] for row in results]
+        classes = [self.target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
     def get(self, **kwargs):
@@ -92,7 +85,7 @@ class RelationshipManager(object):
     def search(self, **kwargs):
         if not kwargs:
             return self.all()
-        cat_types = "|".join([camel_to_upper(c.__name__) for c in self.node_classes])
+        cat_types = "|".join([rel for rel in self.target_map])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(b)<-[r:{0}]-() ".format(cat_types)
@@ -110,11 +103,11 @@ class RelationshipManager(object):
         if self.direction == EITHER:
             raise Exception("Cannot connect with direction EITHER")
 
-        for cls in self.node_classes:
+        for rel_type, cls in self.target_map.iteritems():
             if cls.__subclasscheck__(obj.__class__):
                 node_class = cls
         if not node_class:
-            allowed_cls = ", ".join([c.__name__ for c in self.node_classes])
+            allowed_cls = ", ".join([tcls.__name__ for tcls in self.target_map.itervalues()])
             raise Exception("Expected object of class of "
                     + allowed_cls + " got " + obj.__class__.__name__)
 
@@ -177,17 +170,20 @@ class RelationshipDefinition(object):
             __import__(module)
         return getattr(sys.modules[module], name)
 
-    def description(self):
+    @property
+    def definition(self):
+        node_classes = self.lookup_classes()
+        return {
+            'direction': self.direction,
+            'relation_type': self.relation_type,
+            'target_map': dict(zip([camel_to_upper(c.__name__)
+                for c in node_classes], node_classes))
+        }
 
     def build_manager(self, origin, name):
-        rel = self.manager(
-            self.direction,
-            self.relation_type,
-            self.lookup_classes(),
-            origin)
+        rel = self.manager(self.definition, origin)
         rel.name = name
         return rel
-
 
 
 class ZeroOrMore(RelationshipManager):
