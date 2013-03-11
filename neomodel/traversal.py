@@ -6,12 +6,13 @@ class Traversal(object):
             'class': self.start_node.__class__}]
 
     def traverse(self, rel_manager):
-        if len
         assert hasattr(self.start_node, rel_manager)
-        manager = getattr(self.start_node, rel_manager)
-        p = manager.description
-        p['name'] = rel_manager
-        self.query.append(p)
+        if len(self.query) > 2:
+            pass
+        else:
+            t = getattr(self.start_node, rel_manager).definition
+            t['name'] = rel_manager
+        self.query.append(t)
         return self
 
     def execute(self):

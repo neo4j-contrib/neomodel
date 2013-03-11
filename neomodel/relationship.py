@@ -25,6 +25,7 @@ class RelationshipManager(object):
     def __init__(self, direction, relation_type, node_classes, origin):
         self.direction = direction
         self.relation_type = relation_type
+        # move all this stuff and decription into rel_manager
         self.node_classes = node_classes if isinstance(node_classes, list) else [node_classes]
         self.class_map = dict(zip([camel_to_upper(c.__name__)
             for c in self.node_classes], self.node_classes))
@@ -176,6 +177,8 @@ class RelationshipDefinition(object):
             __import__(module)
         return getattr(sys.modules[module], name)
 
+    def description(self):
+
     def build_manager(self, origin, name):
         rel = self.manager(
             self.direction,
@@ -184,6 +187,7 @@ class RelationshipDefinition(object):
             origin)
         rel.name = name
         return rel
+
 
 
 class ZeroOrMore(RelationshipManager):
