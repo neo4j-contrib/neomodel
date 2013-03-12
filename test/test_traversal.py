@@ -1,4 +1,4 @@
-from neomodel.traversal import Traversal
+from neomodel.traversal import Traversal, Query
 from neomodel import (StructuredNode, RelationshipTo, StringProperty, OUTGOING)
 
 
@@ -17,13 +17,14 @@ class ShoppingItem(StructuredNode):
 
 
 def setup_shopper(name):
-    jim = Shopper(name='Jim').save()
+    jim = Shopper(name=name).save()
     b = Basket().save()
     si1 = ShoppingItem(name='Tooth brush').save()
     si2 = ShoppingItem(name='Screwdriver').save()
     b.item.connect(si1)
     b.item.connect(si2)
     jim.basket.connect(b)
+    return jim
 
 
 def test_one_level_traversal():
@@ -33,9 +34,10 @@ def test_one_level_traversal():
     t.execute()
     from pprint import pprint as pp
     pp(t.query)
-    assert t.query[-1]['return'] is 'friend'
-    assert t.query[-2]['name'] is 'friend'
+    assert t.query[-1]['return'][0] is 'friend'
+    assert t.query[-2]['name'] == 'friend'
     assert t.query[-2]['direction'] is OUTGOING
+    print Query(t.query)
 
 
 def test_multilevel_traversal():
@@ -45,4 +47,4 @@ def test_multilevel_traversal():
     t.execute()
     from pprint import pprint as pp
     pp(t.query)
-
+    print Query(t.query)
