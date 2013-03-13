@@ -1,3 +1,9 @@
+Version 0.2.9 unreleased
+------------------------
+ * _index_name special attribute removed (Robin Edwards)
+ * connect to sub class is no longer permitted (Robin Edwards)
+ * removed ReadOnlyNode class (Robin Edwards)
+
 Version 0.2.8 2013-03-07
 ------------------------
  * connect() with properties (Marianna Polatoglou)
