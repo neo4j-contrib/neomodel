@@ -107,8 +107,6 @@ class StructuredNodeMeta(type):
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                     value.setup()
         if inst.__name__ not in StructuredNodeMeta.NODE_CLASSES:
-            if '_index_name' in dct:
-                name = dct['_index_name']
             inst.index = NodeIndexManager(inst, name)
         return inst
 

@@ -93,36 +93,6 @@ def test_save_through_magic_property():
     assert user2
 
 
-def test_readonly_definition():
-    # create user
-    class MyNormalUser(StructuredNode):
-        _index_name = 'readonly_test'
-        name = StringProperty(index=True)
-    MyNormalUser(name='bob').save()
-
-    class MyReadOnlyUser(ReadOnlyNode):
-        _index_name = 'readonly_test'
-        name = StringProperty(index=True)
-
-    # reload as readonly from same index
-    bob = MyReadOnlyUser.index.get(name='bob')
-    assert bob.name == 'bob'
-
-    try:
-        bob.delete()
-    except Exception as e:
-        assert e.__class__.__name__ == 'ReadOnlyError'
-    else:
-        assert False
-
-    try:
-        bob.save()
-    except Exception as e:
-        assert e.__class__.__name__ == 'ReadOnlyError'
-    else:
-        assert False
-
-
 class Customer2(StructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)

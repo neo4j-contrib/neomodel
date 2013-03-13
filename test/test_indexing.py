@@ -53,19 +53,6 @@ def test_does_not_exist():
         assert False
 
 
-def test_custom_index_name():
-
-    class SpecialHuman(StructuredNode):
-        _index_name = 'special-Human'
-        name = StringProperty(unique_index=True)
-
-    jim = SpecialHuman(name='timothy').save()
-
-    assert SpecialHuman.index.name == 'special-Human'
-    node = SpecialHuman.index.get(name='timothy')
-    assert node.name == jim.name
-
-
 def test_index_inherited_props():
 
     class Mixin(object):
