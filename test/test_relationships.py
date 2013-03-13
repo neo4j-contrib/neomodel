@@ -85,23 +85,6 @@ def test_custom_methods():
     assert u.special_name == 'Joe91'
 
 
-def test_abstract_class_relationships():
-    j = Person(name='Joe', age=13).save()
-    assert j
-
-    u = SuperHero(name='UltraJoe', age=13, power='invisibility').save()
-    assert u
-
-    gr = Country(code='GR').save()
-    assert gr
-
-    gr.inhabitant.connect(j)
-    assert gr.inhabitant.is_connected(j)
-
-    gr.inhabitant.connect(u)
-    assert gr.inhabitant.is_connected(u)
-
-
 def test_props_relationship():
     u = Person(name='Mar', age=20).save()
     assert u
