@@ -91,10 +91,6 @@ class DeflateError(ValueError):
                 self.property_name, self.node_id, self.node_class.__name__, self.msg)
 
 
-class ReadOnlyError(Exception):
-    pass
-
-
 class NoSuchProperty(Exception):
     def __init__(self, key, cls):
         self.property_name = key

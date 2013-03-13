@@ -1,5 +1,4 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty,
-    ReadOnlyNode)
+from neomodel import (StructuredNode, StringProperty, IntegerProperty)
 from neomodel.exception import RequiredProperty, UniqueProperty
 
 

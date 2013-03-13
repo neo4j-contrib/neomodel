@@ -2,7 +2,7 @@ from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        ReadOnlyError, NoSuchProperty, PropertyNotIndexed, UniqueProperty)
+        NoSuchProperty, PropertyNotIndexed, UniqueProperty)
 from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
@@ -94,8 +94,6 @@ class NodeIndexManager(object):
 
 class StructuredNodeMeta(type):
 
-    NODE_CLASSES = ('StructuredNode', 'ReadOnlyNode')
-
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
@@ -106,7 +104,7 @@ class StructuredNodeMeta(type):
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                     value.setup()
-        if inst.__name__ not in StructuredNodeMeta.NODE_CLASSES:
+        if inst.__name__ != 'StructuredNode':
             inst.index = NodeIndexManager(inst, name)
         return inst
 
@@ -343,11 +341,3 @@ def category_factory(instance_cls):
         category.instance = InstanceManager(OUTGOING, camel_to_upper(name), instance_cls, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
-
-
-class ReadOnlyNode(StructuredNode):
-    def delete(self):
-        raise ReadOnlyError("You cannot delete read-only nodes")
-
-    def save(self):
-        raise ReadOnlyError("You cannot save read-only nodes")
