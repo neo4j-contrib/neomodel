@@ -2,7 +2,7 @@ from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        ReadOnlyError, NoSuchProperty, PropertyNotIndexed, UniqueProperty)
+        NoSuchProperty, PropertyNotIndexed, UniqueProperty)
 from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
 import types
@@ -94,8 +94,6 @@ class NodeIndexManager(object):
 
 class StructuredNodeMeta(type):
 
-    NODE_CLASSES = ('StructuredNode', 'ReadOnlyNode')
-
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
@@ -106,9 +104,7 @@ class StructuredNodeMeta(type):
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                     value.setup()
-        if inst.__name__ not in StructuredNodeMeta.NODE_CLASSES:
-            if '_index_name' in dct:
-                name = dct['_index_name']
+        if inst.__name__ != 'StructuredNode':
             inst.index = NodeIndexManager(inst, name)
         return inst
 
@@ -141,7 +137,7 @@ class StructuredNode(CypherMixin):
         props = {}
         for key, prop in cls._class_properties().iteritems():
             if (issubclass(prop.__class__, Property)
-                and not isinstance(prop, AliasProperty)):
+                    and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
                     props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
                 elif prop.has_default:
@@ -159,7 +155,7 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        for key, val in self.__class__._class_properties().iteritems():
+        for key, val in self._class_properties().iteritems():
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)
             # handle default values
@@ -209,7 +205,7 @@ class StructuredNode(CypherMixin):
                 if cls.get_property(key).unique_index:
                     results = cls.index.__index__.get(key, value)
                     if len(results):
-                        if isinstance(node, (int,)): # node ref
+                        if isinstance(node, (int,)):  # node ref
                             raise UniqueProperty(key, value, cls.index.name)
                         elif hasattr(node, 'id') and results[0].id != node.id:
                             raise UniqueProperty(key, value, cls.index.name, node)
@@ -248,7 +244,7 @@ class StructuredNode(CypherMixin):
         deflated = {}
         for key, prop in cls._class_properties().iteritems():
             if (not isinstance(prop, AliasProperty)
-                and issubclass(prop.__class__, Property)):
+                    and issubclass(prop.__class__, Property)):
                 if key in node_props and node_props[key] is not None:
                     deflated[key] = prop.deflate(node_props[key], node_id=node_id)
                 elif prop.has_default:
@@ -261,26 +257,26 @@ class StructuredNode(CypherMixin):
     def __properties__(self):
         node_props = {}
         for key, value in super(StructuredNode, self).__dict__.iteritems():
-            if not key.startswith('_')\
-                and not isinstance(value, types.MethodType)\
-                and not isinstance(value, RelationshipManager)\
-                and not isinstance(value, AliasProperty)\
-                and value is not None:
-                    node_props[key] = value
+            if (not key.startswith('_')
+                    and not isinstance(value, types.MethodType)
+                    and not isinstance(value, RelationshipManager)
+                    and not isinstance(value, AliasProperty)
+                    and value is not None):
+                node_props[key] = value
         return node_props
 
     @hooks
     def save(self):
         # create or update instance node
         if self.__node__:
-            batch = CustomBatch(connection(), self.__class__.index.name, self.__node__.id)
-            batch.remove_indexed_node(index=self.__class__.index.__index__, node=self.__node__)
+            batch = CustomBatch(connection(), self.index.name, self.__node__.id)
+            batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
             props = self.deflate(self.__properties__, self.__node__.id)
             batch.set_node_properties(self.__node__, props)
-            self.__class__._update_indexes(self.__node__, props, batch)
+            self._update_indexes(self.__node__, props, batch)
             batch.submit()
         else:
-            self.__node__ = self.__class__.create(self.__properties__)[0].__node__
+            self.__node__ = self.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
                 self.post_create()
         return self
@@ -296,6 +292,18 @@ class StructuredNode(CypherMixin):
         else:
             raise Exception("Node has not been saved so cannot be deleted")
         return True
+
+    def refresh(self):
+        """Reload this object from its node in the database"""
+        if self.__node__:
+            if self.__node__.exists():
+                props = self.inflate(
+                    self.client.get_node(self.__node__._id)).__properties__
+                for key, val in props.iteritems():
+                    setattr(self, key, val)
+            else:
+                msg = 'Node %s does not exist in the database anymore'
+                raise self.DoesNotExist(msg % self.__node__._id)
 
 
 class CategoryNode(CypherMixin):
@@ -340,11 +348,3 @@ def category_factory(instance_cls):
         category.instance = InstanceManager(definition, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
-
-
-class ReadOnlyNode(StructuredNode):
-    def delete(self):
-        raise ReadOnlyError("You cannot delete read-only nodes")
-
-    def save(self):
-        raise ReadOnlyError("You cannot save read-only nodes")

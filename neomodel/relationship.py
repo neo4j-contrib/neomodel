@@ -103,8 +103,9 @@ class RelationshipManager(object):
         if self.direction == EITHER:
             raise Exception("Cannot connect with direction EITHER")
 
+        node_class = None
         for rel_type, cls in self.target_map.iteritems():
-            if cls.__subclasscheck__(obj.__class__):
+            if obj.__class__ is cls:
                 node_class = cls
         if not node_class:
             allowed_cls = ", ".join([tcls.__name__ for tcls in self.target_map.itervalues()])

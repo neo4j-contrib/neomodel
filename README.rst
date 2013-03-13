@@ -5,8 +5,7 @@ neomodel
 An object mapper for the neo4j graph database.
 
 * Structured node definitions with type checking
-* Lazy category node creation
-* Automatic indexing
+* Automatic indexing and categorising
 * Relationship traversal
 * Soft cardinality restrictions
 * pre and post save / delete hooks (and django signals!)
@@ -57,6 +56,7 @@ CReate Update Delete::
     jim.age = 4
     jim.save() # validation happens here
     jim.delete()
+    jim.refresh() # reload properties if node exists, otherwise raises DoesNotExist
 
 Batch create (atomic) which also validates and indexes::
 
@@ -179,23 +179,6 @@ Access your instances via the category node::
     for c in country_category.instance.all()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
-As these actions are handled for your via the save() and delete() methods.
-
-Read-only nodes
----------------
-
-If you have existing nodes you want to protect use the read-only base class::
-
-    from neomodel.core import ReadOnlyNode, ReadOnlyError
-
-    class ImmortalBeing(ReadOnlyNode):
-        name = StringProperty()
-
-Now all write operations below raise a *ReadOnlyError*::
-
-    some_immortal_being.delete()
-    some_immortal_being.save()
-    some_immortal_being.update()
 
 Indexing
 --------
@@ -221,15 +204,6 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
         print(h.name)
 
     # prints: sarah, jim, bob
-
-If you have an existing node index you can change the default name of your index.
-This can be useful for integrating with neo4django schemas::
-
-    class Human(StructuredNode):
-        _index_name = 'myHumans'
-        name = StringProperty(indexed=True)
-
-    Human.index.name # myHumans
 
 Properties
 ----------
