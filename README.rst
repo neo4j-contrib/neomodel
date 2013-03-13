@@ -5,8 +5,7 @@ neomodel
 An object mapper for the neo4j graph database.
 
 * Structured node definitions with type checking
-* Lazy category node creation
-* Automatic indexing
+* Automatic indexing and categorising
 * Relationship traversal
 * Soft cardinality restrictions
 * pre and post save / delete hooks (and django signals!)
@@ -180,7 +179,6 @@ Access your instances via the category node::
     for c in country_category.instance.all()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
-As these actions are handled for your via the save() and delete() methods.
 
 Indexing
 --------
