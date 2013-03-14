@@ -31,6 +31,14 @@ def connection():
         return connection.db
 
 
+def cypher_query(query, params=None):
+    try:
+        return cypher.execute(connection(), query, params)
+    except cypher.CypherError as e:
+        message, etype, jtrace = e.args
+        raise CypherException(query, params, message, etype, jtrace)
+
+
 class CypherMixin(object):
     @property
     def client(self):
@@ -40,11 +48,7 @@ class CypherMixin(object):
         assert hasattr(self, '__node__')
         params = params or {}
         params.update({'self': self.__node__.id})
-        try:
-            return cypher.execute(self.client, query, params)
-        except cypher.CypherError as e:
-            message, etype, jtrace = e.args
-            raise CypherException(query, params, message, etype, jtrace)
+        return cypher_query(query, params)
 
 
 class NodeIndexManager(object):

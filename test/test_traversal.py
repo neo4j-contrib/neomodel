@@ -1,5 +1,6 @@
 from neomodel.traversal import Traversal, Query
-from neomodel import (StructuredNode, RelationshipTo, StringProperty, OUTGOING)
+from neomodel import (StructuredNode, RelationshipTo,
+        StringProperty, OUTGOING, cypher_query)
 
 
 class Shopper(StructuredNode):
@@ -32,12 +33,12 @@ def test_one_level_traversal():
     t = Traversal(jim)
     t.traverse('friend')
     t.execute()
-    from pprint import pprint as pp
-    pp(t.query)
     assert t.query[-1]['return'][0] is 'friend'
     assert t.query[-2]['name'] == 'friend'
     assert t.query[-2]['direction'] is OUTGOING
-    print Query(t.query)
+    q = str(Query(t.query))
+    print q
+    cypher_query(q)
 
 
 def test_multilevel_traversal():
@@ -45,6 +46,6 @@ def test_multilevel_traversal():
     t = Traversal(bill)
     t.traverse('friend').traverse('basket')
     t.execute()
-    from pprint import pprint as pp
-    pp(t.query)
-    print Query(t.query)
+    q = str(Query(t.query))
+    print q
+    cypher_query(q)
