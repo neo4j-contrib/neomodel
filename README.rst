@@ -1,6 +1,5 @@
-========
-neomodel
-========
+.. image:: https://raw.github.com/robinedwards/neomodel/master/art/neomodel-148.png
+   :alt: neomodel
 
 An object mapper for the neo4j graph database.
 
