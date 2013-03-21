@@ -40,7 +40,7 @@ class OneOrMore(RelationshipManager):
         raise CardinalityViolation(self, 'none')
 
     def disconnect(self, obj):
-        if len(self.origin.__node__.get_related_nodes(self.direction, self.relation_type)) < 2:
+        if super(OneOrMore, self).__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
         return super(OneOrMore, self).disconnect(obj)
 
