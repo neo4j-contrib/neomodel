@@ -19,7 +19,7 @@ class ZeroOrOne(RelationshipManager):
 
     def connect(self, obj):
         if self.origin.__node__.has_relationship(self.direction, self.relation_type):
-            raise AttemptedCardinalityViolation("Node already has one relationship")
+            raise AttemptedCardinalityViolation("Node already has {0} can't connect more".format(self))
         else:
             return super(ZeroOrOne, self).connect(obj)
 
