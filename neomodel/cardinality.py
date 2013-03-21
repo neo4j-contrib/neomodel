@@ -62,7 +62,7 @@ class One(RelationshipManager):
         return [self.single()]
 
     def disconnect(self, obj):
-        raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use rerelate")
+        raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
     def connect(self, obj):
         if not self.origin.__node__:
