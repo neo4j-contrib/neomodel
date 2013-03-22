@@ -289,6 +289,7 @@ class StructuredNode(CypherMixin):
     @hooks
     def delete(self):
         if self.__node__:
+            self.index.__index__.remove(entity=self.__node__)
             self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
             self.__node__ = None
         else:
