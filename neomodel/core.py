@@ -337,20 +337,14 @@ class InstanceManager(RelationshipManager):
 def category_factory(instance_cls):
     """ Retrieve category node by name """
     name = instance_cls.__name__
-
-    if not hasattr(category_factory, 'cache'):
-        category_factory.cache = {}
-
-    if not name in category_factory.cache:
-        category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-        category = CategoryNode(name)
-        category.__node__ = category_index.get_or_create('category', name, {'category': name})
-        rel_type = camel_to_upper(instance_cls.__name__)
-        definition = {
-            'direction': OUTGOING,
-            'relation_type': rel_type,
-            'target_map': {rel_type: instance_cls}
-        }
-        category.instance = InstanceManager(definition, category)
-        category_factory.cache[name] = category
-    return category_factory.cache[name]
+    category_index = connection().get_or_create_index(neo4j.Node, 'Category')
+    category = CategoryNode(name)
+    category.__node__ = category_index.get_or_create('category', name, {'category': name})
+    rel_type = camel_to_upper(instance_cls.__name__)
+    definition = {
+        'direction': OUTGOING,
+        'relation_type': rel_type,
+        'target_map': {rel_type: instance_cls}
+    }
+    category.instance = InstanceManager(definition, category)
+    return category
