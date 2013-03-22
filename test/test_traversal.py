@@ -33,10 +33,9 @@ def test_one_level_traversal():
     t = Traversal(jim)
     t.traverse('friend')
     t.execute()
-    assert t.query[-1]['return'][0] is 'friend'
-    assert t.query[-2]['name'] == 'friend'
-    assert t.query[-2]['direction'] is OUTGOING
-    q = str(Query(t.query))
+    assert t.ast[-1]['return'][0] is 'friend'
+    assert t.ast[-3]['name'] == 'friend'
+    q = str(Query(t.ast))
     print q
     cypher_query(q)
 
@@ -46,6 +45,6 @@ def test_multilevel_traversal():
     t = Traversal(bill)
     t.traverse('friend').traverse('basket')
     t.execute()
-    q = str(Query(t.query))
+    q = str(Query(t.ast))
     print q
     cypher_query(q)
