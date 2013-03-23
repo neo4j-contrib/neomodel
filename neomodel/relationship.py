@@ -70,7 +70,7 @@ class RelationshipManager(object):
     def _inflate_nodes_by_rel(self, results):
         "wrap each node in correct class based on rel.type"
         nodes = [row[0] for row in results]
-        classes = [self.target_map[row[1].type] for row in results]
+        classes = [self.target_map[row[1]] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
     def get(self, **kwargs):
@@ -78,7 +78,7 @@ class RelationshipManager(object):
         if len(result) == 1:
             return result[0]
         if len(result) > 1:
-            raise Exception("Multiple items returned")
+            raise Exception("Multiple items returned, use search?")
         if not result:
                 raise DoesNotExist("No items exist for the specified arguments")
 

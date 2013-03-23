@@ -19,7 +19,7 @@ class Traversal(object):
         self.start_node = start_node
         self.ident_count = 0
         assert hasattr(self.start_node, '__node__')
-        self.ast = [{'start': self.start_node.__node__.id,
+        self.ast = [{'start': '{self}',
             'class': self.start_node.__class__, 'name': 'origin'}]
 
     def traverse(self, rel_manager):
@@ -44,6 +44,9 @@ class Traversal(object):
         node = last_x_in_ast(self.ast, 'match')
         for rel in match['match']:
             node['match'].append(rel)
+        # replace name and target map
+        node['name'] = match['name']
+        node['target_map'] = match['target_map']
 
     def _add_where(self, where):
         node = last_x_in_ast(self.ast, 'where')
@@ -100,17 +103,20 @@ class Traversal(object):
         # return as list if more than one
         return targets if len(targets) > 1 else targets[0]
 
-    def execute(self):
+    def finalise(self):
         node = last_x_in_ast(self.ast, 'name')
-        idents = []
-        if isinstance(node, (list,)):
-            idents = [x['name'] for x in node]
-        else:
-            idents = [node['name']]
+        idents = [node['name']]
         if self.ident_count > 0:
-            idents.append('type(r{})'.format(self.ident_count))
+            idents.append('r{}'.format(self.ident_count))
         self.ast.append({'return': idents})
-        return self.ast
+
+    def execute(self):
+        self.finalise()
+        target_map = last_x_in_ast(self.ast, 'target_map')['target_map']
+        results, _ = self.start_node.cypher(Query(self.ast))
+        nodes = [row[0] for row in results]
+        classes = [target_map[row[1].type] for row in results]
+        return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
 
 def rel_helper(rel):
@@ -153,7 +159,7 @@ class Query(object):
             return self._render_return(entry)
 
     def _render_start(self, entry):
-        return "START origin=node(%d)" % entry['start']
+        return "START origin=node(%s)" % entry['start']
 
     def _render_return(self, entry):
         return "RETURN " + ', '.join(entry['return'])
