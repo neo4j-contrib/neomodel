@@ -9,6 +9,7 @@ def last_x_in_ast(ast, x):
 
 
 class AstBuilder(object):
+    """Construct AST for traversal"""
     def __init__(self, start_node):
         self.start_node = start_node
         self.ident_count = 0
@@ -104,10 +105,18 @@ class AstBuilder(object):
             idents.append('r{}'.format(self.ident_count))
         self.ast.append({'return': idents})
 
-    def execute(self):
-        self._finalise()
-        target_map = last_x_in_ast(self.ast, 'target_map')['target_map']
+    def _finalise_count(self):
+        node = last_x_in_ast(self.ast, 'name')
+        ident = ['count(' + node['name'] + ')']
+        self.ast.append({'return': ident})
+
+    def _execute(self):
         results, _ = self.start_node.cypher(Query(self.ast))
+        return results
+
+    def _execute_and_inflate(self):
+        target_map = last_x_in_ast(self.ast, 'target_map')['target_map']
+        results = self._execute()
         nodes = [row[0] for row in results]
         classes = [target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
@@ -121,6 +130,17 @@ class TraversalSet(AstBuilder):
     def traverse(self, rel):
         self._traverse(rel)
         return self
+
+    def __iter__(self):
+        self._finalise()
+        return iter(self._execute_and_inflate())
+
+    def __len__(self):
+        self._finalise_count()
+        return self._execute()[0][0]
+
+    def __bool__(self):
+        return bool(len(self))
 
 
 def rel_helper(rel):

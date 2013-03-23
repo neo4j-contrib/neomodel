@@ -33,7 +33,8 @@ def test_one_level_traversal():
     jim = setup_shopper('Jim', 'Bob')
     t = TraversalSet(jim)
     t.traverse('friend')
-    results = t.execute()
+    t._finalise()
+    results = t._execute_and_inflate()
     print Query(t.ast)
     from pprint import pprint as pp
     pp(results)
@@ -45,7 +46,21 @@ def test_multilevel_traversal():
     bill = setup_shopper('bill', 'ted')
     t = TraversalSet(bill)
     t.traverse('friend').traverse('basket')
-    r = t.execute()
+    t._finalise()
+    r = t._execute_and_inflate()
     print Query(t.ast)
     from pprint import pprint as pp
     pp(r)
+
+
+def test_iteration():
+    jim = setup_shopper('Jill', 'Barbra')
+    jim.friend.connect(Shopper(name='timothy').save())
+    for item in jim.traverse('friend'):
+        print item
+        assert item.__class__.__name__ is 'Shopper'
+
+
+def test_len_and_bool():
+    jim = setup_shopper('Jill1', 'Barbra2')
+    print len(jim.traverse('friend'))
