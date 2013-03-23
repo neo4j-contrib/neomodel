@@ -64,3 +64,4 @@ def test_iteration():
 def test_len_and_bool():
     jim = setup_shopper('Jill1', 'Barbra2')
     print len(jim.traverse('friend'))
+    print jim.traverse('friend')[0:3]

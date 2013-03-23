@@ -41,7 +41,10 @@ class RelationshipManager(object):
             self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
 
     def __bool__(self):
-        return self.__len__() > 0
+        return len(self) > 0
+
+    def __nonzero__(self):
+        return len(self) > 0
 
     def __len__(self):
         query = "START a=node({self}) MATCH (a)"

@@ -105,13 +105,24 @@ class AstBuilder(object):
             idents.append('r{}'.format(self.ident_count))
         self.ast.append({'return': idents})
 
+    def _finalise_skip_limit(self, start, end):
+        self._finalise()
+        if start < 0 or end < 0:
+            raise NotImplemented("Negative indicies not suppported yet")
+        if start:
+            self.ast.append({'skip': start})
+        if end:
+            self.ast.append({'limit': end})
+
     def _finalise_count(self):
         node = last_x_in_ast(self.ast, 'name')
         ident = ['count(' + node['name'] + ')']
         self.ast.append({'return': ident})
 
     def _execute(self):
-        results, _ = self.start_node.cypher(Query(self.ast))
+        q = Query(self.ast)
+        print q
+        results, _ = self.start_node.cypher(q)
         return results
 
     def _execute_and_inflate(self):
@@ -142,6 +153,23 @@ class TraversalSet(AstBuilder):
     def __bool__(self):
         return bool(len(self))
 
+    def __nonzero__(self):
+        return bool(len(self))
+
+    def __contains__(self, node):
+        pass
+
+    def __missing__(self, node):
+        pass
+
+    def __getitem__(self, index):
+        if isinstance(index, (slice,)):
+            self._finalise_skip_limit(index.start, index.stop)
+            return iter(self._execute_and_inflate())
+        elif isinstance(index, (int)):
+            raise NotImplemented("coming soon")
+        raise IndexError("Cannot index with " + index.__class__.__name__)
+
 
 def rel_helper(rel):
     if rel['direction'] == OUTGOING:
@@ -158,19 +186,19 @@ def rel_helper(rel):
 class Query(object):
     def __init__(self, ast):
         self.ast = ast
-        self.position = 0
-        self.query = ''
-        self.ident_count = 0
-        self.where = []
 
     def _create_ident(self):
         self.ident_count += 1
         return 'r' + str(self.ident_count)
 
     def _build(self):
+        self.position = 0
+        self.ident_count = 0
+        self.query = ''
         for entry in self.ast:
             self.query += self._render(entry) + "\n"
             self.position += 1
+        return self.query
 
     def _render(self, entry):
         if 'start' in entry:
@@ -181,6 +209,10 @@ class Query(object):
             return self._render_where(entry)
         elif 'return' in entry:
             return self._render_return(entry)
+        elif 'skip' in entry:
+            return self._render_skip(entry)
+        elif 'limit' in entry:
+            return self._render_limit(entry)
 
     def _render_start(self, entry):
         return "START origin=node(%s)" % entry['start']
@@ -197,7 +229,11 @@ class Query(object):
         expr = ' AND '.join(entry['where'])
         return "WHERE " + expr
 
+    def _render_skip(self, entry):
+        return "SKIP {0}".format(entry['skip'])
+
+    def _render_limit(self, entry):
+        return "LIMIT {0}".format(entry['limit'])
+
     def __str__(self):
-        if not len(self.query):
-            self._build()
-        return self.query
+        return self._build()
