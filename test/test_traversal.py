@@ -1,4 +1,4 @@
-from neomodel.traversal import Traversal, Query
+from neomodel.traversal import TraversalSet, Query
 from neomodel import (StructuredNode, RelationshipTo, StringProperty)
 
 
@@ -31,7 +31,7 @@ def setup_shopper(name, friend):
 
 def test_one_level_traversal():
     jim = setup_shopper('Jim', 'Bob')
-    t = Traversal(jim)
+    t = TraversalSet(jim)
     t.traverse('friend')
     results = t.execute()
     print Query(t.ast)
@@ -43,7 +43,7 @@ def test_one_level_traversal():
 
 def test_multilevel_traversal():
     bill = setup_shopper('bill', 'ted')
-    t = Traversal(bill)
+    t = TraversalSet(bill)
     t.traverse('friend').traverse('basket')
     r = t.execute()
     print Query(t.ast)

@@ -1,12 +1,6 @@
 from .relationship import RelationshipDefinition, OUTGOING, INCOMING
 
 
-def last_name_in_ast(ast):
-    for node in reversed(ast):
-        if 'name' in node:
-            return node['name']
-
-
 def last_x_in_ast(ast, x):
     for node in reversed(ast):
         if x in node:
@@ -14,7 +8,7 @@ def last_x_in_ast(ast, x):
     raise Exception("Could not find {} in {}".format(x, ast))
 
 
-class Traversal(object):
+class AstBuilder(object):
     def __init__(self, start_node):
         self.start_node = start_node
         self.ident_count = 0
@@ -22,7 +16,7 @@ class Traversal(object):
         self.ast = [{'start': '{self}',
             'class': self.start_node.__class__, 'name': 'origin'}]
 
-    def traverse(self, rel_manager):
+    def _traverse(self, rel_manager):
         assert hasattr(self.start_node, rel_manager)
 
         if len(self.ast) > 1:
@@ -59,7 +53,7 @@ class Traversal(object):
 
     def _build_match_ast(self, target):
         rel_to_traverse = {
-            'lhs': last_name_in_ast(self.ast),
+            'lhs': last_x_in_ast(self.ast, 'name')['name'],
             'direction': target['direction'],
             'relation_type': target['relation_type'],
             'rhs': target['name'],
@@ -103,7 +97,7 @@ class Traversal(object):
         # return as list if more than one
         return targets if len(targets) > 1 else targets[0]
 
-    def finalise(self):
+    def _finalise(self):
         node = last_x_in_ast(self.ast, 'name')
         idents = [node['name']]
         if self.ident_count > 0:
@@ -111,12 +105,22 @@ class Traversal(object):
         self.ast.append({'return': idents})
 
     def execute(self):
-        self.finalise()
+        self._finalise()
         target_map = last_x_in_ast(self.ast, 'target_map')['target_map']
         results, _ = self.start_node.cypher(Query(self.ast))
         nodes = [row[0] for row in results]
         classes = [target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
+
+
+class TraversalSet(AstBuilder):
+    """API level methods"""
+    def __init__(self, start_node):
+        super(TraversalSet, self).__init__(start_node)
+
+    def traverse(self, rel):
+        self._traverse(rel)
+        return self
 
 
 def rel_helper(rel):
