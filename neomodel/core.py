@@ -5,6 +5,7 @@ from .exception import (DoesNotExist, RequiredProperty, CypherException,
         NoSuchProperty, PropertyNotIndexed, UniqueProperty)
 from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
+from .traversal import TraversalSet
 import types
 from urlparse import urlparse
 from .signals import hooks
@@ -296,6 +297,9 @@ class StructuredNode(CypherMixin):
         else:
             raise Exception("Node has not been saved so cannot be deleted")
         return True
+
+    def traverse(self, rel_manager):
+        return TraversalSet(self).traverse(rel_manager)
 
     def refresh(self):
         """Reload this object from its node in the database"""
