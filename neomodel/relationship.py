@@ -67,7 +67,7 @@ class RelationshipManager(object):
     def _inflate_nodes_by_rel(self, results):
         "wrap each node in correct class based on rel.type"
         nodes = [row[0] for row in results]
-        classes = [self.target_map[row[1]] for row in results]
+        classes = [self.target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
     def get(self, **kwargs):
