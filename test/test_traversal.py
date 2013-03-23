@@ -5,7 +5,7 @@ from neomodel import (StructuredNode, RelationshipTo, StringProperty)
 class Shopper(StructuredNode):
     name = StringProperty(unique_index=True)
     friend = RelationshipTo('Shopper', 'FRIEND')
-    basket = RelationshipTo('Basket', 'ITEM')
+    basket = RelationshipTo('Basket', 'BASKET')
 
 
 class Basket(StructuredNode):
