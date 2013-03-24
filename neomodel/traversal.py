@@ -91,7 +91,7 @@ class AstBuilder(object):
 
         if not targets:
             t_list = ', '.join([t_cls.__name__ for t_cls in target_map.itervalues()])
-            raise Exception("No such rel definition {0} on {1}".format(
+            raise AttributeError("No such rel manager {0} on {1}".format(
                 rel_manager, t_list))
 
         # return as list if more than one
@@ -169,7 +169,8 @@ class TraversalSet(AstBuilder):
             ast = self._finalise_skip_limit(index.start, index.stop)
             return iter(self._execute_and_inflate(ast))
         elif isinstance(index, (int)):
-            raise NotImplemented("coming soon")
+            ast = self._finalise_skip_limit(index, 1)
+            return self._execute_and_inflate(ast)
         raise IndexError("Cannot index with " + index.__class__.__name__)
 
 

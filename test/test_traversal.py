@@ -48,15 +48,30 @@ def test_multilevel_traversal():
     assert 'Screwdriver' in [i.name for i in result]
 
 
+def test_none_existant_relmanager():
+    t = Shopper(name='Test').save()
+    try:
+        t.traverse('friend').traverse('foo')
+    except AttributeError:
+        assert True
+    else:
+        assert False
+
+
 def test_iteration():
     jim = setup_shopper('Jill', 'Barbra')
     jim.friend.connect(Shopper(name='timothy').save())
     for item in jim.traverse('friend'):
-        print item
         assert item.__class__.__name__ is 'Shopper'
 
 
 def test_len_and_bool():
     jim = setup_shopper('Jill1', 'Barbra2')
-    print len(jim.traverse('friend'))
-    print jim.traverse('friend')[0:3]
+    assert len(jim.traverse('friend'))
+
+
+def test_slice_and_index():
+    jim = setup_shopper('Jill2', 'Barbra3')
+    for i in jim.traverse('friend')[0:3]:
+        assert i
+    print jim.traverse('friend')[2]
