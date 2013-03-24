@@ -1,4 +1,5 @@
 from .relationship import RelationshipDefinition, OUTGOING, INCOMING
+from copy import deepcopy
 
 
 def last_x_in_ast(ast, x):
@@ -101,31 +102,34 @@ class AstBuilder(object):
         idents = [node['name']]
         if self.ident_count > 0:
             idents.append('r{}'.format(self.ident_count))
-        self.ast.append({'return': idents})
+        final_ast = deepcopy(self.ast)
+        final_ast.append({'return': idents})
+        return final_ast
 
     def _finalise_skip_limit(self, start, end):
-        self._finalise()
+        final_ast = self._finalise()
         if start < 0 or end < 0:
             raise NotImplemented("Negative indicies not suppported yet")
         if start:
-            self.ast.append({'skip': start})
+            final_ast.append({'skip': start})
         if end:
-            self.ast.append({'limit': end})
+            final_ast.append({'limit': end})
+        return final_ast
 
     def _finalise_count(self):
-        node = last_x_in_ast(self.ast, 'name')
+        final_ast = deepcopy(self.ast)
+        node = last_x_in_ast(final_ast, 'name')
         ident = ['count(' + node['name'] + ')']
-        self.ast.append({'return': ident})
+        final_ast.append({'return': ident})
+        return final_ast
 
-    def _execute(self):
-        q = Query(self.ast)
-        print q
-        results, _ = self.start_node.cypher(q)
+    def _execute(self, ast):
+        results, _ = self.start_node.cypher(Query(ast))
         return results
 
-    def _execute_and_inflate(self):
-        target_map = last_x_in_ast(self.ast, 'target_map')['target_map']
-        results = self._execute()
+    def _execute_and_inflate(self, ast):
+        target_map = last_x_in_ast(ast, 'target_map')['target_map']
+        results = self._execute(ast)
         nodes = [row[0] for row in results]
         classes = [target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
@@ -141,12 +145,12 @@ class TraversalSet(AstBuilder):
         return self
 
     def __iter__(self):
-        self._finalise()
-        return iter(self._execute_and_inflate())
+        ast = self._finalise()
+        return iter(self._execute_and_inflate(ast))
 
     def __len__(self):
-        self._finalise_count()
-        return self._execute()[0][0]
+        ast = self._finalise_count()
+        return self._execute(ast)[0][0]
 
     def __bool__(self):
         return bool(len(self))
@@ -162,8 +166,8 @@ class TraversalSet(AstBuilder):
 
     def __getitem__(self, index):
         if isinstance(index, (slice,)):
-            self._finalise_skip_limit(index.start, index.stop)
-            return iter(self._execute_and_inflate())
+            ast = self._finalise_skip_limit(index.start, index.stop)
+            return iter(self._execute_and_inflate(ast))
         elif isinstance(index, (int)):
             raise NotImplemented("coming soon")
         raise IndexError("Cannot index with " + index.__class__.__name__)

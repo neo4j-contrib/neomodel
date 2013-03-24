@@ -1,4 +1,4 @@
-from neomodel.traversal import TraversalSet, Query
+from neomodel.traversal import TraversalSet
 from neomodel import (StructuredNode, RelationshipTo, StringProperty)
 
 
@@ -33,24 +33,19 @@ def test_one_level_traversal():
     jim = setup_shopper('Jim', 'Bob')
     t = TraversalSet(jim)
     t.traverse('friend')
-    t._finalise()
-    results = t._execute_and_inflate()
-    print Query(t.ast)
-    from pprint import pprint as pp
-    pp(results)
-    assert t.ast[-1]['return'][0] is 'friend'
-    assert t.ast[-3]['name'] == 'friend'
+    ast = t._finalise()
+    results = t._execute_and_inflate(ast)
+    assert ast[-1]['return'][0] is 'friend'
+    assert ast[-3]['name'] == 'friend'
+    assert results[0].__class__ is Shopper
 
 
 def test_multilevel_traversal():
     bill = setup_shopper('bill', 'ted')
-    t = TraversalSet(bill)
-    t.traverse('friend').traverse('basket')
-    t._finalise()
-    r = t._execute_and_inflate()
-    print Query(t.ast)
-    from pprint import pprint as pp
-    pp(r)
+    result = bill.traverse('friend').traverse('basket').traverse('item')
+    for i in result:
+        assert i.__class__ is ShoppingItem
+    assert 'Screwdriver' in [i.name for i in result]
 
 
 def test_iteration():
