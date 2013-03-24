@@ -18,8 +18,6 @@ class AstBuilder(object):
             'class': self.start_node.__class__, 'name': 'origin'}]
 
     def _traverse(self, rel_manager):
-        assert hasattr(self.start_node, rel_manager)
-
         if len(self.ast) > 1:
             t = self._find_map(self.ast[-2]['target_map'], rel_manager)
         else:
