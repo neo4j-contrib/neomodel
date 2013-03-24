@@ -114,8 +114,6 @@ class DateTimeProperty(Property):
     def deflate(self, value):
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}'.format(value))
-        if not value.tzinfo:
-            raise ValueError('datetime object {0} must have a timezone'.format(value))
         return time.mktime(value.utctimetuple())
 
 

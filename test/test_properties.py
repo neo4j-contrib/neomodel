@@ -47,18 +47,6 @@ def test_datetimes_timezones():
     assert time1.tzname() == 'UTC'
 
 
-def test_datetime_no_timezone():
-    prop = DateTimeProperty()
-    prop.name = 'foo'
-    prop.owner = FooBar
-    try:
-        prop.deflate(datetime.now())
-    except DeflateError as e:
-        assert str(e).index('have a timezone')
-    else:
-        assert False
-
-
 def test_date():
     prop = DateProperty()
     prop.name = 'foo'
