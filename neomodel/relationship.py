@@ -103,8 +103,7 @@ class RelationshipManager(object):
     def connect(self, obj, properties=None):
         if not obj.__node__:
             raise Exception("Can't create relationship to unsaved node")
-        if self.direction == EITHER:
-            raise Exception("Cannot connect with direction EITHER")
+        direction = OUTGOING if self.direction == EITHER else self.direction
 
         node_class = None
         for rel_type, cls in self.target_map.iteritems():
@@ -115,14 +114,12 @@ class RelationshipManager(object):
             raise Exception("Expected object of class of "
                     + allowed_cls + " got " + obj.__class__.__name__)
 
-        if self.direction == OUTGOING:
+        if direction == OUTGOING:
             self.client.get_or_create_relationships((self.origin.__node__, self.relation_type,
                 obj.__node__, properties))
-        elif self.direction == INCOMING:
+        elif direction == INCOMING:
             self.client.get_or_create_relationships((obj.__node__, self.relation_type,
                 self.origin.__node__, properties))
-        else:
-            raise Exception("Unknown relationship direction {0}".format(self.direction))
 
     def reconnect(self, old_obj, new_obj):
         properties = {}
