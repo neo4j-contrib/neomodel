@@ -78,3 +78,15 @@ def test_slice_and_index():
     for i in jim.traverse('friend')[0:3]:
         assert isinstance(i, Shopper)
     assert isinstance(jim.traverse('friend')[1], Shopper)
+
+
+def test_order_by():
+    zara = Shopper(name='Zara').save()
+    zara.friend.connect(Shopper(name='Alan').save())
+    zara.friend.connect(Shopper(name='Wendy').save())
+    friends = [f.name for f in zara.traverse('friend').order_by('friend.name')]
+    assert friends[0] == 'Alan'
+    assert friends[1] == 'Wendy'
+    friends = [f.name for f in zara.traverse('friend').order_by_desc('friend.name')]
+    assert friends[0] == 'Wendy'
+    assert friends[1] == 'Alan'

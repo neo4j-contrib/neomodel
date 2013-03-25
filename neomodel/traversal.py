@@ -1,5 +1,6 @@
 from .relationship import RelationshipDefinition, OUTGOING, INCOMING
 from copy import deepcopy
+import re
 
 
 def last_x_in_ast(ast, x):
@@ -114,12 +115,33 @@ class AstBuilder(object):
         if end:
             ast.append({'limit': end})
 
+    def _add_order(self, ident_prop, desc=False):
+        if not '.' in ident_prop:
+            raise ValueError("Expecting format of relmanager.property")
+        rel_manager, prop = ident_prop.split('.')
+
+        # just in case input isn't safe
+        assert not (re.search(r'[^\w]', rel_manager) and re.search(r'[^\w]', prop))
+
+        name = last_x_in_ast(self.ast, 'name')['name']
+        if name != rel_manager:
+            raise ValueError("Last traversal was {0} not {1}".format(name, rel_manager))
+        # set order
+        if not hasattr(self, 'order_part'):
+            self.order_part = {'order': ident_prop, 'desc': desc}
+        else:
+            raise NotImplemented("Order already set")
+
     def _add_return_count(self, ast):
         node = last_x_in_ast(ast, 'name')
         ident = ['count(' + node['name'] + ')']
+
+        node = last_x_in_ast(ast, 'name')
         ast.append({'return': ident})
 
     def execute(self, ast):
+        if hasattr(self, 'order_part'):
+            ast.append(self.order_part)
         results, _ = self.start_node.cypher(Query(ast))
         self.last_ast = ast
         return results
@@ -138,7 +160,17 @@ class TraversalSet(AstBuilder):
         super(TraversalSet, self).__init__(start_node)
 
     def traverse(self, rel):
+        if not self.start_node.__node__:
+            raise Exception("Cannot traverse unsaved node")
         self._traverse(rel)
+        return self
+
+    def order_by(self, prop):
+        self._add_order(prop, desc=False)
+        return self
+
+    def order_by_desc(self, prop):
+        self._add_order(prop, desc=True)
         return self
 
     def __iter__(self):
@@ -217,6 +249,8 @@ class Query(object):
             return self._render_skip(entry)
         elif 'limit' in entry:
             return self._render_limit(entry)
+        elif 'order' in entry:
+            return self._render_order(entry)
 
     def _render_start(self, entry):
         return "START origin=node(%s)" % entry['start']
@@ -238,6 +272,10 @@ class Query(object):
 
     def _render_limit(self, entry):
         return "LIMIT {0}".format(entry['limit'])
+
+    def _render_order(self, entry):
+        sort = ' DESC' if entry['desc'] else ''
+        return "ORDER BY {0}{1}".format(entry['order'], sort)
 
     def __str__(self):
         return self._build()
