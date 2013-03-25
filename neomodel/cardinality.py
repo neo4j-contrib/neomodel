@@ -19,7 +19,7 @@ class ZeroOrOne(RelationshipManager):
 
     def connect(self, obj):
         if self.origin.__node__.has_relationship(self.direction, self.relation_type):
-            raise AttemptedCardinalityViolation("Node already has one relationship")
+            raise AttemptedCardinalityViolation("Node already has {0} can't connect more".format(self))
         else:
             return super(ZeroOrOne, self).connect(obj)
 
@@ -40,7 +40,7 @@ class OneOrMore(RelationshipManager):
         raise CardinalityViolation(self, 'none')
 
     def disconnect(self, obj):
-        if len(self.origin.__node__.get_related_nodes(self.direction, self.relation_type)) < 2:
+        if super(OneOrMore, self).__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
         return super(OneOrMore, self).disconnect(obj)
 
@@ -62,7 +62,7 @@ class One(RelationshipManager):
         return [self.single()]
 
     def disconnect(self, obj):
-        raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use rerelate")
+        raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
     def connect(self, obj):
         if not self.origin.__node__:

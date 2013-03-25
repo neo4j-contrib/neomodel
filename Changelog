@@ -1,5 +1,8 @@
 Version 0.2.9 unreleased
 ------------------------
+ * allow datetime without timezone to be stored
+ * use cypher for delete (Robin Edwards)
+ * project logo (Laura Willis)
  * _index_name special attribute removed (Robin Edwards)
  * connect to sub class is no longer permitted (Robin Edwards)
  * removed ReadOnlyNode class (Robin Edwards)

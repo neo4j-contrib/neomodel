@@ -59,12 +59,15 @@ class RelationshipManager(object):
     def count(self):
         return self.__len__()
 
-    def all(self):
+    def _all_query(self):
         cat_types = "|".join([rel for rel in self.target_map])
         query = "START a=node({self}) MATCH (a)"
         query += _related(self.direction).format(self.relation_type)
         query += "(x)<-[r:{0}]-() WHERE r.__instance__! = true RETURN x, r".format(cat_types)
-        results = self.origin.cypher(query)[0]
+        return query
+
+    def all(self):
+        results = self.origin.cypher(self._all_query())[0]
         return self._inflate_nodes_by_rel(results)
 
     def _inflate_nodes_by_rel(self, results):
@@ -142,8 +145,9 @@ class RelationshipManager(object):
             raise Exception("Expected single relationship got {0}".format(rels))
         rels[0].delete()
 
-    def single(self): # TODO should limit this query
-        nodes = self.all()
+    def single(self):
+        results = self.origin.cypher(self._all_query() + " LIMIT 1")[0]
+        nodes = self._inflate_nodes_by_rel(results)
         return nodes[0] if nodes else None
 
 

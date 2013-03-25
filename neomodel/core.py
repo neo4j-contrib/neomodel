@@ -289,10 +289,7 @@ class StructuredNode(CypherMixin):
     @hooks
     def delete(self):
         if self.__node__:
-            # TODO - use single cypher query
-            to_delete = self.__node__.get_relationships()
-            to_delete.append(self.__node__)
-            self.client.delete(*to_delete)
+            self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
             self.__node__ = None
         else:
             raise Exception("Node has not been saved so cannot be deleted")
