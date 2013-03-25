@@ -84,7 +84,7 @@ def test_order_by():
     zara = Shopper(name='Zara').save()
     zara.friend.connect(Shopper(name='Alan').save())
     zara.friend.connect(Shopper(name='Wendy').save())
-    friends = [f.name for f in zara.traverse('friend').order_by('friend.name')]
+    friends = [f.name for f in zara.traverse('friend').order_by('friend.name')[0:2]]
     assert friends[0] == 'Alan'
     assert friends[1] == 'Wendy'
     friends = [f.name for f in zara.traverse('friend').order_by_desc('friend.name')]

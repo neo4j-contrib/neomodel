@@ -106,16 +106,16 @@ class AstBuilder(object):
             idents.append('r{}'.format(self.ident_count))
         ast.append({'return': idents})
 
-    def _add_skip_and_limit(self, ast, start, end):
+    def _add_skip_and_limit(self, ast, skip, limit):
         assert 'return' in ast[-1]
-        if start < 0 or end < 0:
+        if skip < 0 or limit < 0:
             raise IndexError("Negative indicies not suppported")
-        if start:
-            ast.append({'skip': start})
-        if end:
-            ast.append({'limit': end})
+        if skip:
+            ast.append({'skip': skip})
+        if limit:
+            ast.append({'limit': limit})
 
-    def _add_order(self, ident_prop, desc=False):
+    def _set_order(self, ident_prop, desc=False):
         if not '.' in ident_prop:
             raise ValueError("Expecting format of relmanager.property")
         rel_manager, prop = ident_prop.split('.')
@@ -141,7 +141,11 @@ class AstBuilder(object):
 
     def execute(self, ast):
         if hasattr(self, 'order_part'):
-            ast.append(self.order_part)
+            # find suitable place to insert order node
+            for i, entry in enumerate(reversed(ast)):
+                if not ('limit' in entry or 'skip' in entry):
+                    ast.insert(len(ast) - i, self.order_part)
+                    break
         results, _ = self.start_node.cypher(Query(ast))
         self.last_ast = ast
         return results
@@ -166,11 +170,11 @@ class TraversalSet(AstBuilder):
         return self
 
     def order_by(self, prop):
-        self._add_order(prop, desc=False)
+        self._set_order(prop, desc=False)
         return self
 
     def order_by_desc(self, prop):
-        self._add_order(prop, desc=True)
+        self._set_order(prop, desc=True)
         return self
 
     def __iter__(self):
@@ -199,7 +203,8 @@ class TraversalSet(AstBuilder):
         ast = deepcopy(self.ast)
         self._add_return(ast)
         if isinstance(index, (slice,)):
-            self._add_skip_and_limit(ast, index.start, index.stop)
+            limit = index.stop - index.start
+            self._add_skip_and_limit(ast, index.start, limit)
             return iter(self.execute_and_inflate(ast))
         elif isinstance(index, (int)):
             self._add_skip_and_limit(ast, index, 1)
