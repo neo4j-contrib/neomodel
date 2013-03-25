@@ -3,6 +3,7 @@ from copy import deepcopy
 
 
 def last_x_in_ast(ast, x):
+    assert isinstance(ast, (list,))
     for node in reversed(ast):
         if x in node:
             return node
@@ -97,39 +98,35 @@ class AstBuilder(object):
         # return as list if more than one
         return targets if len(targets) > 1 else targets[0]
 
-    def _finalise(self):
-        node = last_x_in_ast(self.ast, 'name')
+    def _add_return(self, ast):
+        node = last_x_in_ast(ast, 'name')
         idents = [node['name']]
         if self.ident_count > 0:
             idents.append('r{}'.format(self.ident_count))
-        final_ast = deepcopy(self.ast)
-        final_ast.append({'return': idents})
-        return final_ast
+        ast.append({'return': idents})
 
-    def _finalise_skip_limit(self, start, end):
-        final_ast = self._finalise()
+    def _add_skip_and_limit(self, ast, start, end):
+        assert 'return' in ast[-1]
         if start < 0 or end < 0:
-            raise NotImplemented("Negative indicies not suppported yet")
+            raise IndexError("Negative indicies not suppported")
         if start:
-            final_ast.append({'skip': start})
+            ast.append({'skip': start})
         if end:
-            final_ast.append({'limit': end})
-        return final_ast
+            ast.append({'limit': end})
 
-    def _finalise_count(self):
-        final_ast = deepcopy(self.ast)
-        node = last_x_in_ast(final_ast, 'name')
+    def _add_return_count(self, ast):
+        node = last_x_in_ast(ast, 'name')
         ident = ['count(' + node['name'] + ')']
-        final_ast.append({'return': ident})
-        return final_ast
+        ast.append({'return': ident})
 
-    def _execute(self, ast):
+    def execute(self, ast):
         results, _ = self.start_node.cypher(Query(ast))
+        self.last_ast = ast
         return results
 
-    def _execute_and_inflate(self, ast):
+    def execute_and_inflate(self, ast):
         target_map = last_x_in_ast(ast, 'target_map')['target_map']
-        results = self._execute(ast)
+        results = self.execute(ast)
         nodes = [row[0] for row in results]
         classes = [target_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
@@ -145,12 +142,14 @@ class TraversalSet(AstBuilder):
         return self
 
     def __iter__(self):
-        ast = self._finalise()
-        return iter(self._execute_and_inflate(ast))
+        ast = deepcopy(self.ast)
+        self._add_return(ast)
+        return iter(self.execute_and_inflate(ast))
 
     def __len__(self):
-        ast = self._finalise_count()
-        return self._execute(ast)[0][0]
+        ast = deepcopy(self.ast)
+        self._add_return_count(ast)
+        return self.execute(ast)[0][0]
 
     def __bool__(self):
         return bool(len(self))
@@ -165,12 +164,14 @@ class TraversalSet(AstBuilder):
         pass
 
     def __getitem__(self, index):
+        ast = deepcopy(self.ast)
+        self._add_return(ast)
         if isinstance(index, (slice,)):
-            ast = self._finalise_skip_limit(index.start, index.stop)
-            return iter(self._execute_and_inflate(ast))
+            self._add_skip_and_limit(ast, index.start, index.stop)
+            return iter(self.execute_and_inflate(ast))
         elif isinstance(index, (int)):
-            ast = self._finalise_skip_limit(index, 1)
-            return self._execute_and_inflate(ast)
+            self._add_skip_and_limit(ast, index, 1)
+            return self.execute_and_inflate(ast)[0]
         raise IndexError("Cannot index with " + index.__class__.__name__)
 
 

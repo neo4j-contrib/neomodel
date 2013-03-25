@@ -32,12 +32,10 @@ def setup_shopper(name, friend):
 def test_one_level_traversal():
     jim = setup_shopper('Jim', 'Bob')
     t = TraversalSet(jim)
-    t.traverse('friend')
-    ast = t._finalise()
-    results = t._execute_and_inflate(ast)
-    assert ast[-1]['return'][0] is 'friend'
-    assert ast[-3]['name'] == 'friend'
-    assert results[0].__class__ is Shopper
+    for friend in t.traverse('friend'):
+        assert isinstance(friend, Shopper)
+    assert t.last_ast[-1]['return'][0] is 'friend'
+    assert t.last_ast[-3]['name'] == 'friend'
 
 
 def test_multilevel_traversal():
@@ -61,8 +59,11 @@ def test_none_existant_relmanager():
 def test_iteration():
     jim = setup_shopper('Jill', 'Barbra')
     jim.friend.connect(Shopper(name='timothy').save())
+    i = 0
     for item in jim.traverse('friend'):
-        assert item.__class__.__name__ is 'Shopper'
+        i += 1
+        assert isinstance(item, (Shopper,))
+    assert i
 
 
 def test_len_and_bool():
@@ -72,6 +73,8 @@ def test_len_and_bool():
 
 def test_slice_and_index():
     jim = setup_shopper('Jill2', 'Barbra3')
+    jim.friend.connect(Shopper(name='Fred').save())
+    jim.friend.connect(Shopper(name='Terry').save())
     for i in jim.traverse('friend')[0:3]:
-        assert i
-    print jim.traverse('friend')[2]
+        assert isinstance(i, Shopper)
+    assert isinstance(jim.traverse('friend')[1], Shopper)
