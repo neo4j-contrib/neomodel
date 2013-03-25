@@ -8,7 +8,7 @@ def last_x_in_ast(ast, x):
     for node in reversed(ast):
         if x in node:
             return node
-    raise Exception("Could not find {} in {}".format(x, ast))
+    raise Exception("Could not find {0} in {1}".format(x, ast))
 
 
 class AstBuilder(object):
@@ -103,7 +103,7 @@ class AstBuilder(object):
         node = last_x_in_ast(ast, 'name')
         idents = [node['name']]
         if self.ident_count > 0:
-            idents.append('r{}'.format(self.ident_count))
+            idents.append('r{0}'.format(self.ident_count))
         ast.append({'return': idents})
 
     def _add_skip_and_limit(self, ast, skip, limit):
