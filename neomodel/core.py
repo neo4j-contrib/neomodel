@@ -5,6 +5,7 @@ from .exception import (DoesNotExist, RequiredProperty, CypherException,
         NoSuchProperty, PropertyNotIndexed, UniqueProperty)
 from .util import camel_to_upper, CustomBatch
 from lucenequerybuilder import Q
+from .traversal import TraversalSet
 import types
 from urlparse import urlparse
 from .signals import hooks
@@ -31,6 +32,14 @@ def connection():
         return connection.db
 
 
+def cypher_query(query, params=None):
+    try:
+        return cypher.execute(connection(), query, params)
+    except cypher.CypherError as e:
+        message, etype, jtrace = e.args
+        raise CypherException(query, params, message, etype, jtrace)
+
+
 class CypherMixin(object):
     @property
     def client(self):
@@ -40,11 +49,7 @@ class CypherMixin(object):
         assert hasattr(self, '__node__')
         params = params or {}
         params.update({'self': self.__node__.id})
-        try:
-            return cypher.execute(self.client, query, params)
-        except cypher.CypherError as e:
-            message, etype, jtrace = e.args
-            raise CypherException(query, params, message, etype, jtrace)
+        return cypher_query(query, params)
 
 
 class NodeIndexManager(object):
@@ -290,6 +295,9 @@ class StructuredNode(CypherMixin):
             raise Exception("Node has not been saved so cannot be deleted")
         return True
 
+    def traverse(self, rel_manager):
+        return TraversalSet(self).traverse(rel_manager)
+
     def refresh(self):
         """Reload this object from its node in the database"""
         if self.__node__:
@@ -321,7 +329,8 @@ class InstanceManager(RelationshipManager):
         query = "START a=node({self}) MATCH (a)"
         query += "-[:{0}]->(x) RETURN x".format(self.relation_type)
         results = self.origin.cypher(query)
-        return [self.node_classes[0].inflate(n[0]) for n in results[0]] if results else []
+        cls = self.target_map[self.relation_type]
+        return [cls.inflate(n[0]) for n in results[0]] if results else []
 
 
 def category_factory(instance_cls):
@@ -333,9 +342,14 @@ def category_factory(instance_cls):
 
     if not name in category_factory.cache:
         category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-        node = category_index.get_or_create('category', name, {'category': name})
         category = CategoryNode(name)
-        category.__node__ = node
-        category.instance = InstanceManager(OUTGOING, camel_to_upper(name), instance_cls, category)
+        category.__node__ = category_index.get_or_create('category', name, {'category': name})
+        rel_type = camel_to_upper(instance_cls.__name__)
+        definition = {
+            'direction': OUTGOING,
+            'relation_type': rel_type,
+            'target_map': {rel_type: instance_cls}
+        }
+        category.instance = InstanceManager(definition, category)
         category_factory.cache[name] = category
     return category_factory.cache[name]
