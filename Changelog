@@ -1,6 +1,8 @@
 Version 0.2.9 unreleased
 ------------------------
- * allow datetime without timezone to be stored
+ * allow connect on rel managers of direction either (Robin Edwards)
+ * added experimental support for traversals (Robin Edwards)
+ * allow datetime without timezone to be stored (Robin Edwards)
  * use cypher for delete (Robin Edwards)
  * project logo (Laura Willis)
  * _index_name special attribute removed (Robin Edwards)
