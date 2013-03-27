@@ -50,6 +50,7 @@ class AstBuilder(object):
             node['where'].append(rel)
 
     def _create_ident(self):
+        # ident generator
         self.ident_count += 1
         return 'r' + str(self.ident_count)
 
@@ -109,7 +110,7 @@ class AstBuilder(object):
     def _add_skip_and_limit(self, ast, skip, limit):
         assert 'return' in ast[-1]
         if skip < 0 or limit < 0:
-            raise IndexError("Negative indicies not suppported")
+            raise IndexError("Negative indices not suppported")
         if skip:
             ast.append({'skip': skip})
         if limit:
@@ -264,6 +265,7 @@ class Query(object):
         return "RETURN " + ', '.join(entry['return'])
 
     def _render_match(self, entry):
+        # add match clause if at start
         stmt = "MATCH\n" if 'start' in self.ast[self.position - 1] else ''
         stmt += ",\n".join([rel_helper(rel) for rel in entry['match']])
         return stmt

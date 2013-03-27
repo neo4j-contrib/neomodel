@@ -183,7 +183,7 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
 
 Properties
 ----------
-The followingproperties are available::
+The following properties are available::
 
     StringProperty, IntegerProperty, FloatProperty, BooleanProperty
 

@@ -34,7 +34,7 @@ def test_one_level_traversal():
     t = TraversalSet(jim)
     for friend in t.traverse('friend'):
         assert isinstance(friend, Shopper)
-    assert t.last_ast[-1]['return'][0] is 'friend'
+    assert t.last_ast[-1]['return'][0] == 'friend'
     assert t.last_ast[-3]['name'] == 'friend'
 
 
