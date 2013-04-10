@@ -87,6 +87,6 @@ def test_order_by():
     friends = [f.name for f in zara.traverse('friend').order_by('friend.name')[0:2]]
     assert friends[0] == 'Alan'
     assert friends[1] == 'Wendy'
-    friends = [f.name for f in zara.traverse('friend').order_by_desc('friend.name')]
+    friends = [f.name for f in zara.traverse('friend').order_by_desc('name')]
     assert friends[0] == 'Wendy'
     assert friends[1] == 'Alan'

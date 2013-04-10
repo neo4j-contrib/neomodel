@@ -118,7 +118,7 @@ class AstBuilder(object):
 
     def _set_order(self, ident_prop, desc=False):
         if not '.' in ident_prop:
-            raise ValueError("Expecting format of relmanager.property")
+            ident_prop = last_x_in_ast(self.ast, 'name')['name'] + '.' + ident_prop
         rel_manager, prop = ident_prop.split('.')
 
         # just in case input isn't safe
