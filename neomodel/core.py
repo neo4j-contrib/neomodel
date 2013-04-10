@@ -332,7 +332,8 @@ def category_factory(instance_cls):
     definition = {
         'direction': OUTGOING,
         'relation_type': rel_type,
-        'target_map': {rel_type: instance_cls}
+        'target_map': {rel_type: instance_cls},
+        'name': 'instance'
     }
     category.instance = InstanceManager(definition, category)
     return category

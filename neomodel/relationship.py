@@ -151,16 +151,11 @@ class RelationshipManager(object):
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager):
         self.module_name = sys._getframe(4).f_globals['__name__']
-        self.relation_type = relation_type
         self.node_class = cls_name
         self.manager = manager
-        self.direction = direction
-
-    def lookup_classes(self):
-        if isinstance(self.node_class, list):
-            return [self._lookup(name) for name in self.node_class]
-        else:
-            return [self._lookup(self.node_class)]
+        self.definition = {}
+        self.definition['relation_type'] = relation_type
+        self.definition['direction'] = direction
 
     def _lookup(self, name):
         if name.find('.') is -1:
@@ -172,17 +167,16 @@ class RelationshipDefinition(object):
             __import__(module)
         return getattr(sys.modules[module], name)
 
-    @property
-    def definition(self):
-        node_classes = self.lookup_classes()
-        return {
-            'direction': self.direction,
-            'relation_type': self.relation_type,
-            'target_map': dict(zip([camel_to_upper(c.__name__)
-                for c in node_classes], node_classes))
-        }
-
     def build_manager(self, origin, name):
+        # get classes for target
+        if isinstance(self.node_class, list):
+            node_classes = [self._lookup(name) for name in self.node_class]
+        else:
+            node_classes = [self._lookup(self.node_class)]
+
+        # build target map
+        self.definition['target_map'] = dict(zip([camel_to_upper(c.__name__)
+                for c in node_classes], node_classes))
         rel = self.manager(self.definition, origin)
         rel.name = name
         return rel
