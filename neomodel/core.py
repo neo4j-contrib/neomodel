@@ -2,8 +2,8 @@ from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        NoSuchProperty, PropertyNotIndexed, UniqueProperty)
-from .util import camel_to_upper, CustomBatch
+        NoSuchProperty, PropertyNotIndexed)
+from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from lucenequerybuilder import Q
 from .traversal import TraversalSet
 import types
@@ -204,22 +204,10 @@ class StructuredNode(CypherMixin):
         return [cls.inflate(node) for node in results[:len(props)]]
 
     @classmethod
-    def _check_for_conflicts(cls, node, props):
-        for key, value in props.iteritems():
-            if key in cls._class_properties():
-                if cls.get_property(key).unique_index:
-                    results = cls.index.__index__.get(key, value)
-                    if len(results):
-                        if isinstance(node, (int,)):  # node ref
-                            raise UniqueProperty(key, value, cls.index.name)
-                        elif hasattr(node, 'id') and results[0].id != node.id:
-                            raise UniqueProperty(key, value, cls.index.name, node)
-
-    @classmethod
     def _update_indexes(cls, node, props, batch):
         # check for conflicts prior to execution
         if batch._graph_db.neo4j_version < (1, 8, 'M07'):
-            cls._check_for_conflicts(node, props)
+            _legacy_conflict_check(cls, node, props)
 
         for key, value in props.iteritems():
             if key in cls._class_properties():

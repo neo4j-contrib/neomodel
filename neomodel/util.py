@@ -37,3 +37,14 @@ class CustomBatch(neo4j.WriteBatch):
             if r.status == 200:
                 raise DataInconsistencyError(requests[i], self.index_name, self.node)
             i += 1
+
+
+def _legacy_conflict_check(cls, node, props):
+    for key, value in props.iteritems():
+        if key in cls._class_properties() and cls.get_property(key).unique_index:
+                results = cls.index.__index__.get(key, value)
+                if len(results):
+                    if isinstance(node, (int,)):  # node ref
+                        raise UniqueProperty(key, value, cls.index.name)
+                    elif hasattr(node, 'id') and results[0].id != node.id:
+                        raise UniqueProperty(key, value, cls.index.name, node)
