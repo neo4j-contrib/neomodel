@@ -123,36 +123,8 @@ class StructuredNode(CypherMixin):
     __metaclass__ = StructuredNodeMeta
 
     @classmethod
-    def get_property(cls, name):
-        try:
-            node_property = getattr(cls, name)
-        except AttributeError:
-            raise NoSuchProperty(name, cls)
-        if not issubclass(node_property.__class__, Property)\
-                or not issubclass(node_property.__class__, AliasProperty):
-            NoSuchProperty(name, cls)
-        return node_property
-
-    @classmethod
     def category(cls):
         return category_factory(cls)
-
-    @classmethod
-    def inflate(cls, node):
-        props = {}
-        for key, prop in cls._class_properties().iteritems():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
-
-        snode = cls(**props)
-        snode.__node__ = node
-        return snode
 
     def __init__(self, *args, **kwargs):
         try:
@@ -183,68 +155,6 @@ class StructuredNode(CypherMixin):
     def __ne__(self, other):
         # inequality provider
         return self.__node__ != other.__node__
-
-    @classmethod
-    def relationship_type(cls):
-        return camel_to_upper(cls.__name__)
-
-    @classmethod
-    def create(cls, *props):
-        category = cls.category()
-        batch = CustomBatch(connection(), cls.index.name)
-        deflated = [cls.deflate(p) for p in list(props)]
-        for p in deflated:
-            batch.create_node(p)
-        for i in range(0, len(deflated)):
-            batch.create_relationship(category.__node__,
-                    cls.relationship_type(), i, {"__instance__": True})
-            cls._update_indexes(i, deflated[i], batch)
-        # build index batch
-        results = batch.submit()
-        return [cls.inflate(node) for node in results[:len(props)]]
-
-    @classmethod
-    def _update_indexes(cls, node, props, batch):
-        # check for conflicts prior to execution
-        if batch._graph_db.neo4j_version < (1, 8, 'M07'):
-            _legacy_conflict_check(cls, node, props)
-
-        for key, value in props.iteritems():
-            if key in cls._class_properties():
-                node_property = cls.get_property(key)
-                if node_property.unique_index:
-                    try:
-                        batch.add_indexed_node_or_fail(cls.index.__index__, key, value, node)
-                    except NotImplementedError:
-                        batch.get_or_add_indexed_node(cls.index.__index__, key, value, node)
-                elif node_property.index:
-                    batch.add_indexed_node(cls.index.__index__, key, value, node)
-        return batch
-
-    @classmethod
-    def _class_properties(cls):
-        props = {}
-        # get all dict values for inherited classes
-        # reverse is done to keep inheritance order
-        for scls in reversed(cls.mro()):
-            for key, value in scls.__dict__.iteritems():
-                props[key] = value
-        return props
-
-    @classmethod
-    def deflate(cls, node_props, node_id=None):
-        """ deflate dict ready to be stored """
-        deflated = {}
-        for key, prop in cls._class_properties().iteritems():
-            if (not isinstance(prop, AliasProperty)
-                    and issubclass(prop.__class__, Property)):
-                if key in node_props and node_props[key] is not None:
-                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
-                elif prop.has_default:
-                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
-                elif prop.required:
-                    raise RequiredProperty(key, cls)
-        return deflated
 
     @property
     def __properties__(self):
@@ -298,6 +208,96 @@ class StructuredNode(CypherMixin):
             else:
                 msg = 'Node %s does not exist in the database anymore'
                 raise self.DoesNotExist(msg % self.__node__._id)
+
+    @classmethod
+    def create(cls, *props):
+        category = cls.category()
+        batch = CustomBatch(connection(), cls.index.name)
+        deflated = [cls.deflate(p) for p in list(props)]
+        for p in deflated:
+            batch.create_node(p)
+        for i in range(0, len(deflated)):
+            batch.create_relationship(category.__node__,
+                    cls.relationship_type(), i, {"__instance__": True})
+            cls._update_indexes(i, deflated[i], batch)
+        # build index batch
+        results = batch.submit()
+        return [cls.inflate(node) for node in results[:len(props)]]
+
+    @classmethod
+    def inflate(cls, node):
+        props = {}
+        for key, prop in cls._class_properties().iteritems():
+            if (issubclass(prop.__class__, Property)
+                    and not isinstance(prop, AliasProperty)):
+                if key in node.__metadata__['data']:
+                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                elif prop.has_default:
+                    props[key] = prop.default_value()
+                else:
+                    props[key] = None
+
+        snode = cls(**props)
+        snode.__node__ = node
+        return snode
+
+    @classmethod
+    def deflate(cls, node_props, node_id=None):
+        """ deflate dict ready to be stored """
+        deflated = {}
+        for key, prop in cls._class_properties().iteritems():
+            if (not isinstance(prop, AliasProperty)
+                    and issubclass(prop.__class__, Property)):
+                if key in node_props and node_props[key] is not None:
+                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
+                elif prop.has_default:
+                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
+                elif prop.required:
+                    raise RequiredProperty(key, cls)
+        return deflated
+
+    @classmethod
+    def relationship_type(cls):
+        return camel_to_upper(cls.__name__)
+
+    @classmethod
+    def get_property(cls, name):
+        try:
+            node_property = getattr(cls, name)
+        except AttributeError:
+            raise NoSuchProperty(name, cls)
+        if not issubclass(node_property.__class__, Property)\
+                or not issubclass(node_property.__class__, AliasProperty):
+            NoSuchProperty(name, cls)
+        return node_property
+
+    @classmethod
+    def _class_properties(cls):
+        # get all dict values for inherited classes
+        # reverse is done to keep inheritance order
+        props = {}
+        for scls in reversed(cls.mro()):
+            for key, value in scls.__dict__.iteritems():
+                props[key] = value
+        return props
+
+    @classmethod
+    def _update_indexes(cls, node, props, batch):
+        # check for conflicts prior to execution
+        if batch._graph_db.neo4j_version < (1, 8, 'M07'):
+            _legacy_conflict_check(cls, node, props)
+
+        for key, value in props.iteritems():
+            if key in cls._class_properties():
+                node_property = cls.get_property(key)
+                if node_property.unique_index:
+                    try:
+                        batch.add_indexed_node_or_fail(cls.index.__index__, key, value, node)
+                    except NotImplementedError:
+                        batch.get_or_add_indexed_node(cls.index.__index__, key, value, node)
+                elif node_property.index:
+                    batch.add_indexed_node(cls.index.__index__, key, value, node)
+        return batch
 
 
 class CategoryNode(CypherMixin):
