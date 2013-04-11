@@ -257,9 +257,8 @@ class StructuredNode(CypherMixin):
 
 
 class CategoryNode(CypherMixin):
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, name):
         self.name = name
-        super(CategoryNode, self).__init__(*args, **kwargs)
 
     def traverse(self, rel):
         return TraversalSet(self).traverse(rel)
@@ -281,11 +280,10 @@ def category_factory(instance_cls):
     category = CategoryNode(name)
     category.__node__ = category_index.get_or_create('category', name, {'category': name})
     rel_type = camel_to_upper(instance_cls.__name__)
-    definition = {
+    category.instance = InstanceManager({
         'direction': OUTGOING,
         'relation_type': rel_type,
         'target_map': {rel_type: instance_cls},
-    }
-    category.instance = InstanceManager(definition, category)
+    }, category)
     category.instance.name = 'instance'
     return category
