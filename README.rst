@@ -92,6 +92,31 @@ You may also reference classes from another module::
     class Person(StructuredNode):
         car = RelationshipTo('transport.models.Car', 'CAR')
 
+Traversals - EXPERIMENTAL
+-------------------------
+The argument for the traverse method is the name of the relationship manager on the class,
+in this example we traverse the friends relationship skipping the first and limit to 10 nodes::
+
+    # query executes on iteration
+    for friend in jim.traverse('friends').order_by_desc('age').skip(1)limit(10):
+        print friend.name
+
+You can traverse as many levels as you like, run() executes the query::
+
+    # order by country name
+    results = jim.traverse('friends').traverse('country').order_by('name').run()
+
+    # or friends name
+    jim.traverse('friends').traverse('country').order_by('friends.name')
+
+Filtering by node properties also works::
+
+    results = jim.traverse('friends').where('age', '>', 18).run()
+
+length and bool operations work as expected::
+
+    print "Jim has " + len(jim.traverse('friends') + " friends"
+
 Category nodes
 --------------
 Access all your instances of a class via the category node::
@@ -100,7 +125,6 @@ Access all your instances of a class via the category node::
     for c in country_category.instance.all()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
-
 
 Cardinality
 -----------
