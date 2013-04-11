@@ -90,3 +90,9 @@ def test_order_by():
     friends = [f.name for f in zara.traverse('friend').order_by_desc('name')]
     assert friends[0] == 'Wendy'
     assert friends[1] == 'Alan'
+
+
+def test_where_clause():
+    terrance = setup_shopper('Terrance', 'Teriesa')
+    results = terrance.traverse('friend').where('name', '=', 'Teriesa').where('age?', '>', 7)
+    assert results[0].name == 'Teriesa'

@@ -8,7 +8,16 @@ def last_x_in_ast(ast, x):
     for node in reversed(ast):
         if x in node:
             return node
-    raise Exception("Could not find {0} in {1}".format(x, ast))
+    raise IndexError("Could not find {0} in {1}".format(x, ast))
+
+
+def unique_placeholder(placeholder, query_params):
+        i = 0
+        while placeholder in query_params:
+            if placeholder + '_' + i in query_params:
+                return placeholder + '_' + i
+            i += 1
+        return placeholder
 
 
 class AstBuilder(object):
@@ -16,6 +25,7 @@ class AstBuilder(object):
     def __init__(self, start_node):
         self.start_node = start_node
         self.ident_count = 0
+        self.query_params = {}
         assert hasattr(self.start_node, '__node__')
         self.ast = [{'start': '{self}',
             'class': self.start_node.__class__, 'name': 'origin'}]
@@ -28,26 +38,28 @@ class AstBuilder(object):
             t['name'] = rel_manager
 
         match, where = self._build_match_ast(t)
-        if len(self.ast) > 1:
-            self._add_match(match)
-            self._add_where(where)
-        else:
-            self.ast.append(match)
-            self.ast.append(where)
+        self._add_match(match)
+        self._add_where(where)
         return self
 
     def _add_match(self, match):
-        node = last_x_in_ast(self.ast, 'match')
-        for rel in match['match']:
-            node['match'].append(rel)
-        # replace name and target map
-        node['name'] = match['name']
-        node['target_map'] = match['target_map']
+        if len(self.ast) > 1:
+            node = last_x_in_ast(self.ast, 'match')
+            for rel in match['match']:
+                node['match'].append(rel)
+            # replace name and target map
+            node['name'] = match['name']
+            node['target_map'] = match['target_map']
+        else:
+            self.ast.append(match)
 
     def _add_where(self, where):
-        node = last_x_in_ast(self.ast, 'where')
-        for rel in where['where']:
-            node['where'].append(rel)
+        if len(self.ast) > 2:
+            node = last_x_in_ast(self.ast, 'where')
+            for stmt in where:
+                node['where'].append(stmt)
+        else:
+            self.ast.append({'where': where})
 
     def _create_ident(self):
         # ident generator
@@ -76,9 +88,8 @@ class AstBuilder(object):
         }
 
         # Add where
-        expr = category_rel_ident + '.__instance__! = true'
-        where = {'where': [expr]}
-        return match, where
+        where_expr = category_rel_ident + '.__instance__! = true'
+        return match, [where_expr]
 
     def _find_map(self, target_map, rel_manager):
         targets = []
@@ -99,6 +110,20 @@ class AstBuilder(object):
 
         # return as list if more than one
         return targets if len(targets) > 1 else targets[0]
+
+    def _add_filter(self, ident_prop, op, value):
+        if re.search(r'[^\w\?\!\.]', ident_prop):
+            raise Exception("Invalid characters in ident allowed: [. \w ! ?]")
+        if not '.' in ident_prop:
+            ident_prop = last_x_in_ast(self.ast, 'name')['name'] + '.' + ident_prop
+
+        if not op in ['>', '<', '=', '<>', '=~']:
+            raise Exception("Operator not supported: " + op)
+
+        placeholder = re.sub('[!?]', '', ident_prop.replace('.', '_'))
+        placeholder = unique_placeholder(placeholder, self.query_params)
+        self.query_params[placeholder] = value
+        self._add_where([" ".join([ident_prop, op, '{' + placeholder + '}'])])
 
     def _add_return(self, ast):
         node = last_x_in_ast(ast, 'name')
@@ -147,7 +172,7 @@ class AstBuilder(object):
                 if not ('limit' in entry or 'skip' in entry):
                     ast.insert(len(ast) - i, self.order_part)
                     break
-        results, _ = self.start_node.cypher(Query(ast))
+        results, _ = self.start_node.cypher(Query(ast), self.query_params)
         self.last_ast = ast
         return results
 
@@ -176,6 +201,10 @@ class TraversalSet(AstBuilder):
 
     def order_by_desc(self, prop):
         self._set_order(prop, desc=True)
+        return self
+
+    def where(self, ident, op, value):
+        self._add_filter(ident, op, value)
         return self
 
     def __iter__(self):
