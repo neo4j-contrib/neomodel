@@ -33,6 +33,10 @@ def test_category_node():
     else:
         assert False
 
+    results = Giraffe.category().instance.search(name='Tim')
+    assert len(results) == 1
+    assert results[0].name == 'Tim'
+
 
 # doesn't bork if no category node
 def test_no_category_node():

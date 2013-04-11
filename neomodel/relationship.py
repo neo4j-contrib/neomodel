@@ -8,19 +8,6 @@ INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
 
 
-def _related(direction):
-    if direction == OUTGOING:
-        return '-[:{0}]->'
-    elif direction == INCOMING:
-        return '<-[:{0}]-'
-    return '-[:{0}]-'
-
-
-def _properties(ident, **kwargs):
-    props = [ident + '.' + k + '! = {' + k + '}' for k in kwargs]
-    return '(' + ', '.join(props) + ')'
-
-
 class RelationshipManager(object):
     def __init__(self, definition, origin):
         self.direction = definition['direction']
@@ -47,10 +34,7 @@ class RelationshipManager(object):
         return len(self) > 0
 
     def __len__(self):
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type)
-        query += "(x) RETURN COUNT(x)"
-        return int(self.origin.cypher(query)[0][0][0])
+        return len(self.origin.traverse(self.name))
 
     @property
     def client(self):
@@ -59,22 +43,8 @@ class RelationshipManager(object):
     def count(self):
         return self.__len__()
 
-    def _all_query(self):
-        cat_types = "|".join([rel for rel in self.target_map])
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type)
-        query += "(x)<-[r:{0}]-() WHERE r.__instance__! = true RETURN x, r".format(cat_types)
-        return query
-
     def all(self):
-        results = self.origin.cypher(self._all_query())[0]
-        return self._inflate_nodes_by_rel(results)
-
-    def _inflate_nodes_by_rel(self, results):
-        "wrap each node in correct class based on rel.type"
-        nodes = [row[0] for row in results]
-        classes = [self.target_map[row[1].type] for row in results]
-        return [cls.inflate(node) for node, cls in zip(nodes, classes)]
+        return self.origin.traverse(self.name).run()
 
     def get(self, **kwargs):
         result = self.search(**kwargs)
@@ -83,19 +53,13 @@ class RelationshipManager(object):
         if len(result) > 1:
             raise Exception("Multiple items returned, use search?")
         if not result:
-                raise DoesNotExist("No items exist for the specified arguments")
+            raise DoesNotExist("No items exist for the specified arguments")
 
     def search(self, **kwargs):
-        if not kwargs:
-            return self.all()
-        cat_types = "|".join([rel for rel in self.target_map])
-        query = "START a=node({self}) MATCH (a)"
-        query += _related(self.direction).format(self.relation_type)
-        query += "(b)<-[r:{0}]-() ".format(cat_types)
-        query += "WHERE r.__instance__! = true AND " + _properties('b', **kwargs)
-        query += " RETURN b, r"
-        results = self.origin.cypher(query, kwargs)[0]
-        return self._inflate_nodes_by_rel(results)
+        t = self.origin.traverse(self.name)
+        for field, value in kwargs.iteritems():
+            t.where(field, '=', value)
+        return t.run()
 
     def is_connected(self, obj):
         return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
@@ -143,8 +107,7 @@ class RelationshipManager(object):
         rels[0].delete()
 
     def single(self):
-        results = self.origin.cypher(self._all_query() + " LIMIT 1")[0]
-        nodes = self._inflate_nodes_by_rel(results)
+        nodes = self.origin.traverse(self.name).limit(1).run()
         return nodes[0] if nodes else None
 
 
@@ -170,7 +133,7 @@ class RelationshipDefinition(object):
     def build_manager(self, origin, name):
         # get classes for target
         if isinstance(self.node_class, list):
-            node_classes = [self._lookup(name) for name in self.node_class]
+            node_classes = [self._lookup(cls_name) for cls_name in self.node_class]
         else:
             node_classes = [self._lookup(self.node_class)]
 

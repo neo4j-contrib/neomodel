@@ -29,6 +29,7 @@ class AstBuilder(object):
         assert hasattr(self.start_node, '__node__')
         self.ast = [{'start': '{self}',
             'class': self.start_node.__class__, 'name': 'origin'}]
+        self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
 
     def _traverse(self, rel_manager):
         if len(self.ast) > 1:
@@ -39,7 +40,8 @@ class AstBuilder(object):
 
         match, where = self._build_match_ast(t)
         self._add_match(match)
-        self._add_where(where)
+        if where:
+            self._add_where(where)
         return self
 
     def _add_match(self, match):
@@ -71,25 +73,30 @@ class AstBuilder(object):
             'lhs': last_x_in_ast(self.ast, 'name')['name'],
             'direction': target['direction'],
             'relation_type': target['relation_type'],
+            'ident': self._create_ident(),
             'rhs': target['name'],
         }
-        category_rel_ident = self._create_ident()
-        rel_category_check = {
-            'lhs': target['name'],
-            'direction': INCOMING,
-            'ident': category_rel_ident,
-            'relation_type': "|".join([rel for rel in target['target_map']]),
-            'rhs': ''
-        }
+
         match = {
-            'match': [rel_to_traverse, rel_category_check],
+            'match': [rel_to_traverse],
             'name': target['name'],
             'target_map': target['target_map']
         }
 
-        # Add where
-        where_expr = category_rel_ident + '.__instance__! = true'
-        return match, [where_expr]
+        # if we aren't category node or already traversed one rel
+        if not self.origin_is_category or len(self.ast) > 1:
+            category_rel_ident = self._create_ident()
+            match['match'].append({
+                'lhs': target['name'],
+                'direction': INCOMING,
+                'ident': category_rel_ident,
+                'relation_type': "|".join([rel for rel in target['target_map']]),
+                'rhs': ''
+            })
+            # Add where
+            return match, [category_rel_ident + '.__instance__! = true']
+
+        return match, []
 
     def _find_map(self, target_map, rel_manager):
         targets = []
@@ -156,7 +163,6 @@ class AstBuilder(object):
     def _add_return_count(self, ast):
         node = last_x_in_ast(ast, 'name')
         ident = ['count(' + node['name'] + ')']
-
         node = last_x_in_ast(ast, 'name')
         ast.append({'return': ident})
 

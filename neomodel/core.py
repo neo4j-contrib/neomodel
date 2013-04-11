@@ -307,6 +307,9 @@ class CategoryNode(CypherMixin):
         self.name = name
         super(CategoryNode, self).__init__(*args, **kwargs)
 
+    def traverse(self, rel):
+        return TraversalSet(self).traverse(rel)
+
 
 class InstanceManager(RelationshipManager):
     """Manage 'instance' rel of category nodes"""
@@ -315,13 +318,6 @@ class InstanceManager(RelationshipManager):
 
     def disconnect(self, node):
         raise Exception("disconnect not available from category node")
-
-    def all(self):
-        query = "START a=node({self}) MATCH (a)"
-        query += "-[:{0}]->(x) RETURN x".format(self.relation_type)
-        results = self.origin.cypher(query)
-        cls = self.target_map[self.relation_type]
-        return [cls.inflate(n[0]) for n in results[0]] if results else []
 
 
 def category_factory(instance_cls):
@@ -335,7 +331,7 @@ def category_factory(instance_cls):
         'direction': OUTGOING,
         'relation_type': rel_type,
         'target_map': {rel_type: instance_cls},
-        'name': 'instance'
     }
     category.instance = InstanceManager(definition, category)
+    category.instance.name = 'instance'
     return category
