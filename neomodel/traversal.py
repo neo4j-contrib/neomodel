@@ -131,15 +131,10 @@ class AstBuilder(object):
         if self.ident_count > 0:
             idents.append('r{0}'.format(self.ident_count))
         ast.append({'return': idents})
-
-    def _add_skip_and_limit(self, ast, skip, limit):
-        assert 'return' in ast[-1]
-        if skip < 0 or limit < 0:
-            raise IndexError("Negative indices not suppported")
-        if skip:
-            ast.append({'skip': skip})
-        if limit:
-            ast.append({'limit': limit})
+        if hasattr(self, '_skip'):
+            ast.append({'skip': int(self._skip)})
+        if hasattr(self, '_limit'):
+            ast.append({'limit': int(self._limit)})
 
     def _set_order(self, ident_prop, desc=False):
         if not '.' in ident_prop:
@@ -207,10 +202,25 @@ class TraversalSet(AstBuilder):
         self._add_filter(ident, op, value)
         return self
 
-    def __iter__(self):
+    def skip(self, count):
+        if int(count) < 0:
+            raise ValueError("Negative skip value not supported")
+        self._skip = int(count)
+        return self
+
+    def limit(self, count):
+        if int(count) < 0:
+            raise ValueError("Negative limit value not supported")
+        self._limit = int(count)
+        return self
+
+    def run(self):
         ast = deepcopy(self.ast)
         self._add_return(ast)
-        return iter(self.execute_and_inflate(ast))
+        return self.execute_and_inflate(ast)
+
+    def __iter__(self):
+        return iter(self.run())
 
     def __len__(self):
         ast = deepcopy(self.ast)
@@ -222,24 +232,6 @@ class TraversalSet(AstBuilder):
 
     def __nonzero__(self):
         return bool(len(self))
-
-    def __contains__(self, node):
-        pass
-
-    def __missing__(self, node):
-        pass
-
-    def __getitem__(self, index):
-        ast = deepcopy(self.ast)
-        self._add_return(ast)
-        if isinstance(index, (slice,)):
-            limit = index.stop - index.start
-            self._add_skip_and_limit(ast, index.start, limit)
-            return iter(self.execute_and_inflate(ast))
-        elif isinstance(index, (int)):
-            self._add_skip_and_limit(ast, index, 1)
-            return self.execute_and_inflate(ast)[0]
-        raise IndexError("Cannot index with " + index.__class__.__name__)
 
 
 def rel_helper(rel):

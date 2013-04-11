@@ -75,24 +75,25 @@ def test_slice_and_index():
     jim = setup_shopper('Jill2', 'Barbra3')
     jim.friend.connect(Shopper(name='Fred').save())
     jim.friend.connect(Shopper(name='Terry').save())
-    for i in jim.traverse('friend')[0:3]:
+    for i in jim.traverse('friend').limit(3):
         assert isinstance(i, Shopper)
-    assert isinstance(jim.traverse('friend')[1], Shopper)
+    assert isinstance(jim.traverse('friend').run()[1], Shopper)
 
 
-def test_order_by():
+def test_order_by_skip_limit():
     zara = Shopper(name='Zara').save()
     zara.friend.connect(Shopper(name='Alan').save())
     zara.friend.connect(Shopper(name='Wendy').save())
-    friends = [f.name for f in zara.traverse('friend').order_by('friend.name')[0:2]]
-    assert friends[0] == 'Alan'
-    assert friends[1] == 'Wendy'
-    friends = [f.name for f in zara.traverse('friend').order_by_desc('name')]
-    assert friends[0] == 'Wendy'
-    assert friends[1] == 'Alan'
+    friends = zara.traverse('friend').order_by('friend.name').limit(2).run()
+    assert friends[0].name == 'Alan'
+    assert friends[1].name == 'Wendy'
+    friends = zara.traverse('friend').order_by_desc('name').skip(1).limit(1).run()
+    assert friends[0].name == 'Alan'
+    friends = zara.traverse('friend').order_by_desc('name').skip(1).limit(1).run()
+    assert friends[0].name == 'Alan'
 
 
 def test_where_clause():
     terrance = setup_shopper('Terrance', 'Teriesa')
-    results = terrance.traverse('friend').where('name', '=', 'Teriesa').where('age?', '>', 7)
+    results = terrance.traverse('friend').where('name', '=', 'Teriesa').where('age?', '>', 7).limit(1).run()
     assert results[0].name == 'Teriesa'

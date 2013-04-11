@@ -149,11 +149,13 @@ class StructuredNode(CypherMixin):
                 setattr(self, key, value)
 
     def __eq__(self, other):
-        # equality provider
+        if not isinstance(other, (StructuredNode,)):
+            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ == other.__node__
 
     def __ne__(self, other):
-        # inequality provider
+        if not isinstance(other, (StructuredNode,)):
+            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
 
     @property
