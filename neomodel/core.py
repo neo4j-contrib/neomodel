@@ -16,20 +16,19 @@ DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/'
 
 
 def connection():
-    try:
+    if hasattr(connection, 'db'):
         return connection.db
-    except AttributeError:
-        url = DATABASE_URL
 
-        u = urlparse(url)
-        if u.netloc.find('@') > -1:
-            credentials, host = u.netloc.split('@')
-            user, password, = credentials.split(':')
-            neo4j.authenticate(host, user, password)
-            url = ''.join([u.scheme, '://', host, u.path, u.query])
+    url = DATABASE_URL
+    u = urlparse(url)
+    if u.netloc.find('@') > -1:
+        credentials, host = u.netloc.split('@')
+        user, password, = credentials.split(':')
+        neo4j.authenticate(host, user, password)
+        url = ''.join([u.scheme, '://', host, u.path, u.query])
 
-        connection.db = neo4j.GraphDatabaseService(url)
-        return connection.db
+    connection.db = neo4j.GraphDatabaseService(url)
+    return connection.db
 
 
 def cypher_query(query, params=None):
