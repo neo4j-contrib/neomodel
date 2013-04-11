@@ -1,7 +1,12 @@
 .. image:: https://raw.github.com/robinedwards/neomodel/master/art/neomodel-300.png
    :alt: neomodel
 
-An object mapper for the neo4j graph database.
+An Object Graph Mapper (OGM) for the neo4j_ graph database.
+
+Don't need an OGM? Try the awesome py2neo_ (which this library is built on).
+
+.. _py2neo: http://www.py2neo.org
+.. _neo4j: http://www.neo4j.org
 
 Supports: neo4j 1.8+ (1.9 recommended), python 2.6, 2.7
 
