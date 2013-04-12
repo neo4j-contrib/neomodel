@@ -8,12 +8,12 @@ class Shopper(StructuredNode):
     basket = RelationshipTo('Basket', 'BASKET')
 
 
-class Basket(StructuredNode):
-    item = RelationshipTo('ShoppingItem', 'ITEM')
-
-
 class ShoppingItem(StructuredNode):
     name = StringProperty()
+
+
+class Basket(StructuredNode):
+    item = RelationshipTo([ShoppingItem], 'ITEM')
 
 
 def setup_shopper(name, friend):

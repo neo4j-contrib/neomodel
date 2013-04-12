@@ -18,7 +18,7 @@ class Person(StructuredNode):
 
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = RelationshipFrom('Person', 'IS_FROM')
+    inhabitant = RelationshipFrom(Person, 'IS_FROM')
 
 
 class SuperHero(Person):

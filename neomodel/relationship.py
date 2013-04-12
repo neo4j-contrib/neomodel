@@ -134,9 +134,11 @@ class RelationshipDefinition(object):
     def build_manager(self, origin, name):
         # get classes for target
         if isinstance(self.node_class, list):
-            node_classes = [self._lookup(cls_name) for cls_name in self.node_class]
+            node_classes = [self._lookup(cls) if isinstance(cls, (str,)) else cls
+                        for cls in self.node_class]
         else:
-            node_classes = [self._lookup(self.node_class)]
+            node_classes = [self._lookup(self.node_class)
+                if isinstance(self.node_class, (str,)) else self.node_class]
 
         # build target map
         self.definition['target_map'] = dict(zip([camel_to_upper(c.__name__)
@@ -151,7 +153,7 @@ class ZeroOrMore(RelationshipManager):
 
 
 def _relate(cls_name, direction, rel_type, cardinality=None):
-    if not isinstance(cls_name, (str, unicode, list)):
+    if not isinstance(cls_name, (str, unicode, list, object)):
         raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality)
 
