@@ -1,5 +1,6 @@
 Version 0.2.9 unreleased
 ------------------------
+ * allow classes in relationship definitions (Robin Edwards)
  * add SemiStructuredNode to contrib (Robin Edwards)
  * refactor rel manager to use traversals (Robin Edwards)
  * allow connect on rel managers of direction either (Robin Edwards)

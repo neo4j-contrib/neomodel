@@ -38,7 +38,7 @@ one accessible via Person objects and one via Country objects::
         age = IntegerProperty(index=True, default=0)
 
         # traverse outgoing IS_FROM relations, inflate to Country objects
-        country = RelationshipTo('Country', 'IS_FROM')
+        country = RelationshipTo(Country, 'IS_FROM')
 
 Create, save delete etc::
 
@@ -85,7 +85,7 @@ that is equal to 'Jim'::
 If you don't care about the direction of the relationship::
 
     class Person(StructuredNode):
-        friends = Relationship('Friend', 'FRIEND')
+        friends = Relationship('Person', 'FRIEND')
 
 You may also reference classes from another module::
 
@@ -158,9 +158,9 @@ The self query parameter is prepopulated with the current node id. It's possible
 own query parameters to the cypher method.
 
 
-Relating to different node types
+Relating to many node types
 --------------------------------
-You can define relations of a single relation type to different `StructuredNode` classes.::
+You can define relations of a single type to different `StructuredNode` classes.::
 
     class Humanbeing(StructuredNode):
         name = StringProperty()
