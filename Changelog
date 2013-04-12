@@ -1,5 +1,6 @@
 Version 0.2.9 unreleased
 ------------------------
+ * add SemiStructuredNode to contrib (Robin Edwards)
  * refactor rel manager to use traversals (Robin Edwards)
  * allow connect on rel managers of direction either (Robin Edwards)
  * added experimental support for traversals (Robin Edwards)
