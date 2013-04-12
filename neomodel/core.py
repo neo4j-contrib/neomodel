@@ -56,14 +56,17 @@ class StructuredNodeMeta(type):
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
-        for key, value in dct.iteritems():
-            if issubclass(value.__class__, Property):
-                value.name = key
-                value.owner = inst
-                # support for 'magic' properties
-                if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
-                    value.setup()
-        if inst.__name__ != 'StructuredNode':
+
+        if hasattr(inst, '__abstract_node__'):
+            delattr(inst, '__abstract_node__')
+        else:
+            for key, value in dct.iteritems():
+                if issubclass(value.__class__, Property):
+                    value.name = key
+                    value.owner = inst
+                    # support for 'magic' properties
+                    if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
+                        value.setup()
             inst.index = NodeIndexManager(inst, name)
         return inst
 
@@ -75,6 +78,7 @@ class StructuredNode(CypherMixin):
     """
 
     __metaclass__ = StructuredNodeMeta
+    __abstract_node__ = True
 
     @classmethod
     def category(cls):
@@ -97,9 +101,7 @@ class StructuredNode(CypherMixin):
                     if val.has_default:
                         kwargs[key] = val.default_value()
         for key, value in kwargs.iteritems():
-            if key.startswith("__") and key.endswith("__"):
-                pass
-            else:
+            if not(key.startswith("__") and key.endswith("__")):
                 setattr(self, key, value)
 
     def __eq__(self, other):
