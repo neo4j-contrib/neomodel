@@ -103,17 +103,18 @@ class RelationshipManager(object):
                     (self.relation_type, properties), self.origin.__node__)
 
     def reconnect(self, old_obj, new_obj):
-        properties = {}
-        if self.is_connected(old_obj):
-            rels = self.origin.__node__.get_relationships_with(
-                old_obj.__node__, self.direction, self.relation_type)
-            for r in rels:
-                properties.update(r.get_properties())
-                r.delete()
-        else:
+        if not self.is_connected(old_obj):
             raise NotConnected('reconnect', self.origin, old_obj)
 
-        self.origin.__node__.get_or_create_path((self.relation_type, properties), new_obj.__node__)
+        properties = {}
+
+        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
+        q = "START a=node({self}), b=node({them}) MATCH " + rel + " RETURN r"
+        for r in self.origin.cypher(q, {'them': old_obj.__node__.id})[0][0]:
+            properties.update(r.get_properties())
+        self.disconnect(old_obj)
+
+        self.connect(new_obj, properties)
 
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)

@@ -15,12 +15,12 @@ class ZeroOrOne(RelationshipManager):
         node = self.single()
         return [node] if node else []
 
-    def connect(self, obj):
+    def connect(self, obj, properties=None):
         if len(self):
             raise AttemptedCardinalityViolation(
                     "Node already has {0} can't connect more".format(self))
         else:
-            return super(ZeroOrOne, self).connect(obj)
+            return super(ZeroOrOne, self).connect(obj, properties)
 
 
 class OneOrMore(RelationshipManager):
