@@ -2,6 +2,7 @@ from neomodel.exception import InflateError, DeflateError
 from datetime import datetime, date
 import time
 import pytz
+import json
 
 
 def validator(fn):
@@ -115,6 +116,16 @@ class DateTimeProperty(Property):
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}'.format(value))
         return time.mktime(value.utctimetuple())
+
+
+class JSONProperty(Property):
+    @validator
+    def inflate(self, value):
+        return json.loads(value)
+
+    @validator
+    def deflate(self, value):
+        return json.dumps(value)
 
 
 class AliasProperty(property, Property):
