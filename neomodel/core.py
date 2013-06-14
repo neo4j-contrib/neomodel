@@ -160,7 +160,7 @@ class StructuredNode(CypherMixin):
         if self.__node__:
             if self.__node__.exists():
                 props = self.inflate(
-                    self.client.get_node(self.__node__._id)).__properties__
+                    self.client.node(self.__node__._id)).__properties__
                 for key, val in props.iteritems():
                     setattr(self, key, val)
             else:
