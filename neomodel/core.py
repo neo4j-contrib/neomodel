@@ -133,7 +133,7 @@ class StructuredNode(CypherMixin):
             batch = CustomBatch(connection(), self.index.name, self.__node__.id)
             batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
             props = self.deflate(self.__properties__, self.__node__.id)
-            batch.set_node_properties(self.__node__, props)
+            batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
             batch.submit()
         else:
