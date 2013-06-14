@@ -282,7 +282,7 @@ class Query(object):
     def _render_match(self, entry):
         # add match clause if at start
         stmt = "MATCH\n" if 'start' in self.ast[self.position - 1] else ''
-        stmt += ",\n".join([rel_helper(rel) for rel in entry['match']])
+        stmt += ",\n".join([rel_helper(**rel) for rel in entry['match']])
         return stmt
 
     def _render_where(self, entry):

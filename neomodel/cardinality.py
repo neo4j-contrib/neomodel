@@ -6,8 +6,6 @@ class ZeroOrOne(RelationshipManager):
 
     def single(self):
         nodes = super(ZeroOrOne, self).all()
-        if not nodes:
-            return
         if len(nodes) == 1:
             return nodes[0]
         if len(nodes) > 1:
@@ -18,8 +16,9 @@ class ZeroOrOne(RelationshipManager):
         return [node] if node else []
 
     def connect(self, obj):
-        if self.origin.__node__.has_relationship(self.direction, self.relation_type):
-            raise AttemptedCardinalityViolation("Node already has {0} can't connect more".format(self))
+        if len(self):
+            raise AttemptedCardinalityViolation(
+                    "Node already has {0} can't connect more".format(self))
         else:
             return super(ZeroOrOne, self).connect(obj)
 

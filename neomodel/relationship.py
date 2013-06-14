@@ -8,7 +8,7 @@ INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
 
 
-def rel_helper(rel):
+def rel_helper(**rel):
     if rel['direction'] == OUTGOING:
         stmt = '-[{0}:{1}]->'
     elif rel['direction'] == INCOMING:
@@ -74,7 +74,9 @@ class RelationshipManager(object):
         return t.run()
 
     def is_connected(self, obj):
-        return self.origin.__node__.has_relationship_with(obj.__node__, self.direction, self.relation_type)
+        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
+        q = "START a=node({self}), b=node({them}) MATCH" + rel + "RETURN count(r)"
+        return bool(self.origin.cypher(q, {'them': obj.__node__.id})[0][0][0])
 
     def connect(self, obj, properties=None):
         if not obj.__node__:
@@ -114,8 +116,7 @@ class RelationshipManager(object):
         self.origin.__node__.get_or_create_path((self.relation_type, properties), new_obj.__node__)
 
     def disconnect(self, obj):
-        rel = rel_helper({'direction': self.direction, 'relation_type': self.relation_type,
-            'lhs': 'a', 'rhs': 'b', 'ident': 'r'})
+        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self}), b=node({them}) MATCH " + rel + " DELETE r"
         self.origin.cypher(q, {'them': obj.__node__.id}),
 
