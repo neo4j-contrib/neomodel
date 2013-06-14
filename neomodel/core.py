@@ -172,13 +172,14 @@ class StructuredNode(CypherMixin):
         category = cls.category()
         batch = CustomBatch(connection(), cls.index.name)
         deflated = [cls.deflate(p) for p in list(props)]
+        # build batch
         for p in deflated:
-            batch.create_node(p)
+            batch.create(neo4j.Node.abstract(**p))
+
         for i in range(0, len(deflated)):
-            batch.create_relationship(category.__node__,
-                    cls.relationship_type(), i, {"__instance__": True})
+            batch.create(neo4j.Relationship.abstract(category.__node__,
+                    cls.relationship_type(), i, __instance__=True))
             cls._update_indexes(i, deflated[i], batch)
-        # build index batch
         results = batch.submit()
         return [cls.inflate(node) for node in results[:len(props)]]
 
