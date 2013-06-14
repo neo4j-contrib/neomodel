@@ -1,5 +1,7 @@
 Version 0.2.9 unreleased
 ------------------------
+ * py2neo 1.5 compat and deprecations (Robin Edwards)
+ * JSONProperty (Panos Katseas)
  * allow classes in relationship definitions (Robin Edwards)
  * add SemiStructuredNode to contrib (Robin Edwards)
  * refactor rel manager to use traversals (Robin Edwards)
