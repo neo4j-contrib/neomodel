@@ -216,7 +216,7 @@ The following properties are available::
 
     StringProperty, IntegerProperty, FloatProperty, BooleanProperty
 
-    DateProperty, DateTimeProperty, AliasProperty
+    DateProperty, DateTimeProperty, JSONProperty, AliasProperty
 
 The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
