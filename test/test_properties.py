@@ -1,4 +1,5 @@
-from neomodel.properties import IntegerProperty, DateTimeProperty, DateProperty, StringProperty
+from neomodel.properties import (IntegerProperty, DateTimeProperty,
+    DateProperty, StringProperty, JSONProperty)
 from neomodel.exception import InflateError, DeflateError
 from neomodel import StructuredNode
 from pytz import timezone
@@ -100,6 +101,17 @@ def test_date_exceptions():
         assert str(e).index('deflate property')
     else:
         assert False
+
+
+def test_json():
+    prop = JSONProperty()
+    prop.name = 'json'
+    prop.owner = FooBar
+
+    value = {'test': [1, 2, 3]}
+
+    assert prop.deflate(value) == '{"test": [1, 2, 3]}'
+    assert prop.inflate('{"test": [1, 2, 3]}') == value
 
 
 def test_default_value():
