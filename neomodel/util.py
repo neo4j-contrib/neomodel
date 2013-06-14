@@ -32,11 +32,9 @@ class CustomBatch(neo4j.WriteBatch):
             ]
 
     def _check_for_conflicts(self, results, requests):
-        i = 0
-        for r in results:
+        for i, r in enumerate(results):
             if r.status == 200:
                 raise DataInconsistencyError(requests[i], self.index_name, self.node)
-            i += 1
 
 
 def _legacy_conflict_check(cls, node, props):
