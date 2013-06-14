@@ -1,4 +1,4 @@
-from .relationship import RelationshipDefinition, OUTGOING, INCOMING
+from .relationship import RelationshipDefinition, rel_helper, INCOMING
 from copy import deepcopy
 import re
 
@@ -238,18 +238,6 @@ class TraversalSet(AstBuilder):
 
     def __nonzero__(self):
         return bool(len(self))
-
-
-def rel_helper(rel):
-    if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
-    elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
-    else:
-        stmt = '-[{0}:{1}]-'
-    ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
-    return "  ({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
 class Query(object):

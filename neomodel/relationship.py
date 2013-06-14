@@ -8,6 +8,18 @@ INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
 
 
+def rel_helper(rel):
+    if rel['direction'] == OUTGOING:
+        stmt = '-[{0}:{1}]->'
+    elif rel['direction'] == INCOMING:
+        stmt = '<-[{0}:{1}]-'
+    else:
+        stmt = '-[{0}:{1}]-'
+    ident = rel['ident'] if 'ident' in rel else ''
+    stmt = stmt.format(ident, rel['relation_type'])
+    return "  ({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
+
+
 class RelationshipManager(object):
     def __init__(self, definition, origin):
         self.direction = definition['direction']
@@ -102,12 +114,10 @@ class RelationshipManager(object):
         self.origin.__node__.get_or_create_path((self.relation_type, properties), new_obj.__node__)
 
     def disconnect(self, obj):
-        rels = self.origin.__node__.get_relationships_with(obj.__node__, self.direction, self.relation_type)
-        if not rels:
-            raise NotConnected('disconnect', self.origin, obj)
-        if len(rels) > 1:
-            raise Exception("Expected single relationship got {0}".format(rels))
-        rels[0].delete()
+        rel = rel_helper({'direction': self.direction, 'relation_type': self.relation_type,
+            'lhs': 'a', 'rhs': 'b', 'ident': 'r'})
+        q = "START a=node({self}), b=node({them}) MATCH " + rel + " DELETE r"
+        self.origin.cypher(q, {'them': obj.__node__.id}),
 
     def single(self):
         nodes = self.origin.traverse(self.name).limit(1).run()
