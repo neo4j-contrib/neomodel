@@ -78,12 +78,15 @@ class RelationshipManager(object):
             raise Exception("connect expected objects of class "
                     + allowed_cls + " got " + obj.__class__.__name__)
 
+        if not properties:
+            properties = {}
+
         if direction == OUTGOING:
-            self.client.get_or_create_relationships(
-                    (self.origin.__node__, self.relation_type, obj.__node__, properties))
+                self.origin.__node__.get_or_create_path(
+                        (self.relation_type, properties), obj.__node__)
         elif direction == INCOMING:
-            self.client.get_or_create_relationships(
-                    (obj.__node__, self.relation_type, self.origin.__node__, properties))
+            obj.__node__.get_or_create_path(
+                    (self.relation_type, properties), self.origin.__node__)
 
     def reconnect(self, old_obj, new_obj):
         properties = {}
@@ -96,8 +99,7 @@ class RelationshipManager(object):
         else:
             raise NotConnected('reconnect', self.origin, old_obj)
 
-        self.client.get_or_create_relationships(
-                (self.origin.__node__, self.relation_type, new_obj.__node__, properties),)
+        self.origin.__node__.get_or_create_path((self.relation_type, properties), new_obj.__node__)
 
     def disconnect(self, obj):
         rels = self.origin.__node__.get_relationships_with(obj.__node__, self.direction, self.relation_type)
