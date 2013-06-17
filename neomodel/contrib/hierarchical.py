@@ -1,4 +1,5 @@
 from ..core import StructuredNode
+from ..util import items
 
 
 class Hierarchical(object):
@@ -44,7 +45,7 @@ class Hierarchical(object):
         except TypeError:
             super(Hierarchical, self).__init__()
         self.__parent__ = None
-        for key, value in kwargs.iteritems():
+        for key, value in items(kwargs):
             if key == "__parent__":
                 self.__parent__ = value
 

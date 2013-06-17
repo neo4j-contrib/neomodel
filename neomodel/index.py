@@ -1,5 +1,6 @@
 from .exception import PropertyNotIndexed
 from .properties import AliasProperty
+from .util import items
 from py2neo import neo4j
 import sys
 import re
@@ -39,7 +40,7 @@ class NodeIndexManager(object):
         """ Load multiple nodes via index """
         if not query:
             self._check_params(kwargs)
-            query = ','.join([k + ':' + lucene_esc(v) for k, v in kwargs.iteritems()])
+            query = ','.join([k + ':' + lucene_esc(v) for k, v in items(kwargs)])
 
         return [self.node_class.inflate(n) for n in self._execute(str(query))]
 

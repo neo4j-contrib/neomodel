@@ -3,7 +3,7 @@ from .properties import Property, AliasProperty
 from .relationship import RelationshipManager, OUTGOING, RelationshipDefinition
 from .exception import (DoesNotExist, RequiredProperty, CypherException,
         NoSuchProperty)
-from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
+from .util import camel_to_upper, CustomBatch, _legacy_conflict_check, items
 from .traversal import TraversalSet
 import types
 from .signals import hooks
@@ -65,7 +65,7 @@ class StructuredNodeMeta(type):
         if hasattr(inst, '__abstract_node__'):
             delattr(inst, '__abstract_node__')
         else:
-            for key, value in dct.iteritems():
+            for key, value in items(dct):
                 if issubclass(value.__class__, Property):
                     value.name = key
                     value.owner = inst
@@ -95,7 +95,7 @@ class StructuredNode(CypherMixin):
         except TypeError:
             super(StructuredNode, self).__init__()
         self.__node__ = None
-        for key, val in self._class_properties().iteritems():
+        for key, val in items(self._class_properties()):
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)
             # handle default values
@@ -105,7 +105,7 @@ class StructuredNode(CypherMixin):
                 if not key in kwargs or kwargs[key] is None:
                     if val.has_default:
                         kwargs[key] = val.default_value()
-        for key, value in kwargs.iteritems():
+        for key, value in items(kwargs):
             if not(key.startswith("__") and key.endswith("__")):
                 setattr(self, key, value)
 
@@ -122,7 +122,7 @@ class StructuredNode(CypherMixin):
     @property
     def __properties__(self):
         node_props = {}
-        for key, value in super(StructuredNode, self).__dict__.iteritems():
+        for key, value in items(super(StructuredNode, self).__dict__):
             if (not key.startswith('_')
                     and not isinstance(value, types.MethodType)
                     and not isinstance(value, RelationshipManager)
@@ -166,7 +166,7 @@ class StructuredNode(CypherMixin):
             if self.__node__.exists():
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__
-                for key, val in props.iteritems():
+                for key, val in items(props):
                     setattr(self, key, val)
             else:
                 msg = 'Node %s does not exist in the database anymore'
@@ -191,7 +191,7 @@ class StructuredNode(CypherMixin):
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in cls._class_properties().iteritems():
+        for key, prop in items(cls._class_properties()):
             if (issubclass(prop.__class__, Property)
                     and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
@@ -209,7 +209,7 @@ class StructuredNode(CypherMixin):
     def deflate(cls, node_props, node_id=None):
         """ deflate dict ready to be stored """
         deflated = {}
-        for key, prop in cls._class_properties().iteritems():
+        for key, prop in items(cls._class_properties()):
             if (not isinstance(prop, AliasProperty)
                     and issubclass(prop.__class__, Property)):
                 if key in node_props and node_props[key] is not None:
@@ -241,7 +241,7 @@ class StructuredNode(CypherMixin):
         # reverse is done to keep inheritance order
         props = {}
         for scls in reversed(cls.mro()):
-            for key, value in scls.__dict__.iteritems():
+            for key, value in items(scls.__dict__):
                 props[key] = value
         return props
 
@@ -251,7 +251,7 @@ class StructuredNode(CypherMixin):
         if batch._graph_db.neo4j_version < (1, 8, 'M07'):
             _legacy_conflict_check(cls, node, props)
 
-        for key, value in props.iteritems():
+        for key, value in items(props):
             if key in cls._class_properties():
                 node_property = cls.get_property(key)
                 if node_property.unique_index:

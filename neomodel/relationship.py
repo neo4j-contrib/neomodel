@@ -1,7 +1,7 @@
 from py2neo import neo4j
 import sys
 from .exception import DoesNotExist, NotConnected
-from .util import camel_to_upper
+from .util import camel_to_upper, items
 
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
@@ -69,7 +69,7 @@ class RelationshipManager(object):
 
     def search(self, **kwargs):
         t = self.origin.traverse(self.name)
-        for field, value in kwargs.iteritems():
+        for field, value in items(kwargs):
             t.where(field, '=', value)
         return t.run()
 
@@ -84,11 +84,11 @@ class RelationshipManager(object):
         direction = OUTGOING if self.direction == EITHER else self.direction
 
         node_class = None
-        for rel_type, cls in self.target_map.iteritems():
+        for rel_type, cls in items(self.target_map):
             if obj.__class__ is cls:
                 node_class = cls
         if not node_class:
-            allowed_cls = ", ".join([tcls.__name__ for tcls in self.target_map.itervalues()])
+            allowed_cls = ", ".join([tcls.__name__ for tcls, _ in items(self.target_map)])
             raise Exception("connect expected objects of class "
                     + allowed_cls + " got " + obj.__class__.__name__)
 

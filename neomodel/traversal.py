@@ -101,7 +101,7 @@ class AstBuilder(object):
     def _find_map(self, target_map, rel_manager):
         targets = []
         # find matching rel definitions
-        for rel, cls in target_map.iteritems():
+        for rel, cls in items(target_map):
             if hasattr(cls, rel_manager):
                 manager = getattr(cls, rel_manager)
                 if isinstance(manager, (RelationshipDefinition)):
@@ -111,7 +111,7 @@ class AstBuilder(object):
                     targets.append(p)
 
         if not targets:
-            t_list = ', '.join([t_cls.__name__ for t_cls in target_map.itervalues()])
+            t_list = ', '.join([t_cls.__name__ for t_cls, _ in items(target_map)])
             raise AttributeError("No such rel manager {0} on {1}".format(
                 rel_manager, t_list))
 
