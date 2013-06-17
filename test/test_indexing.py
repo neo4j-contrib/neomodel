@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueProperty
-from lucenequerybuilder import Q
 
 
 class Human(StructuredNode):
@@ -33,15 +32,25 @@ def test_optional_properties_dont_get_indexed():
 
 
 def test_lucene_query():
+    try:
+        from lucenequerybuilder import Q
+    except ImportError:
+        return
     Human(name='sarah', age=3).save()
     Human(name='jim', age=4).save()
     Human(name='bob', age=5).save()
     Human(name='tim', age=2).save()
-
     names = [p.name for p in Human.index.search(Q('age', inrange=[3, 5]))]
     assert 'sarah' in names
     assert 'jim' in names
     assert 'bob' in names
+
+
+def test_escaped_chars():
+    Human(name='sarah:test', age=3).save()
+    r = Human.index.search(name='sarah:test')
+    assert r
+    assert r[0].name == 'sarah:test'
 
 
 def test_does_not_exist():

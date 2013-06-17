@@ -1,7 +1,11 @@
-from lucenequerybuilder import Q
 from .exception import PropertyNotIndexed
 from .properties import AliasProperty
 from py2neo import neo4j
+import re
+
+# http://fragmentsofcode.wordpress.com/2010/03/10/escape-special-characters-for-solrlucene-query/
+ESCAPE_CHARS_RE = re.compile(r'(?<!\\)(?P<char>[&|+\-!(){}[\]^"~*?:])')
+lucene_esc = lambda v: ESCAPE_CHARS_RE.sub(r'\\\g<char>', unicode(v))
 
 
 class NodeIndexManager(object):
@@ -30,7 +34,7 @@ class NodeIndexManager(object):
         """ Load multiple nodes via index """
         if not query:
             self._check_params(kwargs)
-            query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.iteritems()])
+            query = ','.join([k + ':' + lucene_esc(v) for k, v in kwargs.iteritems()])
 
         return [self.node_class.inflate(n) for n in self._execute(str(query))]
 

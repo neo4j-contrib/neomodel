@@ -1,5 +1,6 @@
 Version 0.2.9 unreleased
 ------------------------
+ * remove dependency on lucenequerybuilder (Robin Edwards)
  * py2neo 1.5 compat and deprecations (Robin Edwards)
  * JSONProperty (Panos Katseas)
  * allow classes in relationship definitions (Robin Edwards)

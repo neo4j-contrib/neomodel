@@ -206,9 +206,11 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
     Human(name='tim', age=2).save()
 
     for h in Human.index.search(Q('age', inrange=[3, 5])):
-        print(h.name)
+        print(h.name) # sarah, jim, bob
 
-    # prints: sarah, jim, bob
+Or as a lucene query string::
+
+    sarah = Human.index.search('name:sar*')
 
 Properties
 ----------
