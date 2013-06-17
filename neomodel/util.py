@@ -13,6 +13,26 @@ class CustomBatch(neo4j.WriteBatch):
         self.index_name = index_name
         self.node = node
 
+    # Borrowed from nigel, to force status codes in batch response
+    def _submit(self):
+        """ Submits batch of requests, returning list of Response objects."""
+        rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
+            request.description(id_)
+            for id_, request in enumerate(self.requests)
+        ], {'X-Stream': True}))
+        self.clear()
+        return [
+            rest.Response(
+                self._graph_db,
+                response.get("status", rs.status),
+                response["from"],
+                response.get("location", None),
+                response.get("body", None),
+                id=response.get("id", None),
+            )
+            for response in rs.body
+        ]
+
     def submit(self):
         results = []
         requests = self.requests
