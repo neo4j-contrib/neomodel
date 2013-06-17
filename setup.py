@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='neomodel',
-    version='0.2.8',
+    version='0.2.9',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
     author='Robin Edwards',
@@ -14,7 +14,7 @@ setup(
     keywords='graph neo4j py2neo ORM',
     tests_require=['nose==1.1.2'],
     test_suite='nose.collector',
-    install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.5', 'pytz==2012j'],
+    install_requires=['lucene-querybuilder==0.1.6', 'py2neo==1.5', 'pytz==2013b'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
