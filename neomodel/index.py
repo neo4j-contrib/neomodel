@@ -1,7 +1,12 @@
 from .exception import PropertyNotIndexed
 from .properties import AliasProperty
 from py2neo import neo4j
+import sys
 import re
+
+
+if sys.version_info >= (3, 0):
+    unicode = lambda x: str(x)
 
 # http://fragmentsofcode.wordpress.com/2010/03/10/escape-special-characters-for-solrlucene-query/
 ESCAPE_CHARS_RE = re.compile(r'(?<!\\)(?P<char>[&|+\-!(){}[\]^"~*?:])')

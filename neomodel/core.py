@@ -11,7 +11,7 @@ from .index import NodeIndexManager
 import os
 import sys
 
-if sys.version_info >= (3, 3):
+if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
     from urlparse import urlparse

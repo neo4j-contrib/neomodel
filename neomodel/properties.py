@@ -3,6 +3,10 @@ from datetime import datetime, date
 import time
 import pytz
 import json
+import sys
+
+if sys.version_info >= (3, 0):
+    unicode = lambda x: str(x)
 
 
 def validator(fn):

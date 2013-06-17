@@ -167,7 +167,7 @@ class ZeroOrMore(RelationshipManager):
 
 
 def _relate(cls_name, direction, rel_type, cardinality=None):
-    if not isinstance(cls_name, (str, unicode, list, object)):
+    if not isinstance(cls_name, (str, list, object)):
         raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality)
 
