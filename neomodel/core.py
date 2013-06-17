@@ -6,10 +6,15 @@ from .exception import (DoesNotExist, RequiredProperty, CypherException,
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .traversal import TraversalSet
 import types
-from urlparse import urlparse
 from .signals import hooks
 from .index import NodeIndexManager
 import os
+import sys
+
+if sys.version_info >= (3, 3):
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
