@@ -6,9 +6,10 @@ import json
 
 
 def validator(fn):
-    if fn.func_name is 'inflate':
+    fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
+    if fn_name is 'inflate':
         exc_class = InflateError
-    elif fn.func_name == 'deflate':
+    elif fn_name == 'deflate':
         exc_class = DeflateError
     else:
         raise Exception("Unknown Property method " + fn.func_name)
