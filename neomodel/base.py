@@ -7,10 +7,6 @@ import types
 
 class NeoObject(object):
     def __init__(self, *args, **kwargs):
-        try:
-            super(NeoObject, self).__init__(*args, **kwargs)
-        except TypeError:
-            super(NeoObject, self).__init__()
         self.__node__ = None
         for key, val in items(self._class_properties()):
             if val.__class__ is RelationshipDefinition:
@@ -28,11 +24,8 @@ class NeoObject(object):
     def __properties__(self):
         node_props = {}
         for key, value in items(super(NeoObject, self).__dict__):
-            if (not key.startswith('_')
-                    and not isinstance(value, types.MethodType)
-                    and not isinstance(value, RelationshipManager)
-                    and not isinstance(value, AliasProperty)
-                    and value is not None):
+            if not (key.startswith('_') or value is None
+                    or isinstance(value, (types.MethodType, RelationshipManager, AliasProperty,))):
                 node_props[key] = value
         return node_props
 
