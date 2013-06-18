@@ -49,7 +49,9 @@ class Localised(object):
             super(Localised, self).__init__()
 
     def add_locale(self, lang):
-        self.locales.connect(Locale.get(lang))
+        if isinstance(lang, (str,)):
+            lang = Locale.get(lang)
+        self.locales.connect(lang)
 
     def remove_locale(self, lang):
         self.locales.disconnect(Locale.get(lang))
