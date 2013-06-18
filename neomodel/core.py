@@ -248,7 +248,7 @@ class StructuredNode(CypherMixin):
     @classmethod
     def _update_indexes(cls, node, props, batch):
         # check for conflicts prior to execution
-        if batch._graph_db.neo4j_version < (1, 8):
+        if batch._graph_db.neo4j_version < (1, 9):
             _legacy_conflict_check(cls, node, props)
 
         for key, value in items(props):
