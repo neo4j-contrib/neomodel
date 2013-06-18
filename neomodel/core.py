@@ -1,11 +1,10 @@
+from .base import NeoObject
 from py2neo import neo4j, cypher
 from .properties import Property, AliasProperty
-from .relationship_manager import RelationshipManager, OUTGOING, RelationshipDefinition
-from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        NoSuchProperty)
+from .relationship_manager import RelationshipManager, OUTGOING
+from .exception import DoesNotExist, RequiredProperty, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check, items
 from .traversal import TraversalSet
-import types
 from .signals import hooks
 from .index import NodeIndexManager
 import os
@@ -75,7 +74,8 @@ class StructuredNodeMeta(type):
             inst.index = NodeIndexManager(inst, name)
         return inst
 
-StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (object, ), {})
+
+StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (NeoObject,), {})
 
 
 class StructuredNode(StructuredNodeBase, CypherMixin):
@@ -86,29 +86,12 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
 
     __abstract_node__ = True
 
+    def __init__(self, *args, **kwargs):
+        super(StructuredNode, self).__init__(*args, **kwargs)
+
     @classmethod
     def category(cls):
         return category_factory(cls)
-
-    def __init__(self, *args, **kwargs):
-        try:
-            super(StructuredNode, self).__init__(*args, **kwargs)
-        except TypeError:
-            super(StructuredNode, self).__init__()
-        self.__node__ = None
-        for key, val in items(self._class_properties()):
-            if val.__class__ is RelationshipDefinition:
-                self.__dict__[key] = val.build_manager(self, key)
-            # handle default values
-            elif issubclass(val.__class__, Property)\
-                    and not isinstance(val, AliasProperty)\
-                    and not issubclass(val.__class__, AliasProperty):
-                if not key in kwargs or kwargs[key] is None:
-                    if val.has_default:
-                        kwargs[key] = val.default_value()
-        for key, value in items(kwargs):
-            if not(key.startswith("__") and key.endswith("__")):
-                setattr(self, key, value)
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
@@ -119,18 +102,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         if not isinstance(other, (StructuredNode,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
-
-    @property
-    def __properties__(self):
-        node_props = {}
-        for key, value in items(super(StructuredNode, self).__dict__):
-            if (not key.startswith('_')
-                    and not isinstance(value, types.MethodType)
-                    and not isinstance(value, RelationshipManager)
-                    and not isinstance(value, AliasProperty)
-                    and value is not None):
-                node_props[key] = value
-        return node_props
 
     @hooks
     def save(self):
@@ -190,23 +161,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         return [cls.inflate(node) for node in results[:len(props)]]
 
     @classmethod
-    def inflate(cls, node):
-        props = {}
-        for key, prop in items(cls._class_properties()):
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
-
-        snode = cls(**props)
-        snode.__node__ = node
-        return snode
-
-    @classmethod
     def deflate(cls, node_props, node_id=None):
         """ deflate dict ready to be stored """
         deflated = {}
@@ -224,27 +178,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     @classmethod
     def relationship_type(cls):
         return camel_to_upper(cls.__name__)
-
-    @classmethod
-    def get_property(cls, name):
-        try:
-            node_property = getattr(cls, name)
-        except AttributeError:
-            raise NoSuchProperty(name, cls)
-        if not issubclass(node_property.__class__, Property)\
-                or not issubclass(node_property.__class__, AliasProperty):
-            NoSuchProperty(name, cls)
-        return node_property
-
-    @classmethod
-    def _class_properties(cls):
-        # get all dict values for inherited classes
-        # reverse is done to keep inheritance order
-        props = {}
-        for scls in reversed(cls.mro()):
-            for key, value in items(scls.__dict__):
-                props[key] = value
-        return props
 
     @classmethod
     def _update_indexes(cls, node, props, batch):
