@@ -75,14 +75,15 @@ class StructuredNodeMeta(type):
             inst.index = NodeIndexManager(inst, name)
         return inst
 
+StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (object, ), {})
 
-class StructuredNode(CypherMixin):
+
+class StructuredNode(StructuredNodeBase, CypherMixin):
     """ Base class for nodes requiring declaration of formal structure.
 
         :ivar __node__: neo4j.Node instance bound to database for this instance
     """
 
-    __metaclass__ = StructuredNodeMeta
     __abstract_node__ = True
 
     @classmethod
