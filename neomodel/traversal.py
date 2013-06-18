@@ -1,4 +1,4 @@
-from .relationship import RelationshipDefinition, rel_helper, INCOMING
+from .relationship_manager import RelationshipDefinition, rel_helper, INCOMING
 from .util import items
 from copy import deepcopy
 import re

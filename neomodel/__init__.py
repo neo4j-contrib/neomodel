@@ -1,5 +1,5 @@
 from .core import *
-from .relationship import (NotConnected, OUTGOING, INCOMING, EITHER,
+from .relationship_manager import (NotConnected, OUTGOING, INCOMING, EITHER,
         RelationshipTo, RelationshipFrom, Relationship)
 from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)

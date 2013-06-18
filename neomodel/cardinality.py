@@ -1,4 +1,4 @@
-from .relationship import RelationshipManager, ZeroOrMore
+from .relationship_manager import RelationshipManager, ZeroOrMore
 
 
 class ZeroOrOne(RelationshipManager):
