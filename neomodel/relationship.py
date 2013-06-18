@@ -79,7 +79,7 @@ class RelationshipManager(object):
         return bool(self.origin.cypher(q, {'them': obj.__node__.id})[0][0][0])
 
     def connect(self, obj, properties=None):
-        if not obj.__node__:
+        if not hasattr(obj, '__node__'):
             raise Exception("Can't create relationship to unsaved node")
         direction = OUTGOING if self.direction == EITHER else self.direction
 
