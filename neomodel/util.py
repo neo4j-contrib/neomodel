@@ -64,7 +64,7 @@ class CustomBatch(neo4j.WriteBatch):
 
 
 def _legacy_conflict_check(cls, node, props):
-    for key, value in props.iteritems():
+    for key, value in items(props):
         if key in cls._class_properties() and cls.get_property(key).unique_index:
                 results = cls.index.__index__.get(key, value)
                 if len(results):
