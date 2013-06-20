@@ -5,6 +5,7 @@ from .exception import UniqueProperty, DataInconsistencyError
 camel_to_upper = lambda x: "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", x)[1::2])
 upper_to_camel = lambda x: "".join(word.title() for word in x.split("_"))
 
+
 def items(_dict):
     try:
         return _dict.iteritems()
