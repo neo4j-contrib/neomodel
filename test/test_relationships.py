@@ -1,11 +1,12 @@
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
-        StringProperty, IntegerProperty, One)
+        Relationship, StringProperty, IntegerProperty, One)
 
 
 class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
+    knows = Relationship('Person', 'KNOWS')
 
     @property
     def special_name(self):
@@ -55,6 +56,21 @@ def test_bidirectional_relationships():
 
     u.is_from.disconnect(b)
     assert not u.is_from.is_connected(b)
+
+
+def test_either_direction_connect():
+    rey = Person(name='Rey', age=3).save()
+    sakis = Person(name='Sakis', age=3).save()
+
+    rey.knows.connect(sakis)
+    assert rey.knows.is_connected(sakis)
+    assert sakis.knows.is_connected(rey)
+    sakis.knows.connect(rey)
+
+    result, _ = sakis.cypher("""START us=node({self}), them=node({them})
+            MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
+            {'them': rey.__node__.id})
+    assert int(result[0][0]) == 1
 
 
 def test_search():

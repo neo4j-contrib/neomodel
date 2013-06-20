@@ -81,8 +81,8 @@ class RelationshipManager(object):
     def connect(self, obj, properties=None):
         if not hasattr(obj, '__node__'):
             raise Exception("Can't create relationship to unsaved node")
-        direction = OUTGOING if self.direction == EITHER else self.direction
 
+        # check for valid node class
         node_class = None
         for rel_type, cls in items(self.target_map):
             if obj.__class__ is cls:
@@ -92,15 +92,17 @@ class RelationshipManager(object):
             raise Exception("connect expected objects of class "
                     + allowed_cls + " got " + obj.__class__.__name__)
 
-        if not properties:
-            properties = {}
+        new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        q = "START us=node({self}), them=node({them}) CREATE UNIQUE " + new_rel
 
-        if direction == OUTGOING:
-                self.origin.__node__.get_or_create_path(
-                        (self.relation_type, properties), obj.__node__)
-        elif direction == INCOMING:
-            obj.__node__.get_or_create_path(
-                    (self.relation_type, properties), self.origin.__node__)
+        params = {'them': obj.__node__.id}
+        # copy over properties if we have
+        if properties:
+            for p, v in items(properties):
+                params['place_holder_' + p] = v
+                q += " SET r." + p + " = {place_holder_" + p + "}"
+
+        self.origin.cypher(q, params)
 
     def reconnect(self, old_obj, new_obj):
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
