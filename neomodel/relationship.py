@@ -103,18 +103,27 @@ class RelationshipManager(object):
                     (self.relation_type, properties), self.origin.__node__)
 
     def reconnect(self, old_obj, new_obj):
-        if not self.is_connected(old_obj):
+        old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
+
+        # get list of properties on the existing rel
+        result, _ = self.origin.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
+            {'old': old_obj.__node__.id})
+        if result:
+            existing_properties = result[0][0].__metadata__['data'].keys()
+        else:
             raise NotConnected('reconnect', self.origin, old_obj)
 
-        properties = {}
+        # remove old relationship and create new one
+        new_rel = rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
+        q = "START us=node({self}), old=node({old}), new=node({new}) MATCH " + old_rel
+        q += " CREATE UNIQUE " + new_rel
 
-        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
-        q = "START a=node({self}), b=node({them}) MATCH " + rel + " RETURN r"
-        for r in self.origin.cypher(q, {'them': old_obj.__node__.id})[0][0]:
-            properties.update(r.get_properties())
-        self.disconnect(old_obj)
+        # copy over properties if we have
+        for p in existing_properties:
+            q += " SET r2.{} = r.{}".format(p, p)
+        q += " WITH r DELETE r"
 
-        self.connect(new_obj, properties)
+        self.origin.cypher(q, {'old': old_obj.__node__.id, 'new': new_obj.__node__.id})
 
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
