@@ -1,5 +1,5 @@
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
-        StringProperty, IntegerProperty)
+        StringProperty, IntegerProperty, One)
 
 
 class Person(StructuredNode):
@@ -18,6 +18,7 @@ class Person(StructuredNode):
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom(Person, 'IS_FROM')
+    president = RelationshipTo(Person, 'PRESIDENT', cardinality=One)
 
 
 class SuperHero(Person):
@@ -74,6 +75,24 @@ def test_custom_methods():
     u = SuperHero(name='Joe91', age=13, power='xxx').save()
     assert u.special_power() == "I have powers"
     assert u.special_name == 'Joe91'
+
+
+def test_valid_reconnection():
+    p = Person(name='ElPresidente', age=93).save()
+    assert p
+
+    pp = Person(name='TheAdversary', age=33).save()
+    assert pp
+
+    c = Country(code='CU').save()
+    assert c
+
+    c.president.connect(p)
+    assert c.president.is_connected(p)
+
+    # the coup d'etat
+    c.president.reconnect(p, pp)
+    assert c.president.is_connected(pp)
 
 
 def test_props_relationship():
