@@ -1,11 +1,10 @@
-from .util import items
 from .properties import Property, PropertyManager
 
 
 class RelationshipMeta(type):
     def __new__(mcs, name, bases, dct):
         inst = super(RelationshipMeta, mcs).__new__(mcs, name, bases, dct)
-        for key, value in items(dct):
+        for key, value in dct.items():
             if issubclass(value.__class__, Property):
                 value.name = key
                 value.owner = inst
@@ -21,6 +20,7 @@ class RelationshipMeta(type):
 RelationshipBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
 
 
-class Relationship(PropertyManager):
+class Relationship(RelationshipBase):
     def __init__(self, *args, **kwargs):
         super(Relationship, self).__init__(*args, **kwargs)
+

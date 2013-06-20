@@ -1,3 +1,9 @@
+Version 0.3.0 2013-06-20
+------------------------
+ * Fix either direction connect (Robin Edwards)
+ * Make reconnect atomic cypher operation (Panos Katseas)
+ * Add reconnect test case (Panos Katseas)
+
 Version 0.2.9 2013-06-18
 ------------------------
  * python 3.3+ support

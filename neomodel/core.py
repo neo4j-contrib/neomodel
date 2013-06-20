@@ -1,8 +1,11 @@
 from py2neo import neo4j, cypher
+from .exception import DoesNotExist, RequiredProperty, CypherException
+from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
+from .properties import Property, AliasProperty
 from .properties import Property, AliasProperty, PropertyManager
 from .relationship_manager import RelationshipManager, OUTGOING
-from .exception import DoesNotExist, RequiredProperty, CypherException
-from .util import camel_to_upper, CustomBatch, _legacy_conflict_check, items
+from .exception import (DoesNotExist, RequiredProperty, CypherException,
+        NoSuchProperty)
 from .traversal import TraversalSet
 from .signals import hooks
 from .index import NodeIndexManager
@@ -62,7 +65,7 @@ class StructuredNodeMeta(type):
         if hasattr(inst, '__abstract_node__'):
             delattr(inst, '__abstract_node__')
         else:
-            for key, value in items(dct):
+            for key, value in dct.items():
                 if issubclass(value.__class__, Property):
                     value.name = key
                     value.owner = inst
@@ -136,7 +139,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             if self.__node__.exists():
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__
-                for key, val in items(props):
+                for key, val in props.items():
                     setattr(self, key, val)
             else:
                 msg = 'Node %s does not exist in the database anymore'
@@ -162,7 +165,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def deflate(cls, node_props, node_id=None):
         """ deflate dict ready to be stored """
         deflated = {}
-        for key, prop in items(cls._class_properties()):
+        for key, prop in cls._class_properties().items():
             if (not isinstance(prop, AliasProperty)
                     and issubclass(prop.__class__, Property)):
                 if key in node_props and node_props[key] is not None:
@@ -183,7 +186,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         if batch._graph_db.neo4j_version < (1, 9):
             _legacy_conflict_check(cls, node, props)
 
-        for key, value in items(props):
+        for key, value in props.items():
             if key in cls._class_properties():
                 node_property = cls.get_property(key)
                 if node_property.unique_index:

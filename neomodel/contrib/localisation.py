@@ -34,7 +34,7 @@ class LocalisedIndexManager(NodeIndexManager):
             lnode = node:%s({query})
             MATCH (lnode)-[:LANGUAGE]->(lang)
             RETURN lnode
-            """ % (self.name) # set index name
+            """ % (self.name)  # set index name
         result, meta = locale.cypher(cquery, {'query': query})
         return result[0] if result else []
 
@@ -49,7 +49,7 @@ class Localised(object):
             super(Localised, self).__init__()
 
     def add_locale(self, lang):
-        if isinstance(lang, (str,)):
+        if not isinstance(lang, StructuredNode):
             lang = Locale.get(lang)
         self.locales.connect(lang)
 

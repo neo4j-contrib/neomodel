@@ -1,11 +1,12 @@
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
-        StringProperty, IntegerProperty)
+        Relationship, StringProperty, IntegerProperty, One)
 
 
 class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
+    knows = Relationship('Person', 'KNOWS')
 
     @property
     def special_name(self):
@@ -18,6 +19,7 @@ class Person(StructuredNode):
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom(Person, 'IS_FROM')
+    president = RelationshipTo(Person, 'PRESIDENT', cardinality=One)
 
 
 class SuperHero(Person):
@@ -56,6 +58,21 @@ def test_bidirectional_relationships():
     assert not u.is_from.is_connected(b)
 
 
+def test_either_direction_connect():
+    rey = Person(name='Rey', age=3).save()
+    sakis = Person(name='Sakis', age=3).save()
+
+    rey.knows.connect(sakis)
+    assert rey.knows.is_connected(sakis)
+    assert sakis.knows.is_connected(rey)
+    sakis.knows.connect(rey)
+
+    result, _ = sakis.cypher("""START us=node({self}), them=node({them})
+            MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
+            {'them': rey.__node__.id})
+    assert int(result[0][0]) == 1
+
+
 def test_search():
     fred = Person(name='Fred', age=13).save()
     zz = Country(code='ZZ').save()
@@ -74,6 +91,24 @@ def test_custom_methods():
     u = SuperHero(name='Joe91', age=13, power='xxx').save()
     assert u.special_power() == "I have powers"
     assert u.special_name == 'Joe91'
+
+
+def test_valid_reconnection():
+    p = Person(name='ElPresidente', age=93).save()
+    assert p
+
+    pp = Person(name='TheAdversary', age=33).save()
+    assert pp
+
+    c = Country(code='CU').save()
+    assert c
+
+    c.president.connect(p)
+    assert c.president.is_connected(p)
+
+    # the coup d'etat
+    c.president.reconnect(p, pp)
+    assert c.president.is_connected(pp)
 
 
 def test_props_relationship():

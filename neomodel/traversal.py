@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 from .relationship_manager import RelationshipDefinition, rel_helper, INCOMING
 from .util import items
+=======
+from .relationship import RelationshipDefinition, rel_helper, INCOMING
+>>>>>>> master
 from copy import deepcopy
 import re
 
@@ -102,7 +106,7 @@ class AstBuilder(object):
     def _find_map(self, target_map, rel_manager):
         targets = []
         # find matching rel definitions
-        for rel, cls in items(target_map):
+        for rel, cls in target_map.items():
             if hasattr(cls, rel_manager):
                 manager = getattr(cls, rel_manager)
                 if isinstance(manager, (RelationshipDefinition)):
@@ -112,7 +116,7 @@ class AstBuilder(object):
                     targets.append(p)
 
         if not targets:
-            t_list = ', '.join([t_cls.__name__ for t_cls, _ in items(target_map)])
+            t_list = ', '.join([t_cls.__name__ for t_cls, _ in target_map.items()])
             raise AttributeError("No such rel manager {0} on {1}".format(
                 rel_manager, t_list))
 
