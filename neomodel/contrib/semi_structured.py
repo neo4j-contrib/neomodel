@@ -1,6 +1,5 @@
 from ..core import StructuredNode
 from ..properties import Property, AliasProperty
-from ..util import items
 
 
 class InflateConflict(Exception):
@@ -53,7 +52,7 @@ class SemiStructuredNode(StructuredNode):
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in items(cls._class_properties()):
+        for key, prop in cls._class_properties().items():
             if (issubclass(prop.__class__, Property)
                     and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
