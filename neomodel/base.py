@@ -5,7 +5,8 @@ from .exception import NoSuchProperty
 import types
 
 
-class NeoObject(object):
+class PropertyManager(object):
+    """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
         self.__node__ = None
         for key, val in items(self._class_properties()):
@@ -23,9 +24,10 @@ class NeoObject(object):
     @property
     def __properties__(self):
         node_props = {}
-        for key, value in items(super(NeoObject, self).__dict__):
+        for key, value in items(super(PropertyManager, self).__dict__):
             if not (key.startswith('_') or value is None
-                    or isinstance(value, (types.MethodType, RelationshipManager, AliasProperty,))):
+                    or isinstance(value,
+                        (types.MethodType, RelationshipManager, AliasProperty,))):
                 node_props[key] = value
         return node_props
 
@@ -49,13 +51,13 @@ class NeoObject(object):
     @classmethod
     def get_property(cls, name):
         try:
-            node_property = getattr(cls, name)
+            neo_property = getattr(cls, name)
         except AttributeError:
             raise NoSuchProperty(name, cls)
-        if not issubclass(node_property.__class__, Property)\
-                or not issubclass(node_property.__class__, AliasProperty):
+        if not issubclass(neo_property.__class__, Property)\
+                or not issubclass(neo_property.__class__, AliasProperty):
             NoSuchProperty(name, cls)
-        return node_property
+        return neo_property
 
     @classmethod
     def _class_properties(cls):

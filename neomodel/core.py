@@ -1,6 +1,5 @@
-from .base import NeoObject
 from py2neo import neo4j, cypher
-from .properties import Property, AliasProperty
+from .properties import Property, AliasProperty, PropertyManager
 from .relationship_manager import RelationshipManager, OUTGOING
 from .exception import DoesNotExist, RequiredProperty, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check, items
@@ -56,7 +55,6 @@ class CypherMixin(object):
 
 
 class StructuredNodeMeta(type):
-
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
         inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
@@ -75,7 +73,7 @@ class StructuredNodeMeta(type):
         return inst
 
 
-StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (NeoObject,), {})
+StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (PropertyManager,), {})
 
 
 class StructuredNode(StructuredNodeBase, CypherMixin):
