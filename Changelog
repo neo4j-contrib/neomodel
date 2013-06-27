@@ -1,3 +1,7 @@
+Version 0.3.1 2013-06-27
+ * Fix exception message (Sam Millar)
+ * Use builtin items (Panos Katseas)
+
 Version 0.3.0 2013-06-20
 ------------------------
  * Fix either direction connect (Robin Edwards)
