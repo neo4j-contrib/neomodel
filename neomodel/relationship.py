@@ -88,7 +88,8 @@ class RelationshipManager(object):
             if obj.__class__ is cls:
                 node_class = cls
         if not node_class:
-            allowed_cls = ", ".join([tcls.__name__ for tcls, _ in self.target_map.items()])
+            allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
+                                     for tcls, _ in self.target_map.items()])
             raise Exception("connect expected objects of class "
                     + allowed_cls + " got " + obj.__class__.__name__)
 
