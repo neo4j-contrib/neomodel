@@ -4,6 +4,7 @@ import time
 import pytz
 import json
 import sys
+import functools
 
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
@@ -18,6 +19,7 @@ def validator(fn):
     else:
         raise Exception("Unknown Property method " + fn.func_name)
 
+    @functools.wraps(fn)
     def validator(self, value, node_id=None):
         try:
             return fn(self, value)
