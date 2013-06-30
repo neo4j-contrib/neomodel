@@ -12,12 +12,12 @@ if sys.version_info >= (3, 0):
 
 def validator(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
-    if fn_name is 'inflate':
+    if fn_name == 'inflate':
         exc_class = InflateError
     elif fn_name == 'deflate':
         exc_class = DeflateError
     else:
-        raise Exception("Unknown Property method " + fn.func_name)
+        raise Exception("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
     def validator(self, value, node_id=None):
