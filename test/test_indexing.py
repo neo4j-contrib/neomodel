@@ -53,6 +53,22 @@ def test_escaped_chars():
     assert r[0].name == 'sarah:test'
 
 
+def test_no_args():
+    try:
+        Human.index.search()
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+    try:
+        Human.index.search()
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
 def test_does_not_exist():
     try:
         Human.index.get(name='XXXX')

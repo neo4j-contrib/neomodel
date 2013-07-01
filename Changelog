@@ -1,3 +1,6 @@
+Version 0.3.3 2013-07-1
+ * Nice exception on missing search params (Robin Edwards)
+
 Version 0.3.2 2013-07-1
  * Property fixes (Laurie Clark-Michalek)
 
