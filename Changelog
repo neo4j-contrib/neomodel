@@ -1,3 +1,6 @@
+Version 0.3.2 2013-07-1
+ * Property fixes (Laurie Clark-Michalek)
+
 Version 0.3.1 2013-06-27
  * Fix exception message (Sam Millar)
  * Use builtin items (Panos Katseas)
