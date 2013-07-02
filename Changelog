@@ -1,3 +1,6 @@
+Version 0.3.4 2013-07-2
+ * Fix return > 1 for Localised (Marianna Polatoglou)
+
 Version 0.3.3 2013-07-1
  * Nice exception on missing search params (Robin Edwards)
 
