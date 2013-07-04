@@ -65,6 +65,9 @@ class StringProperty(Property):
     def deflate(self, value):
         return unicode(value)
 
+    def default_value(self):
+        return unicode(super(StringProperty, self).default_value())
+
 
 class IntegerProperty(Property):
     @validator
@@ -74,6 +77,9 @@ class IntegerProperty(Property):
     @validator
     def deflate(self, value):
         return int(value)
+
+    def default_value(self):
+        return int(super(IntegerProperty, self).default_value())
 
 
 class FloatProperty(Property):
@@ -85,6 +91,9 @@ class FloatProperty(Property):
     def deflate(self, value):
         return float(value)
 
+    def default_value(self):
+        return float(super(FloatProperty, self).default_value())
+
 
 class BooleanProperty(Property):
     @validator
@@ -94,6 +103,9 @@ class BooleanProperty(Property):
     @validator
     def deflate(self, value):
         return bool(value)
+
+    def default_value(self):
+        return bool(super(BooleanProperty, self).default_value())
 
 
 class DateProperty(Property):

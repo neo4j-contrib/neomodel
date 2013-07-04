@@ -230,6 +230,10 @@ The *DateProperty* accepts datetime.date objects which are stored as a string pr
         from uuid import uuid4
         my_id = StringProperty(unique_index=True, default=uuid4)
 
+You may provide arguments using a wrapper function or lambda::
+
+        my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+
 The *AliasProperty* a special property for aliasing other properties and providing 'magic' behaviour::
 
     class Person(StructuredNode):
