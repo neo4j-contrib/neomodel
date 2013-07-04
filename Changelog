@@ -1,3 +1,7 @@
+Version 0.3.5 unreleased
+ * Fix default_value type generation for basic properties #53
+ * Add documentation on providing arguments to default functions
+
 Version 0.3.4 2013-07-2
  * Fix return > 1 for Localised (Marianna Polatoglou)
 
