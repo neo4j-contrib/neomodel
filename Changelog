@@ -1,14 +1,15 @@
-Version 0.3.5 unreleased
+Version 0.3.5 2013-07-05
+ * Add documentation on batch size (Robin Edwards)
  * Fix default_value type generation for basic properties #53
- * Add documentation on providing arguments to default functions
+ * Add documentation on providing arguments to default functions (Robin Edwards)
 
-Version 0.3.4 2013-07-2
+Version 0.3.4 2013-07-02
  * Fix return > 1 for Localised (Marianna Polatoglou)
 
-Version 0.3.3 2013-07-1
+Version 0.3.3 2013-07-01
  * Nice exception on missing search params (Robin Edwards)
 
-Version 0.3.2 2013-07-1
+Version 0.3.2 2013-07-01
  * Property fixes (Laurie Clark-Michalek)
 
 Version 0.3.1 2013-06-27
