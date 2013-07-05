@@ -48,14 +48,6 @@ Create, save delete etc::
     jim.delete()
     jim.refresh() # reload properties from neo
 
-Batch create (atomic) which also validates and indexes::
-
-    people = Person.create(
-        {'name': 'Tim', 'age': 83},
-        {'name': 'Bob', 'age': 23},
-        {'name': 'Jill', 'age': 34},
-    )
-
 Using relationships::
 
     germany = Country(code='DE').save()
@@ -173,6 +165,20 @@ You can define relations of a single type to different `StructuredNode` classes.
         name = StringProperty()
 
 Remember that when traversing the `has_a` relation you will retrieve objects of different types.
+
+Batch create
+------------
+Atomically create multiple nodes in a single operation::
+
+    people = Person.create(
+        {'name': 'Tim', 'age': 83},
+        {'name': 'Bob', 'age': 23},
+        {'name': 'Jill', 'age': 34},
+    )
+
+This is useful for creating large sets of data. It's worth experimenting with the size of batches
+to find the optimum performance suggestions on size around 300 - 500.
+
 
 Hooks and Signals
 -----------------
