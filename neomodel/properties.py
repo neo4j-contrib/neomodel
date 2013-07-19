@@ -1,4 +1,4 @@
-from neomodel.exception import InflateError, DeflateError
+from neomodel.exception import InflateError, DeflateError, RequiredProperty
 from datetime import datetime, date
 from .relationship_manager import RelationshipDefinition, RelationshipManager
 from .exception import NoSuchProperty
@@ -17,7 +17,7 @@ class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
         self.__node__ = None
-        for key, val in items(self._class_properties()):
+        for key, val in self._class_properties().items():
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)
             # handle default values
@@ -25,14 +25,14 @@ class PropertyManager(object):
                 if not key in kwargs or kwargs[key] is None:
                     if val.has_default:
                         kwargs[key] = val.default_value()
-        for key, value in items(kwargs):
+        for key, value in kwargs.items():
             if not(key.startswith("__") and key.endswith("__")):
                 setattr(self, key, value)
 
     @property
     def __properties__(self):
         node_props = {}
-        for key, value in items(super(PropertyManager, self).__dict__):
+        for key, value in self.__dict__.items():
             if not (key.startswith('_') or value is None
                     or isinstance(value,
                         (types.MethodType, RelationshipManager, AliasProperty,))):
@@ -42,7 +42,7 @@ class PropertyManager(object):
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in items(cls._class_properties()):
+        for key, prop in cls._class_properties().items():
             if (issubclass(prop.__class__, Property)
                     and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
@@ -55,6 +55,21 @@ class PropertyManager(object):
         snode = cls(**props)
         snode.__node__ = node
         return snode
+
+    @classmethod
+    def deflate(cls, node_props, node_id=None):
+        """ deflate dict ready to be stored """
+        deflated = {}
+        for key, prop in cls._class_properties().items():
+            if (not isinstance(prop, AliasProperty)
+                    and issubclass(prop.__class__, Property)):
+                if key in node_props and node_props[key] is not None:
+                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
+                elif prop.has_default:
+                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
+                elif prop.required:
+                    raise RequiredProperty(key, cls)
+        return deflated
 
     @classmethod
     def get_property(cls, name):
@@ -73,7 +88,7 @@ class PropertyManager(object):
         # reverse is done to keep inheritance order
         props = {}
         for scls in reversed(cls.mro()):
-            for key, value in items(scls.__dict__):
+            for key, value in scls.__dict__.items():
                 props[key] = value
         return props
 

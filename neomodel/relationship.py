@@ -17,9 +17,16 @@ class RelationshipMeta(type):
         return inst
 
 
-RelationshipBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
+StructuredRelBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
 
 
-class Relationship(RelationshipBase):
+class StructuredRel(StructuredRelBase):
     def __init__(self, *args, **kwargs):
-        super(Relationship, self).__init__(*args, **kwargs)
+        super(StructuredRel, self).__init__(*args, **kwargs)
+
+    def save(self):
+        props = self.deflate(self.__properties__, self.__relationship__)
+        self.__relationship__.set_properties(props)
+
+    def delete(self):
+        raise Exception("Can not delete relationships use 'disconnect'")

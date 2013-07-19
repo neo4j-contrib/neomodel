@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 from .relationship_manager import RelationshipDefinition, rel_helper, INCOMING
-from .util import items
-=======
-from .relationship import RelationshipDefinition, rel_helper, INCOMING
->>>>>>> master
 from copy import deepcopy
 import re
 
@@ -148,6 +143,15 @@ class AstBuilder(object):
         if hasattr(self, '_limit'):
             ast.append({'limit': int(self._limit)})
 
+    def _add_return_rels(self, ast):
+        node = last_x_in_ast(ast, 'name')
+        idents = [node['match'][0]['ident']]
+        ast.append({'return': idents})
+        if hasattr(self, '_skip'):
+            ast.append({'skip': int(self._skip)})
+        if hasattr(self, '_limit'):
+            ast.append({'limit': int(self._limit)})
+
     def _set_order(self, ident_prop, desc=False):
         if not '.' in ident_prop:
             ident_prop = last_x_in_ast(self.ast, 'name')['name'] + '.' + ident_prop
@@ -166,6 +170,8 @@ class AstBuilder(object):
             raise NotImplemented("Order already set")
 
     def _add_return_count(self, ast):
+        if hasattr(self, '_skip') or hasattr(self, '_limit'):
+            raise NotImplemented("Can't use skip or limit with count")
         node = last_x_in_ast(ast, 'name')
         ident = ['count(' + node['name'] + ')']
         node = last_x_in_ast(ast, 'name')
@@ -182,7 +188,11 @@ class AstBuilder(object):
         self.last_ast = ast
         return results
 
-    def execute_and_inflate(self, ast):
+    def execute_and_inflate_rels(self, ast):
+        results = self.execute(ast)
+        rels = [row[0] for row in results]
+
+    def execute_and_inflate_nodes(self, ast):
         target_map = last_x_in_ast(ast, 'target_map')['target_map']
         results = self.execute(ast)
         nodes = [row[0] for row in results]
@@ -225,10 +235,15 @@ class TraversalSet(AstBuilder):
         self._limit = int(count)
         return self
 
+    def rels(self):
+        ast = deepcopy(self.ast)
+        self._add_return_rels(ast)
+        return self.execute_and_inflate_rels(ast)
+
     def run(self):
         ast = deepcopy(self.ast)
         self._add_return(ast)
-        return self.execute_and_inflate(ast)
+        return self.execute_and_inflate_nodes(ast)
 
     def __iter__(self):
         return iter(self.run())

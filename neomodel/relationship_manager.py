@@ -97,12 +97,21 @@ class RelationshipManager(object):
         q = "START us=node({self}), them=node({them}) CREATE UNIQUE " + new_rel
 
         params = {'them': obj.__node__.id}
-        # copy over properties if we have
+        # set propeties via rel model
+        if self.definition['model']:
+            rel_model = self.definition['model']
+            rel_instance = rel_model(**properties) if properties else rel_model()
+            for p, v in rel_model.deflate(rel_instance.__properties__).items():
+                params['place_holder_' + p] = v
+                q += " SET r." + p + " = {place_holder_" + p + "}"
+            rel_instance.__relationship__, = self.origin.cypher(q + " RETURN r", params)[0][0]
+            return rel_instance
+
+        # set properties
         if properties:
             for p, v in properties.items():
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
-
         self.origin.cypher(q, params)
 
     def reconnect(self, old_obj, new_obj):
@@ -139,13 +148,15 @@ class RelationshipManager(object):
 
 
 class RelationshipDefinition(object):
-    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager):
+    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
         self.module_name = sys._getframe(4).f_globals['__name__']
         self.node_class = cls_name
         self.manager = manager
-        self.definition = {}
-        self.definition['relation_type'] = relation_type
-        self.definition['direction'] = direction
+        self.definition = {
+            'model': model,
+            'relation_type': relation_type,
+            'direction': direction
+        }
 
     def _lookup(self, name):
         if name.find('.') is -1:
@@ -178,19 +189,22 @@ class ZeroOrMore(RelationshipManager):
     description = "zero or more relationships"
 
 
-def _relate(cls_name, direction, rel_type, cardinality=None):
+def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
     if not isinstance(cls_name, (str, list, object)):
         raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
-    return RelationshipDefinition(rel_type, cls_name, direction, cardinality)
+    from .relationship import StructuredRel
+    if model and not issubclass(model, (StructuredRel,)):
+        raise Exception('model must be a StructuredRel')
+    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore):
-    return _relate(cls_name, OUTGOING, rel_type, cardinality)
+def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
+    return _relate(cls_name, OUTGOING, rel_type, cardinality, model)
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore):
-    return _relate(cls_name, INCOMING, rel_type, cardinality)
+def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
+    return _relate(cls_name, INCOMING, rel_type, cardinality, model)
 
 
-def Relationship(cls_name, rel_type, cardinality=ZeroOrMore):
-    return _relate(cls_name, EITHER, rel_type, cardinality)
+def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
+    return _relate(cls_name, EITHER, rel_type, cardinality, model)

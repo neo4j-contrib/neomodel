@@ -1,11 +1,8 @@
 from py2neo import neo4j, cypher
-from .exception import DoesNotExist, RequiredProperty, CypherException
+from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
-from .properties import Property, AliasProperty
-from .properties import Property, AliasProperty, PropertyManager
+from .properties import Property, PropertyManager
 from .relationship_manager import RelationshipManager, OUTGOING
-from .exception import (DoesNotExist, RequiredProperty, CypherException,
-        NoSuchProperty)
 from .traversal import TraversalSet
 from .signals import hooks
 from .index import NodeIndexManager
@@ -160,21 +157,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             cls._update_indexes(i, deflated[i], batch)
         results = batch.submit()
         return [cls.inflate(node) for node in results[:len(props)]]
-
-    @classmethod
-    def deflate(cls, node_props, node_id=None):
-        """ deflate dict ready to be stored """
-        deflated = {}
-        for key, prop in cls._class_properties().items():
-            if (not isinstance(prop, AliasProperty)
-                    and issubclass(prop.__class__, Property)):
-                if key in node_props and node_props[key] is not None:
-                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
-                elif prop.has_default:
-                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
-                elif prop.required:
-                    raise RequiredProperty(key, cls)
-        return deflated
 
     @classmethod
     def relationship_type(cls):
