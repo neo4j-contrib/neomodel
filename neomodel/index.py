@@ -36,15 +36,25 @@ class NodeIndexManager(object):
         return self.__index__.query(query)
 
     def search(self, query=None, **kwargs):
-        """ Load multiple nodes via index """
+        """Search nodes using an via index"""
         if not query:
+            if not kwargs:
+                msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
+                msg += " or (lucene query): {0}.index.search('key:val').\n"
+                msg += "To retrieve all nodes use the category node: {0}.category().instance.all()"
+                raise ValueError(msg.format(self.node_class.__name__))
             self._check_params(kwargs)
             query = ','.join([k + ':' + lucene_esc(v) for k, v in kwargs.items()])
 
         return [self.node_class.inflate(n) for n in self._execute(str(query))]
 
     def get(self, query=None, **kwargs):
-        """ Load single node via index """
+        """Load single node from index lookup"""
+        if not query and not kwargs:
+            msg = "No arguments provided.\nUsage: {0}.index.get(key=val)"
+            msg += " or (lucene query): {0}.index.get('key:val')."
+            raise ValueError(msg.format(self.node_class.__name__))
+
         nodes = self.search(query=query, **kwargs)
         if len(nodes) == 1:
             return nodes[0]

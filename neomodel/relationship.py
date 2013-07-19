@@ -23,4 +23,3 @@ RelationshipBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
 class Relationship(RelationshipBase):
     def __init__(self, *args, **kwargs):
         super(Relationship, self).__init__(*args, **kwargs)
-

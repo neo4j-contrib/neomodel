@@ -7,6 +7,7 @@ import time
 import pytz
 import json
 import sys
+import functools
 
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
@@ -79,13 +80,14 @@ class PropertyManager(object):
 
 def validator(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
-    if fn_name is 'inflate':
+    if fn_name == 'inflate':
         exc_class = InflateError
     elif fn_name == 'deflate':
         exc_class = DeflateError
     else:
-        raise Exception("Unknown Property method " + fn.func_name)
+        raise Exception("Unknown Property method " + fn_name)
 
+    @functools.wraps(fn)
     def validator(self, value, node_id=None):
         try:
             return fn(self, value)
@@ -131,6 +133,9 @@ class StringProperty(Property):
     def deflate(self, value):
         return unicode(value)
 
+    def default_value(self):
+        return unicode(super(StringProperty, self).default_value())
+
 
 class IntegerProperty(Property):
     @validator
@@ -140,6 +145,9 @@ class IntegerProperty(Property):
     @validator
     def deflate(self, value):
         return int(value)
+
+    def default_value(self):
+        return int(super(IntegerProperty, self).default_value())
 
 
 class FloatProperty(Property):
@@ -151,6 +159,9 @@ class FloatProperty(Property):
     def deflate(self, value):
         return float(value)
 
+    def default_value(self):
+        return float(super(FloatProperty, self).default_value())
+
 
 class BooleanProperty(Property):
     @validator
@@ -160,6 +171,9 @@ class BooleanProperty(Property):
     @validator
     def deflate(self, value):
         return bool(value)
+
+    def default_value(self):
+        return bool(super(BooleanProperty, self).default_value())
 
 
 class DateProperty(Property):

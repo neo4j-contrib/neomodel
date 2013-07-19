@@ -36,7 +36,7 @@ class LocalisedIndexManager(NodeIndexManager):
             RETURN lnode
             """ % (self.name)  # set index name
         result, meta = locale.cypher(cquery, {'query': query})
-        return result[0] if result else []
+        return [row[0] for row in result] if result else []
 
 
 class Localised(object):

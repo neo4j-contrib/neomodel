@@ -138,3 +138,22 @@ def test_default_value_callable():
 
     a = DefaultTestValueTwo().save()
     assert a.uid == 'xx'
+
+
+def test_default_valude_callable_type():
+    # check our object gets converted to str without serializing and reload
+    def factory():
+        class Foo(object):
+            def __str__(self):
+                return "123"
+        return Foo()
+
+    class DefaultTestValueThree(StructuredNode):
+        uid = StringProperty(default=factory, index=True)
+
+    x = DefaultTestValueThree()
+    assert x.uid == '123'
+    x.save()
+    assert x.uid == '123'
+    x.refresh()
+    assert x.uid == '123'

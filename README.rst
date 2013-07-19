@@ -48,14 +48,6 @@ Create, save delete etc::
     jim.delete()
     jim.refresh() # reload properties from neo
 
-Batch create (atomic) which also validates and indexes::
-
-    people = Person.create(
-        {'name': 'Tim', 'age': 83},
-        {'name': 'Bob', 'age': 23},
-        {'name': 'Jill', 'age': 34},
-    )
-
 Using relationships::
 
     germany = Country(code='DE').save()
@@ -174,6 +166,20 @@ You can define relations of a single type to different `StructuredNode` classes.
 
 Remember that when traversing the `has_a` relation you will retrieve objects of different types.
 
+Batch create
+------------
+Atomically create multiple nodes in a single operation::
+
+    people = Person.create(
+        {'name': 'Tim', 'age': 83},
+        {'name': 'Bob', 'age': 23},
+        {'name': 'Jill', 'age': 34},
+    )
+
+This is useful for creating large sets of data. It's worth experimenting with the size of batches
+to find the optimum performance suggestions on size around 300 - 500.
+
+
 Hooks and Signals
 -----------------
 You may define the following hook methods on your nodes::
@@ -229,6 +235,10 @@ The *DateProperty* accepts datetime.date objects which are stored as a string pr
 
         from uuid import uuid4
         my_id = StringProperty(unique_index=True, default=uuid4)
+
+You may provide arguments using a wrapper function or lambda::
+
+        my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
 The *AliasProperty* a special property for aliasing other properties and providing 'magic' behaviour::
 
