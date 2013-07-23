@@ -149,14 +149,21 @@ class RelationshipDefinition(object):
         self.definition['direction'] = direction
 
     def _lookup(self, name):
-        if name.find('.') is -1:
+        if name.find('.') == -1:
             module = self.module_name
         else:
             module, _, name = name.rpartition('.')
 
         if not module in sys.modules:
-            module = import_module(
-                module, self.module_name.rpartition('.')[0]).__name__
+            # load a module from a namespace (e.g. excpeption from neomodel)
+            if module:
+                module = import_module(module,
+                    self.module_name.rpartition('.')[0]).__name__
+            # load the namespace itself (e.g. neomodel)
+            # (otherwise it would look like import . from neomodel)
+            else:
+                module = import_module(
+                    self.module_name.rpartition('.')[0]).__name__
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
