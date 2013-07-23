@@ -155,7 +155,8 @@ class RelationshipDefinition(object):
             module, _, name = name.rpartition('.')
 
         if not module in sys.modules:
-            return import_module(module, self.module_name.rpartition('.')[0])
+            module = import_module(
+                module, self.module_name.rpartition('.')[0]).__name__
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
