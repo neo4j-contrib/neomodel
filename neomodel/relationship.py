@@ -1,5 +1,6 @@
 from py2neo import neo4j
 import sys
+from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import camel_to_upper
 
@@ -154,7 +155,8 @@ class RelationshipDefinition(object):
             module, _, name = name.rpartition('.')
 
         if not module in sys.modules:
-            __import__(module)
+            module = import_module(
+                module, self.module_name.rpartition('.')[0]).__name__
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
