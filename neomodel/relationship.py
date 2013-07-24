@@ -162,19 +162,19 @@ class RelationshipDefinition(object):
             # therefore there's a need to define the namespace differently for
             # these two cases in order for . in relative imports to work correctly
             # (i.e. to mean the same thing for both cases).
-            # For example in the comments below, namespace == neomodel, always
+            # For example in the comments below, namespace == myapp, always
             if '__init__.py' in self.module_file:
-                # e.g. neomodel/__init__.py -[__name__]-> neomodel
+                # e.g. myapp/__init__.py -[__name__]-> myapp
                 namespace = self.module_name
             else:
-                # e.g. neomodel/relationship.py -[__name__]-> neomodel.relationship
+                # e.g. myapp/models.py -[__name__]-> myapp.models
                 namespace = self.module_name.rpartition('.')[0]
 
-            # load a module from a namespace (e.g. excpeption from neomodel)
+            # load a module from a namespace (e.g. models from myapp)
             if module:
                 module = import_module(module, namespace).__name__
-            # load the namespace itself (e.g. neomodel)
-            # (otherwise it would look like import . from neomodel)
+            # load the namespace itself (e.g. myapp)
+            # (otherwise it would look like import . from myapp)
             else:
                 module = import_module(namespace).__name__
         return getattr(sys.modules[module], name)
