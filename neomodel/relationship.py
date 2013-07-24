@@ -27,6 +27,13 @@ class StructuredRel(StructuredRelBase):
     def save(self):
         props = self.deflate(self.__properties__, self.__relationship__)
         self.__relationship__.set_properties(props)
+        return self
 
     def delete(self):
-        raise Exception("Can not delete relationships use 'disconnect'")
+        raise Exception("Can not delete relationships please use 'disconnect'")
+
+    def start_node(self):
+        return self._start_node_class.inflate(self.__relationship__.start_node)
+
+    def end_node(self):
+        return self._end_node_class.inflate(self.__relationship__.end_node)

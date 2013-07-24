@@ -1,7 +1,7 @@
 from py2neo import neo4j, cypher
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
-from .properties import Property, PropertyManager
+from .properties import Property, PropertyManager, AliasProperty
 from .relationship_manager import RelationshipManager, OUTGOING
 from .traversal import TraversalSet
 from .signals import hooks
@@ -157,6 +157,23 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             cls._update_indexes(i, deflated[i], batch)
         results = batch.submit()
         return [cls.inflate(node) for node in results[:len(props)]]
+
+    @classmethod
+    def inflate(cls, node):
+        props = {}
+        for key, prop in cls._class_properties().items():
+            if (issubclass(prop.__class__, Property)
+                    and not isinstance(prop, AliasProperty)):
+                if key in node.__metadata__['data']:
+                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                elif prop.has_default:
+                    props[key] = prop.default_value()
+                else:
+                    props[key] = None
+
+        snode = cls(**props)
+        snode.__node__ = node
+        return snode
 
     @classmethod
     def relationship_type(cls):

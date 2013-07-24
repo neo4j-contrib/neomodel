@@ -94,20 +94,28 @@ class RelationshipManager(object):
                     + allowed_cls + " got " + obj.__class__.__name__)
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "START us=node({self}), them=node({them}) CREATE UNIQUE " + new_rel
-
+        q = "START them=node({them}), us=node({self}) CREATE UNIQUE " + new_rel
         params = {'them': obj.__node__.id}
+
         # set propeties via rel model
         if self.definition['model']:
             rel_model = self.definition['model']
             rel_instance = rel_model(**properties) if properties else rel_model()
+
+            if self.definition['direction'] == INCOMING:
+                rel_instance._start_node_class = obj.__class__
+                rel_instance._end_node_class = self.origin.__class__
+            else:
+                rel_instance._start_node_class = self.origin.__class__
+                rel_instance._end_node_class = obj.__class__
+
             for p, v in rel_model.deflate(rel_instance.__properties__).items():
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
             rel_instance.__relationship__, = self.origin.cypher(q + " RETURN r", params)[0][0]
             return rel_instance
 
-        # set properties
+        # OR.. set properties schemaless
         if properties:
             for p, v in properties.items():
                 params['place_holder_' + p] = v

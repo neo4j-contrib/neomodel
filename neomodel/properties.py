@@ -40,23 +40,6 @@ class PropertyManager(object):
         return node_props
 
     @classmethod
-    def inflate(cls, node):
-        props = {}
-        for key, prop in cls._class_properties().items():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
-
-        snode = cls(**props)
-        snode.__node__ = node
-        return snode
-
-    @classmethod
     def deflate(cls, node_props, node_id=None):
         """ deflate dict ready to be stored """
         deflated = {}
