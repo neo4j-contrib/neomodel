@@ -142,6 +142,7 @@ class RelationshipManager(object):
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager):
         self.module_name = sys._getframe(4).f_globals['__name__']
+        self.module_file = sys._getframe(4).f_globals['__file__']
         self.node_class = cls_name
         self.manager = manager
         self.definition = {}
@@ -155,15 +156,27 @@ class RelationshipDefinition(object):
             module, _, name = name.rpartition('.')
 
         if not module in sys.modules:
+            # yet another hack to get around python semantics
+            # __name__ is the namespace of the parent module for __init__.py files,
+            # and the namespace of the current module for other .py files,
+            # therefore there's a need to define the namespace differently for
+            # these two cases in order for . in relative imports to work correctly
+            # (i.e. to mean the same thing for both cases).
+            # For example in the comments below, namespace == neomodel, always
+            if '__init__.py' in self.module_file:
+                # e.g. neomodel/__init__.py -[__name__]-> neomodel
+                namespace = self.module_name
+            else:
+                # e.g. neomodel/relationship.py -[__name__]-> neomodel.relationship
+                namespace = self.module_name.rpartition('.')[0]
+
             # load a module from a namespace (e.g. excpeption from neomodel)
             if module:
-                module = import_module(module,
-                    self.module_name.rpartition('.')[0]).__name__
+                module = import_module(module, namespace).__name__
             # load the namespace itself (e.g. neomodel)
             # (otherwise it would look like import . from neomodel)
             else:
-                module = import_module(
-                    self.module_name.rpartition('.')[0]).__name__
+                module = import_module(namespace).__name__
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
