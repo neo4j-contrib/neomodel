@@ -40,16 +40,16 @@ class PropertyManager(object):
         return node_props
 
     @classmethod
-    def deflate(cls, node_props, node_id=None):
+    def deflate(cls, obj_props, obj=None):
         """ deflate dict ready to be stored """
         deflated = {}
         for key, prop in cls._class_properties().items():
             if (not isinstance(prop, AliasProperty)
                     and issubclass(prop.__class__, Property)):
-                if key in node_props and node_props[key] is not None:
-                    deflated[key] = prop.deflate(node_props[key], node_id=node_id)
+                if key in obj_props and obj_props[key] is not None:
+                    deflated[key] = prop.deflate(obj_props[key], obj)
                 elif prop.has_default:
-                    deflated[key] = prop.deflate(prop.default_value(), node_id=node_id)
+                    deflated[key] = prop.deflate(prop.default_value(), obj)
                 elif prop.required:
                     raise RequiredProperty(key, cls)
         return deflated
@@ -86,11 +86,11 @@ def validator(fn):
         raise Exception("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
-    def validator(self, value, node_id=None):
+    def validator(self, value, obj=None):
         try:
             return fn(self, value)
         except Exception as e:
-            raise exc_class(self.name, self.owner, str(e), node_id)
+            raise exc_class(self.name, self.owner, str(e), obj)
     return validator
 
 
@@ -222,11 +222,11 @@ class AliasProperty(property, Property):
     def aliased_to(self):
         return self.target
 
-    def __get__(self, node, cls):
-        return getattr(node, self.aliased_to()) if node else self
+    def __get__(self, obj, cls):
+        return getattr(obj, self.aliased_to()) if obj else self
 
-    def __set__(self, node, value):
-        setattr(node, self.aliased_to(), value)
+    def __set__(self, obj, value):
+        setattr(obj, self.aliased_to(), value)
 
     @property
     def index(self):

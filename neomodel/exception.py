@@ -67,28 +67,37 @@ class CypherException(Exception):
             self.java_exception, self.message, self.query, repr(self.query_parameters), trace)
 
 
+def _obj_to_str(obj):
+    if not obj:
+        return "object"
+    if obj.__class__.__name__ == 'Node':
+        return "node ({0})".format(obj.id)
+    else:
+        return "relationship ({0})".format(obj.id)
+
+
 class InflateError(ValueError):
-    def __init__(self, key, cls, msg, nid):
+    def __init__(self, key, cls, msg, obj=None):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.node_id = "node {0}".format(nid) if nid else "object"
+        self.obj = _obj_to_str(obj)
 
     def __str__(self):
         return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
-                self.property_name, self.node_id, self.node_class.__name__, self.msg)
+                self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
 class DeflateError(ValueError):
-    def __init__(self, key, cls, msg, nid):
+    def __init__(self, key, cls, msg, obj):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.node_id = "node {0}".format(nid) if nid else "object"
+        self.obj = _obj_to_str(obj)
 
     def __str__(self):
         return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
-                self.property_name, self.node_id, self.node_class.__name__, self.msg)
+                self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
 class NoSuchProperty(Exception):

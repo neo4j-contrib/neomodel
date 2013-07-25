@@ -1,4 +1,4 @@
-from .properties import Property, PropertyManager
+from .properties import Property, PropertyManager, AliasProperty
 
 
 class RelationshipMeta(type):
@@ -37,3 +37,19 @@ class StructuredRel(StructuredRelBase):
 
     def end_node(self):
         return self._end_node_class.inflate(self.__relationship__.end_node)
+
+    @classmethod
+    def inflate(cls, rel):
+        props = {}
+        for key, prop in cls._class_properties().items():
+            if (issubclass(prop.__class__, Property)
+                    and not isinstance(prop, AliasProperty)):
+                if key in rel.__metadata__['data']:
+                    props[key] = prop.inflate(rel.__metadata__['data'][key], obj=rel)
+                elif prop.has_default:
+                    props[key] = prop.default_value()
+                else:
+                    props[key] = None
+        srel = cls(**props)
+        srel.__relationship__ = rel
+        return srel

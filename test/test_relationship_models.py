@@ -1,5 +1,5 @@
 from neomodel import (StructuredNode, StructuredRel, Relationship, RelationshipTo,
-        StringProperty, DateTimeProperty)
+        StringProperty, DateTimeProperty, DeflateError)
 from datetime import datetime
 import pytz
 
@@ -14,12 +14,13 @@ class HatesRel(FriendRel):
 
 class Badger(StructuredNode):
     name = StringProperty(unique_index=True)
-    friend = Relationship(['Badger'], 'FRIEND', model=FriendRel)
+    friend = Relationship('Badger', 'FRIEND', model=FriendRel)
+    hates = RelationshipTo('Stoat', 'HATES', model=HatesRel)
 
 
 class Stoat(StructuredNode):
     name = StringProperty(unique_index=True)
-    hates = RelationshipTo(['Badger'], 'HATES', model=FriendRel)
+    hates = RelationshipTo('Badger', 'HATES', model=HatesRel)
 
 
 def test_either_connect_with_rel_model():
@@ -62,3 +63,25 @@ def test_direction_connect_with_rel_model():
 
     assert ian.name.startswith("Ian")
     assert paul.name.startswith("Paul")
+
+    rel = ian.hates.relationship(paul)
+    assert isinstance(rel, HatesRel)
+    assert isinstance(rel.since, datetime)
+    rel.save()
+
+    # test deflate checking
+    rel.since = "2:30pm"
+    try:
+        rel.save()
+    except DeflateError:
+        assert True
+    else:
+        assert False
+
+    # check deflate check via connect
+    try:
+        paul.hates.connect(ian, {'reason': "thinks paul should bath more often", 'since': '2:30pm'})
+    except DeflateError:
+        assert True
+    else:
+        assert False

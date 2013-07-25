@@ -165,7 +165,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             if (issubclass(prop.__class__, Property)
                     and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                    props[key] = prop.inflate(node.__metadata__['data'][key], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:

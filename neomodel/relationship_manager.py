@@ -74,24 +74,28 @@ class RelationshipManager(object):
         return t.run()
 
     def is_connected(self, obj):
+        self._check_node(obj)
+
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self}), b=node({them}) MATCH" + rel + "RETURN count(r)"
         return bool(self.origin.cypher(q, {'them': obj.__node__.id})[0][0][0])
 
-    def connect(self, obj, properties=None):
-        if not hasattr(obj, '__node__'):
-            raise Exception("Can't create relationship to unsaved node")
-
-        # check for valid node class
-        node_class = None
+    def _check_node(self, obj):
+        """check for valid target node i.e correct class and is saved"""
         for rel_type, cls in self.target_map.items():
             if obj.__class__ is cls:
-                node_class = cls
-        if not node_class:
-            allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
-                                     for tcls, _ in self.target_map.items()])
-            raise Exception("connect expected objects of class "
-                    + allowed_cls + " got " + obj.__class__.__name__)
+                if not hasattr(obj, '__node__'):
+                    raise Exception("Can't preform operation on unsaved node " + repr(obj))
+                return
+
+        allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
+                                 for tcls, _ in self.target_map.items()])
+        raise Exception("Expected node objects of class "
+                + allowed_cls + " got " + repr(obj)
+                + " see relationship definition in " + self.origin.__class__.__name__)
+
+    def connect(self, obj, properties=None):
+        self._check_node(obj)
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "START them=node({them}), us=node({self}) CREATE UNIQUE " + new_rel
@@ -122,7 +126,34 @@ class RelationshipManager(object):
                 q += " SET r." + p + " = {place_holder_" + p + "}"
         self.origin.cypher(q, params)
 
+    def relationship(self, obj):
+        """Return relationship of managers type and supplied node"""
+        self._check_node(obj)
+        if not 'model' in self.definition:
+            raise NotImplemented("'relationship' method only available on relationships"
+                    + " that have a model defined")
+
+        rel_model = self.definition['model']
+
+        new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        q = "START them=node({them}), us=node({self}) MATCH " + new_rel + " RETURN r"
+        rel, = self.origin.cypher(q, {'them': obj.__node__.id})[0][0]
+        if not rel:
+            return
+        rel_instance = rel_model.inflate(rel)
+
+        if self.definition['direction'] == INCOMING:
+            rel_instance._start_node_class = obj.__class__
+            rel_instance._end_node_class = self.origin.__class__
+        else:
+            rel_instance._start_node_class = self.origin.__class__
+            rel_instance._end_node_class = obj.__class__
+        return rel_instance
+
     def reconnect(self, old_obj, new_obj):
+        """reconnect: old_node, new_node"""
+        self._check_node(old_obj)
+        self._check_node(new_obj)
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
