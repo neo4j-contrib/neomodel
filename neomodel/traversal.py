@@ -188,10 +188,6 @@ class AstBuilder(object):
         self.last_ast = ast
         return results
 
-    def execute_and_inflate_rels(self, ast):
-        results = self.execute(ast)
-        rels = [row[0] for row in results]
-
     def execute_and_inflate_nodes(self, ast):
         target_map = last_x_in_ast(ast, 'target_map')['target_map']
         results = self.execute(ast)
@@ -234,11 +230,6 @@ class TraversalSet(AstBuilder):
             raise ValueError("Negative limit value not supported")
         self._limit = int(count)
         return self
-
-    def rels(self):
-        ast = deepcopy(self.ast)
-        self._add_return_rels(ast)
-        return self.execute_and_inflate_rels(ast)
 
     def run(self):
         ast = deepcopy(self.ast)
