@@ -56,7 +56,7 @@ class SemiStructuredNode(StructuredNode):
             if (issubclass(prop.__class__, Property)
                     and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node_id=node.id)
+                    props[key] = prop.inflate(node.__metadata__['data'][key], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:
@@ -72,10 +72,10 @@ class SemiStructuredNode(StructuredNode):
         return snode
 
     @classmethod
-    def deflate(cls, node_props, node_id=None):
-        deflated = super(SemiStructuredNode, cls).deflate(node_props, node_id)
+    def deflate(cls, node_props, obj=None):
+        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
-                raise DeflateConflict(cls, key, deflated[key], node_id)
+                raise DeflateConflict(cls, key, deflated[key], obj.id)
         node_props.update(deflated)
         return node_props
