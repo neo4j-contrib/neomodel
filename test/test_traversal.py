@@ -95,5 +95,13 @@ def test_order_by_skip_limit():
 
 def test_where_clause():
     terrance = setup_shopper('Terrance', 'Teriesa')
-    results = terrance.traverse('friend').where('name', '=', 'Teriesa').where('age?', '>', 7).limit(1).run()
+    results = terrance.traverse('friend').where('name', '=', 'Teriesa').limit(1).run()
     assert results[0].name == 'Teriesa'
+
+    # clause with property that doesn't exist
+    try:
+        terrance.traverse('friend').where('age?', '>', 7).run()
+    except ValueError:
+        assert True
+    else:
+        assert False

@@ -3,6 +3,29 @@ from copy import deepcopy
 import re
 
 
+def _deflate_node_value(target_map, prop, value):
+    prop = prop.replace('!', '').replace('?', '')
+    property_classes = set()
+    # find properties on target classes
+    for node_cls in target_map.values():
+        if hasattr(node_cls, prop):
+            property_classes.add(getattr(node_cls, prop).__class__)
+
+    # attempt to deflate
+    if len(property_classes) == 1:
+        return property_classes.pop()().deflate(value)
+    elif len(property_classes) > 1:
+        classes = ' or '.join([cls.__name__ for cls in property_classes])
+        node_classes = ' or '.join([cls.__name__ for cls in target_map.values()])
+        raise ValueError("Unsure how to deflate '" + value + "' conflicting definitions "
+                + " for target node classes " + node_classes + ", property could be any of: "
+                + classes + " in where()")
+    else:
+        node_classes = ', '.join([cls.__name__ for cls in target_map.values()])
+        raise ValueError("No property '{}' on {} can't deflate '{}' for where()".format(
+            prop, node_classes, value))
+
+
 def last_x_in_ast(ast, x):
     assert isinstance(ast, (list,))
     for node in reversed(ast):
@@ -31,12 +54,16 @@ class AstBuilder(object):
             'class': self.start_node.__class__, 'name': 'origin'}]
         self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
 
-    def _traverse(self, rel_manager):
+    def _traverse(self, rel_manager, where):
         if len(self.ast) > 1:
             t = self._find_map(self.ast[-2]['target_map'], rel_manager)
         else:
             t = getattr(self.start_node, rel_manager).definition
             t['name'] = rel_manager
+
+        if where and not 'model' in t:
+            raise Exception("'where' argument to traverse only "
+                    + "available to relationships with a model definied")
 
         match, where = self._build_match_ast(t)
         self._add_match(match)
@@ -68,7 +95,7 @@ class AstBuilder(object):
         self.ident_count += 1
         return 'r' + str(self.ident_count)
 
-    def _build_match_ast(self, target):
+    def _build_match_ast(self, target, where=None):
         rel_to_traverse = {
             'lhs': last_x_in_ast(self.ast, 'name')['name'],
             'direction': target['direction'],
@@ -83,6 +110,10 @@ class AstBuilder(object):
             'target_map': target['target_map']
         }
 
+        where_clause = []
+        if where:
+            where_clause = self._where_rel(where, rel_to_traverse['ident'])
+
         # if we aren't category node or already traversed one rel
         if not self.origin_is_category or len(self.ast) > 1:
             category_rel_ident = self._create_ident()
@@ -94,9 +125,9 @@ class AstBuilder(object):
                 'rhs': ''
             })
             # Add where
-            return match, [category_rel_ident + '.__instance__! = true']
+            where_clause.append(category_rel_ident + '.__instance__! = true')
 
-        return match, []
+        return match, where_clause
 
     def _find_map(self, target_map, rel_manager):
         targets = []
@@ -118,19 +149,29 @@ class AstBuilder(object):
         # return as list if more than one
         return targets if len(targets) > 1 else targets[0]
 
-    def _add_filter(self, ident_prop, op, value):
+    def _where_node(self, ident_prop, op, value):
         if re.search(r'[^\w\?\!\.]', ident_prop):
             raise Exception("Invalid characters in ident allowed: [. \w ! ?]")
+        target = last_x_in_ast(self.ast, 'name')
         if not '.' in ident_prop:
-            ident_prop = last_x_in_ast(self.ast, 'name')['name'] + '.' + ident_prop
+            prop = ident_prop
+            ident_prop = target['name'] + '.' + ident_prop
+        else:
+            prop = ident_prop.split('.')[1]
+        value = _deflate_node_value(target['target_map'], prop, value)
+        return self._where_expr(ident_prop, op, value)
 
+    def _where_rel(self, statements, ident):
+        # TODO need to deflate on values
+        pass
+
+    def _where_expr(self, ident_prop, op, value):
         if not op in ['>', '<', '=', '<>', '=~']:
             raise Exception("Operator not supported: " + op)
-
         placeholder = re.sub('[!?]', '', ident_prop.replace('.', '_'))
         placeholder = unique_placeholder(placeholder, self.query_params)
         self.query_params[placeholder] = value
-        self._add_where([" ".join([ident_prop, op, '{' + placeholder + '}'])])
+        return " ".join([ident_prop, op, '{' + placeholder + '}'])
 
     def _add_return(self, ast):
         node = last_x_in_ast(ast, 'name')
@@ -201,10 +242,10 @@ class TraversalSet(AstBuilder):
     def __init__(self, start_node):
         super(TraversalSet, self).__init__(start_node)
 
-    def traverse(self, rel):
+    def traverse(self, rel, where=None):
         if not self.start_node.__node__:
             raise Exception("Cannot traverse unsaved node")
-        self._traverse(rel)
+        self._traverse(rel, where)
         return self
 
     def order_by(self, prop):
@@ -216,7 +257,8 @@ class TraversalSet(AstBuilder):
         return self
 
     def where(self, ident, op, value):
-        self._add_filter(ident, op, value)
+        expr = self._where_node(ident, op, value)
+        self._add_where([expr])
         return self
 
     def skip(self, count):

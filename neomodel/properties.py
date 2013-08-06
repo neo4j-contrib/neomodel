@@ -1,7 +1,6 @@
-from neomodel.exception import InflateError, DeflateError, RequiredProperty
+from .exception import InflateError, DeflateError, RequiredProperty, NoSuchProperty
 from datetime import datetime, date
 from .relationship_manager import RelationshipDefinition, RelationshipManager
-from .exception import NoSuchProperty
 import types
 import time
 import pytz
