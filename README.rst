@@ -243,6 +243,12 @@ Or as a lucene query string::
 
     sarah = Human.index.search('name:sar*')
 
+Specify a custom index name for a class::
+
+    class Badger(StructuredNode):
+        __index__ = 'MyBadgers'
+        name = StringProperty(unique_index=True)
+
 Properties
 ----------
 The following properties are available::

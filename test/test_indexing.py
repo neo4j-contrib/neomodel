@@ -91,3 +91,19 @@ def test_index_inherited_props():
     assert MixedHuman.index.name == 'MixedHuman'
     node = MixedHuman.index.get(extra='extra')
     assert node.name == jim.name
+
+
+def test_custom_index_name():
+    class Giraffe(StructuredNode):
+        __index__ = 'GiraffeIndex'
+        name = StringProperty(unique_index=True)
+
+    jim = Giraffe(name='timothy').save()
+    assert Giraffe.index.name == 'GiraffeIndex'
+    node = Giraffe.index.get(name='timothy')
+    assert node.name == jim.name
+
+    class SpecialGiraffe(Giraffe):
+        power = StringProperty()
+
+    assert SpecialGiraffe.index.name != 'GiraffeIndex'

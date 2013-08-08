@@ -74,6 +74,8 @@ class StructuredNodeMeta(type):
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
+            if '__index__' in dct:
+                name = dct['__index__']
             inst.index = NodeIndexManager(inst, name)
         return inst
 

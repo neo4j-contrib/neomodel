@@ -1,4 +1,5 @@
 Version 0.3.6 unreleased
+ * Enable custom indexes for StructuredNodes
  * Support for relationship models or 'StructuredRels'
  * Support filtering in the 'traverse' method (Robin Edwards)
  * Store datetime objects as float for more accuracy (Robin Edwards)
