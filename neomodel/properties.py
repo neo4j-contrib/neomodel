@@ -1,12 +1,14 @@
 from .exception import InflateError, DeflateError, RequiredProperty, NoSuchProperty
 from datetime import datetime, date
 from .relationship_manager import RelationshipDefinition, RelationshipManager
+import os
 import types
-import time
 import pytz
 import json
 import sys
 import functools
+import logging
+logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
@@ -190,16 +192,22 @@ class DateTimeProperty(Property):
     @validator
     def inflate(self, value):
         try:
-            epoch = int(value)
+            epoch = float(value)
         except ValueError:
-            raise ValueError('integer expected, got {0} cant inflate to datetime'.format(value))
+            raise ValueError('float or integer expected, got {0} cant inflate to datetime'.format(value))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}'.format(value))
-        return time.mktime(value.utctimetuple())
+        if value.tzinfo:
+            value = value.astimezone(pytz.utc)
+        elif os.environ.get('NEOMODEL_FORCE_TIMEZONE', False):
+            raise ValueError("Error deflating {} no timezone provided".format(value))
+        else:
+            logger.warning("No timezone sepecified on datetime object.. will be inflated to UTC")
+        return float(value.strftime('%s.%f'))
 
 
 class JSONProperty(Property):
