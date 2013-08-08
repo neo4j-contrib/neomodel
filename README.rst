@@ -173,6 +173,7 @@ this inflates py2neo nodes to neomodel node objects::
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
 
+You may log queries by setting the environment variable NEOMODEL_CYPHER_DEBUG to true.
 
 Relating to many node types
 --------------------------------
@@ -251,7 +252,8 @@ The following properties are available::
     DateProperty, DateTimeProperty, JSONProperty, AliasProperty
 
 The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
-These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
+These epoch values are inflated to datetime.datetime objects with the UTC timezone set. If you want neomodel
+to raise an exception on receiving a datetime without a timezone you set the env var NEOMODEL_FORCE_TIMEZONE=1.
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
