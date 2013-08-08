@@ -5,6 +5,7 @@ Version 0.3.6 unreleased
  * Setup NEOMODEL_FORCE_TIMEZONE env var to prevent storing of datetimes
  without a timezone (Robin Edwards)
  * Add NEOMODEL_CYPHER_DEBUG env var to log querys (Robin Edwards)
+ * Relative relationship classes in definitions (Panos Katseas)
 
 Version 0.3.5 2013-07-05
  * Add documentation on batch size (Robin Edwards)
