@@ -1,4 +1,6 @@
 Version 0.3.6 unreleased
+ * Support for relationship models or 'StructuredRels'
+ * Support filtering in the 'traverse' method (Robin Edwards)
  * Store datetime objects as float for more accuracy (Robin Edwards)
  * Setup NEOMODEL_FORCE_TIMEZONE env var to prevent storing of datetimes
  without a timezone (Robin Edwards)

@@ -40,6 +40,8 @@ one accessible via Person objects and one via Country objects::
         # traverse outgoing IS_FROM relations, inflate to Country objects
         country = RelationshipTo(Country, 'IS_FROM')
 
+We can use the `Relationship` class if we don't want to specify a direction.
+
 Create, save delete etc::
 
     jim = Person(name='Jim', age=3).save()
@@ -61,18 +63,33 @@ Using relationships::
 
     len(germany.inhabitant) # 1
 
+    # Find people called 'Jim' in germany
+    germany.inhabitant.search(name='Jim')
+
     jim.country.disconnect(germany)
 
-You can also add properties when creating relationships, for example the
-previous code could be::
+Relationship models, define your relationship properties::
 
-    jim.country.connect(germany, {'arrived': '10/12/2012'})
+    class FriendRel(StructuredRel):
+        since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+        met = StringProperty()
 
-Search related nodes. This example starts at the germany node
-and traverses incoming 'IS_FROM' relations and returns the nodes with the property name
-that is equal to 'Jim'::
+    class Person(StructuredNode):
+        name = StringProperty()
+        friends = RelationshipTo('Person', 'FRIEND', model=FriendRel)
 
-    germany.inhabitant.search(name='Jim')
+    rel = jim.friend.connect(bob)
+    rel.since # datetime object
+
+You can optional specify the properties during connect::
+
+    rel = jim.friend.connect(bob, {'since': yesterday, 'met': 'Paris'})
+
+    print(rel.start_node().name) # jim
+    print(rel.end_node().name) # bob
+
+    rel.met = "Amsterdam"
+    rel.save()
 
 If you don't care about the direction of the relationship::
 
@@ -81,16 +98,17 @@ If you don't care about the direction of the relationship::
 
 You may also reference classes from another module::
 
-    class Person(StructuredNode):
-        car = RelationshipTo('transport.models.Car', 'CAR')
+    class Garage(StructuredNode):
+        cars = RelationshipTo('transport.models.Car', 'CAR')
+        vans = RelationshipTo('.models.Van', 'VAN')
 
 Traversals - EXPERIMENTAL
 -------------------------
-The argument for the traverse method is the name of the relationship manager on the class,
-in this example we traverse the friends relationship skipping the first and limit to 10 nodes::
+The first argument for the traverse method is the name of the relationship manager,
+in this example we traverse the friends relationship skipping the first node and limit to 10 nodes::
 
     # query executes on iteration
-    for friend in jim.traverse('friends').order_by_desc('age').skip(1)limit(10):
+    for friend in jim.traverse('friends').order_by_desc('age').skip(1).limit(10).run():
         print friend.name
 
 You can traverse as many levels as you like, run() executes the query::
@@ -101,13 +119,19 @@ You can traverse as many levels as you like, run() executes the query::
     # or friends name
     jim.traverse('friends').traverse('country').order_by('friends.name')
 
-Filtering by node properties also works::
+Filtering by node propertes is achieved using the where method, values are deflated accordingly so datetimes
+for example work as expected::
 
     results = jim.traverse('friends').where('age', '>', 18).run()
 
-length and bool operations work as expected::
+length and bool operations::
 
     print "Jim has " + len(jim.traverse('friends') + " friends"
+
+You may also filter on relationship properties whilst traversing. In order to do this a relationship model
+must be specified on the start nodes relationship definition::
+
+    recent_friends = jim.traverse('friends', ('since', '>', last_week), ('since', '<', today)).run()
 
 Category nodes
 --------------

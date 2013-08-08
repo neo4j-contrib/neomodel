@@ -54,18 +54,17 @@ class AstBuilder(object):
             'class': self.start_node.__class__, 'name': 'origin'}]
         self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
 
-    def _traverse(self, rel_manager, where):
+    def _traverse(self, rel_manager, where_stmts=None):
         if len(self.ast) > 1:
             t = self._find_map(self.ast[-2]['target_map'], rel_manager)
         else:
             t = getattr(self.start_node, rel_manager).definition
             t['name'] = rel_manager
 
-        if where and not 'model' in t:
-            raise Exception("'where' argument to traverse only "
-                    + "available to relationships with a model definied")
-
-        match, where = self._build_match_ast(t)
+        if where_stmts and not 'model' in t:
+                raise Exception("Conditions " + repr(where_stmts) + " to traverse "
+                        + rel_manager + " not allowed as no model specified on " + rel_manager)
+        match, where = self._build_match_ast(t, where_stmts)
         self._add_match(match)
         if where:
             self._add_where(where)
@@ -95,7 +94,7 @@ class AstBuilder(object):
         self.ident_count += 1
         return 'r' + str(self.ident_count)
 
-    def _build_match_ast(self, target, where=None):
+    def _build_match_ast(self, target, where_stmts):
         rel_to_traverse = {
             'lhs': last_x_in_ast(self.ast, 'name')['name'],
             'direction': target['direction'],
@@ -111,8 +110,8 @@ class AstBuilder(object):
         }
 
         where_clause = []
-        if where:
-            where_clause = self._where_rel(where, rel_to_traverse['ident'])
+        if where_stmts:
+            where_clause = self._where_rel(where_stmts, rel_to_traverse['ident'], target['model'])
 
         # if we aren't category node or already traversed one rel
         if not self.origin_is_category or len(self.ast) > 1:
@@ -161,9 +160,17 @@ class AstBuilder(object):
         value = _deflate_node_value(target['target_map'], prop, value)
         return self._where_expr(ident_prop, op, value)
 
-    def _where_rel(self, statements, ident):
-        # TODO need to deflate on values
-        pass
+    def _where_rel(self, statements, rel_ident, model):
+        stmts = []
+        for statement in statements:
+            rel_prop = statement[0].replace('!', '').replace('?', '')
+            prop = getattr(model, rel_prop)
+            if not prop:
+                raise AttributeError("RelationshipManager '{}' on {} doesn't have a property '{}' defined".format(
+                    rel_ident, self.start_node.__class__.__name__, rel_prop))
+            val = prop.__class__().deflate(statement[2])
+            stmts.append(self._where_expr(rel_ident + "." + statement[0], statement[1], val))
+        return stmts
 
     def _where_expr(self, ident_prop, op, value):
         if not op in ['>', '<', '=', '<>', '=~']:
@@ -242,10 +249,10 @@ class TraversalSet(AstBuilder):
     def __init__(self, start_node):
         super(TraversalSet, self).__init__(start_node)
 
-    def traverse(self, rel, where=None):
+    def traverse(self, rel, *where_stmts):
         if not self.start_node.__node__:
             raise Exception("Cannot traverse unsaved node")
-        self._traverse(rel, where)
+        self._traverse(rel, where_stmts)
         return self
 
     def order_by(self, prop):

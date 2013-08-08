@@ -132,8 +132,8 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             raise Exception("Node has not been saved so cannot be deleted")
         return True
 
-    def traverse(self, rel_manager):
-        return TraversalSet(self).traverse(rel_manager)
+    def traverse(self, rel_manager, *args):
+        return TraversalSet(self).traverse(rel_manager, *args)
 
     def refresh(self):
         """Reload this object from its node in the database"""

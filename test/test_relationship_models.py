@@ -85,3 +85,16 @@ def test_direction_connect_with_rel_model():
         assert True
     else:
         assert False
+
+
+def test_traversal_where_clause():
+    phill = Badger(name="Phill the badger").save()
+    tim = Badger(name="Tim the badger").save()
+    bob = Badger(name="Bob the badger").save()
+    rel = tim.friend.connect(bob)
+    now = datetime.now(pytz.utc)
+    assert rel.since < now
+    rel2 = tim.friend.connect(phill)
+    assert rel2.since > now
+    friends = tim.traverse('friend', ('since', '>', now)).run()
+    assert len(friends) == 1
