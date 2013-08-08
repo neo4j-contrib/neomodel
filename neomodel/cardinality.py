@@ -63,13 +63,13 @@ class One(RelationshipManager):
     def disconnect(self, obj):
         raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
-    def connect(self, obj):
+    def connect(self, obj, properties=None):
         if not self.origin.__node__:
             raise Exception("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
         else:
-            return super(One, self).connect(obj)
+            return super(One, self).connect(obj, properties)
 
 
 class AttemptedCardinalityViolation(Exception):

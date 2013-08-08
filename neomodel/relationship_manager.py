@@ -1,5 +1,6 @@
 from py2neo import neo4j
 import sys
+from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import camel_to_upper
 
@@ -189,22 +190,42 @@ class RelationshipManager(object):
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
         self.module_name = sys._getframe(4).f_globals['__name__']
+        self.module_file = sys._getframe(4).f_globals['__file__']
         self.node_class = cls_name
         self.manager = manager
-        self.definition = {
-            'model': model,
-            'relation_type': relation_type,
-            'direction': direction
-        }
+        self.definition = {}
+        self.definition['relation_type'] = relation_type
+        self.definition['direction'] = direction
+        self.definition['model'] = model
 
     def _lookup(self, name):
-        if name.find('.') is -1:
+        if name.find('.') == -1:
             module = self.module_name
         else:
             module, _, name = name.rpartition('.')
 
         if not module in sys.modules:
-            __import__(module)
+            # yet another hack to get around python semantics
+            # __name__ is the namespace of the parent module for __init__.py files,
+            # and the namespace of the current module for other .py files,
+            # therefore there's a need to define the namespace differently for
+            # these two cases in order for . in relative imports to work correctly
+            # (i.e. to mean the same thing for both cases).
+            # For example in the comments below, namespace == myapp, always
+            if '__init__.py' in self.module_file:
+                # e.g. myapp/__init__.py -[__name__]-> myapp
+                namespace = self.module_name
+            else:
+                # e.g. myapp/models.py -[__name__]-> myapp.models
+                namespace = self.module_name.rpartition('.')[0]
+
+            # load a module from a namespace (e.g. models from myapp)
+            if module:
+                module = import_module(module, namespace).__name__
+            # load the namespace itself (e.g. myapp)
+            # (otherwise it would look like import . from myapp)
+            else:
+                module = import_module(namespace).__name__
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
