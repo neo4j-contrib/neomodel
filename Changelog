@@ -2,6 +2,8 @@ Version 0.3.6 unreleased
  * Store datetime objects as float for more accuracy (Robin Edwards)
  * Setup NEOMODEL_FORCE_TIMEZONE env var to prevent storing of datetimes
  without a timezone (Robin Edwards)
+ * Add NEOMODEL_CYPHER_DEBUG env var to log querys (Robin Edwards)
+
 Version 0.3.5 2013-07-05
  * Add documentation on batch size (Robin Edwards)
  * Fix default_value type generation for basic properties #53

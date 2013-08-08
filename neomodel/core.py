@@ -6,8 +6,10 @@ from .relationship_manager import RelationshipManager, OUTGOING
 from .traversal import TraversalSet
 from .signals import hooks
 from .index import NodeIndexManager
+import logging
 import os
 import sys
+logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -35,6 +37,9 @@ def connection():
 
 
 def cypher_query(query, params=None):
+    if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
+        logger.debug(query)
+        logger.debug("params: " + repr(params))
     try:
         return cypher.execute(connection(), query, params)
     except cypher.CypherError as e:
