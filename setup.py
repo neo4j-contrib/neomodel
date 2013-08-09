@@ -15,7 +15,7 @@ setup(
     tests_require=['nose==1.1.2'],
     test_suite='nose.collector',
     install_requires=['py2neo==1.5', 'pytz==2013b', 'lucene-querybuilder==0.1.6'],
-    dependency_links=['https://github.com/scholrly/lucene-querybuilder/zipball/4b12452e#lucene-querybuilder'],
+    dependency_links=['https://github.com/scholrly/lucene-querybuilder/zipball/4b12452e#lucene-querybuilder-0.1.6'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
