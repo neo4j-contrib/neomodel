@@ -1,5 +1,5 @@
 Version 0.3.6 unreleased
- * Re-enable lucenequerybuilder (Robin Edwards)
+ * Re-enable lucene-querybuilder (Robin Edwards)
  * Fix X-Stream header (Nigel Small)
  * Enable custom indexes for StructuredNodes
  * Support for relationship models or 'StructuredRels'
