@@ -237,11 +237,13 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
     Human(name='tim', age=2).save()
 
     for h in Human.index.search(Q('age', inrange=[3, 5])):
-        print(h.name) # sarah, jim, bob
+        print(h.name)
 
-Or as a lucene query string::
+    # prints: sarah, jim, bob
 
-    sarah = Human.index.search('name:sar*')
+Or use lucene query syntax directly::
+
+    Human.index.search("age:4")
 
 Specify a custom index name for a class::
 
