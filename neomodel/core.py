@@ -53,6 +53,7 @@ class CypherMixin(object):
         return connection()
 
     def cypher(self, query, params=None):
+        self._pre_action_check('cypher')
         assert hasattr(self, '__node__')
         params = params or {}
         params.update({'self': self.__node__.id})
@@ -92,6 +93,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
+        self.__node__ = None
         super(StructuredNode, self).__init__(*args, **kwargs)
 
     @classmethod
@@ -118,26 +120,35 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
             batch.submit()
+        elif hasattr(self, '_is_deleted') and self._is_deleted:
+            raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
         else:
             self.__node__ = self.create(self.__properties__)[0].__node__
             if hasattr(self, 'post_create'):
                 self.post_create()
         return self
 
+    def _pre_action_check(self, action):
+        if hasattr(self, '_is_deleted') and self._is_deleted:
+            raise ValueError("{}.{}() attempted on deleted node".format(self.__class__.__name__, action))
+        if not self.__node__:
+            raise ValueError("{}.{}() attempted on unsaved node".format(self.__class__.__name__, action))
+
     @hooks
     def delete(self):
-        if self.__node__:
-            self.index.__index__.remove(entity=self.__node__)
-            self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
-            self.__node__ = None
-        else:
-            raise Exception("Node has not been saved so cannot be deleted")
+        self._pre_action_check('delete')
+        self.index.__index__.remove(entity=self.__node__)
+        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
+        self.__node__ = None
+        self._is_deleted = True
         return True
 
     def traverse(self, rel_manager, *args):
+        self._pre_action_check('traverse')
         return TraversalSet(self).traverse(rel_manager, *args)
 
     def refresh(self):
+        self._pre_action_check('refresh')
         """Reload this object from its node in the database"""
         if self.__node__:
             if self.__node__.exists():
@@ -211,6 +222,9 @@ class CategoryNode(CypherMixin):
 
     def traverse(self, rel):
         return TraversalSet(self).traverse(rel)
+
+    def _pre_action_check(self, action):
+        pass
 
 
 class InstanceManager(RelationshipManager):

@@ -17,7 +17,6 @@ if sys.version_info >= (3, 0):
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
-        self.__node__ = None
         for key, val in self._class_properties().items():
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)

@@ -29,6 +29,31 @@ class SuperHero(Person):
         return "I have powers"
 
 
+def test_actions_on_deleted_node():
+    u = Person(name='Jim2', age=3).save()
+    u.delete()
+    try:
+        u.is_from.connect(None)
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+    try:
+        u.is_from.get()
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+    try:
+        u.save()
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
 def test_bidirectional_relationships():
     u = Person(name='Jim', age=3).save()
     assert u

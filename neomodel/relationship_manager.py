@@ -1,5 +1,6 @@
 from py2neo import neo4j
 import sys
+import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import camel_to_upper
@@ -7,6 +8,17 @@ from .util import camel_to_upper
 OUTGOING = neo4j.Direction.OUTGOING
 INCOMING = neo4j.Direction.INCOMING
 EITHER = neo4j.Direction.EITHER
+
+
+# check origin node is saved and not deleted
+def check_origin(fn):
+    fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
+
+    @functools.wraps(fn)
+    def checker(self, *args, **kwargs):
+        self.origin._pre_action_check(self.name + '.' + fn_name)
+        return fn(self, *args, **kwargs)
+    return checker
 
 
 def rel_helper(**rel):
@@ -40,12 +52,15 @@ class RelationshipManager(object):
             self.description, direction,
             self.relation_type, self.origin.__node__.id, self.origin.__class__.__name__)
 
+    @check_origin
     def __bool__(self):
         return len(self) > 0
 
+    @check_origin
     def __nonzero__(self):
         return len(self) > 0
 
+    @check_origin
     def __len__(self):
         return len(self.origin.traverse(self.name))
 
@@ -53,12 +68,15 @@ class RelationshipManager(object):
     def client(self):
         return self.origin.client
 
+    @check_origin
     def count(self):
         return self.__len__()
 
+    @check_origin
     def all(self):
         return self.origin.traverse(self.name).run()
 
+    @check_origin
     def get(self, **kwargs):
         result = self.search(**kwargs)
         if len(result) == 1:
@@ -68,12 +86,14 @@ class RelationshipManager(object):
         if not result:
             raise DoesNotExist("No items exist for the specified arguments")
 
+    @check_origin
     def search(self, **kwargs):
         t = self.origin.traverse(self.name)
         for field, value in kwargs.items():
             t.where(field, '=', value)
         return t.run()
 
+    @check_origin
     def is_connected(self, obj):
         self._check_node(obj)
 
@@ -95,6 +115,7 @@ class RelationshipManager(object):
                 + allowed_cls + " got " + repr(obj)
                 + " see relationship definition in " + self.origin.__class__.__name__)
 
+    @check_origin
     def connect(self, obj, properties=None):
         self._check_node(obj)
 
@@ -127,8 +148,9 @@ class RelationshipManager(object):
                 q += " SET r." + p + " = {place_holder_" + p + "}"
         self.origin.cypher(q, params)
 
+    @check_origin
     def relationship(self, obj):
-        """Return relationship of managers type and supplied node"""
+        """relationship: target_node"""
         self._check_node(obj)
         if not 'model' in self.definition:
             raise NotImplemented("'relationship' method only available on relationships"
@@ -151,6 +173,7 @@ class RelationshipManager(object):
             rel_instance._end_node_class = obj.__class__
         return rel_instance
 
+    @check_origin
     def reconnect(self, old_obj, new_obj):
         """reconnect: old_node, new_node"""
         self._check_node(old_obj)
@@ -177,11 +200,13 @@ class RelationshipManager(object):
 
         self.origin.cypher(q, {'old': old_obj.__node__.id, 'new': new_obj.__node__.id})
 
+    @check_origin
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self}), b=node({them}) MATCH " + rel + " DELETE r"
         self.origin.cypher(q, {'them': obj.__node__.id}),
 
+    @check_origin
     def single(self):
         nodes = self.origin.traverse(self.name).limit(1).run()
         return nodes[0] if nodes else None
