@@ -19,7 +19,7 @@ class CustomBatch(neo4j.WriteBatch):
         rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
             request.description(id_)
             for id_, request in enumerate(self.requests)
-        ], {'X-Stream': True}))
+        ], {'X-Stream': 'true'}))
         self.clear()
         return [
             rest.Response(
