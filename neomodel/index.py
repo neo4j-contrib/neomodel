@@ -1,6 +1,7 @@
 from lucenequerybuilder import Q
 from .exception import PropertyNotIndexed
 from .properties import AliasProperty
+import functools
 from py2neo import neo4j
 
 
@@ -35,7 +36,7 @@ class NodeIndexManager(object):
                 msg += "To retrieve all nodes use the category node: {0}.category().instance.all()"
                 raise ValueError(msg.format(self.node_class.__name__))
             self._check_params(kwargs)
-            query = reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
+            query = functools.reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
 
         return [self.node_class.inflate(n) for n in self._execute(str(query))]
 
