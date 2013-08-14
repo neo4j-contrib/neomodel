@@ -1,4 +1,4 @@
-Version 0.3.6 unreleased
+Version 0.3.6 2013-08-14
  * Display nice message for operations on deleted node (Robin Edwards)
  * Re-enable lucene-querybuilder (Robin Edwards)
  * Fix X-Stream header (Nigel Small)
