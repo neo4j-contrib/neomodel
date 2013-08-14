@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
-    from urlparse import urlparse
+    from urlparse import urlparse # noqa
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
@@ -131,7 +131,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def _pre_action_check(self, action):
         if hasattr(self, '_is_deleted') and self._is_deleted:
             raise ValueError("{}.{}() attempted on deleted node".format(self.__class__.__name__, action))
-        if not self.__node__:
+        if self.__node__ is None:
             raise ValueError("{}.{}() attempted on unsaved node".format(self.__class__.__name__, action))
 
     @hooks
