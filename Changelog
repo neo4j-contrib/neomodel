@@ -1,3 +1,5 @@
+Version 0.4.0 unreleased
+ * import RelationshipDefinition and RelationshipManager into main namespace
 Version 0.3.6 2013-08-14
  * Display nice message for operations on deleted node (Robin Edwards)
  * Re-enable lucene-querybuilder (Robin Edwards)

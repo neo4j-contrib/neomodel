@@ -1,6 +1,7 @@
+# pep8: noqa
 from .core import *
 from .relationship_manager import (NotConnected, OUTGOING, INCOMING, EITHER,
-        RelationshipTo, RelationshipFrom, Relationship)
+        RelationshipTo, RelationshipFrom, Relationship, RelationshipManager, RelationshipDefinition)
 from .relationship import StructuredRel
 from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)
