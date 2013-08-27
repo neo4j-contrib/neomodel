@@ -91,12 +91,18 @@ You can optional specify the properties during connect::
     rel.met = "Amsterdam"
     rel.save()
 
-If you don't care about the direction of the relationship::
+You can retrieve relationships between to nodes using the 'relationship' method.
+This is only available for relationships with a defined structure::
+
+    rel = jim.friend.relationship(bob)
+
+Directionless relationships::
 
     class Person(StructuredNode):
         friends = Relationship('Person', 'FRIEND')
 
-You may also reference classes from another module::
+When defining relationships, you may refer to classes in other modules.
+This helps avoid cyclic imports::
 
     class Garage(StructuredNode):
         cars = RelationshipTo('transport.models.Car', 'CAR')
