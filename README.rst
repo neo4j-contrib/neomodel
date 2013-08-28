@@ -144,7 +144,11 @@ Category nodes
 Access all your instances of a class via the category node::
 
     country_category = Country.category()
-    for c in country_category.instance.all()
+    for c in country_category.instance.all():
+        print c.name
+
+    for c in country_category.traverse('instance').limit(10).run():
+        print c.name
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
 
@@ -179,7 +183,7 @@ this inflates py2neo nodes to neomodel node objects::
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
 
-You may log queries by setting the environment variable NEOMODEL_CYPHER_DEBUG to true.
+You may log queries by setting the environment variable `NEOMODEL_CYPHER_DEBUG` to true.
 
 Relating to many node types
 --------------------------------
