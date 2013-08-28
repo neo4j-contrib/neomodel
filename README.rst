@@ -108,6 +108,17 @@ This helps avoid cyclic imports::
         cars = RelationshipTo('transport.models.Car', 'CAR')
         vans = RelationshipTo('.models.Van', 'VAN')
 
+When defining models that have custom `__init__(self, ...)` function, don't
+forget to call `super()`. Otherwise things start to fail::
+
+    class Person(StructuredNode):
+        name = StringProperty(unique_index=True)
+
+        def __init__(self, name, **args):
+            self.name = name
+
+            super(Person, self).__init__(self, **args)
+
 Traversals - EXPERIMENTAL
 -------------------------
 The first argument for the traverse method is the name of the relationship manager,
