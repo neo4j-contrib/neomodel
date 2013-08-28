@@ -1,4 +1,5 @@
 Version 0.4.0 unreleased
+ * documentation improvements (Priit Laes)
  * import RelationshipDefinition and RelationshipManager into main
 
 Version 0.3.6 2013-08-14
