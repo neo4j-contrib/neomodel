@@ -294,4 +294,4 @@ The *AliasProperty* a special property for aliasing other properties and providi
 
 Extending and subclassing neomodel
 ----------------------------------
- If you subclass any of the classes in neomodel (such as StructuredNode), be sure to call the parents constructor.
+If you subclass any of the classes in neomodel (such as `StructuredNode`), be sure to call the parents constructor.
