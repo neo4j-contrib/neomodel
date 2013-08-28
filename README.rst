@@ -291,3 +291,7 @@ The *AliasProperty* a special property for aliasing other properties and providi
         name = AliasProperty(to='full_name')
 
     Person.index.search(name='Jim') # just works
+
+Extending and subclassing neomodel
+----------------------------------
+ If you subclass any of the classes in neomodel (such as StructuredNode), be sure to call the parents constructor.
