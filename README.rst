@@ -108,6 +108,17 @@ This helps avoid cyclic imports::
         cars = RelationshipTo('transport.models.Car', 'CAR')
         vans = RelationshipTo('.models.Van', 'VAN')
 
+When defining models that have custom `__init__(self, ...)` function, don't
+forget to call `super()`. Otherwise things start to fail::
+
+    class Person(StructuredNode):
+        name = StringProperty(unique_index=True)
+
+        def __init__(self, name, **args):
+            self.name = name
+
+            super(Person, self).__init__(self, **args)
+
 Traversals - EXPERIMENTAL
 -------------------------
 The first argument for the traverse method is the name of the relationship manager,
@@ -149,6 +160,10 @@ Access all your instances of a class via the category node::
 
     for c in country_category.traverse('instance').limit(10).run():
         print c.name
+
+Ordering and pagination is possible via `.traverse('instance')`::
+
+    country_category.traverse('instance').limit(10).run()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
 
