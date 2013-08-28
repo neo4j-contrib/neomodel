@@ -158,9 +158,6 @@ Access all your instances of a class via the category node::
     for c in country_category.instance.all():
         print c.name
 
-    for c in country_category.traverse('instance').limit(10).run():
-        print c.name
-
 Ordering and pagination is possible via `.traverse('instance')`::
 
     country_category.traverse('instance').limit(10).run()
@@ -306,7 +303,3 @@ The *AliasProperty* a special property for aliasing other properties and providi
         name = AliasProperty(to='full_name')
 
     Person.index.search(name='Jim') # just works
-
-Extending and subclassing neomodel
-----------------------------------
-If you subclass any of the classes in neomodel (such as `StructuredNode`), be sure to call the parents constructor.
