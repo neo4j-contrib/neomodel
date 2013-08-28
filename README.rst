@@ -146,6 +146,10 @@ Access all your instances of a class via the category node::
     country_category = Country.category()
     for c in country_category.instance.all()
 
+Ordering and pagination is possible via `.traverse('instance')`::
+
+    country_category.traverse('instance').limit(10).run()
+
 Note that `connect` and `disconnect` are not available through the `instance` relation.
 
 Cardinality
