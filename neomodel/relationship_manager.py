@@ -1,13 +1,10 @@
-from py2neo import neo4j
 import sys
 import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import camel_to_upper
 
-OUTGOING = neo4j.Direction.OUTGOING
-INCOMING = neo4j.Direction.INCOMING
-EITHER = neo4j.Direction.EITHER
+OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
 # check origin node is saved and not deleted

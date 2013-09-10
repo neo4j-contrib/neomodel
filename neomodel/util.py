@@ -1,10 +1,11 @@
 import re
-from py2neo import neo4j, rest
+from py2neo import neo4j
 from .exception import UniqueProperty, DataInconsistencyError
 
 camel_to_upper = lambda x: "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", x)[1::2])
 upper_to_camel = lambda x: "".join(word.title() for word in x.split("_"))
 
+rest = None
 
 class CustomBatch(neo4j.WriteBatch):
 
@@ -35,13 +36,13 @@ class CustomBatch(neo4j.WriteBatch):
 
     def submit(self):
         results = []
-        requests = self.requests
+        requests = self._requests
         try:
-            results = self._submit()
+            results = self._execute().json
             # pre create or fail support need to catch 200 response
             if self._graph_db.neo4j_version < (1, 9):
                 self._check_for_conflicts(results, requests)
-        except rest.ResourceConflict as r:
+        except Exception as r: # rest.ResourceConflict as r:
             key = requests[r.id].body['key']
             value = requests[r.id].body['value']
             raise UniqueProperty(key, value, self.index_name, self.node)
@@ -53,7 +54,8 @@ class CustomBatch(neo4j.WriteBatch):
 
     def _check_for_conflicts(self, results, requests):
         for i, r in enumerate(results):
-            if r.status == 200:
+            import ipdb; ipdb.set_trace()
+            if r['status'] == 200:
                 raise DataInconsistencyError(requests[i], self.index_name, self.node)
 
 
