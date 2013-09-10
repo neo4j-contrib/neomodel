@@ -1,4 +1,5 @@
 Version 0.4.0 unreleased
+ * make __index__ inherited (Sebastian Ortiz)
  * documentation improvements (Priit Laes)
  * import RelationshipDefinition and RelationshipManager into main
 
