@@ -135,6 +135,10 @@ def test_valid_reconnection():
     c.president.reconnect(p, pp)
     assert c.president.is_connected(pp)
 
+    # reelection time
+    c.president.reconnect(pp, pp)
+    assert c.president.is_connected(pp)
+
 
 def test_props_relationship():
     u = Person(name='Mar', age=20).save()
