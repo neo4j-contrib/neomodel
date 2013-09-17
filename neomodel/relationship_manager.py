@@ -163,8 +163,11 @@ class RelationshipManager(object):
         rel, = self.origin.cypher(q, {'them': obj.__node__.id})[0][0]
         if not rel:
             return
-        rel_instance = rel_model.inflate(rel)
 
+        if rel_model is not None:
+            rel_instance = rel_model.inflate(rel)
+        else:
+            rel_instance = rel
         if self.definition['direction'] == INCOMING:
             rel_instance._start_node_class = obj.__class__
             rel_instance._end_node_class = self.origin.__class__
