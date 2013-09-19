@@ -1,5 +1,5 @@
 from lucenequerybuilder import Q
-from .exception import PropertyNotIndexed
+from .exception import PropertyNotIndexed, DoesNotExist
 from .properties import AliasProperty
 import functools
 from py2neo import neo4j
@@ -53,7 +53,8 @@ class NodeIndexManager(object):
         elif len(nodes) > 1:
             raise Exception("Multiple nodes returned from query, expected one")
         else:
-            raise self.node_class.DoesNotExist("Can't find node in index matching query")
+            #raise self.node_class.DoesNotExist("Can't find node in index matching query")
+            raise DoesNotExist("Can't find node in index matching query")
 
     @property
     def __index__(self):
