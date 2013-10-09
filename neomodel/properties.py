@@ -198,15 +198,19 @@ class DateTimeProperty(Property):
 
     @validator
     def deflate(self, value):
+        #: Fixed timestamp strftime following suggestion from
+        # http://stackoverflow.com/questions/11743019/convert-python-datetime-to-epoch-with-strftime
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}'.format(value))
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
+            epoch_date = datetime(1970,1,1,tzinfo=pytz.utc)
         elif os.environ.get('NEOMODEL_FORCE_TIMEZONE', False):
             raise ValueError("Error deflating {} no timezone provided".format(value))
         else:
             logger.warning("No timezone sepecified on datetime object.. will be inflated to UTC")
-        return float(value.strftime('%s.%f'))
+            epoch_date = datetime(1970,1,1)
+        return float((value - epoch_date).total_seconds())
 
 
 class JSONProperty(Property):
