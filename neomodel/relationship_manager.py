@@ -175,6 +175,8 @@ class RelationshipManager(object):
         """reconnect: old_node, new_node"""
         self._check_node(old_obj)
         self._check_node(new_obj)
+        if old_obj.__node__.id == new_obj.__node__.id:
+            return
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel

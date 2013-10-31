@@ -104,4 +104,5 @@ def test_custom_index_name():
     class SpecialGiraffe(Giraffe):
         power = StringProperty()
 
-    assert SpecialGiraffe.index.name != 'GiraffeIndex'
+    # custom indexes shall be inherited
+    assert SpecialGiraffe.index.name == 'GiraffeIndex'

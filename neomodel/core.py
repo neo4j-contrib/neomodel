@@ -1,4 +1,5 @@
 from py2neo import neo4j, cypher
+from py2neo.rest import SocketError
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .properties import Property, PropertyManager, AliasProperty
@@ -32,7 +33,10 @@ def connection():
         neo4j.authenticate(host, user, password)
         url = ''.join([u.scheme, '://', host, u.path, u.query])
 
-    connection.db = neo4j.GraphDatabaseService(url)
+    try:
+        connection.db = neo4j.GraphDatabaseService(url)
+    except SocketError as e:
+        raise SocketError("Error connecting to {0} - {1}".format(url, e))
     return connection.db
 
 
@@ -75,8 +79,8 @@ class StructuredNodeMeta(type):
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
-            if '__index__' in dct:
-                name = dct['__index__']
+            if '__index__' in dct or hasattr(inst, '__index__'):
+                name = dct['__index__'] if '__index__' in dct else getattr(inst, '__index__')
             inst.index = NodeIndexManager(inst, name)
         return inst
 
