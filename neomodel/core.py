@@ -1,5 +1,5 @@
 from py2neo import neo4j, cypher
-from py2neo.rest import SocketError
+from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .properties import Property, PropertyManager, AliasProperty
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
-    from urlparse import urlparse # noqa
+    from urlparse import urlparse  # noqa
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
