@@ -7,7 +7,7 @@ class User2(StructuredNode):
 
 def test_cypher():
     jim = User2(email='jim1@test.com').save()
-    email = jim.cypher("START a=node({self_node}) RETURN a.email")[0][0][0]
+    email = jim.cypher("START a=node({self_node}) RETURN a.email")[0][0]
     assert email == 'jim1@test.com'
 
 

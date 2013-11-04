@@ -96,7 +96,7 @@ class RelationshipManager(object):
 
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self_node}), b=node({them}) MATCH" + rel + "RETURN count(r)"
-        return bool(self.origin.cypher(q, {'them': obj.__node__._id})[0][0][0])
+        return bool(self.origin.cypher(q, {'them': obj.__node__._id})[0][0])
 
     def _check_node(self, obj):
         """check for valid target node i.e correct class and is saved"""
@@ -135,7 +135,7 @@ class RelationshipManager(object):
             for p, v in rel_model.deflate(rel_instance.__properties__).items():
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
-            rel_instance.__relationship__, = self.origin.cypher(q + " RETURN r", params)[0][0]
+            rel_instance.__relationship__ = self.origin.cypher(q + " RETURN r", params)[0]
             return rel_instance
 
         # OR.. set properties schemaless
@@ -157,7 +157,7 @@ class RelationshipManager(object):
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "START them=node({them}), us=node({self_node}) MATCH " + new_rel + " RETURN r"
-        rel, = self.origin.cypher(q, {'them': obj.__node__._id})[0][0]
+        rel = self.origin.cypher(q, {'them': obj.__node__._id})[0]
         if not rel:
             return
         rel_instance = rel_model.inflate(rel)
@@ -180,7 +180,7 @@ class RelationshipManager(object):
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
-        result, _ = self.origin.cypher("START us=node({self_node}), old=node({old}) MATCH " + old_rel + " RETURN r",
+        result = self.origin.cypher("START us=node({self_node}), old=node({old}) MATCH " + old_rel + " RETURN r",
             {'old': old_obj.__node__._id})
         if result:
             existing_properties = result[0][0].__metadata__['data'].keys()
@@ -203,7 +203,7 @@ class RelationshipManager(object):
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self_node}), b=node({them}) MATCH " + rel + " DELETE r"
-        self.origin.cypher(q, {'them': obj.__node__._id}),
+        self.origin.cypher(q, {'them': obj.__node__._id})
 
     @check_origin
     def single(self):

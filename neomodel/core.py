@@ -45,12 +45,14 @@ def cypher_query(query, params=None):
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug(query)
         logger.debug("params: " + repr(params))
-    cq = neo4j.CypherQuery(connection(), query)
+    cq = neo4j.CypherQuery(connection(), unicode(query))
     try:
-        return cq.execute(**params)
+        results = cq.execute(**params)
     except CypherError as e:
         message, etype, jtrace = e.args
         raise CypherException(query, params, message, etype, jtrace)
+    else:
+        return results.data
 
 
 class CypherMixin(object):
