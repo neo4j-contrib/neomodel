@@ -42,15 +42,15 @@ def connection():
 
 
 def cypher_query(query, params=None):
+    query = unicode(query)  # here to ensure object-wrapped queries are rendered
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug(query)
         logger.debug("params: " + repr(params))
-    cq = neo4j.CypherQuery(connection(), unicode(query))
+    cq = neo4j.CypherQuery(connection(), query)
     try:
         results = cq.execute(**params)
     except CypherError as e:
-        message, etype, jtrace = e.args
-        raise CypherException(query, params, message, etype, jtrace)
+        raise CypherException(query, params, e.message, e.exception, e.stack_trace)
     else:
         return results.data
 
