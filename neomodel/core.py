@@ -1,4 +1,5 @@
-from py2neo import neo4j, cypher
+from py2neo import neo4j
+from py2neo.exceptions import CypherError
 from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
@@ -44,9 +45,10 @@ def cypher_query(query, params=None):
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug(query)
         logger.debug("params: " + repr(params))
+    cq = neo4j.CypherQuery(connection(), query)
     try:
-        return cypher.execute(connection(), query, params)
-    except cypher.CypherError as e:
+        return cq.execute(**params)
+    except CypherError as e:
         message, etype, jtrace = e.args
         raise CypherException(query, params, message, etype, jtrace)
 
@@ -60,7 +62,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert hasattr(self, '__node__')
         params = params or {}
-        params.update({'self': self.__node__._id})
+        params.update({'self_node': self.__node__._id})  # TODO: this will break stuff!
         return cypher_query(query, params)
 
 
@@ -142,7 +144,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def delete(self):
         self._pre_action_check('delete')
         self.index.__index__.remove(entity=self.__node__)
-        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("START self=node({self_node}) MATCH (self)-[r]-() DELETE r, self")
         self.__node__ = None
         self._is_deleted = True
         return True

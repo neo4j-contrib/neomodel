@@ -50,7 +50,7 @@ class AstBuilder(object):
         self.ident_count = 0
         self.query_params = {}
         assert hasattr(self.start_node, '__node__')
-        self.ast = [{'start': '{self}',
+        self.ast = [{'start': '{self_node}',
             'class': self.start_node.__class__, 'name': 'origin'}]
         self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
 
