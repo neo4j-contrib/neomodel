@@ -65,5 +65,5 @@ def _legacy_conflict_check(cls, node, props):
                 if len(results):
                     if isinstance(node, (int,)):  # node ref
                         raise UniqueProperty(key, value, cls.index.name)
-                    elif hasattr(node, 'id') and results[0].id != node.id:
+                    elif hasattr(node, '_id') and results[0]._id != node._id:
                         raise UniqueProperty(key, value, cls.index.name, node)

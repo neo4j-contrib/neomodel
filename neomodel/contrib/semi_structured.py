@@ -12,7 +12,7 @@ class InflateConflict(Exception):
     def __str__(self):
         return """Found conflict with node {0}, has property '{1}' with value '{2}'
             although class {3} already has a property '{1}'""".format(
-                self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name)
 
 
 class DeflateConflict(InflateConflict):
@@ -25,7 +25,7 @@ class DeflateConflict(InflateConflict):
     def __str__(self):
         return """Found trying to set property '{1}' with value '{2}' on node {0}
             although class {3} already has a property '{1}'""".format(
-                self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name)
 
 
 class SemiStructuredNode(StructuredNode):
@@ -64,7 +64,7 @@ class SemiStructuredNode(StructuredNode):
         # handle properties not defined on the class
         for free_key in [key for key in node.__metadata__['data'] if key not in props]:
             if hasattr(cls, free_key):
-                raise InflateConflict(cls, free_key, node.__metadata__['data'][free_key], node.id)
+                raise InflateConflict(cls, free_key, node.__metadata__['data'][free_key], node._id)
             props[free_key] = node.__metadata__['data'][free_key]
 
         snode = cls(**props)
@@ -76,6 +76,6 @@ class SemiStructuredNode(StructuredNode):
         deflated = super(SemiStructuredNode, cls).deflate(node_props, obj)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
-                raise DeflateConflict(cls, key, deflated[key], obj.id)
+                raise DeflateConflict(cls, key, deflated[key], obj._id)
         node_props.update(deflated)
         return node_props

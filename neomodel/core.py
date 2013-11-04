@@ -60,7 +60,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert hasattr(self, '__node__')
         params = params or {}
-        params.update({'self': self.__node__.id})
+        params.update({'self': self.__node__._id})
         return cypher_query(query, params)
 
 
@@ -118,9 +118,9 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def save(self):
         # create or update instance node
         if self.__node__:
-            batch = CustomBatch(connection(), self.index.name, self.__node__.id)
+            batch = CustomBatch(connection(), self.index.name, self.__node__._id)
             batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
-            props = self.deflate(self.__properties__, self.__node__.id)
+            props = self.deflate(self.__properties__, self.__node__._id)
             batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
             batch.submit()

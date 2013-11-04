@@ -50,7 +50,7 @@ class RequiredProperty(Exception):
 
     def __str__(self):
         return "property '{0}' on objects of class {1}".format(
-                self.property_name, self.node_class.__name__)
+            self.property_name, self.node_class.__name__)
 
 
 class CypherException(Exception):
@@ -71,9 +71,9 @@ def _obj_to_str(obj):
     if not obj:
         return "object"
     if obj.__class__.__name__ == 'Node':
-        return "node ({0})".format(obj.id)
+        return "node ({0})".format(obj._id)
     else:
-        return "relationship ({0})".format(obj.id)
+        return "relationship ({0})".format(obj._id)
 
 
 class InflateError(ValueError):
@@ -85,7 +85,7 @@ class InflateError(ValueError):
 
     def __str__(self):
         return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
-                self.property_name, self.obj, self.node_class.__name__, self.msg)
+            self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
 class DeflateError(ValueError):
@@ -97,7 +97,7 @@ class DeflateError(ValueError):
 
     def __str__(self):
         return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
-                self.property_name, self.obj, self.node_class.__name__, self.msg)
+            self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
 class NoSuchProperty(Exception):
@@ -107,7 +107,7 @@ class NoSuchProperty(Exception):
 
     def __str__(self):
         return "No property '{0}' on object of class '{1}'".format(
-                self.property_name, self.node_class.__name__)
+            self.property_name, self.node_class.__name__)
 
 
 class PropertyNotIndexed(Exception):
@@ -123,6 +123,6 @@ class NotConnected(Exception):
     def __str__(self):
         msg = "Error preforming '{0}' - ".format(self.action)
         msg += "Node {0} of type '{1}' is not connected to {2} of type '{3}'".format(
-            self.node1.__node__.id, self.node1.__class__.__name__,
-            self.node2.__node__.id, self.node2.__class__.__name__)
+            self.node1.__node__._id, self.node1.__class__.__name__,
+            self.node2.__node__._id, self.node2.__class__.__name__)
         return msg
