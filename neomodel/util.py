@@ -1,11 +1,11 @@
 import re
 from py2neo import neo4j
+from py2neo.packages.httpstream.http import Response
 from .exception import UniqueProperty, DataInconsistencyError
 
 camel_to_upper = lambda x: "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", x)[1::2])
 upper_to_camel = lambda x: "".join(word.title() for word in x.split("_"))
 
-rest = None
 
 class CustomBatch(neo4j.WriteBatch):
 
@@ -17,13 +17,13 @@ class CustomBatch(neo4j.WriteBatch):
     # Borrowed from nigel, to force status codes in batch response
     def _submit(self):
         """ Submits batch of requests, returning list of Response objects."""
-        rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
+        rs = self._graph_db._post(self._graph_db._batch_uri, [
             request.description(id_)
             for id_, request in enumerate(self.requests)
-        ], {'X-Stream': 'true'}))
+        ], {'X-Stream': 'true'})
         self.clear()
         return [
-            rest.Response(
+            Response(
                 self._graph_db,
                 response.get("status", rs.status),
                 response["from"],
@@ -31,30 +31,29 @@ class CustomBatch(neo4j.WriteBatch):
                 response.get("body", None),
                 id=response.get("id", None),
             )
-            for response in rs.body
+            for response in rs.get().content
         ]
 
-    def submit(self):
-        results = []
-        requests = self._requests
-        try:
-            results = self._execute().json
-            # pre create or fail support need to catch 200 response
-            if self._graph_db.neo4j_version < (1, 9):
-                self._check_for_conflicts(results, requests)
-        except Exception as r: # rest.ResourceConflict as r:
-            key = requests[r.id].body['key']
-            value = requests[r.id].body['value']
-            raise UniqueProperty(key, value, self.index_name, self.node)
-        else:
-            return [
-                self._graph_db._resolve(response.body, response.status, id_=response.id)
-                for response in results
-            ]
+    # def submit(self):
+    #     results = []
+    #     requests = self._requests
+    #     try:
+    #         results = self._execute().json
+    #         # pre create or fail support need to catch 200 response
+    #         if self._graph_db.neo4j_version < (1, 9):
+    #             self._check_for_conflicts(results, requests)
+    #     except neo4j.BatchError as r:
+    #         key = requests[r.id].body['key']
+    #         value = requests[r.id].body['value']
+    #         raise UniqueProperty(key, value, self.index_name, self.node)
+    #     else:
+    #         return [
+    #             self._graph_db._resolve(response.body, response.status, id_=response.id)
+    #             for response in results
+    #         ]
 
     def _check_for_conflicts(self, results, requests):
         for i, r in enumerate(results):
-            import ipdb; ipdb.set_trace()
             if r['status'] == 200:
                 raise DataInconsistencyError(requests[i], self.index_name, self.node)
 
