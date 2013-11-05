@@ -5,7 +5,7 @@ from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .properties import Property, PropertyManager, AliasProperty
 from .relationship_manager import RelationshipManager, OUTGOING
-from .traversal import TraversalSet
+from .traversal import TraversalSet, Query
 from .signals import hooks
 from .index import NodeIndexManager
 import logging
@@ -42,7 +42,8 @@ def connection():
 
 
 def cypher_query(query, params=None):
-    query = unicode(query)  # here to ensure object-wrapped queries are rendered
+    if isinstance(query, Query):
+        query = query.__str__()
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug(query)
         logger.debug("params: " + repr(params))
