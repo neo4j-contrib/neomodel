@@ -123,7 +123,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         # create or update instance node
         if self.__node__:
             batch = CustomBatch(connection(), self.index.name, self.__node__._id)
-            batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
+            batch.remove_from_index(neo4j.Node, index=self.index.__index__, entity=self.__node__)
             props = self.deflate(self.__properties__, self.__node__._id)
             batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
@@ -216,11 +216,11 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 node_property = cls.get_property(key)
                 if node_property.unique_index:
                     try:
-                        batch.add_indexed_node_or_fail(cls.index.__index__, key, value, node)
+                        batch.add_to_index_or_fail(neo4j.Node, cls.index.__index__, key, value, node)
                     except NotImplementedError:
-                        batch.get_or_add_indexed_node(cls.index.__index__, key, value, node)
+                        batch.get_or_add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
                 elif node_property.index:
-                    batch.add_indexed_node(cls.index.__index__, key, value, node)
+                    batch.add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
         return batch
 
 
