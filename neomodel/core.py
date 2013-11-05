@@ -159,7 +159,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         self._pre_action_check('refresh')
         """Reload this object from its node in the database"""
         if self.__node__:
-            if self.__node__.exists():
+            if self.__node__.exists:
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__
                 for key, val in props.items():
