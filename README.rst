@@ -267,7 +267,9 @@ Or use lucene query syntax directly::
 
     Human.index.search("age:4")
 
-Specify a custom index name for a class (inherited)::
+Specify a custom index name for a class (inherited). Be very careful when sharing indexes
+between classes as this means nodes will inflated to any class sharing the index.
+Properties of the same name on different classes may conflict.::
 
     class Badger(StructuredNode):
         __index__ = 'MyBadgers'

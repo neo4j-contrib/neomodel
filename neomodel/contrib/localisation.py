@@ -12,13 +12,9 @@ class Locale(StructuredNode):
     def __str__(self):
         return self.code
 
-    _locale_cache = {}
-
     @classmethod
     def get(cls, code):
-        if not code in cls._locale_cache:
-            cls._locale_cache[code] = Locale.index.get(code=code)
-        return cls._locale_cache[code]
+        return Locale.index.get(code=code)
 
 
 class LocalisedIndexManager(NodeIndexManager):

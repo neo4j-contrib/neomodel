@@ -1,4 +1,4 @@
-from .relationship_manager import RelationshipManager, ZeroOrMore
+from .relationship_manager import RelationshipManager, ZeroOrMore # noqa
 
 
 class ZeroOrOne(RelationshipManager):
