@@ -1,6 +1,5 @@
 import re
 from py2neo import neo4j
-from py2neo.packages.httpstream.http import Response
 from .exception import UniqueProperty, DataInconsistencyError
 
 camel_to_upper = lambda x: "_".join(word.upper() for word in re.split(r"([A-Z][0-9a-z]*)", x)[1::2])
@@ -13,26 +12,6 @@ class CustomBatch(neo4j.WriteBatch):
         super(CustomBatch, self).__init__(graph)
         self.index_name = index_name
         self.node = node
-
-    # Borrowed from nigel, to force status codes in batch response
-    def _submit(self):
-        """ Submits batch of requests, returning list of Response objects."""
-        rs = self._graph_db._post(self._graph_db._batch_uri, [
-            request.description(id_)
-            for id_, request in enumerate(self.requests)
-        ], {'X-Stream': 'true'})
-        self.clear()
-        return [
-            Response(
-                self._graph_db,
-                response.get("status", rs.status),
-                response["from"],
-                response.get("location", None),
-                response.get("body", None),
-                id=response.get("id", None),
-            )
-            for response in rs.get().content
-        ]
 
     # def submit(self):
     #     results = []
