@@ -120,7 +120,8 @@ class AstBuilder(object):
                 'lhs': target['name'],
                 'direction': INCOMING,
                 'ident': category_rel_ident,
-                'relation_type': "|".join([rel for rel in target['target_map']]),
+                #'relation_type': "|".join([rel for rel in target['target_map']]),
+                'relation_type': "",
                 'rhs': ''
             })
             # Add where
@@ -232,7 +233,8 @@ class AstBuilder(object):
                 if not ('limit' in entry or 'skip' in entry):
                     ast.insert(len(ast) - i, self.order_part)
                     break
-        results, _ = self.start_node.cypher(Query(ast), self.query_params)
+        query = Query(ast)
+        results, _ = self.start_node.cypher(query, self.query_params)
         self.last_ast = ast
         return results
 
@@ -240,7 +242,7 @@ class AstBuilder(object):
         target_map = last_x_in_ast(ast, 'target_map')['target_map']
         results = self.execute(ast)
         nodes = [row[0] for row in results]
-        classes = [target_map[row[1].type] for row in results]
+        classes = [target_map.values()[0] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
 

@@ -23,13 +23,14 @@ def check_origin(fn):
 
 def rel_helper(**rel):
     if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
+        stmt = '-[{0}{1}]->'
     elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
+        stmt = '<-[{0}{1}]-'
     else:
-        stmt = '-[{0}:{1}]-'
+        stmt = '-[{0}{1}]-'
     ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
+    rel_name = ":" + rel['relation_type'] if rel['relation_type'] != "" else ""
+    stmt = stmt.format(ident, rel_name )
     return "  ({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
