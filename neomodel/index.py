@@ -1,5 +1,5 @@
 from lucenequerybuilder import Q
-from .exception import PropertyNotIndexed, DoesNotExist
+from .exception import PropertyNotIndexed, DoesNotExist, NoSuchProperty
 from .properties import AliasProperty
 import functools
 from py2neo import neo4j
@@ -13,16 +13,20 @@ class NodeIndexManager(object):
     def _check_params(self, params):
         """checked args are indexed and convert aliases"""
         for key in params.keys():
-            prop = self.node_class.get_property(key)
-            if not prop.is_indexed:
-                raise PropertyNotIndexed(key)
-            if isinstance(prop, AliasProperty):
-                real_key = prop.aliased_to()
-                if real_key in params:
-                    msg = "Can't alias {0} to {1} in {2}, key {0} exists."
-                    raise Exception(msg.format(key, real_key, repr(params)))
-                params[real_key] = params[key]
-                del params[key]
+            try:
+                prop = self.node_class.get_property(key)
+                if not prop.is_indexed:
+                    raise PropertyNotIndexed(key)
+                if isinstance(prop, AliasProperty):
+                    real_key = prop.aliased_to()
+                    if real_key in params:
+                        msg = "Can't alias {0} to {1} in {2}, key {0} exists."
+                        raise Exception(msg.format(key, real_key, repr(params)))
+                    params[real_key] = params[key]
+                    del params[key]
+            #: This is because where based on semistructured node
+            except NoSuchProperty as nsp:
+                return
 
     def _execute(self, query):
         return self.__index__.query(query)
