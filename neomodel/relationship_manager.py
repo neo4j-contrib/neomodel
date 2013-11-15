@@ -23,13 +23,14 @@ def check_origin(fn):
 
 def rel_helper(**rel):
     if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
+        stmt = '-[{0}{1}]->'
     elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
+        stmt = '<-[{0}{1}]-'
     else:
-        stmt = '-[{0}:{1}]-'
+        stmt = '-[{0}{1}]-'
     ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
+    rel_name = ":" + rel['relation_type'] if rel['relation_type'] != "" else ""
+    stmt = stmt.format(ident, rel_name )
     return "  ({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
@@ -104,7 +105,7 @@ class RelationshipManager(object):
     def _check_node(self, obj):
         """check for valid target node i.e correct class and is saved"""
         for rel_type, cls in self.target_map.items():
-            if obj.__class__ is cls:
+            if issubclass(obj.__class__ , cls):
                 if not hasattr(obj, '__node__'):
                     raise Exception("Can't preform operation on unsaved node " + repr(obj))
                 return
@@ -163,8 +164,11 @@ class RelationshipManager(object):
         rel, = self.origin.cypher(q, {'them': obj.__node__.id})[0][0]
         if not rel:
             return
-        rel_instance = rel_model.inflate(rel)
 
+        if rel_model is not None:
+            rel_instance = rel_model.inflate(rel)
+        else:
+            rel_instance = rel
         if self.definition['direction'] == INCOMING:
             rel_instance._start_node_class = obj.__class__
             rel_instance._end_node_class = self.origin.__class__
