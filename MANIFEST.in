@@ -1,3 +1,4 @@
 include README.rst
 include AUTHORS.txt
 include Changelog
+include LICENSE
