@@ -38,7 +38,7 @@ class SemiStructuredNode(StructuredNode):
             age = IntegerProperty()
 
             def hello(self):
-                print "Hi my names " + self.name
+                print("Hi my names " + self.name)
 
         tim = Person(name='Tim', age=8, weight=11).save()
         tim.hello = "Hi"
