@@ -11,9 +11,9 @@ class UniqueProperty(ValueError):
 
 
 class DataInconsistencyError(ValueError):
-    def __init__(self, request, index, node='(unsaved)'):
-        self.property_name = request.body['key']
-        self.value = request.body['value']
+    def __init__(self, key, value, index, node='(unsaved)'):
+        self.property_name = key
+        self.value = value
         self.index_name = index
         self.node = node
 
