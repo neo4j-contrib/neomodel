@@ -64,7 +64,7 @@ class Hierarchical(object):
         if isinstance(self, StructuredNode):
             child_nodes = [
                 rel.end_node
-                for rel in self.__node__.get_relationships(1, cls.relationship_type())
+                for rel in self.__node__.match_outgoing(cls.relationship_type())
                 if rel["__child__"]
             ]
             return [cls.inflate(node) for node in child_nodes]

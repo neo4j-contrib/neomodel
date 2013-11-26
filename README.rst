@@ -189,7 +189,7 @@ this inflates py2neo nodes to neomodel node objects::
 
     class Person(StructuredNode):
         def friends(self):
-            results, metadata = self.cypher("START a=node({self}) MATCH a-[:FRIEND]->(b) RETURN b");
+            results = self.cypher("START a=node({self_node}) MATCH a-[:FRIEND]->(b) RETURN b");
             return [self.__class__.inflate(row[0]) for row in results]
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your

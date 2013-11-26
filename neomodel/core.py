@@ -1,10 +1,11 @@
-from py2neo import neo4j, cypher
-from py2neo.rest import SocketError
+from py2neo import neo4j
+from py2neo.exceptions import CypherError
+from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .properties import Property, PropertyManager, AliasProperty
 from .relationship_manager import RelationshipManager, OUTGOING
-from .traversal import TraversalSet
+from .traversal import TraversalSet, Query
 from .signals import hooks
 from .index import NodeIndexManager
 import logging
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
-    from urlparse import urlparse # noqa
+    from urlparse import urlparse  # noqa
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
@@ -41,14 +42,18 @@ def connection():
 
 
 def cypher_query(query, params=None):
+    if isinstance(query, Query):
+        query = query.__str__()
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug(query)
         logger.debug("params: " + repr(params))
+    cq = neo4j.CypherQuery(connection(), query)
     try:
-        return cypher.execute(connection(), query, params)
-    except cypher.CypherError as e:
-        message, etype, jtrace = e.args
-        raise CypherException(query, params, message, etype, jtrace)
+        results = cq.execute(**params)
+    except CypherError as e:
+        raise CypherException(query, params, e.message, e.exception, e.stack_trace)
+    else:
+        return results.data
 
 
 class CypherMixin(object):
@@ -60,7 +65,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert hasattr(self, '__node__')
         params = params or {}
-        params.update({'self': self.__node__.id})
+        params.update({'self_node': self.__node__._id})  # TODO: this will break stuff!
         return cypher_query(query, params)
 
 
@@ -118,9 +123,9 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def save(self):
         # create or update instance node
         if self.__node__:
-            batch = CustomBatch(connection(), self.index.name, self.__node__.id)
-            batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
-            props = self.deflate(self.__properties__, self.__node__.id)
+            batch = CustomBatch(connection(), self.index.name, self.__node__._id)
+            batch.remove_from_index(neo4j.Node, index=self.index.__index__, entity=self.__node__)
+            props = self.deflate(self.__properties__, self.__node__._id)
             batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
             batch.submit()
@@ -142,7 +147,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def delete(self):
         self._pre_action_check('delete')
         self.index.__index__.remove(entity=self.__node__)
-        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("START self=node({self_node}) MATCH (self)-[r]-() DELETE r, self")
         self.__node__ = None
         self._is_deleted = True
         return True
@@ -155,7 +160,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         self._pre_action_check('refresh')
         """Reload this object from its node in the database"""
         if self.__node__:
-            if self.__node__.exists():
+            if self.__node__.exists:
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__
                 for key, val in props.items():
@@ -212,11 +217,11 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 node_property = cls.get_property(key)
                 if node_property.unique_index:
                     try:
-                        batch.add_indexed_node_or_fail(cls.index.__index__, key, value, node)
+                        batch.add_to_index_or_fail(neo4j.Node, cls.index.__index__, key, value, node)
                     except NotImplementedError:
-                        batch.get_or_add_indexed_node(cls.index.__index__, key, value, node)
+                        batch.get_or_add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
                 elif node_property.index:
-                    batch.add_indexed_node(cls.index.__index__, key, value, node)
+                    batch.add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
         return batch
 
 
