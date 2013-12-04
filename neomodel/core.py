@@ -38,6 +38,12 @@ def connection():
         connection.db = neo4j.GraphDatabaseService(url)
     except SocketError as e:
         raise SocketError("Error connecting to {0} - {1}".format(url, e))
+
+    if connection.db.neo4j_version > (1, 9):
+        raise Exception("Support for neo4j 2.0 is in progress but not supported by this release.")
+    if connection.db.neo4j_version < (1, 8):
+        raise Exception("Versions of neo4j prior to 1.8 are unsupported.")
+
     return connection.db
 
 
