@@ -1,4 +1,7 @@
 Version 0.4.0 unreleased
+ * server compatability check (Robin Edwards)
+ * 1.9 server fixes (Robin Edwards)
+ * upgrade to py2neo 1.6.1 (Panos Katseas)
  * make __index__ inherited (Sebastian Ortiz)
  * documentation improvements (Priit Laes)
  * import RelationshipDefinition and RelationshipManager into main
