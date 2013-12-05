@@ -69,7 +69,7 @@ class CypherMixin(object):
 
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
-        assert hasattr(self, '__node__')
+        assert self.__node__ is not None
         params = params or {}
         params.update({'self_node': self.__node__._id})  # TODO: this will break stuff!
         return cypher_query(query, params)
@@ -128,7 +128,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     @hooks
     def save(self):
         # create or update instance node
-        if self.__node__:
+        if self.__node__ is not None:
             batch = CustomBatch(connection(), self.index.name, self.__node__._id)
             batch.remove_from_index(neo4j.Node, index=self.index.__index__, entity=self.__node__)
             props = self.deflate(self.__properties__, self.__node__._id)
@@ -165,7 +165,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def refresh(self):
         self._pre_action_check('refresh')
         """Reload this object from its node in the database"""
-        if self.__node__:
+        if self.__node__ is not None:
             if self.__node__.exists:
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__

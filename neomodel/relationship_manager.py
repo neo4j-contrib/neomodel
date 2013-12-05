@@ -102,7 +102,7 @@ class RelationshipManager(object):
         """check for valid target node i.e correct class and is saved"""
         for rel_type, cls in self.target_map.items():
             if obj.__class__ is cls:
-                if not hasattr(obj, '__node__'):
+                if obj.__node__ is None:
                     raise Exception("Can't preform operation on unsaved node " + repr(obj))
                 return
 

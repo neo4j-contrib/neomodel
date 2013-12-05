@@ -49,7 +49,6 @@ class AstBuilder(object):
         self.start_node = start_node
         self.ident_count = 0
         self.query_params = {}
-        assert hasattr(self.start_node, '__node__')
         self.ast = [{'start': '{self_node}',
             'class': self.start_node.__class__, 'name': 'origin'}]
         self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
@@ -250,7 +249,7 @@ class TraversalSet(AstBuilder):
         super(TraversalSet, self).__init__(start_node)
 
     def traverse(self, rel, *where_stmts):
-        if not self.start_node.__node__:
+        if self.start_node.__node__ is None:
             raise Exception("Cannot traverse unsaved node")
         self._traverse(rel, where_stmts)
         return self
