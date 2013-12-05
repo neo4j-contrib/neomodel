@@ -1,6 +1,6 @@
 from py2neo import neo4j
-from py2neo.exceptions import CypherError
 from py2neo.packages.httpstream import SocketError
+from py2neo.exceptions import ClientError
 from .exception import DoesNotExist, CypherException
 from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
 from .properties import Property, PropertyManager, AliasProperty
@@ -8,9 +8,9 @@ from .relationship_manager import RelationshipManager, OUTGOING
 from .traversal import TraversalSet, Query
 from .signals import hooks
 from .index import NodeIndexManager
-import logging
 import os
 import sys
+import logging
 logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
@@ -51,15 +51,13 @@ def cypher_query(query, params=None):
     if isinstance(query, Query):
         query = query.__str__()
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-        logger.debug(query)
+        logger.debug("query: " + query)
         logger.debug("params: " + repr(params))
-    cq = neo4j.CypherQuery(connection(), query)
     try:
-        results = cq.execute(**params)
-    except CypherError as e:
+        cq = neo4j.CypherQuery(connection(), '')
+        return neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}})).data
+    except ClientError as e:
         raise CypherException(query, params, e.message, e.exception, e.stack_trace)
-    else:
-        return results.data
 
 
 class CypherMixin(object):
@@ -71,7 +69,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert self.__node__ is not None
         params = params or {}
-        params.update({'self_node': self.__node__._id})  # TODO: this will break stuff!
+        params.update({'self': self.__node__._id})  # TODO: this will break stuff!
         return cypher_query(query, params)
 
 
@@ -153,7 +151,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def delete(self):
         self._pre_action_check('delete')
         self.index.__index__.remove(entity=self.__node__)
-        self.cypher("START self=node({self_node}) MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
         self.__node__ = None
         self._is_deleted = True
         return True

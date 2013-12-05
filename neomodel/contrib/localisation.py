@@ -26,7 +26,7 @@ class LocalisedIndexManager(NodeIndexManager):
     def _execute(self, query):
         locale = Locale.get(self.locale_code)
         cquery = """
-            START lang = node({self_node}),
+            START lang = node({self}),
             lnode = node:%s({query})
             MATCH (lnode)-[:LANGUAGE]->(lang)
             RETURN lnode

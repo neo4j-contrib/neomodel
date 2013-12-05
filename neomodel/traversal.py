@@ -49,7 +49,7 @@ class AstBuilder(object):
         self.start_node = start_node
         self.ident_count = 0
         self.query_params = {}
-        self.ast = [{'start': '{self_node}',
+        self.ast = [{'start': '{self}',
             'class': self.start_node.__class__, 'name': 'origin'}]
         self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
 
