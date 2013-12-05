@@ -55,7 +55,8 @@ def cypher_query(query, params=None):
         logger.debug("params: " + repr(params))
     try:
         cq = neo4j.CypherQuery(connection(), '')
-        return neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}})).data
+        r = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
+        return [list(r.values) for r in r.data], list(r.columns)
     except ClientError as e:
         raise CypherException(query, params, e.message, e.exception, e.stack_trace)
 
@@ -150,7 +151,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.index.__index__.remove(entity=self.__node__)
+        self.index.__index__.remove(entity=self.__node__) # not sure if this is necessary
         self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
         self.__node__ = None
         self._is_deleted = True

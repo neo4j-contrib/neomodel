@@ -189,8 +189,12 @@ this inflates py2neo nodes to neomodel node objects::
 
     class Person(StructuredNode):
         def friends(self):
-            results = self.cypher("START a=node({self}) MATCH a-[:FRIEND]->(b) RETURN b");
+            results, columns = self.cypher("START a=node({self}) MATCH a-[:FRIEND]->(b) RETURN b")
             return [self.__class__.inflate(row[0]) for row in results]
+
+    # for standalone queries
+    from neomodel import cypher_query
+    cypher_query(query, params)
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.

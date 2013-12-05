@@ -234,7 +234,7 @@ class AstBuilder(object):
                 if not ('limit' in entry or 'skip' in entry):
                     ast.insert(len(ast) - i, self.order_part)
                     break
-        results = self.start_node.cypher(Query(ast), self.query_params)
+        results, meta = self.start_node.cypher(Query(ast), self.query_params)
         self.last_ast = ast
         return results
 
