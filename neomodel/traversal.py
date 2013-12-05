@@ -57,6 +57,9 @@ class AstBuilder(object):
         if len(self.ast) > 1:
             t = self._find_map(self.ast[-2]['target_map'], rel_manager)
         else:
+            if not hasattr(self.start_node, rel_manager):
+                    raise AttributeError("{} class has no relationship definition '{}' to traverse.".format(
+                        self.start_node.__class__.__name__, rel_manager))
             t = getattr(self.start_node, rel_manager).definition
             t['name'] = rel_manager
 
