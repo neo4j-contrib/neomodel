@@ -214,10 +214,12 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 if node_property.unique_index:
                     try:
                         batch.add_indexed_node_or_fail(cls.index._get_index(
-                                                        key),key, value, node)
+                                                        key),key, value,
+                                                       node)
                     except NotImplementedError:
                         batch.get_or_add_indexed_node(cls.index._get_index(
-                                                      key), key, value, node)
+                                                      key), key, value,
+                                                      node)
                 elif node_property.index:
                     batch.add_indexed_node(cls.index._get_index(key), key,
                                            value, node)
@@ -235,7 +237,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 node_property = cls.get_property(key)
                 if node_property.index_name:
                     batch.remove_indexed_node(index=cls.index._get_index(
-                                                        key), node=node)
+                                                        key)[0], node=node)
         return batch
 
 

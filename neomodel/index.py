@@ -41,11 +41,27 @@ class NodeIndexManager(object):
                 return self.__index__
         return self.__index__
 
+    def _get_index_type(self, prop_name=None):
+        if prop_name:
+            try:
+                prop = self.node_class.get_property(prop_name)
+                prop_index = prop.__index__
+                if prop_index:
+                    if 'type' in prop.index_config and prop.index_config[
+                        'type']:
+                        return prop.index_config['type']
+            #: This is because where based on semistructured node
+            except NoSuchProperty as nsp:
+                return None
+        return None
+
     def _execute(self, index, query):
         return index.query(query)
 
     def search(self, query=None, **kwargs):
-        """Search nodes using an via index"""
+        """Search nodes using an via index, if searching just for one
+        properties, attemps to find if the property is on his own index"""
+        index = self.__index__
         if not query:
             if not kwargs:
                 msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
@@ -53,8 +69,19 @@ class NodeIndexManager(object):
                 msg += "To retrieve all nodes use the category node: {0}.category().instance.all()"
                 raise ValueError(msg.format(self.node_class.__name__))
             self._check_params(kwargs)
-            query = functools.reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
-            index = self._get_index(kwargs.keys()[0])
+            if len(kwargs.keys()) == 1:
+                index = self._get_index(kwargs.keys()[0])
+                is_fulltext = self._get_index_type(kwargs.keys()[0]) == \
+                              'fulltext'
+                if is_fulltext:
+                    qargs={'wildcard':True}
+            if qargs:
+                query = functools.reduce(lambda x, y: x & y, [Q(k, v, **qargs) for
+                                                          k, v in kwargs.items()])
+            else:
+                query = functools.reduce(lambda x, y: x & y, [Q(k, v,) for
+                                                          k, v in kwargs.items()])
+
         return [self.node_class.inflate(n) for n in self._execute(index, str(
             query))]
 
