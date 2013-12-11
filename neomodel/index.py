@@ -28,8 +28,21 @@ class NodeIndexManager(object):
             except NoSuchProperty as nsp:
                 return
 
-    def _execute(self, query):
-        return self.__index__.query(query)
+    def _get_index(self, prop_name=None):
+        """ return index of the property if exists"""
+        if prop_name:
+            try:
+                prop = self.node_class.get_property(prop_name)
+                prop_index = prop.__index__
+                if prop_index:
+                    return prop_index
+            #: This is because where based on semistructured node
+            except NoSuchProperty as nsp:
+                return self.__index__
+        return self.__index__
+
+    def _execute(self, index, query):
+        return index.query(query)
 
     def search(self, query=None, **kwargs):
         """Search nodes using an via index"""
@@ -41,8 +54,9 @@ class NodeIndexManager(object):
                 raise ValueError(msg.format(self.node_class.__name__))
             self._check_params(kwargs)
             query = functools.reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
-
-        return [self.node_class.inflate(n) for n in self._execute(str(query))]
+            index = self._get_index(kwargs.keys()[0])
+        return [self.node_class.inflate(n) for n in self._execute(index, str(
+            query))]
 
     def get(self, query=None, **kwargs):
         """Load single node from index lookup"""

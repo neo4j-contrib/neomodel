@@ -8,6 +8,8 @@ import json
 import sys
 import functools
 import logging
+from py2neo import neo4j
+
 logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
@@ -95,7 +97,8 @@ def validator(fn):
 
 
 class Property(object):
-    def __init__(self, unique_index=False, index=False, required=False, default=None):
+    def __init__(self, unique_index=False, index=False, required=False,
+                 default=None, index_name=None, index_config=None):
         if default and required:
             raise Exception("required and default are mutually exclusive")
 
@@ -107,6 +110,8 @@ class Property(object):
         self.index = index
         self.default = default
         self.has_default = True if self.default is not None else False
+        self.index_name = index_name
+        self.index_config = index_config
 
     def default_value(self):
         if self.has_default:
@@ -120,6 +125,14 @@ class Property(object):
     @property
     def is_indexed(self):
         return self.unique_index or self.index
+
+    @property
+    def __index__(self):
+        if not self.index_name:
+            return None
+        from .core import connection
+        return connection().get_or_create_index(neo4j.Node, self.index_name,
+                                                self.index_config)
 
 
 class StringProperty(Property):

@@ -121,6 +121,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             batch = CustomBatch(connection(), self.index.name, self.__node__.id)
             batch.remove_indexed_node(index=self.index.__index__, node=self.__node__)
             props = self.deflate(self.__properties__, self.__node__.id)
+            self._remove_prop_indexes(self.__node__, props, batch)
             batch.set_properties(self.__node__, props)
             self._update_indexes(self.__node__, props, batch)
             batch.submit()
@@ -212,11 +213,29 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 node_property = cls.get_property(key)
                 if node_property.unique_index:
                     try:
-                        batch.add_indexed_node_or_fail(cls.index.__index__, key, value, node)
+                        batch.add_indexed_node_or_fail(cls.index._get_index(
+                                                        key),key, value, node)
                     except NotImplementedError:
-                        batch.get_or_add_indexed_node(cls.index.__index__, key, value, node)
+                        batch.get_or_add_indexed_node(cls.index._get_index(
+                                                      key), key, value, node)
                 elif node_property.index:
-                    batch.add_indexed_node(cls.index.__index__, key, value, node)
+                    batch.add_indexed_node(cls.index._get_index(key), key,
+                                           value, node)
+        return batch
+
+
+    @classmethod
+    def _remove_prop_indexes(cls, node, props, batch):
+        # check for conflicts prior to execution
+        if batch._graph_db.neo4j_version < (1, 9):
+            _legacy_conflict_check(cls, node, props)
+
+        for key, value in props.items():
+            if key in cls._class_properties():
+                node_property = cls.get_property(key)
+                if node_property.index_name:
+                    batch.remove_indexed_node(index=cls.index._get_index(
+                                                        key), node=node)
         return batch
 
 
