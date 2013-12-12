@@ -83,6 +83,9 @@ class NodeIndexManager(object):
             else:
                 query = functools.reduce(lambda x, y: x & y, [Q(k, v,) for
                                                           k, v in kwargs.items()])
+        elif not isinstance(query, Q):
+            if len(query.split(':')) == 2:
+                index = self._get_index(query.split(':')[0])
 
         return [self.node_class.inflate(n) for n in self._execute(index, str(
             query))]
