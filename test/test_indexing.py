@@ -5,6 +5,8 @@ from lucenequerybuilder import Q
 class Human(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
+    info = StringProperty(index=True, index_name="HumanInfoIdx", 
+                         index_config={"type" : "fulltext"})
 
 
 def test_unique_error():
@@ -89,6 +91,13 @@ def test_index_inherited_props():
     assert MixedHuman.index.name == 'MixedHuman'
     node = MixedHuman.index.get(extra='extra')
     assert node.name == jim.name
+
+def test_indexed_fulltext_property():
+    h0= Human(name="Jimmy", age=13, info="My name is jimmy")
+    h0.save()
+    h = Human.index.get(info="*ji*")
+    assert h
+    assert h.name == "Jimmy"
 
 
 def test_custom_index_name():

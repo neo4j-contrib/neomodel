@@ -237,7 +237,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
                 node_property = cls.get_property(key)
                 if node_property.index_name:
                     batch.remove_indexed_node(index=cls.index._get_index(
-                                                        key)[0], node=node)
+                                                        key), node=node)
         return batch
 
 

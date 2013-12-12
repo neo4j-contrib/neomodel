@@ -75,6 +75,8 @@ class NodeIndexManager(object):
                               'fulltext'
                 if is_fulltext:
                     qargs={'wildcard':True}
+                else:
+                    qargs=None
             if qargs:
                 query = functools.reduce(lambda x, y: x & y, [Q(k, v, **qargs) for
                                                           k, v in kwargs.items()])
