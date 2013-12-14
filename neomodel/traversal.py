@@ -36,11 +36,11 @@ def last_x_in_ast(ast, x):
 
 def unique_placeholder(placeholder, query_params):
         i = 0
-        while placeholder in query_params:
-            if placeholder + '_' + i in query_params:
-                return placeholder + '_' + i
+        new_placeholder = "{}_{}".format(placeholder, i)
+        while new_placeholder in query_params:
             i += 1
-        return placeholder
+            new_placeholder = "{}_{}".format(placeholder, i)
+        return new_placeholder
 
 
 class AstBuilder(object):
