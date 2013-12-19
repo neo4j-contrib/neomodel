@@ -9,6 +9,7 @@ from .traversal import TraversalSet, Query
 from .signals import hooks
 from .index import NodeIndexManager
 import os
+import time
 import sys
 import logging
 logger = logging.getLogger(__name__)
@@ -50,15 +51,20 @@ def connection():
 def cypher_query(query, params=None):
     if isinstance(query, Query):
         query = query.__str__()
-    if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-        logger.debug("query: " + query)
-        logger.debug("params: " + repr(params))
+
     try:
         cq = neo4j.CypherQuery(connection(), '')
+        start = time.clock()
         r = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
-        return [list(r.values) for r in r.data], list(r.columns)
+        end = time.clock()
+        results = [list(r.values) for r in r.data], list(r.columns)
     except ClientError as e:
         raise CypherException(query, params, e.message, e.exception, e.stack_trace)
+
+    if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
+        logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
+
+    return results
 
 
 class CypherMixin(object):
