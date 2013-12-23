@@ -2,7 +2,7 @@ from py2neo import neo4j
 from py2neo.packages.httpstream import SocketError
 from py2neo.exceptions import ClientError
 from .exception import DoesNotExist, CypherException
-from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
+from .util import camel_to_upper, CustomBatch
 from .properties import Property, PropertyManager, AliasProperty
 from .relationship_manager import RelationshipManager, OUTGOING
 from .traversal import TraversalSet, Query
@@ -40,10 +40,9 @@ def connection():
     except SocketError as e:
         raise SocketError("Error connecting to {0} - {1}".format(url, e))
 
-    if connection.db.neo4j_version >= (2, 0):
-        raise Exception("Support for neo4j 2.0 is in progress but not supported by this release.")
-    if connection.db.neo4j_version < (1, 8):
-        raise Exception("Versions of neo4j prior to 1.8 are unsupported.")
+    if connection.db.neo4j_version < (2, 0):
+        raise Exception("Support for neo4j versions prior to 2.0 are "
+                + "supported by the 0.x series releases of neomodel")
 
     return connection.db
 
@@ -76,7 +75,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert self.__node__ is not None
         params = params or {}
-        params.update({'self': self.__node__._id})  # TODO: this will break stuff!
+        params.update({'self': self.__node__._id})
         return cypher_query(query, params)
 
 
@@ -219,10 +218,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
 
     @classmethod
     def _update_indexes(cls, node, props, batch):
-        # check for conflicts prior to execution
-        if batch._graph_db.neo4j_version < (1, 9):
-            _legacy_conflict_check(cls, node, props)
-
         for key, value in props.items():
             if key in cls._class_properties():
                 node_property = cls.get_property(key)
