@@ -2,9 +2,8 @@ from py2neo import neo4j
 from py2neo.packages.httpstream import SocketError
 from py2neo.exceptions import ClientError
 from .exception import DoesNotExist, CypherException
-from .util import camel_to_upper, CustomBatch
+from .util import CustomBatch
 from .properties import Property, PropertyManager, AliasProperty
-from .relationship_manager import RelationshipManager, OUTGOING
 from .traversal import TraversalSet, Query
 from .signals import hooks
 from .index import NodeIndexManager
@@ -66,19 +65,6 @@ def cypher_query(query, params=None):
     return results
 
 
-class CypherMixin(object):
-    @property
-    def client(self):
-        return connection()
-
-    def cypher(self, query, params=None):
-        self._pre_action_check('cypher')
-        assert self.__node__ is not None
-        params = params or {}
-        params.update({'self': self.__node__._id})
-        return cypher_query(query, params)
-
-
 class StructuredNodeMeta(type):
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
@@ -103,7 +89,7 @@ class StructuredNodeMeta(type):
 StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (PropertyManager,), {})
 
 
-class StructuredNode(StructuredNodeBase, CypherMixin):
+class StructuredNode(StructuredNodeBase):
     """ Base class for nodes requiring declaration of formal structure.
 
         :ivar __node__: neo4j.Node instance bound to database for this instance
@@ -115,10 +101,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         self.__node__ = None
         super(StructuredNode, self).__init__(*args, **kwargs)
 
-    @classmethod
-    def category(cls):
-        return category_factory(cls)
-
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
@@ -128,6 +110,13 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         if not isinstance(other, (StructuredNode,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
+
+    def cypher(self, query, params=None):
+        self._pre_action_check('cypher')
+        assert self.__node__ is not None
+        params = params or {}
+        params.update({'self': self.__node__._id})
+        return cypher_query(query, params)
 
     @hooks
     def save(self):
@@ -156,7 +145,6 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.index.__index__.remove(entity=self.__node__) # not sure if this is necessary
         self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
         self.__node__ = None
         self._is_deleted = True
@@ -211,57 +199,3 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         snode = cls(**props)
         snode.__node__ = node
         return snode
-
-    @classmethod
-    def relationship_type(cls):
-        return camel_to_upper(cls.__name__)
-
-    @classmethod
-    def _update_indexes(cls, node, props, batch):
-        for key, value in props.items():
-            if key in cls._class_properties():
-                node_property = cls.get_property(key)
-                if node_property.unique_index:
-                    try:
-                        batch.add_to_index_or_fail(neo4j.Node, cls.index.__index__, key, value, node)
-                    except NotImplementedError:
-                        batch.get_or_add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
-                elif node_property.index:
-                    batch.add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
-        return batch
-
-
-class CategoryNode(CypherMixin):
-    def __init__(self, name):
-        self.name = name
-
-    def traverse(self, rel):
-        return TraversalSet(self).traverse(rel)
-
-    def _pre_action_check(self, action):
-        pass
-
-
-class InstanceManager(RelationshipManager):
-    """Manage 'instance' rel of category nodes"""
-    def connect(self, node):
-        raise Exception("connect not available from category node")
-
-    def disconnect(self, node):
-        raise Exception("disconnect not available from category node")
-
-
-def category_factory(instance_cls):
-    """ Retrieve category node by name """
-    name = instance_cls.__name__
-    category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-    category = CategoryNode(name)
-    category.__node__ = category_index.get_or_create('category', name, {'category': name})
-    rel_type = camel_to_upper(instance_cls.__name__)
-    category.instance = InstanceManager({
-        'direction': OUTGOING,
-        'relation_type': rel_type,
-        'target_map': {rel_type: instance_cls},
-    }, category)
-    category.instance.name = 'instance'
-    return category
