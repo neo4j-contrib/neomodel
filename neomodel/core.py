@@ -59,7 +59,7 @@ def cypher_query(query, params=None):
         end = time.clock()
         results = [list(rr.values) for rr in r.data], list(r.columns)
     except ClientError as e:
-        raise CypherException(query, params, e.message, e.exception, e.stack_trace)
+        raise CypherException(query, params, e.args[0], e.exception, e.stack_trace)
 
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
