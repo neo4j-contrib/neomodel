@@ -6,7 +6,6 @@ from .util import CustomBatch
 from .properties import Property, PropertyManager, AliasProperty
 from .traversal import TraversalSet, Query
 from .signals import hooks
-from .index import NodeIndexManager
 import os
 import time
 import sys
@@ -65,10 +64,10 @@ def cypher_query(query, params=None):
     return results
 
 
-class StructuredNodeMeta(type):
+class NodeMeta(type):
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
-        inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
+        inst = super(NodeMeta, mcs).__new__(mcs, name, bases, dct)
 
         if hasattr(inst, '__abstract_node__'):
             delattr(inst, '__abstract_node__')
@@ -80,34 +79,25 @@ class StructuredNodeMeta(type):
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
-            if '__index__' in dct or hasattr(inst, '__index__'):
-                name = dct['__index__'] if '__index__' in dct else getattr(inst, '__index__')
-            inst.index = NodeIndexManager(inst, name)
         return inst
 
 
-StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (PropertyManager,), {})
+NodeBase = NodeMeta('NodeBase', (PropertyManager,), {})
 
 
-class StructuredNode(StructuredNodeBase):
-    """ Base class for nodes requiring declaration of formal structure.
-
-        :ivar __node__: neo4j.Node instance bound to database for this instance
-    """
-
-    __abstract_node__ = True
+class Node(NodeBase):
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
-        super(StructuredNode, self).__init__(*args, **kwargs)
+        super(Node, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, (StructuredNode,)):
+        if not isinstance(other, (Node,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ == other.__node__
 
     def __ne__(self, other):
-        if not isinstance(other, (StructuredNode,)):
+        if not isinstance(other, (Node,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
 
