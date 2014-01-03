@@ -1,13 +1,5 @@
 class UniqueProperty(ValueError):
-    def __init__(self, key, value, index, node='(unsaved)'):
-        self.property_name = key
-        self.value = value
-        self.index_name = index
-        self.node = node
-
-    def __str__(self):
-        msg = "Value '{0}' of property {1} of node {2} in index {3} is not unique"
-        return msg.format(self.value, self.property_name, self.node, self.index_name)
+    pass
 
 
 class DoesNotExist(Exception):

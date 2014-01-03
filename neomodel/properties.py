@@ -17,11 +17,11 @@ if sys.version_info >= (3, 0):
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
-        for key, val in self._class_properties().items():
+        for key, val in self.defined_properties(aliases=False).items():
             if val.__class__ is RelationshipDefinition:
                 self.__dict__[key] = val.build_manager(self, key)
             # handle default values
-            elif isinstance(val, (Property,)) and not isinstance(val, (AliasProperty,)):
+            elif isinstance(val, (Property,)):
                 if not key in kwargs or kwargs[key] is None:
                     if val.has_default:
                         kwargs[key] = val.default_value()
@@ -43,9 +43,7 @@ class PropertyManager(object):
     def deflate(cls, obj_props, obj=None):
         """ deflate dict ready to be stored """
         deflated = {}
-        for key, prop in cls._class_properties().items():
-            if (not isinstance(prop, AliasProperty)
-                    and issubclass(prop.__class__, Property)):
+        for key, prop in cls.defined_properties().items():
                 if key in obj_props and obj_props[key] is not None:
                     deflated[key] = prop.deflate(obj_props[key], obj)
                 elif prop.has_default:
@@ -56,6 +54,7 @@ class PropertyManager(object):
 
     @classmethod
     def get_property(cls, name):
+        # TODO do we need this? only used by neomodel/index.py
         try:
             neo_property = getattr(cls, name)
         except AttributeError:
@@ -66,13 +65,13 @@ class PropertyManager(object):
         return neo_property
 
     @classmethod
-    def _class_properties(cls):
-        # get all dict values for inherited classes
-        # reverse is done to keep inheritance order
+    def defined_properties(cls, aliases=True, properties=True, rels=True):
         props = {}
-        for scls in reversed(cls.mro()):
-            for key, value in scls.__dict__.items():
-                props[key] = value
+        for key, prop in cls.__dict__.items():
+            if ((aliases and isinstance(prop, AliasProperty))
+                    or (properties and issubclass(prop.__class__, Property))
+                    or (rels and isinstance(prop, RelationshipManager))):
+                props[key] = prop
         return props
 
 
@@ -204,12 +203,12 @@ class DateTimeProperty(Property):
             raise ValueError('datetime object expected, got {0}'.format(value))
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
-            epoch_date = datetime(1970,1,1,tzinfo=pytz.utc)
+            epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
         elif os.environ.get('NEOMODEL_FORCE_TIMEZONE', False):
             raise ValueError("Error deflating {} no timezone provided".format(value))
         else:
             logger.warning("No timezone sepecified on datetime object.. will be inflated to UTC")
-            epoch_date = datetime(1970,1,1)
+            epoch_date = datetime(1970, 1, 1)
         return float((value - epoch_date).total_seconds())
 
 

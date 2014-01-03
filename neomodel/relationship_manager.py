@@ -2,7 +2,10 @@ import sys
 import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
-from .util import camel_to_upper
+
+
+def camel_to_upper():
+    pass
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 

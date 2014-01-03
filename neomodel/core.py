@@ -1,11 +1,11 @@
 from py2neo import neo4j
 from py2neo.packages.httpstream import SocketError
 from py2neo.exceptions import ClientError
-from .exception import DoesNotExist, CypherException
-from .util import CustomBatch
-from .properties import Property, PropertyManager, AliasProperty
+from .exception import DoesNotExist, CypherException, UniqueProperty
+from .properties import Property, PropertyManager
 from .traversal import TraversalSet, Query
 from .signals import hooks
+from .index import NodeIndexManager
 import os
 import time
 import sys
@@ -45,7 +45,7 @@ def connection():
     return connection.db
 
 
-def cypher_query(query, params=None):
+def cypher_query(query, params=None, handle_unique=True):
     if isinstance(query, Query):
         query = query.__str__()
 
@@ -56,12 +56,25 @@ def cypher_query(query, params=None):
         end = time.clock()
         results = [list(r.values) for r in r.data], list(r.columns)
     except ClientError as e:
+        if (handle_unique and e.exception == 'CypherExecutionException' and
+                " already exists with label " in e.message and e.message.startswith('Node ')):
+            raise UniqueProperty(e.message)
+
         raise CypherException(query, params, e.message, e.exception, e.stack_trace)
 
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
     return results
+
+
+def install_labels(cls):
+    for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+        if prop.index:
+            cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
+        elif prop.unique_index:
+            cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                    cls.__label__, key))
 
 
 class NodeMeta(type):
@@ -79,51 +92,69 @@ class NodeMeta(type):
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
+            # TODO: prevent __label__ from being inheritted
+            if '__label__' in dct:
+                inst.__label__ = dct['__label__']
+            else:
+                inst.__label__ = inst.__name__
+
+            install_labels(inst)
+            inst.index = NodeIndexManager(inst, inst.__label__)
         return inst
 
 
 NodeBase = NodeMeta('NodeBase', (PropertyManager,), {})
 
 
-class Node(NodeBase):
+class StructuredNode(NodeBase):
+
+    __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
-        super(Node, self).__init__(*args, **kwargs)
+        super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, (Node,)):
+        if not isinstance(other, (StructuredNode,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
-        return self.__node__ == other.__node__
+        return self.__node__._id == other.__node__._id
 
     def __ne__(self, other):
-        if not isinstance(other, (Node,)):
+        if not isinstance(other, (StructuredNode,)):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
 
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
-        assert self.__node__ is not None
         params = params or {}
         params.update({'self': self.__node__._id})
         return cypher_query(query, params)
+
+    def labels(self):
+        pass # todo
+
+    @classmethod
+    def inherited_labels(cls):
+        return [scls.__label__ for scls in cls.mro() if hasattr(scls, '__label__')]
 
     @hooks
     def save(self):
         # create or update instance node
         if self.__node__ is not None:
-            batch = CustomBatch(connection(), self.index.name, self.__node__._id)
-            batch.remove_from_index(neo4j.Node, index=self.index.__index__, entity=self.__node__)
-            props = self.deflate(self.__properties__, self.__node__._id)
-            batch.set_properties(self.__node__, props)
-            self._update_indexes(self.__node__, props, batch)
-            batch.submit()
+            # update
+            query = "START self=node({self})\n"
+            query += "\n".join(["SET self.{} = {{{}}}".format(key, key) + "\n"
+                for key in self.__properties__.keys()])
+            for label in self.inherited_labels():
+                query += "SET self:`{}`\n".format(label)
+            params = self.deflate(self.__properties__, self)
+            self.cypher(query, params)
+
         elif hasattr(self, '_is_deleted') and self._is_deleted:
             raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
         else:
+            # create
             self.__node__ = self.create(self.__properties__)[0].__node__
-            if hasattr(self, 'post_create'):
-                self.post_create()
         return self
 
     def _pre_action_check(self, action):
@@ -135,18 +166,20 @@ class Node(NodeBase):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("START self=node({self}) DELETE self")
         self.__node__ = None
         self._is_deleted = True
         return True
 
     def traverse(self, rel_manager, *args):
+        assert False
         self._pre_action_check('traverse')
         return TraversalSet(self).traverse(rel_manager, *args)
 
     def refresh(self):
+        """Reload this object from its node id in the database"""
+        assert False
         self._pre_action_check('refresh')
-        """Reload this object from its node in the database"""
         if self.__node__ is not None:
             if self.__node__.exists:
                 props = self.inflate(
@@ -159,26 +192,35 @@ class Node(NodeBase):
 
     @classmethod
     def create(cls, *props):
-        category = cls.category()
-        batch = CustomBatch(connection(), cls.index.name)
+        query = ""
         deflated = [cls.deflate(p) for p in list(props)]
-        # build batch
-        for p in deflated:
-            batch.create(neo4j.Node.abstract(**p))
-
+        params = {}
         for i in range(0, len(deflated)):
-            batch.create(neo4j.Relationship.abstract(category.__node__,
-                    cls.relationship_type(), i, __instance__=True))
-            cls._update_indexes(i, deflated[i], batch)
-        results = batch.submit()
-        return [cls.inflate(node) for node in results[:len(props)]]
+            props = ", ".join(["{}: {{n{}_{}}}".format(key, i, key)
+                    for key, value in deflated[i].items()])
+            query += "CREATE (n{} {{{}}})\n".format(i, props)
+
+            for label in cls.inherited_labels():
+                query += "SET n{}:`{}`\n".format(i, label)
+
+            for key, value in deflated[i].items():
+                params["n{}_{}".format(i, key)] = value
+
+        query += "RETURN "
+        query += ", ".join(["n" + str(i) for i in range(0, len(deflated))])
+
+        results, meta = cypher_query(query, params)
+
+        if hasattr(cls, 'post_create'):
+            for node in results:
+                node.post_create()
+
+        return [cls.inflate(node) for node in results[0]]
 
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in cls._class_properties().items():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
+        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
                 if key in node.__metadata__['data']:
                     props[key] = prop.inflate(node.__metadata__['data'][key], node)
                 elif prop.has_default:
