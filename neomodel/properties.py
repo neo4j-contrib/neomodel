@@ -69,7 +69,8 @@ class PropertyManager(object):
         props = {}
         for key, prop in cls.__dict__.items():
             if ((aliases and isinstance(prop, AliasProperty))
-                    or (properties and issubclass(prop.__class__, Property))
+                    or (properties and issubclass(prop.__class__, Property)
+                        and not isinstance(prop, AliasProperty))
                     or (rels and isinstance(prop, RelationshipManager))):
                 props[key] = prop
         return props
