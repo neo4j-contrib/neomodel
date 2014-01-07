@@ -1,5 +1,5 @@
 from .. import RelationshipTo, StructuredNode, StringProperty
-from ..core import NodeIndexManager
+from ..index import NodeIndexManager
 
 
 class Locale(StructuredNode):
