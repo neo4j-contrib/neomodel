@@ -1,8 +1,6 @@
-from lucenequerybuilder import Q
 from .exception import PropertyNotIndexed
 from .properties import AliasProperty
-import functools
-from py2neo import neo4j
+from .core import cypher_query
 
 
 class NodeIndexManager(object):
@@ -24,37 +22,31 @@ class NodeIndexManager(object):
                 params[real_key] = params[key]
                 del params[key]
 
-    def _execute(self, query):
-        return self.__index__.query(query)
+    def _build_query(self, params):
+        q = "MATCH (n:{}) WHERE\n".format(self.node_class.__label__)
+        q += " AND ".join(["n.{} = {{{}}}".format(key, key) for key in params.keys()])
+        return q + " RETURN n"
 
-    def search(self, query=None, **kwargs):
+    def search(self, **kwargs):
+        # TODO deprecate index.
         """Search nodes using an via index"""
-        if not query:
-            if not kwargs:
-                msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
-                msg += " or (lucene query): {0}.index.search('key:val').\n"
-                msg += "To retrieve all nodes use the category node: {0}.category().instance.all()"
-                raise ValueError(msg.format(self.node_class.__name__))
-            self._check_params(kwargs)
-            query = functools.reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
-        return [self.node_class.inflate(n) for n in self._execute(str(query))]
+        if not kwargs:
+            msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
+            raise ValueError(msg.format(self.node_class.__name__))
+        self._check_params(kwargs)
+        results, _ = cypher_query(self._build_query(kwargs), kwargs)
+        return [self.node_class.inflate(n) for n in results[0]]
 
-    def get(self, query=None, **kwargs):
+    def get(self, **kwargs):
         """Load single node from index lookup"""
-        if not query and not kwargs:
+        if not kwargs:
             msg = "No arguments provided.\nUsage: {0}.index.get(key=val)"
-            msg += " or (lucene query): {0}.index.get('key:val')."
             raise ValueError(msg.format(self.node_class.__name__))
 
-        nodes = self.search(query=query, **kwargs)
+        nodes = self.search(**kwargs)
         if len(nodes) == 1:
             return nodes[0]
         elif len(nodes) > 1:
             raise Exception("Multiple nodes returned from query, expected one")
         else:
             raise self.node_class.DoesNotExist("Can't find node in index matching query")
-
-    @property
-    def __index__(self):
-        from .core import connection
-        return connection().get_or_create_index(neo4j.Node, self.name)

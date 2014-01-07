@@ -5,7 +5,6 @@ from .exception import DoesNotExist, CypherException, UniqueProperty
 from .properties import Property, PropertyManager
 from .traversal import TraversalSet, Query
 from .signals import hooks
-from .index import NodeIndexManager
 import os
 import time
 import sys
@@ -99,6 +98,7 @@ class NodeMeta(type):
                 inst.__label__ = inst.__name__
 
             install_labels(inst)
+            from .index import NodeIndexManager
             inst.index = NodeIndexManager(inst, inst.__label__)
         return inst
 
@@ -178,17 +178,11 @@ class StructuredNode(NodeBase):
 
     def refresh(self):
         """Reload this object from its node id in the database"""
-        assert False
         self._pre_action_check('refresh')
         if self.__node__ is not None:
-            if self.__node__.exists:
-                props = self.inflate(
-                    self.client.node(self.__node__._id)).__properties__
-                for key, val in props.items():
-                    setattr(self, key, val)
-            else:
-                msg = 'Node %s does not exist in the database anymore'
-                raise self.DoesNotExist(msg % self.__node__._id)
+            node = self.inflate(self.cypher("START n=node({self}) RETURN n")[0][0][0])
+            for key, val in node.__properties__.items():
+                setattr(self, key, val)
 
     @classmethod
     def create(cls, *props):
