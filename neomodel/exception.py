@@ -73,10 +73,6 @@ class NoSuchProperty(Exception):
             self.property_name, self.node_class.__name__)
 
 
-class PropertyNotIndexed(Exception):
-    pass
-
-
 class NotConnected(Exception):
     def __init__(self, action, node1, node2):
         self.action = action

@@ -1,4 +1,3 @@
-from .exception import PropertyNotIndexed
 from .properties import AliasProperty
 from .core import cypher_query
 
@@ -12,8 +11,6 @@ class NodeIndexManager(object):
         """checked args are indexed and convert aliases"""
         for key in params.keys():
             prop = self.node_class.get_property(key)
-            if not prop.is_indexed:
-                raise PropertyNotIndexed(key)
             if isinstance(prop, AliasProperty):
                 real_key = prop.aliased_to()
                 if real_key in params:
