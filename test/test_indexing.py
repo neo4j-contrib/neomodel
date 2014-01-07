@@ -1,5 +1,4 @@
 from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueProperty
-from lucenequerybuilder import Q
 
 
 class Human(StructuredNode):
@@ -30,18 +29,6 @@ def test_optional_properties_dont_get_indexed():
     h = Human.index.get(age=98)
     assert h
     assert h.name is None
-
-
-def test_lucene_query():
-    Human(name='sarah', age=3).save()
-    Human(name='jim', age=4).save()
-    Human(name='bob', age=5).save()
-    Human(name='tim', age=2).save()
-
-    names = [p.name for p in Human.index.search(Q('age', inrange=[3, 5]))]
-    assert 'sarah' in names
-    assert 'jim' in names
-    assert 'bob' in names
 
 
 def test_escaped_chars():
@@ -91,18 +78,18 @@ def test_index_inherited_props():
     assert node.name == jim.name
 
 
-def test_custom_index_name():
+def test_custom_label_name():
     class Giraffe(StructuredNode):
-        __index__ = 'GiraffeIndex'
+        __label__ = 'Giraffes'
         name = StringProperty(unique_index=True)
 
     jim = Giraffe(name='timothy').save()
-    assert Giraffe.index.name == 'GiraffeIndex'
+    assert Giraffe.index.name == 'Giraffes'
     node = Giraffe.index.get(name='timothy')
     assert node.name == jim.name
 
     class SpecialGiraffe(Giraffe):
         power = StringProperty()
 
-    # custom indexes shall be inherited
-    assert SpecialGiraffe.index.name == 'GiraffeIndex'
+    # custom indexes aren't inherited
+    assert SpecialGiraffe.index.name == 'SpecialGiraffe'

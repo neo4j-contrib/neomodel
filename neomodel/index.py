@@ -31,8 +31,12 @@ class NodeIndexManager(object):
             msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
             raise ValueError(msg.format(self.node_class.__name__))
         self._check_params(kwargs)
-        results, _ = cypher_query(self._build_query(kwargs), kwargs)
-        return [self.node_class.inflate(n) for n in results[0]]
+
+        try:
+            results, _ = cypher_query(self._build_query(kwargs), kwargs)
+            return [self.node_class.inflate(n) for n in results[0]]
+        except IndexError:
+            return []
 
     def get(self, **kwargs):
         """Load single node from index lookup"""

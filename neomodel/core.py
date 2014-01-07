@@ -53,7 +53,7 @@ def cypher_query(query, params=None, handle_unique=True):
         start = time.clock()
         r = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
         end = time.clock()
-        results = [list(r.values) for r in r.data], list(r.columns)
+        results = [list(row.values) for row in r.data], list(r.columns)
     except ClientError as e:
         if (handle_unique and e.exception == 'CypherExecutionException' and
                 " already exists with label " in e.message and e.message.startswith('Node ')):
@@ -68,6 +68,7 @@ def cypher_query(query, params=None, handle_unique=True):
 
 
 def install_labels(cls):
+    # TODO when to execute this?
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
             cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
@@ -103,11 +104,10 @@ class NodeMeta(type):
         return inst
 
 
-NodeBase = NodeMeta('NodeBase', (PropertyManager,), {})
+NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
 
 
 class StructuredNode(NodeBase):
-
     __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
@@ -135,7 +135,8 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def inherited_labels(cls):
-        return [scls.__label__ for scls in cls.mro() if hasattr(scls, '__label__')]
+        return [scls.__label__ for scls in cls.mro()
+                if hasattr(scls, '__label__') and not hasattr(scls, '__abstract_node__')]
 
     @hooks
     def save(self):

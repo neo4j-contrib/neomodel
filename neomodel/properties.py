@@ -44,12 +44,12 @@ class PropertyManager(object):
         """ deflate dict ready to be stored """
         deflated = {}
         for key, prop in cls.defined_properties().items():
-                if key in obj_props and obj_props[key] is not None:
-                    deflated[key] = prop.deflate(obj_props[key], obj)
-                elif prop.has_default:
-                    deflated[key] = prop.deflate(prop.default_value(), obj)
-                elif prop.required:
-                    raise RequiredProperty(key, cls)
+            if key in obj_props and obj_props[key] is not None:
+                deflated[key] = prop.deflate(obj_props[key], obj)
+            elif prop.has_default:
+                deflated[key] = prop.deflate(prop.default_value(), obj)
+            elif prop.required:
+                raise RequiredProperty(key, cls)
         return deflated
 
     @classmethod
@@ -67,12 +67,13 @@ class PropertyManager(object):
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):
         props = {}
-        for key, prop in cls.__dict__.items():
-            if ((aliases and isinstance(prop, AliasProperty))
-                    or (properties and issubclass(prop.__class__, Property)
-                        and not isinstance(prop, AliasProperty))
-                    or (rels and isinstance(prop, RelationshipManager))):
-                props[key] = prop
+        for scls in reversed(cls.mro()):
+            for key, prop in scls.__dict__.items():
+                if ((aliases and isinstance(prop, AliasProperty))
+                        or (properties and issubclass(prop.__class__, Property)
+                            and not isinstance(prop, AliasProperty))
+                        or (rels and isinstance(prop, RelationshipManager))):
+                    props[key] = prop
         return props
 
 
