@@ -4,9 +4,6 @@ from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 
 
-def camel_to_upper():
-    pass
-
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
@@ -37,7 +34,7 @@ class RelationshipManager(object):
     def __init__(self, definition, origin):
         self.direction = definition['direction']
         self.relation_type = definition['relation_type']
-        self.target_map = definition['target_map']
+        self.label_map = definition['label_map']
         self.definition = definition
         self.origin = origin
 
@@ -102,15 +99,15 @@ class RelationshipManager(object):
         return bool(self.origin.cypher(q, {'them': obj.__node__._id})[0][0][0])
 
     def _check_node(self, obj):
-        """check for valid target node i.e correct class and is saved"""
-        for rel_type, cls in self.target_map.items():
+        """check for valid node i.e correct class and is saved"""
+        for label, cls in self.label_map.items():
             if obj.__class__ is cls:
                 if obj.__node__ is None:
                     raise Exception("Can't preform operation on unsaved node " + repr(obj))
                 return
 
         allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
-                                 for tcls, _ in self.target_map.items()])
+                                 for tcls, _ in self.label_map.items()])
         raise Exception("Expected node objects of class "
                 + allowed_cls + " got " + repr(obj)
                 + " see relationship definition in " + self.origin.__class__.__name__)
@@ -150,7 +147,7 @@ class RelationshipManager(object):
 
     @check_origin
     def relationship(self, obj):
-        """relationship: target_node"""
+        """relationship: node"""
         self._check_node(obj)
         if not 'model' in self.definition:
             raise NotImplemented("'relationship' method only available on relationships"
@@ -256,7 +253,7 @@ class RelationshipDefinition(object):
         return getattr(sys.modules[module], name)
 
     def build_manager(self, origin, name):
-        # get classes for target
+        # get classes for related nodes
         if isinstance(self.node_class, list):
             node_classes = [self._lookup(cls) if isinstance(cls, (str,)) else cls
                         for cls in self.node_class]
@@ -264,8 +261,8 @@ class RelationshipDefinition(object):
             node_classes = [self._lookup(self.node_class)
                 if isinstance(self.node_class, (str,)) else self.node_class]
 
-        # build target map
-        self.definition['target_map'] = dict(zip([camel_to_upper(c.__name__)
+        # build label map
+        self.definition['label_map'] = dict(zip([c.__label__
                 for c in node_classes], node_classes))
         rel = self.manager(self.definition, origin)
         rel.name = name

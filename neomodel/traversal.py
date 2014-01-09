@@ -1,13 +1,13 @@
-from .relationship_manager import RelationshipDefinition, rel_helper, INCOMING
+from .relationship_manager import RelationshipDefinition, rel_helper
 from copy import deepcopy
 import re
 
 
-def _deflate_node_value(target_map, prop, value):
+def _deflate_node_value(label_map, prop, value):
     prop = prop.replace('!', '').replace('?', '')
     property_classes = set()
     # find properties on target classes
-    for node_cls in target_map.values():
+    for node_cls in label_map.values():
         if hasattr(node_cls, prop):
             property_classes.add(getattr(node_cls, prop).__class__)
 
@@ -16,12 +16,12 @@ def _deflate_node_value(target_map, prop, value):
         return property_classes.pop()().deflate(value)
     elif len(property_classes) > 1:
         classes = ' or '.join([cls.__name__ for cls in property_classes])
-        node_classes = ' or '.join([cls.__name__ for cls in target_map.values()])
+        node_classes = ' or '.join([cls.__name__ for cls in label_map.values()])
         raise ValueError("Unsure how to deflate '" + value + "' conflicting definitions "
                 + " for target node classes " + node_classes + ", property could be any of: "
                 + classes + " in where()")
     else:
-        node_classes = ', '.join([cls.__name__ for cls in target_map.values()])
+        node_classes = ', '.join([cls.__name__ for cls in label_map.values()])
         raise ValueError("No property '{}' on {} can't deflate '{}' for where()".format(
             prop, node_classes, value))
 
@@ -55,7 +55,7 @@ class AstBuilder(object):
 
     def _traverse(self, rel_manager, where_stmts=None):
         if len(self.ast) > 1:
-            t = self._find_map(self.ast[-2]['target_map'], rel_manager)
+            t = self._find_map(self.ast[-2]['label_map'], rel_manager)
         else:
             if not hasattr(self.start_node, rel_manager):
                     raise AttributeError("{} class has no relationship definition '{}' to traverse.".format(
@@ -79,7 +79,7 @@ class AstBuilder(object):
                 node['match'].append(rel)
             # replace name and target map
             node['name'] = match['name']
-            node['target_map'] = match['target_map']
+            node['label_map'] = match['label_map']
         else:
             self.ast.append(match)
 
@@ -108,32 +108,19 @@ class AstBuilder(object):
         match = {
             'match': [rel_to_traverse],
             'name': target['name'],
-            'target_map': target['target_map']
+            'label_map': target['label_map']
         }
 
         where_clause = []
         if where_stmts:
             where_clause = self._where_rel(where_stmts, rel_to_traverse['ident'], target['model'])
 
-        # if we aren't category node or already traversed one rel
-        if not self.origin_is_category or len(self.ast) > 1:
-            category_rel_ident = self._create_ident()
-            match['match'].append({
-                'lhs': target['name'],
-                'direction': INCOMING,
-                'ident': category_rel_ident,
-                'relation_type': "|".join([rel for rel in target['target_map']]),
-                'rhs': ''
-            })
-            # Add where
-            where_clause.append(category_rel_ident + '.__instance__! = true')
-
         return match, where_clause
 
-    def _find_map(self, target_map, rel_manager):
+    def _find_map(self, label_map, rel_manager):
         targets = []
         # find matching rel definitions
-        for rel, cls in target_map.items():
+        for rel, cls in label_map.items():
             if hasattr(cls, rel_manager):
                 manager = getattr(cls, rel_manager)
                 if isinstance(manager, (RelationshipDefinition)):
@@ -143,7 +130,7 @@ class AstBuilder(object):
                     targets.append(p)
 
         if not targets:
-            t_list = ', '.join([t_cls.__name__ for t_cls, _ in target_map.items()])
+            t_list = ', '.join([t_cls.__name__ for t_cls, _ in label_map.items()])
             raise AttributeError("No such rel manager {0} on {1}".format(
                 rel_manager, t_list))
 
@@ -159,7 +146,7 @@ class AstBuilder(object):
             ident_prop = target['name'] + '.' + ident_prop
         else:
             prop = ident_prop.split('.')[1]
-        value = _deflate_node_value(target['target_map'], prop, value)
+        value = _deflate_node_value(target['label_map'], prop, value)
         return self._where_expr(ident_prop, op, value)
 
     def _where_rel(self, statements, rel_ident, model):
@@ -239,10 +226,11 @@ class AstBuilder(object):
         return results
 
     def execute_and_inflate_nodes(self, ast):
-        target_map = last_x_in_ast(ast, 'target_map')['target_map']
+        label_map = last_x_in_ast(ast, 'label_map')['label_map']
         results = self.execute(ast)
         nodes = [row[0] for row in results]
-        classes = [target_map[row[1].type] for row in results]
+        # TODO need to get labels here. rather than rel type
+        classes = [label_map[row[1].type] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
 
