@@ -82,6 +82,6 @@ class NotConnected(Exception):
     def __str__(self):
         msg = "Error preforming '{0}' - ".format(self.action)
         msg += "Node {0} of type '{1}' is not connected to {2} of type '{3}'".format(
-            self.node1.__node__._id, self.node1.__class__.__name__,
-            self.node2.__node__._id, self.node2.__class__.__name__)
+            self.node1._id, self.node1.__class__.__name__,
+            self.node2._id, self.node2.__class__.__name__)
         return msg
