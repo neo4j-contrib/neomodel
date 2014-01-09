@@ -141,7 +141,7 @@ class StructuredNode(NodeBase):
     def delete(self):
         self._pre_action_check('delete')
         self.cypher("START self=node({self}) DELETE self")
-        del self['_id']
+        del self.__dict__['_id']
         self._is_deleted = True
         return True
 
