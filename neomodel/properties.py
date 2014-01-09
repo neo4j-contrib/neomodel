@@ -40,7 +40,7 @@ class PropertyManager(object):
     def deflate(cls, obj_props, obj=None):
         """ deflate dict ready to be stored """
         deflated = {}
-        for key, prop in cls.defined_properties().items():
+        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
             if key in obj_props and obj_props[key] is not None:
                 deflated[key] = prop.deflate(obj_props[key], obj)
             elif prop.has_default:
