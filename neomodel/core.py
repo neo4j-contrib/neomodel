@@ -112,6 +112,8 @@ class StructuredNode(NodeBase):
 
     def __init__(self, *args, **kwargs):
         self.__node__ = None
+        for key, val in self.defined_properties(aliases=False, properties=False).items():
+            self.__dict__[key] = val.build_manager(self, key)
         super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):

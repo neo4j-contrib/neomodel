@@ -17,27 +17,24 @@ if sys.version_info >= (3, 0):
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
-        for key, val in self.defined_properties(aliases=False).items():
-            if val.__class__ is RelationshipDefinition:
-                self.__dict__[key] = val.build_manager(self, key)
+        for key, val in self.defined_properties(aliases=False, rels=False).items():
             # handle default values
-            elif isinstance(val, (Property,)):
-                if not key in kwargs or kwargs[key] is None:
-                    if val.has_default:
-                        kwargs[key] = val.default_value()
+            if not key in kwargs or kwargs[key] is None:
+                if val.has_default:
+                    kwargs[key] = val.default_value()
         for key, value in kwargs.items():
             if not(key.startswith("__") and key.endswith("__")):
                 setattr(self, key, value)
 
     @property
     def __properties__(self):
-        node_props = {}
+        props = {}
         for key, value in self.__dict__.items():
             if not (key.startswith('_') or value is None
                     or isinstance(value,
                         (types.MethodType, RelationshipManager, AliasProperty,))):
-                node_props[key] = value
-        return node_props
+                props[key] = value
+        return props
 
     @classmethod
     def deflate(cls, obj_props, obj=None):
@@ -72,7 +69,7 @@ class PropertyManager(object):
                 if ((aliases and isinstance(prop, AliasProperty))
                         or (properties and issubclass(prop.__class__, Property)
                             and not isinstance(prop, AliasProperty))
-                        or (rels and isinstance(prop, RelationshipManager))):
+                        or (rels and isinstance(prop, RelationshipDefinition))):
                     props[key] = prop
         return props
 
