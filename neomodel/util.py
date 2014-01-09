@@ -1,30 +1,60 @@
 from py2neo import neo4j
-from .exception import UniqueProperty
+from py2neo.exceptions import ClientError
+from .exception import CypherException, UniqueProperty
+import time
+import os
+import logging
+logger = logging.getLogger(__name__)
 
-# the default value "true;format=pretty" causes the server to loose individual status codes in batch responses
-neo4j._headers[None] = [("X-Stream", "true")]
+
+class Node(object):
+    def __init__(self, data):
+        self._id = int(neo4j.URI(data['self']).path.segments[-1])
+        self._properties = data.get('data', {})
 
 
-class CustomBatch(neo4j.WriteBatch):
-    def __init__(self, graph, index_name, node='(unsaved)'):
-        super(CustomBatch, self).__init__(graph)
-        self.index_name = index_name
-        self.node = node
+class Rel(object):
+    def __init__(self, data):
+        self._id = int(neo4j.URI(data['self']).path.segments[-1])
+        self._properties = data.get('data', {})
+        self._type = data['type']
 
-    def submit(self):
-        responses = self._execute()
-        batch_responses = [neo4j.BatchResponse(r) for r in responses.json]
-        self._check_for_conflicts(responses, batch_responses, self._requests)
 
-        try:
-            return [r.hydrated for r in batch_responses]
-        finally:
-            responses.close()
+def _hydrated(data):
+    if isinstance(data, dict):
+        if 'self' in data:
+            obj_type = neo4j.URI(data['self']).path.segments[-2]
+            if obj_type == 'node':
+                return Node(data)
+            elif obj_type == 'relationship':
+                return Rel(data)
+        raise NotImplemented("Don't know how to inflate: " + repr(data))
+    elif neo4j.is_collection(data):
+        return type(data)([_hydrated(datum) for datum in data])
+    else:
+        return data
 
-    def _check_for_conflicts(self, responses, batch_responses, requests):
-        for i, r in enumerate(batch_responses):
-            if r.status_code == 409:
-                responses.close()
-                raise UniqueProperty(
-                        requests[i].body['key'], requests[i].body['key'],
-                        self.index_name, self.node)
+neo4j._hydrated = _hydrated
+
+
+def cypher_query(connection, query, params=None, handle_unique=True):
+    if hasattr(query, '__str__'):
+        query = query.__str__()
+
+    try:
+        cq = neo4j.CypherQuery(connection, '')
+        start = time.clock()
+        result = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
+        end = time.clock()
+        results = result.data, list(result.columns)
+    except ClientError as e:
+        if (handle_unique and e.exception == 'CypherExecutionException' and
+                " already exists with label " in e.message and e.message.startswith('Node ')):
+            raise UniqueProperty(e.message)
+
+        raise CypherException(query, params, e.message, e.exception, e.stack_trace)
+
+    if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
+        logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
+
+    return results
