@@ -135,7 +135,8 @@ class RelationshipManager(object):
             for p, v in rel_model.deflate(rel_instance.__properties__).items():
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
-            rel_instance.__relationship__ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
+
+            rel_instance._id = self.origin.cypher(q + " RETURN r", params)[0][0][0]._id
             return rel_instance
 
         # OR.. set properties schemaless
@@ -275,10 +276,10 @@ class ZeroOrMore(RelationshipManager):
 
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
     if not isinstance(cls_name, (str, list, object)):
-        raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
+        raise ValueError('Expected class name or list of class names, got ' + repr(cls_name))
     from .relationship import StructuredRel
     if model and not issubclass(model, (StructuredRel,)):
-        raise Exception('model must be a StructuredRel')
+        raise ValueError('model must be a StructuredRel')
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
 
 
