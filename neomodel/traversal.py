@@ -4,9 +4,13 @@ import re
 
 
 def _deflate_node_value(label_map, prop, value):
+    """
+    When searching a query we must deflate our properties before making a query
+    This helper functions attempts to deflate the properties by their structured node definition
+    """
     prop = prop.replace('!', '').replace('?', '')
     property_classes = set()
-    # find properties on target classes
+    # find properties on potential classes
     for node_cls in label_map.values():
         if hasattr(node_cls, prop):
             property_classes.add(getattr(node_cls, prop).__class__)
@@ -43,8 +47,13 @@ def unique_placeholder(placeholder, query_params):
         return new_placeholder
 
 
+def _where_node_has_labels(ident, labels):
+    return ['({}:)'.format(ident, label) for label in labels]
+
+
 class AstBuilder(object):
-    """Construct AST for traversal"""
+    """Constructs a structure to be converted into a cypher query"""
+
     def __init__(self, start_node):
         self.start_node = start_node
         self.ident_count = 0
@@ -99,10 +108,12 @@ class AstBuilder(object):
     def _build_match_ast(self, target, where_stmts):
         rel_to_traverse = {
             'lhs': last_x_in_ast(self.ast, 'name')['name'],
+            'lhs_labels': last_x_in_ast(self.ast, 'name')['label_map'].values(),
             'direction': target['direction'],
             'relation_type': target['relation_type'],
             'ident': self._create_ident(),
             'rhs': target['name'],
+            'rhs_labels': target['label_map'].values()
         }
 
         match = {
@@ -111,14 +122,25 @@ class AstBuilder(object):
             'label_map': target['label_map']
         }
 
-        where_clause = []
+        where_clause = [
+            _where_node_has_labels(rel_to_traverse['lhs'], rel_to_traverse['lhs_labels'],),
+            _where_node_has_labels(rel_to_traverse['rhs'], rel_to_traverse['rhs_labels'],)
+        ]
+
         if where_stmts:
-            where_clause = self._where_rel(where_stmts, rel_to_traverse['ident'], target['model'])
+            where_clause.append(
+                    self._where_rel(where_stmts, rel_to_traverse['ident'], target['model']))
 
         return match, where_clause
 
     def _find_map(self, label_map, rel_manager):
+        """
+        When making a traverse find which relationship manager to follow
+        - this can be ambiguous on multi class relationships
+        - need to support some way of clarifying this
+        """
         targets = []
+
         # find matching rel definitions
         for rel, cls in label_map.items():
             if hasattr(cls, rel_manager):
