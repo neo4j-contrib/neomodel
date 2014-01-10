@@ -262,8 +262,8 @@ class TraversalSet(AstBuilder):
         super(TraversalSet, self).__init__(start_node)
 
     def traverse(self, rel, *where_stmts):
-        if self.start_node.__node__ is None:
-            raise Exception("Cannot traverse unsaved node")
+        if not hasattr(self.start_node, '_id'):
+            raise ValueError("Cannot traverse unsaved node")
         self._traverse(rel, where_stmts)
         return self
 
