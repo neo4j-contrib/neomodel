@@ -39,16 +39,16 @@ def last_x_in_ast(ast, x):
 
 
 def unique_placeholder(placeholder, query_params):
-        i = 0
+    i = 0
+    new_placeholder = "{}_{}".format(placeholder, i)
+    while new_placeholder in query_params:
+        i += 1
         new_placeholder = "{}_{}".format(placeholder, i)
-        while new_placeholder in query_params:
-            i += 1
-            new_placeholder = "{}_{}".format(placeholder, i)
-        return new_placeholder
+    return new_placeholder
 
 
-def _where_node_has_labels(ident, labels):
-    return ['({}:)'.format(ident, label) for label in labels]
+def _node_labeled(ident, labels):
+    return ['({}:{})'.format(ident, label) for label in labels]
 
 
 class AstBuilder(object):
@@ -58,9 +58,11 @@ class AstBuilder(object):
         self.start_node = start_node
         self.ident_count = 0
         self.query_params = {}
-        self.ast = [{'start': '{self}',
-            'class': self.start_node.__class__, 'name': 'origin'}]
-        self.origin_is_category = start_node.__class__.__name__ == 'CategoryNode'
+        self.ast = [{
+            'start': '{self}',
+            'class': self.start_node.__class__, 'name': 'origin',
+            'label_map': {self.start_node.__label__: self.start_node.__class__}
+        }]
 
     def _traverse(self, rel_manager, where_stmts=None):
         if len(self.ast) > 1:
@@ -108,12 +110,12 @@ class AstBuilder(object):
     def _build_match_ast(self, target, where_stmts):
         rel_to_traverse = {
             'lhs': last_x_in_ast(self.ast, 'name')['name'],
-            'lhs_labels': last_x_in_ast(self.ast, 'name')['label_map'].values(),
+            'lhs_labels': last_x_in_ast(self.ast, 'name')['label_map'].keys(),
             'direction': target['direction'],
             'relation_type': target['relation_type'],
             'ident': self._create_ident(),
             'rhs': target['name'],
-            'rhs_labels': target['label_map'].values()
+            'rhs_labels': target['label_map'].keys()
         }
 
         match = {
@@ -122,10 +124,8 @@ class AstBuilder(object):
             'label_map': target['label_map']
         }
 
-        where_clause = [
-            _where_node_has_labels(rel_to_traverse['lhs'], rel_to_traverse['lhs_labels'],),
-            _where_node_has_labels(rel_to_traverse['rhs'], rel_to_traverse['rhs_labels'],)
-        ]
+        where_clause = _node_labeled(rel_to_traverse['lhs'], rel_to_traverse['lhs_labels'])
+        where_clause += _node_labeled(rel_to_traverse['rhs'], rel_to_traverse['rhs_labels'])
 
         if where_stmts:
             where_clause.append(
@@ -194,8 +194,7 @@ class AstBuilder(object):
     def _add_return(self, ast):
         node = last_x_in_ast(ast, 'name')
         idents = [node['name']]
-        if self.ident_count > 0:
-            idents.append('r{0}'.format(self.ident_count))
+        idents.append('labels({})'.format(idents[0]))
         ast.append({'return': idents})
         if hasattr(self, '_skip'):
             ast.append({'skip': int(self._skip)})
@@ -251,8 +250,8 @@ class AstBuilder(object):
         label_map = last_x_in_ast(ast, 'label_map')['label_map']
         results = self.execute(ast)
         nodes = [row[0] for row in results]
-        # TODO need to get labels here. rather than rel type
-        classes = [label_map[row[1].type] for row in results]
+        # TODO: if they have multiple labels this will break
+        classes = [label_map[row[1][0]] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
 

@@ -102,13 +102,13 @@ class RelationshipManager(object):
         """check for valid node i.e correct class and is saved"""
         for label, cls in self.label_map.items():
             if obj.__class__ is cls:
-                if hasattr(obj, '_id'):
+                if not hasattr(obj, '_id'):
                     raise ValueError("Can't preform operation on unsaved node " + repr(obj))
                 return
 
         allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
                                  for tcls, _ in self.label_map.items()])
-        raise ValueError("Expected node objects of class "
+        raise ValueError("Expected nodes of class "
                 + allowed_cls + " got " + repr(obj)
                 + " see relationship definition in " + self.origin.__class__.__name__)
 
@@ -183,7 +183,7 @@ class RelationshipManager(object):
         result, meta = self.origin.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
             {'old': old_obj._id})
         if result:
-            existing_properties = result[0][0].__metadata__['data'].keys()
+            existing_properties = result[0][0]._properties.keys()
         else:
             raise NotConnected('reconnect', self.origin, old_obj)
 

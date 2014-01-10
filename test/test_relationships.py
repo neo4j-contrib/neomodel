@@ -94,7 +94,7 @@ def test_either_direction_connect():
 
     result, meta = sakis.cypher("""START us=node({self}), them=node({them})
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
-            {'them': rey.__node__._id})
+            {'them': rey._id})
     assert int(result[0][0]) == 1
 
 
