@@ -48,7 +48,8 @@ def unique_placeholder(placeholder, query_params):
 
 
 def _node_labeled(ident, labels):
-    return ['({}:{})'.format(ident, label) for label in labels]
+    return ['({})'.format(
+            ' OR '.join(['({}:{})'.format(ident, label) for label in labels]))]
 
 
 class AstBuilder(object):
