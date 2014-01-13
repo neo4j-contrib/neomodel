@@ -279,7 +279,7 @@ class TraversalSet(AstBuilder):
 
     def where(self, ident, op, value):
         expr = self._where_node(ident, op, value)
-        self._add_where(expr)
+        self._add_where([expr])
         return self
 
     def skip(self, count):
