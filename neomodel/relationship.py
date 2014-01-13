@@ -37,24 +37,32 @@ class StructuredRel(StructuredRelBase):
         return self
 
     def delete(self):
-        raise Exception("Can not delete relationships please use 'disconnect'")
+        raise NotImplemented("Can not delete relationships please use 'disconnect'")
 
     def start_node(self):
-        return self._start_node_class.inflate(self.__relationship__.start_node)
+        node = self._start_node_class()
+        node._id = self._start_node_id
+        node.refresh()
+        return node
 
     def end_node(self):
-        return self._end_node_class.inflate(self.__relationship__.end_node)
+        node = self._end_node_class()
+        node._id = self._end_node_id
+        node.refresh()
+        return node
 
     @classmethod
     def inflate(cls, rel):
         props = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
             if key in rel._properties:
-                props[key] = prop.inflate(rel.properties[key], obj=rel)
+                props[key] = prop.inflate(rel._properties[key], obj=rel)
             elif prop.has_default:
                 props[key] = prop.default_value()
             else:
                 props[key] = None
         srel = cls(**props)
+        srel._start_node_id = rel._start_node_id
+        srel._end_node_id = rel._end_node_id
         srel._id = rel._id
         return srel

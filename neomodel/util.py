@@ -6,18 +6,22 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
+path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
+
 
 class Node(object):
     def __init__(self, data):
-        self._id = int(neo4j.URI(data['self']).path.segments[-1])
+        self._id = path_to_id(data['self'])
         self._properties = data.get('data', {})
 
 
 class Rel(object):
     def __init__(self, data):
-        self._id = int(neo4j.URI(data['self']).path.segments[-1])
+        self._id = path_to_id(data['self'])
         self._properties = data.get('data', {})
         self._type = data['type']
+        self._start_node_id = path_to_id(data['start'])
+        self._end_node_id = path_to_id(data['end'])
 
 
 def _hydrated(data):

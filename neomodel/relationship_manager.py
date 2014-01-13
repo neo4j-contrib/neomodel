@@ -117,13 +117,21 @@ class RelationshipManager(object):
         self._check_node(obj)
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "START them=node({them}), us=node({self}) CREATE UNIQUE " + new_rel
+        q = "START them=node({them}), us=node({self}) CREATE UNIQUE" + new_rel
         params = {'them': obj._id}
 
         # set propeties via rel model
         if self.definition['model']:
             rel_model = self.definition['model']
-            rel_instance = rel_model(**properties) if properties else rel_model()
+            # need to generate defaults etc to create fake instance
+            tmp = rel_model(**properties) if properties else rel_model()
+
+            for p, v in rel_model.deflate(tmp.__properties__).items():
+                params['place_holder_' + p] = v
+                q += " SET r." + p + " = {place_holder_" + p + "}"
+
+            rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
+            rel_instance = rel_model.inflate(rel_)
 
             if self.definition['direction'] == INCOMING:
                 rel_instance._start_node_class = obj.__class__
@@ -132,11 +140,6 @@ class RelationshipManager(object):
                 rel_instance._start_node_class = self.origin.__class__
                 rel_instance._end_node_class = obj.__class__
 
-            for p, v in rel_model.deflate(rel_instance.__properties__).items():
-                params['place_holder_' + p] = v
-                q += " SET r." + p + " = {place_holder_" + p + "}"
-
-            rel_instance._id = self.origin.cypher(q + " RETURN r", params)[0][0][0]._id
             return rel_instance
 
         # OR.. set properties schemaless
@@ -191,7 +194,7 @@ class RelationshipManager(object):
         # remove old relationship and create new one
         new_rel = rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
         q = "START us=node({self}), old=node({old}), new=node({new}) MATCH " + old_rel
-        q += " CREATE UNIQUE " + new_rel
+        q += " CREATE UNIQUE" + new_rel
 
         # copy over properties if we have
         for p in existing_properties:
