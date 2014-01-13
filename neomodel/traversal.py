@@ -129,8 +129,7 @@ class AstBuilder(object):
         where_clause += _node_labeled(rel_to_traverse['rhs'], rel_to_traverse['rhs_labels'])
 
         if where_stmts:
-            where_clause.append(
-                    self._where_rel(where_stmts, rel_to_traverse['ident'], target['model']))
+            where_clause += self._where_rel(where_stmts, rel_to_traverse['ident'], target['model'])
 
         return match, where_clause
 
@@ -277,7 +276,7 @@ class TraversalSet(AstBuilder):
 
     def where(self, ident, op, value):
         expr = self._where_node(ident, op, value)
-        self._add_where([expr])
+        self._add_where(expr)
         return self
 
     def skip(self, count):
