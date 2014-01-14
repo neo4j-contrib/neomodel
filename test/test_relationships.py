@@ -154,14 +154,14 @@ def test_props_relationship():
     assert c.inhabitant.is_connected(u)
 
     # Check if properties were inserted
-    result, meta = u.cypher('START root=node:Person(name={name})' +
-        ' MATCH root-[r:IS_FROM]->() RETURN r.city', {'name': u.name})
+    result, meta = u.cypher('MATCH (n:Person)-[r:IS_FROM]->() ' +
+        'WHERE n.name = {name} RETURN r.city', {'name': u.name})
     assert result and result[0][0] == 'Thessaloniki'
 
     u.is_from.reconnect(c, c2)
     assert u.is_from.is_connected(c2)
 
     # Check if properties are transferred correctly
-    result, meta = u.cypher('START root=node:Person(name={name})' +
-        ' MATCH root-[r:IS_FROM]->() RETURN r.city', {'name': u.name})
+    result, meta = u.cypher('MATCH (n:Person)-[r:IS_FROM]->() ' +
+        'WHERE n.name = {name} RETURN r.city', {'name': u.name})
     assert result and result[0][0] == 'Thessaloniki'
