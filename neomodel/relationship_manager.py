@@ -140,6 +140,7 @@ class RelationshipManager(object):
                 rel_instance._start_node_class = self.origin.__class__
                 rel_instance._end_node_class = obj.__class__
 
+            self.origin.cypher(q, params)
             return rel_instance
 
         # OR.. set properties schemaless
@@ -147,6 +148,7 @@ class RelationshipManager(object):
             for p, v in properties.items():
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
+
         self.origin.cypher(q, params)
 
     @check_origin
