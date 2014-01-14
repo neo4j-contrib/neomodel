@@ -4,6 +4,7 @@ from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .traversal import TraversalSet
 from .signals import hooks
+from types import MethodType
 import os
 import sys
 
@@ -80,12 +81,21 @@ class NodeMeta(type):
 NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
 
 
+def _traverse(self, rel_manager, *args):
+    self._pre_action_check('traverse')
+    return TraversalSet(connection(), self).traverse(rel_manager, *args)
+
+
 class StructuredNode(NodeBase):
     __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
         for key, val in self.defined_properties(aliases=False, properties=False).items():
             self.__dict__[key] = val.build_manager(self, key)
+
+        # install traverse an instance method
+        # http://stackoverflow.com/questions/861055/
+        self.traverse = MethodType(_traverse, self, self.__class__)
         super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):
@@ -104,13 +114,14 @@ class StructuredNode(NodeBase):
         params.update({'self': self._id})
         return cypher_query(connection(), query, params)
 
-    def labels(self):
-        pass # todo
-
     @classmethod
     def inherited_labels(cls):
         return [scls.__label__ for scls in cls.mro()
                 if hasattr(scls, '__label__') and not hasattr(scls, '__abstract_node__')]
+
+    @classmethod
+    def category(cls):
+        return FakeCategory(cls)
 
     @hooks
     def save(self):
@@ -145,9 +156,9 @@ class StructuredNode(NodeBase):
         self._is_deleted = True
         return True
 
-    def traverse(self, rel_manager, *args):
-        self._pre_action_check('traverse')
-        return TraversalSet(self).traverse(rel_manager, *args)
+    @classmethod
+    def traverse(cls):
+        return TraversalSet(connection(), cls)
 
     def refresh(self):
         """Reload this object from its node id in the database"""
@@ -198,3 +209,57 @@ class StructuredNode(NodeBase):
         snode = cls(**props)
         snode._id = node._id
         return snode
+
+
+class FakeCategory(object):
+    """
+    Category nodes are no longer required with the introduction of labels.
+    This class behaves like the old category nodes used in earlier version of neomodel
+    but uses labels under the hood calling the traversal api.
+    """
+    def __init__(self, cls):
+        self.instance = FakeInstanceRel(cls)
+
+    def cypher(self, *args, **kwargs):
+        raise NotImplemented("cypher method on category nodes no longer supported")
+
+
+class FakeInstanceRel(object):
+    """
+    Fake rel manager for our fake category node
+    """
+    def __init__(self, cls):
+        self.node_class = cls
+
+    def _new_traversal(self):
+        return TraversalSet(connection(), self.node_class)
+
+    def __len__(self):
+        return len(self._new_traversal())
+
+    def __bool__(self):
+        return len(self) > 0
+
+    def __nonzero__(self):
+        return len(self) > 0
+
+    def count(self):
+        return self.__len__()
+
+    def all(self):
+        return self._new_traversal().run()
+
+    def search(self, **kwargs):
+        t = self._new_traversal()
+        for field, value in kwargs.items():
+            t.where(field, '=', value)
+        return t.run()
+
+    def get(self, **kwargs):
+        result = self.search(**kwargs)
+        if len(result) == 1:
+            return result[0]
+        if len(result) > 1:
+            raise Exception("Multiple items returned, use search?")
+        if not result:
+            raise DoesNotExist("No items exist for the specified arguments")

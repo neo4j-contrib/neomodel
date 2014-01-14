@@ -1,5 +1,7 @@
 from .relationship_manager import RelationshipDefinition, rel_helper
+from .util import cypher_query
 from copy import deepcopy
+import inspect
 import re
 
 
@@ -58,23 +60,36 @@ def _node_labeled(ident, labels):
 class AstBuilder(object):
     """Constructs a structure to be converted into a cypher query"""
 
-    def __init__(self, start_node):
-        self.start_node = start_node
+    def __init__(self, start_node_or_class):
         self.ident_count = 0
         self.query_params = {}
-        self.ast = [{
-            'start': '{self}',
-            'class': self.start_node.__class__, 'name': 'origin',
-            'label_map': {self.start_node.__label__: self.start_node.__class__}
-        }]
+
+        # traverse from class
+        if inspect.isclass(start_node_or_class):
+            self.start_class = start_node_or_class
+            self.ast = [{
+                'name': 'origin',
+                'match': [{'label': start_node_or_class.__label__, 'ident': 'origin'}],
+            }]
+        else:
+            self.start_class = start_node_or_class.__class__
+            self.start_node = start_node_or_class
+            self.query_params['self'] = start_node_or_class._id
+
+            self.ast = [{'start': '{self}', 'name': 'origin'}]
+
+        self.ast[0]['class'] = self.start_class
+        # TODO remove label_map in replace of lhs and rhs maps
+        self.ast[0]['label_map'] = {self.start_class.__label__: self.start_class}
 
     def _traverse(self, rel_manager, where_stmts=None):
         if len(self.ast) > 1:
             t = self._find_map(self.ast[-2]['label_map'], rel_manager)
         else:
-            if not hasattr(self.start_node, rel_manager):
+            if not hasattr(self.start_class, rel_manager):
                     raise AttributeError("{} class has no relationship definition '{}' to traverse.".format(
-                        self.start_node.__class__.__name__, rel_manager))
+                        self.start_class.__name__, rel_manager))
+            # TODO use build_manager from class.
             t = getattr(self.start_node, rel_manager).definition
             t['name'] = rel_manager
 
@@ -181,7 +196,7 @@ class AstBuilder(object):
             prop = getattr(model, rel_prop)
             if not prop:
                 raise AttributeError("RelationshipManager '{}' on {} doesn't have a property '{}' defined".format(
-                    rel_ident, self.start_node.__class__.__name__, rel_prop))
+                    rel_ident, self.start_class.__name__, rel_prop))
             val = prop.__class__().deflate(statement[2])
             stmts.append(self._where_expr(rel_ident + "." + statement[0], statement[1], val))
         return stmts
@@ -245,7 +260,7 @@ class AstBuilder(object):
                 if not ('limit' in entry or 'skip' in entry):
                     ast.insert(len(ast) - i, self.order_part)
                     break
-        results, meta = self.start_node.cypher(Query(ast), self.query_params)
+        results, meta = cypher_query(self.connection, Query(ast), self.query_params)
         self.last_ast = ast
         return results
 
@@ -260,10 +275,11 @@ class AstBuilder(object):
 
 class TraversalSet(AstBuilder):
     """API level methods"""
-    def __init__(self, start_node):
-        super(TraversalSet, self).__init__(start_node)
+    def __init__(self, connection, start_node_or_class):
+        self.connection = connection
+        super(TraversalSet, self).__init__(start_node_or_class)
 
-    def traverse(self, rel, *where_stmts):
+    def traverse(self, rel=None, *where_stmts):
         if not hasattr(self.start_node, '_id'):
             raise ValueError("Cannot traverse unsaved node")
         self._traverse(rel, where_stmts)
@@ -318,10 +334,6 @@ class Query(object):
     def __init__(self, ast):
         self.ast = ast
 
-    def _create_ident(self):
-        self.ident_count += 1
-        return 'r' + str(self.ident_count)
-
     def _build(self):
         self.position = 0
         self.ident_count = 0
@@ -355,8 +367,13 @@ class Query(object):
 
     def _render_match(self, entry):
         # add match clause if at start
-        stmt = "MATCH\n" if 'start' in self.ast[self.position - 1] else ''
-        stmt += ",\n".join([rel_helper(**rel) for rel in entry['match']])
+        stmt = "MATCH\n" if (self.position - 1) < 1 else ''
+        stmt += ",\n".join([
+            # rel
+            rel_helper(**e) if 'direction' in e
+            # label
+            else _node_labeled(e['ident'], [e['label']])[0]
+            for e in entry['match']])
         return stmt
 
     def _render_where(self, entry):

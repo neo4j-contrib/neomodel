@@ -1,5 +1,5 @@
 from neomodel.traversal import TraversalSet
-from neomodel import (StructuredNode, RelationshipTo, StringProperty)
+from neomodel import (StructuredNode, RelationshipTo, StringProperty, connection)
 
 
 class Shopper(StructuredNode):
@@ -31,7 +31,7 @@ def setup_shopper(name, friend):
 
 def test_one_level_traversal():
     jim = setup_shopper('Jim', 'Bob')
-    t = TraversalSet(jim)
+    t = TraversalSet(connection(), jim)
     for friend in t.traverse('friend'):
         assert isinstance(friend, Shopper)
     assert t.last_ast[-1]['return'][0] == 'friend'
@@ -96,6 +96,7 @@ def test_order_by_skip_limit():
 def test_where_clause():
     terrance = setup_shopper('Terrance', 'Teriesa')
     results = terrance.traverse('friend').where('name', '=', 'Teriesa').limit(1).run()
+
     assert results[0].name == 'Teriesa'
 
     # clause with property that doesn't exist
@@ -105,3 +106,11 @@ def test_where_clause():
         assert True
     else:
         assert False
+
+
+def test_class_level_traverse():
+    Shopper(name='Sara').save()
+    Shopper(name='Tim').save()
+    Shopper(name='Borris').save()
+
+    assert len(Shopper.traverse()) > 3
