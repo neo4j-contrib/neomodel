@@ -39,7 +39,6 @@ def test_localised_index():
     katie.add_locale(Locale.get('ar'))
 
     assert Student.locale_index('fr').get(name='Fred')
-    assert len(Student.locale_index('fr').search('name:*')) == 2
 
     try:
         Student.locale_index('fr').get(name='Katie')

@@ -23,16 +23,13 @@ class LocalisedIndexManager(NodeIndexManager):
         super(LocalisedIndexManager, self).__init__(*args, **kwargs)
         self.locale_code = locale_code
 
-    def _execute(self, query):
-        locale = Locale.get(self.locale_code)
-        cquery = """
-            START lang = node({self}),
-            lnode = node:%s({query})
-            MATCH (lnode)-[:LANGUAGE]->(lang)
-            RETURN lnode
-            """ % (self.name)  # set index name
-        result, meta = locale.cypher(cquery, {'query': query})
-        return [row[0] for row in result] if result else []
+    def _build_query(self, params):
+        q = super(LocalisedIndexManager, self)._build_query(params)
+        q += " MATCH (n)-[:LANGUAGE]->(lang:Locale)"
+        q += " USING INDEX lang:Locale(code)"
+        q += " WHERE lang.code = {_locale_code}"
+        params['_locale_code'] = self.locale_code
+        return q
 
 
 class Localised(object):

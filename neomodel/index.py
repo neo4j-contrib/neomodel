@@ -22,7 +22,7 @@ class NodeIndexManager(object):
     def _build_query(self, params):
         q = "MATCH (n:{}) WHERE\n".format(self.node_class.__label__)
         q += " AND ".join(["n.{} = {{{}}}".format(key, key) for key in params.keys()])
-        return q + " RETURN n"
+        return q
 
     def search(self, **kwargs):
         # TODO deprecate index.
@@ -33,7 +33,7 @@ class NodeIndexManager(object):
         self._check_params(kwargs)
 
         try:
-            results, _ = cypher_query(connection(), self._build_query(kwargs), kwargs)
+            results, _ = cypher_query(connection(), self._build_query(kwargs) + " RETURN n", kwargs)
             return [self.node_class.inflate(n) for n in results[0]]
         except IndexError:
             return []
