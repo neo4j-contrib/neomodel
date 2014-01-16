@@ -136,7 +136,7 @@ You can traverse as many levels as you like, run() executes the query::
     # or friends name
     jim.traverse('friends').traverse('country').order_by('friends.name')
 
-Filtering by node propertes is achieved using the where method, values are deflated accordingly so datetimes
+Filtering by node properties is achieved using the where method, values are deflated accordingly so datetimes
 for example work as expected::
 
     results = jim.traverse('friends').where('age', '>', 18).run()
@@ -228,7 +228,7 @@ Atomically create multiple nodes in a single operation::
     )
 
 This is useful for creating large sets of data. It's worth experimenting with the size of batches
-to find the optimum performance suggestions on size around 300 - 500.
+to find the optimum performance. A suggestion is to use batch sizes of around 300 to 500 nodes.
 
 
 Hooks and Signals
@@ -272,7 +272,7 @@ Or use lucene query syntax directly::
     Human.index.search("age:4")
 
 Specify a custom index name for a class (inherited). Be very careful when sharing indexes
-between classes as this means nodes will inflated to any class sharing the index.
+between classes as this means nodes will be inflated to any class sharing the index.
 Properties of the same name on different classes may conflict.::
 
     class Badger(StructuredNode):
