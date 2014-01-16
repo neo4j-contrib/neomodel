@@ -36,7 +36,7 @@ def connection():
 
     if connection.db.neo4j_version < (2, 0):
         raise Exception("Support for neo4j versions prior to 2.0 are "
-                + "supported by the 0.x series releases of neomodel")
+                + "supported by the 0.x.x series releases of neomodel")
 
     return connection.db
 
@@ -60,6 +60,9 @@ class NodeMeta(type):
             delattr(inst, '__abstract_node__')
         else:
             for key, value in dct.items():
+                if key == 'deleted':
+                    raise ValueError("Class property called 'deleted' "
+                            + "conflicts with neomodel internals")
                 if issubclass(value.__class__, Property):
                     value.name = key
                     value.owner = inst
@@ -89,6 +92,9 @@ class StructuredNode(NodeBase):
     __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
+        if 'deleted' in kwargs:
+            raise ValueError("deleted property is reserved for neomodel")
+
         for key, val in self.defined_properties(aliases=False, properties=False).items():
             self.__dict__[key] = val.build_manager(self, key)
 
@@ -134,15 +140,14 @@ class StructuredNode(NodeBase):
                 query += "SET self:`{}`\n".format(label)
             params = self.deflate(self.__properties__, self)
             self.cypher(query, params)
-        # TODO renamed _deleted
-        elif hasattr(self, '_is_deleted') and self._is_deleted:
+        elif hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
         else: # create
             self._id = self.create(self.__properties__)[0]._id
         return self
 
     def _pre_action_check(self, action):
-        if hasattr(self, '_is_deleted') and self._is_deleted:
+        if hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.{}() attempted on deleted node".format(self.__class__.__name__, action))
         if not hasattr(self, '_id'):
             raise ValueError("{}.{}() attempted on unsaved node".format(self.__class__.__name__, action))
@@ -152,7 +157,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check('delete')
         self.cypher("START self=node({self}) DELETE self")
         del self.__dict__['_id']
-        self._is_deleted = True
+        self.deleted = True
         return True
 
     @classmethod
