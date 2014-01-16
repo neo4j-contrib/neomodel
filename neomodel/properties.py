@@ -1,4 +1,4 @@
-from .exception import InflateError, DeflateError, RequiredProperty, NoSuchProperty
+from .exception import InflateError, DeflateError, RequiredProperty
 from datetime import datetime, date
 from .relationship_manager import RelationshipDefinition, RelationshipManager
 import os
@@ -63,18 +63,6 @@ class PropertyManager(object):
             elif prop.required:
                 raise RequiredProperty(key, cls)
         return deflated
-
-    @classmethod
-    def get_property(cls, name):
-        # TODO do we need this? only used by neomodel/index.py
-        try:
-            neo_property = getattr(cls, name)
-        except AttributeError:
-            raise NoSuchProperty(name, cls)
-        if not issubclass(neo_property.__class__, Property)\
-                or not issubclass(neo_property.__class__, AliasProperty):
-            NoSuchProperty(name, cls)
-        return neo_property
 
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):

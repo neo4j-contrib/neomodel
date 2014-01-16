@@ -63,16 +63,6 @@ class DeflateError(ValueError):
             self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
-class NoSuchProperty(Exception):
-    def __init__(self, key, cls):
-        self.property_name = key
-        self.node_class = cls
-
-    def __str__(self):
-        return "No property '{0}' on object of class '{1}'".format(
-            self.property_name, self.node_class.__name__)
-
-
 class NotConnected(Exception):
     def __init__(self, action, node1, node2):
         self.action = action

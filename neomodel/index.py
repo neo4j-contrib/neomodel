@@ -10,7 +10,7 @@ class NodeIndexManager(object):
     def _check_params(self, params):
         """checked args are indexed and convert aliases"""
         for key in params.keys():
-            prop = self.node_class.get_property(key)
+            prop = getattr(self.node_class, key)
             if isinstance(prop, AliasProperty):
                 real_key = prop.aliased_to()
                 if real_key in params:
