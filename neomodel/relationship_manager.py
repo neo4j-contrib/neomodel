@@ -116,40 +116,38 @@ class RelationshipManager(object):
     def connect(self, obj, properties=None):
         self._check_node(obj)
 
+        if not self.definition['model'] and properties:
+            raise NotImplementedError("Relationship properties without " +
+                    "using a relationship model is no longer supported")
+
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "START them=node({them}), us=node({self}) CREATE UNIQUE" + new_rel
         params = {'them': obj._id}
 
-        # set propeties via rel model
-        if self.definition['model']:
-            rel_model = self.definition['model']
-            # need to generate defaults etc to create fake instance
-            tmp = rel_model(**properties) if properties else rel_model()
-
-            for p, v in rel_model.deflate(tmp.__properties__).items():
-                params['place_holder_' + p] = v
-                q += " SET r." + p + " = {place_holder_" + p + "}"
-
-            rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
-            rel_instance = rel_model.inflate(rel_)
-
-            if self.definition['direction'] == INCOMING:
-                rel_instance._start_node_class = obj.__class__
-                rel_instance._end_node_class = self.origin.__class__
-            else:
-                rel_instance._start_node_class = self.origin.__class__
-                rel_instance._end_node_class = obj.__class__
-
+        if not properties and not self.definition['model']:
             self.origin.cypher(q, params)
-            return rel_instance
+            return True
 
-        # OR.. set properties schemaless
-        if properties:
-            for p, v in properties.items():
-                params['place_holder_' + p] = v
-                q += " SET r." + p + " = {place_holder_" + p + "}"
+        rel_model = self.definition['model']
+        # need to generate defaults etc to create fake instance
+        tmp = rel_model(**properties) if properties else rel_model()
+
+        for p, v in rel_model.deflate(tmp.__properties__).items():
+            params['place_holder_' + p] = v
+            q += " SET r." + p + " = {place_holder_" + p + "}"
+
+        rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
+        rel_instance = rel_model.inflate(rel_)
+
+        if self.definition['direction'] == INCOMING:
+            rel_instance._start_node_class = obj.__class__
+            rel_instance._end_node_class = self.origin.__class__
+        else:
+            rel_instance._start_node_class = self.origin.__class__
+            rel_instance._end_node_class = obj.__class__
 
         self.origin.cypher(q, params)
+        return rel_instance
 
     @check_origin
     def relationship(self, obj):

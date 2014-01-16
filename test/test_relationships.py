@@ -150,18 +150,9 @@ def test_props_relationship():
     c2 = Country(code='LA').save()
     assert c2
 
-    c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
-    assert c.inhabitant.is_connected(u)
-
-    # Check if properties were inserted
-    result, meta = u.cypher('MATCH (n:Person)-[r:IS_FROM]->() ' +
-        'WHERE n.name = {name} RETURN r.city', {'name': u.name})
-    assert result and result[0][0] == 'Thessaloniki'
-
-    u.is_from.reconnect(c, c2)
-    assert u.is_from.is_connected(c2)
-
-    # Check if properties are transferred correctly
-    result, meta = u.cypher('MATCH (n:Person)-[r:IS_FROM]->() ' +
-        'WHERE n.name = {name} RETURN r.city', {'name': u.name})
-    assert result and result[0][0] == 'Thessaloniki'
+    try:
+        c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
+    except NotImplementedError:
+        assert True
+    else:
+        assert False
