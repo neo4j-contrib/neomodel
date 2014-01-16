@@ -2,8 +2,11 @@ from neomodel.traversal import TraversalSet
 from neomodel import (StructuredNode, RelationshipTo, StringProperty, connection)
 
 
-class Shopper(StructuredNode):
+class Consumer(StructuredNode):
     name = StringProperty(unique_index=True)
+
+
+class Shopper(Consumer):
     friend = RelationshipTo('Shopper', 'FRIEND')
     basket = RelationshipTo('Basket', 'BASKET')
 

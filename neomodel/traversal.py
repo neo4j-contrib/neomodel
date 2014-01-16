@@ -266,7 +266,6 @@ class AstBuilder(object):
         label_map = last_x_in_ast(ast, 'label_map')['label_map']
         results = self.execute(ast)
         nodes = [row[0] for row in results]
-        # TODO: if they have multiple labels this will break
         classes = [label_map[row[1][0]] for row in results]
         return [cls.inflate(node) for node, cls in zip(nodes, classes)]
 
