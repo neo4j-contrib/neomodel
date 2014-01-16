@@ -15,6 +15,11 @@ class User(StructuredNode):
         self.email = value
 
 
+def test_issue_72():
+    user = User(email='foo@bar.com')
+    assert user.age is None
+
+
 def test_required():
     try:
         User(age=3).save()

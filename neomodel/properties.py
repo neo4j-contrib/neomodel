@@ -17,14 +17,29 @@ if sys.version_info >= (3, 0):
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
     def __init__(self, *args, **kwargs):
-        for key, val in self.defined_properties(aliases=False, rels=False).items():
+
+        for key, val in self.defined_properties(rels=False, aliases=False).items():
             # handle default values
             if not key in kwargs or kwargs[key] is None:
-                if val.has_default:
-                    kwargs[key] = val.default_value()
-        for key, value in kwargs.items():
-            if not(key.startswith("__") and key.endswith("__")):
-                setattr(self, key, value)
+                if hasattr(val, 'has_default') and val.has_default:
+                    setattr(self, key, val.default_value())
+                else:
+                    setattr(self, key, None)
+            else:
+                setattr(self, key, kwargs[key])
+
+            if key in kwargs:
+                del kwargs[key]
+
+        # aliases next so they don't have their alias over written
+        for key, val in self.defined_properties(rels=False, properties=False).items():
+            if key in kwargs:
+                setattr(self, key, kwargs[key])
+                del kwargs[key]
+
+        # undefined properties last (for magic @prop.setters etc)
+        for key, val in kwargs.items():
+            setattr(self, key, val)
 
     @property
     def __properties__(self):

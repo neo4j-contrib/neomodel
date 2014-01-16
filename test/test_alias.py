@@ -2,6 +2,7 @@ from neomodel import StructuredNode, StringProperty, AliasProperty
 
 
 class MagicProperty(AliasProperty):
+
     def setup(self):
         self.owner.setup_hook_called = True
 
@@ -13,8 +14,8 @@ class AliasTestNode(StructuredNode):
 
 
 def test_property_setup_hook():
-    assert AliasTestNode.setup_hook_called
     tim = AliasTestNode(long_name='tim').save()
+    assert AliasTestNode.setup_hook_called
     assert tim.name == 'tim'
 
 
