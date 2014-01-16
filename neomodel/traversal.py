@@ -79,7 +79,6 @@ class AstBuilder(object):
             self.ast = [{'start': '{self}', 'name': 'origin'}]
 
         self.ast[0]['class'] = self.start_class
-        # TODO remove label_map in replace of lhs and rhs maps
         self.ast[0]['label_map'] = {self.start_class.__label__: self.start_class}
 
     def _traverse(self, rel_manager, where_stmts=None):
