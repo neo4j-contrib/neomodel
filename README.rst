@@ -81,7 +81,7 @@ Relationship models, define your relationship properties::
     rel = jim.friend.connect(bob)
     rel.since # datetime object
 
-You can optional specify the properties during connect::
+You can specify the properties during connect::
 
     rel = jim.friend.connect(bob, {'since': yesterday, 'met': 'Paris'})
 
@@ -150,8 +150,8 @@ must be specified on the start nodes relationship definition::
 
     recent_friends = jim.traverse('friends', ('since', '>', last_week), ('since', '<', today)).run()
 
-Category nodes
---------------
+Category nodes - DEPRECATED
+---------------------------
 Access all your instances of a class via the category node::
 
     country_category = Country.category()
