@@ -88,7 +88,6 @@ class AstBuilder(object):
             if not hasattr(self.start_class, rel_manager):
                     raise AttributeError("{} class has no relationship definition '{}' to traverse.".format(
                         self.start_class.__name__, rel_manager))
-            # TODO use build_manager from class.
             t = getattr(self.start_node, rel_manager).definition
             t['name'] = rel_manager
 
