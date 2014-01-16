@@ -4,6 +4,7 @@ from .exception import CypherException, UniqueProperty
 import time
 import os
 import logging
+import warnings
 logger = logging.getLogger(__name__)
 
 path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
@@ -62,3 +63,15 @@ def cypher_query(connection, query, params=None, handle_unique=True):
         logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
     return results
+
+
+def deprecated(message):
+    def f__(f):
+        def f_(*args, **kwargs):
+            warnings.warn(message, category=DeprecationWarning, stacklevel=2)
+            return f(*args, **kwargs)
+        f_.__name__ = f.__name__
+        f_.__doc__ = f.__doc__
+        f_.__dict__.update(f.__dict__)
+        return f_
+    return f__

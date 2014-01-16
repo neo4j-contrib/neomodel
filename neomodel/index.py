@@ -1,5 +1,6 @@
 from .properties import AliasProperty
 from .core import cypher_query, connection
+from .util import deprecated
 
 
 class NodeIndexManager(object):
@@ -24,8 +25,8 @@ class NodeIndexManager(object):
         q += " AND ".join(["n.{} = {{{}}}".format(key, key) for key in params.keys()])
         return q
 
+    @deprecated(".index is deprecated please use .traverse()")
     def search(self, **kwargs):
-        # TODO deprecate index.
         """Search nodes using an via index"""
         if not kwargs:
             msg = "No arguments provided.\nUsage: {0}.index.search(key=val)"
@@ -38,6 +39,7 @@ class NodeIndexManager(object):
         except IndexError:
             return []
 
+    @deprecated(".index is deprecated please use .traverse()")
     def get(self, **kwargs):
         """Load single node from index lookup"""
         if not kwargs:
