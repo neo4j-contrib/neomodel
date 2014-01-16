@@ -100,13 +100,13 @@ class StructuredNode(NodeBase):
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
-        return self._id == other._id
+            return False
+        if hasattr(self, '_id') and hasattr(other, '_id'):
+            return self._id == other._id
+        return False
 
     def __ne__(self, other):
-        if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
-        return self._id != other._id
+        return not self.__eq__(other)
 
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
