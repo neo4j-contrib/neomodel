@@ -283,7 +283,7 @@ Properties
 ----------
 The following properties are available::
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, ArrayProperty
 
     DateProperty, DateTimeProperty, JSONProperty, AliasProperty
 
