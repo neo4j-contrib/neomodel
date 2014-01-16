@@ -108,6 +108,7 @@ def test_save_through_magic_property():
 
 
 class Customer2(StructuredNode):
+    __label__ = 'customers'
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
@@ -125,6 +126,13 @@ def test_not_updated_on_unique_error():
     assert customers[0].email != customers[1].email
     assert Customer2.index.get(email='jim@bob.com').age == 7
     assert Customer2.index.get(email='jim1@bob.com').age == 2
+
+
+def test_label_not_inherited():
+    class Customer3(Customer2):
+        address = StringProperty()
+
+    assert Customer3.__label__ == 'Customer3'
 
 
 def test_refresh():

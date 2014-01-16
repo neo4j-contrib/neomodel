@@ -66,7 +66,6 @@ class NodeMeta(type):
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
-            # TODO: prevent __label__ from being inheritted
             if '__label__' in dct:
                 inst.__label__ = dct['__label__']
             else:
