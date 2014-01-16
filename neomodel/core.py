@@ -113,6 +113,10 @@ class StructuredNode(NodeBase):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def labels(self):
+        self._pre_action_check('labels')
+        return self.cypher("START self=node({self}) RETURN labels(self)")[0][0][0]
+
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
         params = params or {}

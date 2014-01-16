@@ -132,6 +132,14 @@ def test_label_not_inherited():
         address = StringProperty()
 
     assert Customer3.__label__ == 'Customer3'
+    c = Customer3(email='test@test.com').save()
+    assert 'customers' in c.labels()
+    assert 'Customer3' in c.labels()
+
+    c = Customer2.index.get(email='test@test.com')
+    assert isinstance(c, Customer2)
+    assert 'customers' in c.labels()
+    assert 'Customer3' in c.labels()
 
 
 def test_refresh():
