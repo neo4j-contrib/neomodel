@@ -114,7 +114,6 @@ class Customer2(StructuredNode):
 
 
 def test_not_updated_on_unique_error():
-    return # TODO
     Customer2(email='jim@bob.com', age=7).save()
     test = Customer2(email='jim1@bob.com', age=2).save()
     test.email = 'jim@bob.com'
