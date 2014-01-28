@@ -1,4 +1,4 @@
-from .util import neo4j, cypher_query
+from .util import neo4j, cypher_query, deprecated
 from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
@@ -129,6 +129,7 @@ class StructuredNode(NodeBase):
                 if hasattr(scls, '__label__') and not hasattr(scls, '__abstract_node__')]
 
     @classmethod
+    @deprecated("Category nodes are now deprecated, the functionality is emulated using labels")
     def category(cls):
         return FakeCategory(cls)
 
