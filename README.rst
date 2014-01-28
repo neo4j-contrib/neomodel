@@ -243,8 +243,8 @@ Signals are also supported *if* django is available::
     signals.post_save.connect(your_func, sender=Person)
 
 
-Indexing
---------
+Indexing - DEPRECATED
+---------------------
 Make use of indexes::
 
     jim = Person.index.get(name='Jim')
