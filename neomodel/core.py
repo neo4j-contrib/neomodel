@@ -130,6 +130,9 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
         return self.__node__ != other.__node__
 
+    def __json__(self):
+        return self.__properties__
+
     @hooks
     def save(self):
         # create or update instance node
