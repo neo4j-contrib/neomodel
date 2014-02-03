@@ -309,3 +309,39 @@ The *AliasProperty* a special property for aliasing other properties and providi
         name = AliasProperty(to='full_name')
 
     Person.index.search(name='Jim') # just works
+
+JSON
+----------
+You can serialize nodes to json in 3 ways:
+
+- Use the function ``json_encode`` and pass a node
+- Use the ``JsonEncoder`` and call ``dumps.(obc, cls=JsonEncoder)``
+- Patch ``json.dump`` / ``json.dumps`` to change default behaviour
+
+The encoder is looking for a ``__json__()`` function on the object.
+If ``__json__()`` doesnt exist it just behaves normally.::
+
+    from neomodel import (
+        json_encode, JsonEncoder, patch_json_dump, restore_patched_json_dump)
+    import json
+
+    jim = Person(name='Jim', age=3)
+
+    # Output in all cases is: {"age": 3, "name": "Jim"}
+
+    # manually:
+    json_encode(jim)
+    json.dumps(jim, cls=JsonEncoder)
+
+    # In case json is called by an API/library and you don't have control over it:
+    patch_json_dumps()
+    # This is equivalent to json.dumps(jim, cls=JsonEncoder)
+    # The build in dump/dumps have been patched to include the JsonEncoder
+    json.dumps(jim)
+
+    #patch simplejson
+    from neomodel import patch_json_dump, simple_json_encoder
+    import simplejson
+    patch_json_dump(functions = [simplejson.dumps, simplejson.dumps], encoder=simple_json_encoder())
+
+
