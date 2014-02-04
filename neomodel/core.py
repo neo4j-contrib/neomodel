@@ -132,7 +132,9 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         return self.__node__ != other.__node__
 
     def __json__(self):
-        return self.__properties__
+        _dict = self.__properties__
+        _dict["class"] = type(self)
+        return _dict
 
     @hooks
     def save(self):
