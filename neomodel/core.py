@@ -133,7 +133,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
 
     def __json__(self):
         _dict = self.__properties__
-        _dict["class"] = type(self)
+        _dict["class"] = type(self).__name__
         _dict["module"] = self.__module__
         return _dict
 
