@@ -134,6 +134,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
     def __json__(self):
         _dict = self.__properties__
         _dict["class"] = type(self)
+        _dict["module"] = self.__module__
         return _dict
 
     @hooks
@@ -288,9 +289,13 @@ def json_encode(obj):
 def _default(obj):
     if hasattr(obj, 'isoformat'):
         return obj.isoformat()
-    elif hasattr(obj, "__json__"):
-        return obj.__json__()
+    elif hasattr(obj, "__json__") and hasattr(obj, "__dict__"):
+        try:
+            return obj.__json__()
+        except TypeError as e:
+            return {"name": obj.__name__, "module": obj.__module__}
     return obj
+
 
 class JsonEncoder(json.JSONEncoder):
     def default(self, obj):
