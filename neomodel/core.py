@@ -293,7 +293,7 @@ def _default(obj):
         try:
             return obj.__json__()
         except TypeError as e:
-            return {"name": obj.__name__, "module": obj.__module__}
+            return {"class": obj.__name__, "module": obj.__module__}
     return obj
 
 
@@ -340,3 +340,9 @@ def restore_patched_json_dump(functions=None):
         to create json.
     """
     _patch_functions(functions, None)
+
+def recover_from_json(json_dict):
+    class_name = json_dict["class"]
+    module_name = __import__(json_dict["module"], fromlist=[class_name])
+    clazz = getattr(module_name, class_name)
+    return clazz.category().instance.search(uid=json_dict["uid"])[0]
