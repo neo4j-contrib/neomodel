@@ -342,6 +342,7 @@ def restore_patched_json_dump(functions=None):
     """
     _patch_functions(functions, None)
 
+
 def recover_from_json(json_dict):
     class_name = json_dict["class"]
     module_name = __import__(json_dict["module"], fromlist=[class_name])
