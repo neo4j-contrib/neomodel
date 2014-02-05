@@ -135,6 +135,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         _dict = self.__properties__
         _dict["class"] = type(self).__name__
         _dict["module"] = self.__module__
+        _dict["metadata"] = self.__metadata__
         return _dict
 
     @hooks
@@ -347,4 +348,6 @@ def recover_from_json(json_dict):
     class_name = json_dict["class"]
     module_name = __import__(json_dict["module"], fromlist=[class_name])
     clazz = getattr(module_name, class_name)
-    return clazz.category().instance.search(uid=json_dict["uid"])[0]
+    obj = clazz.category().instance.search(uid=json_dict["uid"])[0]
+    obj.__metadata__ = json_dict["metadata"]
+    return obj
