@@ -293,6 +293,7 @@ def _default(obj):
         try:
             return obj.__json__()
         except TypeError as e:
+            # Case obj is a class (Type error because self is not passed)
             return {"class": obj.__name__, "module": obj.__module__}
     return obj
 
