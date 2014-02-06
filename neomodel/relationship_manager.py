@@ -2,6 +2,7 @@ import sys
 import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
+from .util import deprecated
 
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
@@ -84,6 +85,7 @@ class RelationshipManager(object):
             raise DoesNotExist("No items exist for the specified arguments")
 
     @check_origin
+    @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
         t = self.origin.traverse(self.name)
         for field, value in kwargs.items():
