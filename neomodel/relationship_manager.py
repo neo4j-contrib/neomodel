@@ -282,7 +282,7 @@ def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
         raise Exception('Expected class name or list of class names, got ' + repr(cls_name))
     from .relationship import StructuredRel
     if model and not issubclass(model, (StructuredRel,)):
-        raise Exception('model must be a StructuredRel')
+        raise Exception('model of class {} must be a StructuredRel'.format(model.__class__.__name__))
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
 
 

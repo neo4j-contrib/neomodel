@@ -122,12 +122,12 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
+            raise TypeError("Cannot compare neomodel node with a {}".format(other.__class__.__name__))
         return self.__node__ == other.__node__
 
     def __ne__(self, other):
         if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a " + other.__class__.__name__)
+            raise TypeError("Cannot compare neomodel node with a {}".format(other.__class__.__name__))
         return self.__node__ != other.__node__
 
     @hooks
