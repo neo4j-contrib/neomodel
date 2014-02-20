@@ -78,10 +78,14 @@ class RelationshipManager(object):
         result = self.search(**kwargs)
         if len(result) == 1:
             return result[0]
+        if kwargs:
+            msg = ", ".join(["{}: {}".format(str(k), str(v)) for k, v in kwargs.items()])
+        else:
+            msg = ""
         if len(result) > 1:
-            raise Exception("Multiple items returned, use search?")
+            raise Exception("Multiple items returned, use search?{}".format(msg))
         if not result:
-            raise DoesNotExist("No items exist for the specified arguments")
+            raise DoesNotExist("No items exist for the specified arguments.{}".format(msg))
 
     @check_origin
     def search(self, **kwargs):
