@@ -150,6 +150,13 @@ must be specified on the start nodes relationship definition::
 
     recent_friends = jim.traverse('friends', ('since', '>', last_week), ('since', '<', today)).run()
 
+Traversals by default uses labels since neo4j, is possible to return all instances of certain class just by
+trasvering the class.
+
+    for c in Country.traversal().run():
+        print c.name
+
+
 Category nodes - DEPRECATED
 ---------------------------
 Access all your instances of a class via the category node::
