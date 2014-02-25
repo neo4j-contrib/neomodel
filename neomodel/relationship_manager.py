@@ -101,7 +101,7 @@ class RelationshipManager(object):
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
         for label, cls in self.label_map.items():
-            if obj.__class__ is cls:
+            if issubclass(object.__class__, cls):
                 if not hasattr(obj, '_id'):
                     raise ValueError("Can't preform operation on unsaved node " + repr(obj))
                 return
