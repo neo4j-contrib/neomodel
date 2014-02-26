@@ -158,10 +158,7 @@ class RelationshipManager(object):
     def relationship(self, obj):
         """relationship: node"""
         self._check_node(obj)
-        if not 'model' in self.definition:
-            raise NotImplemented("'relationship' method only available on relationships"
-                    + " that have a model defined")
-
+        
         rel_model = self.definition['model']
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
@@ -169,7 +166,11 @@ class RelationshipManager(object):
         rel = self.origin.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
             return
-        rel_instance = rel_model.inflate(rel)
+
+        if rel_model is not None:
+            rel_instance = rel_model.inflate(rel)
+        else:
+            rel_instance = rel
 
         if self.definition['direction'] == INCOMING:
             rel_instance._start_node_class = obj.__class__
