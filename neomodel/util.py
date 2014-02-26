@@ -1,7 +1,6 @@
 from py2neo import neo4j
 from py2neo.exceptions import ClientError
 from .exception import CypherException, UniqueProperty
-from .core import DATABASE_URL
 import time
 import os
 import logging
@@ -9,22 +8,23 @@ import warnings
 logger = logging.getLogger(__name__)
 
 path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
-id_to_path = lambda type, id : DATABASE_URL + '/' + type + '/' + str(id)
 
 class Node(object):
     def __init__(self, data):
         self._id = path_to_id(data['self'])
+        self._node = neo4j.Node(data['self'])
         self._properties = data.get('data', {})
 
     @property
     def node(self):
-        return neo4j.Node(id_to_path('node',self._id))
+        return self._node
 
 
 
 class Rel(object):
     def __init__(self, data):
         self._id = path_to_id(data['self'])
+        self._relationship = neo4j.Relationship(data['self'])
         self._properties = data.get('data', {})
         self._type = data['type']
         self._start_node_id = path_to_id(data['start'])
@@ -32,7 +32,7 @@ class Rel(object):
 
     @property
     def relationship(self):
-        return neo4j.Relationship(id_to_path('relationship',self._id))
+        return self._relationship
 
 
 def _hydrated(data):
