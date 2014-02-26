@@ -14,6 +14,7 @@ class Node(object):
         self._id = path_to_id(data['self'])
         self._node = neo4j.Node(data['self'])
         self._properties = data.get('data', {})
+        self.__metadata__ = data
 
     @property
     def node(self):
@@ -29,6 +30,7 @@ class Rel(object):
         self._type = data['type']
         self._start_node_id = path_to_id(data['start'])
         self._end_node_id = path_to_id(data['end'])
+        self.__metadata__ = data
 
     @property
     def relationship(self):
