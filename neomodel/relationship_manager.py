@@ -152,7 +152,7 @@ class RelationshipManager(object):
                 params['place_holder_' + p] = v
                 q += " SET r." + p + " = {place_holder_" + p + "}"
 
-        self.origin.cypher(q, params)
+        return self.origin.cypher(q, params)
 
     @check_origin
     def relationship(self, obj):
