@@ -76,7 +76,7 @@ class CypherMixin(object):
         self._pre_action_check('cypher')
         assert self.__node__ is not None
         params = params or {}
-        params.update({'self': self.__node__._id})  # TODO: this will break stuff!
+        params.update({'self': self.__node__._id})
         return cypher_query(query, params)
 
 
