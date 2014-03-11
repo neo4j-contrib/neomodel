@@ -171,14 +171,18 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         self._pre_action_check('refresh')
         """Reload this object from its node in the database"""
         if self.__node__ is not None:
-            if self.__node__.exists:
+            msg = 'Node %s does not exist in the database anymore'
+            try:
                 props = self.inflate(
                     self.client.node(self.__node__._id)).__properties__
                 for key, val in props.items():
                     setattr(self, key, val)
-            else:
-                msg = 'Node %s does not exist in the database anymore'
-                raise self.DoesNotExist(msg % self.__node__._id)
+            # in case py2neo raises error when actually getting the node
+            except ClientError as e:
+                if 'not found' in e.args[0].lower():
+                    raise self.DoesNotExist(msg % self.__node__._id)
+                else:
+                    raise e
 
     @classmethod
     def create(cls, *props):
