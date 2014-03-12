@@ -28,7 +28,7 @@ def rel_helper(**rel):
         stmt = '-[{0}:{1}]-'
     ident = rel['ident'] if 'ident' in rel else ''
     stmt = stmt.format(ident, rel['relation_type'])
-    return "  ({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
+    return "({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
 class RelationshipManager(object):
@@ -161,8 +161,8 @@ class RelationshipManager(object):
 
         rel_model = self.definition['model']
 
-        new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "START them=node({them}), us=node({self}) MATCH " + new_rel + " RETURN r"
+        my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        q = "START them=node({them}), us=node({self}) MATCH " + my_rel + " RETURN r"
         rel = self.origin.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
             return
