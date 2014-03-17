@@ -71,12 +71,12 @@ def process_has_args(cls, kwargs):
 
 class NodeSet(object):
     """
-    a set of matched nodes of one type
+    a set of matched nodes of a single type
         source: how to produce the set of nodes
         node_cls: what type of nodes are they
     """
     def __init__(self, source):
-        self.source = source # could be a Traverse object or a node class
+        self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
         elif issubclass(source, StructuredNode):

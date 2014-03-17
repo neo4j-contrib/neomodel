@@ -77,6 +77,8 @@ class NodeMeta(type):
             install_labels(inst)
             from .index import NodeIndexManager
             inst.index = NodeIndexManager(inst, inst.__label__)
+            from .match import NodeSet
+            inst.nodes = NodeSet(inst)
         return inst
 
 
@@ -98,7 +100,7 @@ class StructuredNode(NodeBase):
         for key, val in self.defined_properties(aliases=False, properties=False).items():
             self.__dict__[key] = val.build_manager(self, key)
 
-        # install traverse an instance method
+        # install traverse as an instance method
         # http://stackoverflow.com/questions/861055/
         self.traverse = MethodType(_traverse, self, self.__class__)
         super(StructuredNode, self).__init__(*args, **kwargs)
