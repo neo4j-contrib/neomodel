@@ -1,10 +1,10 @@
+import logging
+import os
+import time
+import warnings
 from py2neo import neo4j
 from py2neo.exceptions import ClientError
 from .exception import CypherException, UniqueProperty
-import time
-import os
-import logging
-import warnings
 logger = logging.getLogger(__name__)
 
 path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
@@ -75,3 +75,13 @@ def deprecated(message):
         f_.__dict__.update(f.__dict__)
         return f_
     return f__
+
+
+def classproperty(f):
+    class cpf(object):
+        def __init__(self, getter):
+            self.getter = getter
+
+        def __get__(self, obj, type=None):
+            return self.getter(type)
+    return cpf(f)

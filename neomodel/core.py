@@ -1,12 +1,12 @@
-from .util import neo4j, cypher_query, deprecated
+import os
+import sys
+from types import MethodType
 from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
-from .traversal import TraversalSet
 from .signals import hooks
-from types import MethodType
-import os
-import sys
+from .traversal import TraversalSet
+from .util import neo4j, cypher_query, deprecated, classproperty
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -77,8 +77,6 @@ class NodeMeta(type):
             install_labels(inst)
             from .index import NodeIndexManager
             inst.index = NodeIndexManager(inst, inst.__label__)
-            from .match import NodeSet
-            inst.nodes = NodeSet(inst)
         return inst
 
 
@@ -92,6 +90,11 @@ def _traverse(self, rel_manager, *args):
 
 class StructuredNode(NodeBase):
     __abstract_node__ = True
+
+    @classproperty
+    def nodes(self):
+        from .match import NodeSet
+        return NodeSet(self)
 
     def __init__(self, *args, **kwargs):
         if 'deleted' in kwargs:
