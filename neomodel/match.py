@@ -109,6 +109,9 @@ class NodeSet(object):
         self.dont_match.update(dont_match)
         return self
 
+    def run(self):
+        return QueryBuilder(self).execute()
+
 
 class Traversal(object):
     """
