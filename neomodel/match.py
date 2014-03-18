@@ -105,7 +105,6 @@ class NodeSet(object):
 
     def has(self, **kwargs):
         must_match, dont_match = process_has_args(self.source_class, kwargs)
-        # TODO catch conflicts, ie has(foo=True).has(foo=False)
         self.must_match.update(must_match)
         self.dont_match.update(dont_match)
         return self
