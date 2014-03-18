@@ -52,12 +52,12 @@ class SemiStructuredNode(StructuredNode):
     def inflate(cls, node):
         props = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-                if key in node._properties:
-                    props[key] = prop.inflate(node._properties[key])
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
+            if key in node._properties:
+                props[key] = prop.inflate(node._properties[key])
+            elif prop.has_default:
+                props[key] = prop.default_value()
+            else:
+                props[key] = None
         # handle properties not defined on the class
         for free_key in [key for key in node._properties if key not in props]:
             if hasattr(cls, free_key):
