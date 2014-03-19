@@ -158,6 +158,7 @@ class QueryBuilder(object):
             else:
                 ident = self.build_source(source.source)
             self.build_additional_match(ident, source)
+            self.build_where_stmt(ident, source.filters)
             return ident
         else:
             raise ValueError("Unknown source type " + repr(source))
@@ -235,13 +236,21 @@ class QueryBuilder(object):
         construct a where statement
         """
         stmts = []
-        for prop, op_and_val in filters.items():
-            op, val = op_and_val
-            place_holder = self._register_place_holder(ident + '_' + prop)
-            stmts.append('{}.{} {} {{{}}}'.format(ident, prop, op, place_holder))
-            self._query_params[place_holder] = val
+        for row in filters:
+            negate = False
+            # pre-process NOT cases as they are nested dicts
+            if '__NOT__' in row and len(row) == 1:
+                negate = True
+                row = row['__NOT__']
+            for prop, op_and_val in row.items():
+                op, val = op_and_val
+                place_holder = self._register_place_holder(ident + '_' + prop)
+                statement = '{} {}.{} {} {{{}}}'.format(
+                    'NOT' if negate else '', ident, prop, op, place_holder)
+                stmts.append(statement)
+                self._query_params[place_holder] = val
 
-        return ' AND '.join(stmts)
+        self._ast['where'].append(' AND '.join(stmts))
 
     def execute(self):
         self.build_ast()
