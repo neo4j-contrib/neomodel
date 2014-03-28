@@ -134,7 +134,8 @@ class Traversal(object):
     def match(self, **kwargs):
         if not 'model' in self.definition:
             raise ValueError("match() only available on relationships with a model")
-        self.filters.append(process_filter_args(self.definition['model'], kwargs))
+        if kwargs:
+            self.filters.append(process_filter_args(self.definition['model'], kwargs))
         return self
 
 
@@ -158,8 +159,11 @@ class QueryBuilder(object):
             else:
                 ident = self.build_source(source.source)
             self.build_additional_match(ident, source)
-            self.build_where_stmt(ident, source.filters)
+            if source.filters:
+                self.build_where_stmt(ident, source.filters)
             return ident
+        if isinstance(source, StructuredNode):
+            return self.build_node(source)
         else:
             raise ValueError("Unknown source type " + repr(source))
 
@@ -178,24 +182,15 @@ class QueryBuilder(object):
         stmt = rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
         self._ast['match'].append(stmt)
 
-        for filter_group in traversal.filters:
-            where_stmt = self.build_where_stmt(rel_ident, filter_group)
-            self._ast['where'].append(where_stmt)
+        if traversal.filters:
+            self.build_where_stmt(rel_ident, traversal.filters)
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
-        self._ast['start'].append(['{} = node({})'.format(ident, node._id)])
+        if not 'start' in self._ast:
+            self._ast['start'] = []
+        self._ast['start'].append('{} = node({})'.format(ident, node._id))
         return ident
-
-    def build_filters(self, node_set):
-        for filter_group in node_set.filters:
-            if '__NOT__' in filter_group:
-                where_stmt = self.build_where_stmt(node_set.name, filter_group['__NOT__'])
-                where_stmt = 'NOT ({})'.format(where_stmt)
-            else:
-                where_stmt = self.build_where_stmt(node_set.name, filter_group)
-
-            self._ast['where'].append(where_stmt)
 
     def build_label(self, ident, cls):
         """
@@ -242,6 +237,7 @@ class QueryBuilder(object):
             if '__NOT__' in row and len(row) == 1:
                 negate = True
                 row = row['__NOT__']
+
             for prop, op_and_val in row.items():
                 op, val = op_and_val
                 place_holder = self._register_place_holder(ident + '_' + prop)

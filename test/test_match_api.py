@@ -31,7 +31,7 @@ def test_filter_exclude_via_labels():
     qb = QueryBuilder(node_set)
     qb.build_ast()
     assert '(coffee:Coffee)' in qb._ast['match']
-    assert 'NOT' in qb._ast['where'][1]
+    assert 'NOT' in qb._ast['where'][0]
 
 
 def test_simple_has_via_label():
