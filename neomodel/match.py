@@ -126,6 +126,14 @@ class Traversal(object):
     """
     def __init__(self, source, key, definition):
         self.source = source
+
+        if isinstance(source, Traversal):
+            self.source_class = source.target_class
+        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+            self.source_class = source
+        elif isinstance(source, StructuredNode):
+            self.source_class = source.__class__
+
         self.definition = definition
         self.target_class = definition['label_map'].values()[0]
         self.name = key
@@ -176,8 +184,8 @@ class QueryBuilder(object):
         traverse a relationship from a node to a set of nodes
         """
         # build source
-        lhs_ident = self.build_source(traversal.source)
-        rhs_ident = traversal.name
+        lhs_ident = self.build_source(traversal.source) + ':' + traversal.source_class.__label__
+        rhs_ident = traversal.name + ':' + traversal.target_class.__label__
         rel_ident = self.create_ident()
         stmt = rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
         self._ast['match'].append(stmt)
