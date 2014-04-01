@@ -54,4 +54,3 @@ def test_simple_traverse():
 
     qb = QueryBuilder(NodeSet(source=traversal))
     qb.build_ast()
-    print repr(qb._ast)

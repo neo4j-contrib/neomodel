@@ -56,13 +56,15 @@ def process_has_args(cls, kwargs):
     for key, value in kwargs.items():
         if not key in rel_definitions:
             raise ValueError("No such relation {} defined on a {}".format(key, cls.__name__))
+
+        rhs_ident = key
+
         if value is True:
-            match[key] = rel_definitions[key].definition
+            match[rhs_ident] = rel_definitions[key].definition
         elif value is False:
-            dont_match[key] = rel_definitions[key].definition
+            dont_match[rhs_ident] = rel_definitions[key].definition
         elif isinstance(value, NodeSet):
             raise NotImplementedError("Not implemented yet")
-            dont_match[key] = (rel_definitions[key].definition, value)
         else:
             raise ValueError("Expecting True / False / NodeSet got: " + repr(value))
 
@@ -157,6 +159,7 @@ class QueryBuilder(object):
 
     def build_ast(self):
         self.build_source(self.node_set)
+        print repr(self._ast)
 
     def build_source(self, source):
         if isinstance(source, Traversal):
@@ -166,7 +169,9 @@ class QueryBuilder(object):
                 ident = self.build_label(source.source.__label__.lower(), source.source)
             else:
                 ident = self.build_source(source.source)
+
             self.build_additional_match(ident, source)
+
             if source.filters:
                 self.build_where_stmt(ident, source.filters)
             return ident
@@ -206,12 +211,15 @@ class QueryBuilder(object):
         """
         ident_w_label = ident + ':' + cls.__label__
         self._ast['match'].append('({})'.format(ident_w_label))
-        return ident_w_label
+        return ident
 
-    def build_additional_match(self, source_ident, node_set):
+    def build_additional_match(self, ident, node_set):
         """
             handle additional matches supplied by 'has()' calls
         """
+        # TODO add support for labels
+        source_ident = ident
+
         for key, value in node_set.must_match.items():
             if isinstance(value, dict):
                 stmt = rel_helper(lhs=source_ident, rhs=key, ident='', **value)
