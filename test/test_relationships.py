@@ -153,6 +153,6 @@ def test_props_relationship():
     try:
         c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
     except NotImplementedError:
-        assert True
-    else:
         assert False
+    else:
+        assert True

@@ -103,7 +103,7 @@ class RelationshipManager(object):
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
         for label, cls in self.label_map.items():
-            if obj.__class__ is cls:
+            if issubclass(obj.__class__, cls) and label in obj.labels():
                 if not hasattr(obj, '_id'):
                     raise ValueError("Can't preform operation on unsaved node " + repr(obj))
                 return
@@ -118,10 +118,6 @@ class RelationshipManager(object):
     def connect(self, obj, properties=None):
         self._check_node(obj)
 
-        if not self.definition['model'] and properties:
-            raise NotImplementedError("Relationship properties without " +
-                    "using a relationship model is no longer supported")
-
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "START them=node({them}), us=node({self}) CREATE UNIQUE" + new_rel
         params = {'them': obj._id}
@@ -130,35 +126,41 @@ class RelationshipManager(object):
             self.origin.cypher(q, params)
             return True
 
-        rel_model = self.definition['model']
-        # need to generate defaults etc to create fake instance
-        tmp = rel_model(**properties) if properties else rel_model()
 
-        for p, v in rel_model.deflate(tmp.__properties__).items():
-            params['place_holder_' + p] = v
-            q += " SET r." + p + " = {place_holder_" + p + "}"
+        if self.definition['model']:
+            rel_model = self.definition['model']
+            # need to generate defaults etc to create fake instance
+            tmp = rel_model(**properties) if properties else rel_model()
 
-        rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
-        rel_instance = rel_model.inflate(rel_)
+            for p, v in rel_model.deflate(tmp.__properties__).items():
+                params['place_holder_' + p] = v
+                q += " SET r." + p + " = {place_holder_" + p + "}"
 
-        if self.definition['direction'] == INCOMING:
-            rel_instance._start_node_class = obj.__class__
-            rel_instance._end_node_class = self.origin.__class__
-        else:
-            rel_instance._start_node_class = self.origin.__class__
-            rel_instance._end_node_class = obj.__class__
+            rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
+            rel_instance = rel_model.inflate(rel_)
 
-        self.origin.cypher(q, params)
-        return rel_instance
+            if self.definition['direction'] == INCOMING:
+                rel_instance._start_node_class = obj.__class__
+                rel_instance._end_node_class = self.origin.__class__
+            else:
+                rel_instance._start_node_class = self.origin.__class__
+                rel_instance._end_node_class = obj.__class__
+
+            self.origin.cypher(q, params)
+            return rel_instance
+
+        if properties:
+            for p, v in properties.items():
+                params['place_holder_' + p] = v
+                q += " SET r." + p + " = {place_holder_" + p + "}"
+
+        return self.origin.cypher(q, params)
 
     @check_origin
     def relationship(self, obj):
         """relationship: node"""
         self._check_node(obj)
-        if not 'model' in self.definition:
-            raise NotImplemented("'relationship' method only available on relationships"
-                    + " that have a model defined")
-
+        
         rel_model = self.definition['model']
 
         my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
@@ -166,7 +168,11 @@ class RelationshipManager(object):
         rel = self.origin.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
             return
-        rel_instance = rel_model.inflate(rel)
+
+        if rel_model is not None:
+            rel_instance = rel_model.inflate(rel)
+        else:
+            rel_instance = rel
 
         if self.definition['direction'] == INCOMING:
             rel_instance._start_node_class = obj.__class__

@@ -9,20 +9,32 @@ logger = logging.getLogger(__name__)
 
 path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
 
-
 class Node(object):
     def __init__(self, data):
         self._id = path_to_id(data['self'])
+        self._node = neo4j.Node(data['self'])
         self._properties = data.get('data', {})
+        self.__metadata__ = data
+
+    @property
+    def node(self):
+        return self._node
+
 
 
 class Rel(object):
     def __init__(self, data):
         self._id = path_to_id(data['self'])
+        self._relationship = neo4j.Relationship(data['self'])
         self._properties = data.get('data', {})
         self._type = data['type']
         self._start_node_id = path_to_id(data['start'])
         self._end_node_id = path_to_id(data['end'])
+        self.__metadata__ = data
+
+    @property
+    def relationship(self):
+        return self._relationship
 
 
 def _hydrated(data):
