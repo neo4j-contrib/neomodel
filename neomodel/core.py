@@ -12,13 +12,14 @@ import os
 import time
 import sys
 import logging
+import json
+
 logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
     from urlparse import urlparse  # noqa
-
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 
@@ -130,6 +131,12 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
             raise TypeError("Cannot compare neomodel node with a {}".format(other.__class__.__name__))
         return self.__node__ != other.__node__
 
+    def __json__(self):
+        _dict = self.__properties__
+        _dict["class"] = type(self).__name__
+        _dict["module"] = self.__module__
+        return _dict
+
     @hooks
     def save(self):
         # create or update instance node
@@ -195,7 +202,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
 
         for i in range(0, len(deflated)):
             batch.create(neo4j.Relationship.abstract(category.__node__,
-                    cls.relationship_type(), i, __instance__=True))
+                                                     cls.relationship_type(), i, __instance__=True))
             cls._update_indexes(i, deflated[i], batch)
         results = batch.submit()
         return [cls.inflate(node) for node in results[:len(props)]]
@@ -205,7 +212,7 @@ class StructuredNode(StructuredNodeBase, CypherMixin):
         props = {}
         for key, prop in cls._class_properties().items():
             if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
+                and not isinstance(prop, AliasProperty)):
                 if key in node.__metadata__['data']:
                     props[key] = prop.inflate(node.__metadata__['data'][key], node)
                 elif prop.has_default:
@@ -253,6 +260,7 @@ class CategoryNode(CypherMixin):
 
 class InstanceManager(RelationshipManager):
     """Manage 'instance' rel of category nodes"""
+
     def connect(self, node):
         raise Exception("connect not available from category node")
 
@@ -268,9 +276,80 @@ def category_factory(instance_cls):
     category.__node__ = category_index.get_or_create('category', name, {'category': name})
     rel_type = camel_to_upper(instance_cls.__name__)
     category.instance = InstanceManager({
-        'direction': OUTGOING,
-        'relation_type': rel_type,
-        'target_map': {rel_type: instance_cls},
-    }, category)
+                                            'direction': OUTGOING,
+                                            'relation_type': rel_type,
+                                            'target_map': {rel_type: instance_cls},
+                                        }, category)
     category.instance.name = 'instance'
     return category
+
+
+def json_encode(obj):
+    if not hasattr(obj, "__json__"):
+        return json.dumps(obj)
+    return json.dumps(obj.__json__())
+
+
+def _default(obj):
+    if hasattr(obj, 'isoformat'):
+        return obj.isoformat()
+    elif hasattr(obj, "__json__") and hasattr(obj, "__dict__"):
+        try:
+            return obj.__json__()
+        except TypeError as e:
+            # Case obj is a class (Type error because self is not passed)
+            return {"class": obj.__name__, "module": obj.__module__}
+    return obj
+
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        return _default(obj)
+
+
+def simple_json_encoder():
+    import simplejson
+
+    class SimpleJsonEncoder(simplejson.JSONEncoder):
+        def default(self, obj):
+            return _default(obj)
+
+    return SimpleJsonEncoder
+
+
+def _patch_json(func, value):
+    _fun_defaults = list(func.func_defaults)
+    _fun_defaults[4] = value
+    func.func_defaults = tuple(_fun_defaults)
+
+
+def _patch_functions(functions, value):
+    funcs = functions if functions else [json.dump, json.dumps]
+    for func in funcs:
+        _patch_json(func, value)
+
+
+def patch_json_dump(functions=None, encoder=JsonEncoder):
+    """
+        Changes the behaviour of the builtin json.dumps and json.dump.
+        The new function looks for for __json__, if it exists is using that
+        to create json.
+    """
+    _patch_functions(functions, encoder)
+
+
+def restore_patched_json_dump(functions=None):
+    """
+        Changes the behaviour of the builtin json.dumps and json.dump.
+        The new function looks for for __json__, if it exists is using that
+        to create json.
+    """
+    _patch_functions(functions, None)
+
+
+def recover_from_json(json_dict):
+    class_name = json_dict["class"]
+    module_name = __import__(json_dict["module"], fromlist=[class_name])
+    clazz = getattr(module_name, class_name)
+    obj = clazz.category().instance.search(uid=json_dict["uid"])[0]
+    return obj
