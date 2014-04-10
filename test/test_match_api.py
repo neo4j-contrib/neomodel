@@ -23,13 +23,13 @@ class Coffee(StructuredNode):
 def test_filter_exclude_via_labels():
     node_set = NodeSet(Coffee)
     qb = QueryBuilder(node_set)
-    qb.build_ast()
+    qb.execute()
     assert '(coffee:Coffee)' in qb._ast['match']
 
     # with filter and exclude
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name='Java')
     qb = QueryBuilder(node_set)
-    qb.build_ast()
+    qb.execute()
     assert '(coffee:Coffee)' in qb._ast['match']
     assert 'NOT' in qb._ast['where'][0]
 
@@ -37,12 +37,12 @@ def test_filter_exclude_via_labels():
 def test_simple_has_via_label():
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns)
-    qb.build_ast()
+    qb.execute()
     assert 'SUPPLIES' in qb._ast['match'][1]
 
     ns = NodeSet(Coffee).has(suppliers=False)
     qb = QueryBuilder(ns)
-    qb.build_ast()
+    qb.execute()
     assert 'NOT' in qb._ast['where'][0]
 
 
@@ -53,4 +53,4 @@ def test_simple_traverse():
         definition=Coffee.suppliers.definition).match(since__lt=datetime.now())
 
     qb = QueryBuilder(NodeSet(source=traversal))
-    qb.build_ast()
+    qb.execute()

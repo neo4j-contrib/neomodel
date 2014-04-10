@@ -1,4 +1,4 @@
-from .core import StructuredNode
+from .core import StructuredNode, cypher_query, connection
 from .relationship_manager import rel_helper
 import inspect
 
@@ -58,6 +58,8 @@ def process_has_args(cls, kwargs):
             raise ValueError("No such relation {} defined on a {}".format(key, cls.__name__))
 
         rhs_ident = key
+
+        rel_definitions[key].build_manager(None, key) # produces label_map in definition
 
         if value is True:
             match[rhs_ident] = rel_definitions[key].definition
@@ -159,7 +161,6 @@ class QueryBuilder(object):
 
     def build_ast(self):
         self.build_source(self.node_set)
-        print repr(self._ast)
 
     def build_source(self, source):
         if isinstance(source, Traversal):
@@ -174,8 +175,9 @@ class QueryBuilder(object):
 
             if source.filters:
                 self.build_where_stmt(ident, source.filters)
+
             return ident
-        if isinstance(source, StructuredNode):
+        elif isinstance(source, StructuredNode):
             return self.build_node(source)
         else:
             raise ValueError("Unknown source type " + repr(source))
@@ -191,6 +193,8 @@ class QueryBuilder(object):
         # build source
         lhs_ident = self.build_source(traversal.source) + ':' + traversal.source_class.__label__
         rhs_ident = traversal.name + ':' + traversal.target_class.__label__
+        self._ast['return'] = traversal.name
+
         rel_ident = self.create_ident()
         stmt = rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
         self._ast['match'].append(stmt)
@@ -198,11 +202,15 @@ class QueryBuilder(object):
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
 
+        return rhs_ident
+
     def build_node(self, node):
+        # TODO make node id a parameter
         ident = node.__class__.__name__.lower()
         if not 'start' in self._ast:
             self._ast['start'] = []
         self._ast['start'].append('{} = node({})'.format(ident, node._id))
+        self._ast['return'] = ident
         return ident
 
     def build_label(self, ident, cls):
@@ -211,6 +219,7 @@ class QueryBuilder(object):
         """
         ident_w_label = ident + ':' + cls.__label__
         self._ast['match'].append('({})'.format(ident_w_label))
+        self._ast['return'] = ident
         return ident
 
     def build_additional_match(self, ident, node_set):
@@ -228,12 +237,13 @@ class QueryBuilder(object):
                 rel_manager, ns = value
                 self.add_node_set(ns, key)
 
-        for key, value in node_set.dont_match.items():
-            if isinstance(value, dict):
-                stmt = rel_helper(lhs=source_ident, rhs=key, ident='', **value)
+        for key, val in node_set.dont_match.items():
+            label = ':' + val['label_map'].keys()[0]
+            if isinstance(val, dict):
+                stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **val)
                 self._ast['where'].append('NOT ' + stmt)
             else:
-                raise ValueError("WTF? " + repr(value))
+                raise ValueError("WTF? " + repr(val))
 
     def _register_place_holder(self, key):
         if key in self._place_holder_registry:
@@ -249,6 +259,7 @@ class QueryBuilder(object):
         stmts = []
         for row in filters:
             negate = False
+
             # pre-process NOT cases as they are nested dicts
             if '__NOT__' in row and len(row) == 1:
                 negate = True
@@ -266,4 +277,21 @@ class QueryBuilder(object):
 
     def execute(self):
         self.build_ast()
-        print repr(self._ast)
+        query = ''
+
+        if 'start' in self._ast:
+            query += 'START '
+            query += ', '.join(self._ast['start'])
+
+        query += ' MATCH '
+        query += ', '.join(self._ast['match'])
+
+        if 'where' in self._ast and self._ast['where']:
+            query += ' WHERE '
+            query += ', '.join(self._ast['where'])
+
+        query += ' RETURN ' + self._ast['return']
+        query += ', labels({})'.format(self._ast['return'])
+
+        print query
+        return cypher_query(connection(), query, self._query_params)
