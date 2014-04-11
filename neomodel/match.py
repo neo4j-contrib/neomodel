@@ -230,9 +230,10 @@ class QueryBuilder(object):
         source_ident = ident
 
         for key, value in node_set.must_match.items():
+            label = ':' + value['label_map'].keys()[0]
             if isinstance(value, dict):
-                stmt = rel_helper(lhs=source_ident, rhs=key, ident='', **value)
-                self._ast['match'].append(stmt)
+                stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **value)
+                self._ast['where'].append(stmt)
             elif isinstance(value, tuple):
                 rel_manager, ns = value
                 self.add_node_set(ns, key)

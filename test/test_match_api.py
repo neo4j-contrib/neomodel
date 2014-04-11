@@ -38,7 +38,7 @@ def test_simple_has_via_label():
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns)
     qb.execute()
-    assert 'SUPPLIES' in qb._ast['match'][1]
+    assert 'SUPPLIES' in qb._ast['where'][0]
 
     ns = NodeSet(Coffee).has(suppliers=False)
     qb = QueryBuilder(ns)
