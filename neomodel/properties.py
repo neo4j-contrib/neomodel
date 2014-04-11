@@ -159,7 +159,7 @@ class ArrayProperty(Property):
         return list(value)
 
     def default_value(self):
-        return list(super(IntegerProperty, self).default_value())
+        return list(super(ArrayProperty, self).default_value())
 
 
 class FloatProperty(Property):

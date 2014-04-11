@@ -105,7 +105,7 @@ class RelationshipManager(object):
         for label, cls in self.label_map.items():
             if obj.__class__ is cls:
                 if not hasattr(obj, '_id'):
-                    raise ValueError("Can't preform operation on unsaved node " + repr(obj))
+                    raise ValueError("Can't perform operation on unsaved node " + repr(obj))
                 return
 
         allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
