@@ -110,11 +110,6 @@ class NodeSet(object):
         self.must_match = {}
         self.dont_match = {}
 
-    def __get__(self, instance, type=None):
-        if instance is not None:
-            raise AttributeError("NodeSet isn't accessible via %s instances" % type.__name__)
-        return self
-
     def filter(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)
         self.filters.append(output)
