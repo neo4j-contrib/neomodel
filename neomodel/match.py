@@ -214,11 +214,14 @@ class QueryBuilder(object):
         return traversal.name
 
     def build_node(self, node):
-        # TODO make node id a parameter
         ident = node.__class__.__name__.lower()
         if not 'start' in self._ast:
             self._ast['start'] = []
-        self._ast['start'].append('{} = node({})'.format(ident, node._id))
+
+        place_holder = self._register_place_holder(ident)
+        self._ast['start'].append('{} = node({{{}}})'.format(ident, place_holder))
+        self._query_params[place_holder] = node._id
+
         self._ast['return'] = ident
         self._ast['result_class'] = node.__class__
         return ident
