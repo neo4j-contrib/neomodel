@@ -7,5 +7,6 @@ dist
 *.swp
 *.swn
 *.swo
+development.env
 *.pyc
 .idea
