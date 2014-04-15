@@ -1,6 +1,6 @@
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
         RelationshipTo, StructuredRel, DateTimeProperty)
-from neomodel.match import NodeSet, QueryBuilder, Traversal
+from neomodel.match import NodeSet, QueryBuilder
 from datetime import datetime
 
 
@@ -47,9 +47,9 @@ def test_filter_exclude_via_labels():
 
 
 def test_simple_has_via_label():
-    java = Coffee(name='Nescafe', price=99).save()
+    nescafe = Coffee(name='Nescafe', price=99).save()
     tesco = Supplier(name='Tesco', delivery_cost=2).save()
-    java.suppliers.connect(tesco)
+    nescafe.suppliers.connect(tesco)
 
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns)
@@ -66,11 +66,17 @@ def test_simple_has_via_label():
     assert 'NOT' in qb._ast['where'][0]
 
 
-def test_simple_traverse():
-    latte = Coffee(name="Latte").save()
-    traversal = Traversal(source=latte,
-        key='suppliers',
-        definition=Coffee.suppliers.definition).match(since__lt=datetime.now())
+def test_simple_traverse_with_filter():
+    nescafe = Coffee(name='Nescafe', price=99).save()
+    tesco = Supplier(name='Tesco', delivery_cost=2).save()
+    nescafe.suppliers.connect(tesco)
 
-    qb = QueryBuilder(NodeSet(source=traversal))
-    qb.execute()
+    qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
+
+    results = qb.execute()
+
+    assert 'start' in qb._ast
+    assert 'match' in qb._ast
+    assert qb._ast['return'] == 'suppliers'
+    assert len(results) == 1
+    assert results[0].name == 'Tesco'

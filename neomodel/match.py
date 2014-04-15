@@ -17,7 +17,18 @@ def install_traversals(cls, node_set):
     from a StructuredNode class install Traversal objects for each
     relationship definition on a NodeSet instance
     """
-    pass
+    rels = cls.defined_properties(rels=True, aliases=False, properties=False)
+
+    for key, value in rels.items():
+        if hasattr(node_set, key):
+            raise ValueError("Can't install traversal '{}' exists on NodeSet".format(key))
+
+        traversal = Traversal(
+            source=node_set,
+            key=key,
+            definition=getattr(cls, key).definition)
+
+        setattr(node_set, key, traversal)
 
 
 def process_filter_args(cls, kwargs):
@@ -83,8 +94,10 @@ class NodeSet(object):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif issubclass(source, StructuredNode):
+        elif inspect.isclass(source) and issubclass(source, StructuredNode):
             self.source_class = source
+        elif isinstance(source, StructuredNode):
+            self.source_class = source.__class__
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
 
@@ -118,15 +131,11 @@ class NodeSet(object):
         self.dont_match.update(dont_match)
         return self
 
-    def run(self):
-        return QueryBuilder(self).execute()
-
 
 class Traversal(object):
     """
         source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
         definition: relationship definition
-        target: StructuredNode class
     """
     def __init__(self, source, key, definition):
         self.source = source
@@ -137,6 +146,10 @@ class Traversal(object):
             self.source_class = source
         elif isinstance(source, StructuredNode):
             self.source_class = source.__class__
+        elif isinstance(source, NodeSet):
+            self.source_class = source.source_class
+        else:
+            raise ValueError("Bad source for traversal: {}".format(repr(source)))
 
         self.definition = definition
         self.target_class = definition['label_map'].values()[0]
