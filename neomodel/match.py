@@ -211,7 +211,7 @@ class QueryBuilder(object):
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
 
-        return rhs_ident
+        return traversal.name
 
     def build_node(self, node):
         # TODO make node id a parameter

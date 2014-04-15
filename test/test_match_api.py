@@ -80,3 +80,17 @@ def test_simple_traverse_with_filter():
     assert qb._ast['return'] == 'suppliers'
     assert len(results) == 1
     assert results[0].name == 'Tesco'
+
+
+def test_double_traverse():
+    nescafe = Coffee(name='Nescafe', price=99).save()
+    tesco = Supplier(name='Tesco', delivery_cost=2).save()
+    nescafe.suppliers.connect(tesco)
+    tesco.coffees.connect(Coffee(name='Decafe', price=2).save())
+
+    ns = NodeSet(NodeSet(source=nescafe).suppliers.match()).coffees.match()
+    qb = QueryBuilder(ns)
+
+    results = qb.execute()
+    assert len(results) == 1
+    assert results[0].name == 'Decafe'
