@@ -35,22 +35,34 @@ def test_filter_exclude_via_labels():
     assert results[0].name == 'Java'
 
     # with filter and exclude
+    Coffee(name='Kenco', price=3).save()
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name='Java')
     qb = QueryBuilder(node_set)
-    qb.execute()
+
+    results = qb.execute()
     assert '(coffee:Coffee)' in qb._ast['match']
     assert 'NOT' in qb._ast['where'][0]
+    assert len(results) == 1
+    assert results[0].name == 'Kenco'
 
 
 def test_simple_has_via_label():
+    java = Coffee(name='Nescafe', price=99).save()
+    tesco = Supplier(name='Tesco', delivery_cost=2).save()
+    java.suppliers.connect(tesco)
+
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns)
-    qb.execute()
+    results = qb.execute()
     assert 'SUPPLIES' in qb._ast['where'][0]
+    assert len(results) == 1
+    assert results[0].name == 'Nescafe'
 
+    Coffee(name='nespresso', price=99).save()
     ns = NodeSet(Coffee).has(suppliers=False)
     qb = QueryBuilder(ns)
-    qb.execute()
+    results = qb.execute()
+    assert len(results) > 0
     assert 'NOT' in qb._ast['where'][0]
 
 
