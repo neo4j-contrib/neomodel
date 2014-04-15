@@ -194,6 +194,7 @@ class QueryBuilder(object):
         lhs_ident = self.build_source(traversal.source) + ':' + traversal.source_class.__label__
         rhs_ident = traversal.name + ':' + traversal.target_class.__label__
         self._ast['return'] = traversal.name
+        self._ast['result_class'] = traversal.target_class
 
         rel_ident = self.create_ident()
         stmt = rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
@@ -211,6 +212,7 @@ class QueryBuilder(object):
             self._ast['start'] = []
         self._ast['start'].append('{} = node({})'.format(ident, node._id))
         self._ast['return'] = ident
+        self._ast['result_class'] = node.__class__
         return ident
 
     def build_label(self, ident, cls):
@@ -220,6 +222,7 @@ class QueryBuilder(object):
         ident_w_label = ident + ':' + cls.__label__
         self._ast['match'].append('({})'.format(ident_w_label))
         self._ast['return'] = ident
+        self._ast['result_class'] = cls
         return ident
 
     def build_additional_match(self, ident, node_set):
@@ -276,8 +279,7 @@ class QueryBuilder(object):
 
         self._ast['where'].append(' AND '.join(stmts))
 
-    def execute(self):
-        self.build_ast()
+    def build_query(self):
         query = ''
 
         if 'start' in self._ast:
@@ -292,7 +294,12 @@ class QueryBuilder(object):
             query += ', '.join(self._ast['where'])
 
         query += ' RETURN ' + self._ast['return']
-        query += ', labels({})'.format(self._ast['return'])
+        return query
 
-        print query
-        return cypher_query(connection(), query, self._query_params)
+    def execute(self):
+        self.build_ast()
+        query = self.build_query()
+        results, _ = cypher_query(connection(), query, self._query_params)
+        if results:
+            return [self._ast['result_class'].inflate(n) for n in results[0]]
+        return []

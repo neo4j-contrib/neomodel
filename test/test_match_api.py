@@ -21,10 +21,18 @@ class Coffee(StructuredNode):
 
 
 def test_filter_exclude_via_labels():
+    Coffee(name='Java', price=99).save()
+
     node_set = NodeSet(Coffee)
     qb = QueryBuilder(node_set)
-    qb.execute()
+
+    results = qb.execute()
+
     assert '(coffee:Coffee)' in qb._ast['match']
+    assert 'result_class' in qb._ast
+    assert len(results) == 1
+    assert isinstance(results[0], Coffee)
+    assert results[0].name == 'Java'
 
     # with filter and exclude
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name='Java')
