@@ -26,7 +26,7 @@ def test_filter_exclude_via_labels():
     node_set = NodeSet(Coffee)
     qb = QueryBuilder(node_set)
 
-    results = qb.execute()
+    results = qb._execute()
 
     assert '(coffee:Coffee)' in qb._ast['match']
     assert 'result_class' in qb._ast
@@ -39,7 +39,7 @@ def test_filter_exclude_via_labels():
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name='Java')
     qb = QueryBuilder(node_set)
 
-    results = qb.execute()
+    results = qb._execute()
     assert '(coffee:Coffee)' in qb._ast['match']
     assert 'NOT' in qb._ast['where'][0]
     assert len(results) == 1
@@ -53,7 +53,7 @@ def test_simple_has_via_label():
 
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns)
-    results = qb.execute()
+    results = qb._execute()
     assert 'SUPPLIES' in qb._ast['where'][0]
     assert len(results) == 1
     assert results[0].name == 'Nescafe'
@@ -61,7 +61,7 @@ def test_simple_has_via_label():
     Coffee(name='nespresso', price=99).save()
     ns = NodeSet(Coffee).has(suppliers=False)
     qb = QueryBuilder(ns)
-    results = qb.execute()
+    results = qb._execute()
     assert len(results) > 0
     assert 'NOT' in qb._ast['where'][0]
 
@@ -73,7 +73,7 @@ def test_simple_traverse_with_filter():
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
 
-    results = qb.execute()
+    results = qb._execute()
 
     assert 'start' in qb._ast
     assert 'match' in qb._ast
@@ -91,6 +91,12 @@ def test_double_traverse():
     ns = NodeSet(NodeSet(source=nescafe).suppliers.match()).coffees.match()
     qb = QueryBuilder(ns)
 
-    results = qb.execute()
+    results = qb._execute()
     assert len(results) == 1
     assert results[0].name == 'Decafe'
+
+
+def test_count():
+    Coffee(name='Nescafe', price=99).save()
+    count = QueryBuilder(NodeSet(source=Coffee))._count()
+    assert count > 0

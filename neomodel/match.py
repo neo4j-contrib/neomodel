@@ -269,7 +269,7 @@ class QueryBuilder(object):
 
     def build_where_stmt(self, ident, filters):
         """
-        construct a where statement
+        construct a where statement from some filters
         """
         stmts = []
         for row in filters:
@@ -307,7 +307,14 @@ class QueryBuilder(object):
         query += ' RETURN ' + self._ast['return']
         return query
 
-    def execute(self):
+    def _count(self):
+        self.build_ast()
+        self._ast['return'] = 'count({})'.format(self._ast['return'])
+        query = self.build_query()
+        results, _ = cypher_query(connection(), query, self._query_params)
+        return int(results[0][0])
+
+    def _execute(self):
         self.build_ast()
         query = self.build_query()
         results, _ = cypher_query(connection(), query, self._query_params)
