@@ -1,6 +1,18 @@
 from .core import StructuredNode, cypher_query, connection
-from .relationship_manager import rel_helper
 import inspect
+OUTGOING, INCOMING, EITHER = 1, -1, 0
+
+
+def rel_helper(**rel):
+    if rel['direction'] == OUTGOING:
+        stmt = '-[{0}:{1}]->'
+    elif rel['direction'] == INCOMING:
+        stmt = '<-[{0}:{1}]-'
+    else:
+        stmt = '-[{0}:{1}]-'
+    ident = rel['ident'] if 'ident' in rel else ''
+    stmt = stmt.format(ident, rel['relation_type'])
+    return "({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
 OPERATOR_TABLE = {
@@ -70,7 +82,7 @@ def process_has_args(cls, kwargs):
 
         rhs_ident = key
 
-        rel_definitions[key].build_manager(None, key) # produces label_map in definition
+        rel_definitions[key].build_label_map()
 
         if value is True:
             match[rhs_ident] = rel_definitions[key].definition
