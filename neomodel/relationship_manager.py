@@ -3,9 +3,7 @@ import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import deprecated
-
-
-OUTGOING, INCOMING, EITHER = 1, -1, 0
+from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal, QueryBuilder, NodeSet
 
 
 # check origin node is saved and not deleted
@@ -17,18 +15,6 @@ def check_origin(fn):
         self.origin._pre_action_check(self.name + '.' + fn_name)
         return fn(self, *args, **kwargs)
     return checker
-
-
-def rel_helper(**rel):
-    if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
-    elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
-    else:
-        stmt = '-[{0}:{1}]-'
-    ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
-    return "({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
 class RelationshipManager(object):
@@ -60,11 +46,7 @@ class RelationshipManager(object):
 
     @check_origin
     def __len__(self):
-        return len(self.origin.traverse(self.name))
-
-    @property
-    def client(self):
-        return self.origin.client
+        return QueryBuilder(self._traversal)._count()
 
     @check_origin
     def count(self):
@@ -72,7 +54,10 @@ class RelationshipManager(object):
 
     @check_origin
     def all(self):
-        return self.origin.traverse(self.name).run()
+        return QueryBuilder(self._traversal)._execute()
+
+    def match(self, **kwargs):
+        return QueryBuilder(self._traversal.match(**kwargs))._execute()
 
     @check_origin
     def get(self, **kwargs):
@@ -87,10 +72,10 @@ class RelationshipManager(object):
     @check_origin
     @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
-        t = self.origin.traverse(self.name)
+        ns = NodeSet(self._traversal)
         for field, value in kwargs.items():
-            t.where(field, '=', value)
-        return t.run()
+            ns.filter(**{field: value})
+        return QueryBuilder(ns)._execute()
 
     @check_origin
     def is_connected(self, obj):
@@ -213,7 +198,8 @@ class RelationshipManager(object):
 
     @check_origin
     def single(self):
-        nodes = self.origin.traverse(self.name).limit(1).run()
+        # TODO need to limit to one result
+        nodes = QueryBuilder(self._traversal)._execute()
         return nodes[0] if nodes else None
 
 
@@ -258,7 +244,7 @@ class RelationshipDefinition(object):
                 module = import_module(namespace).__name__
         return getattr(sys.modules[module], name)
 
-    def build_manager(self, origin, name):
+    def build_label_map(self):
         # get classes for related nodes
         if isinstance(self.node_class, list):
             node_classes = [self._lookup(cls) if isinstance(cls, (str,)) else cls
@@ -270,8 +256,12 @@ class RelationshipDefinition(object):
         # build label map
         self.definition['label_map'] = dict(zip([c.__label__
                 for c in node_classes], node_classes))
+
+    def build_manager(self, origin, name):
+        self.build_label_map()
         rel = self.manager(self.definition, origin)
         rel.name = name
+        rel._traversal = Traversal(origin, name, self.definition)
         return rel
 
 

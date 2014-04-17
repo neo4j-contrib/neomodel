@@ -331,5 +331,5 @@ class QueryBuilder(object):
         query = self.build_query()
         results, _ = cypher_query(connection(), query, self._query_params)
         if results:
-            return [self._ast['result_class'].inflate(n) for n in results[0]]
+            return [self._ast['result_class'].inflate(n.values[0]) for n in results]
         return []

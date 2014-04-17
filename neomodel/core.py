@@ -1,11 +1,9 @@
 import os
 import sys
-from types import MethodType
 from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
-from .traversal import TraversalSet
 from .util import neo4j, cypher_query, deprecated, classproperty
 
 if sys.version_info >= (3, 0):
@@ -83,11 +81,6 @@ class NodeMeta(type):
 NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
 
 
-def _traverse(self, rel_manager, *args):
-    self._pre_action_check('traverse')
-    return TraversalSet(connection(), self).traverse(rel_manager, *args)
-
-
 class StructuredNode(NodeBase):
     __abstract_node__ = True
 
@@ -103,9 +96,6 @@ class StructuredNode(NodeBase):
         for key, val in self.defined_properties(aliases=False, properties=False).items():
             self.__dict__[key] = val.build_manager(self, key)
 
-        # install traverse as an instance method
-        # http://stackoverflow.com/questions/861055/
-        self.traverse = MethodType(_traverse, self, self.__class__)
         super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):
@@ -169,10 +159,6 @@ class StructuredNode(NodeBase):
         del self.__dict__['_id']
         self.deleted = True
         return True
-
-    @classmethod
-    def traverse(cls):
-        return TraversalSet(connection(), cls)
 
     def refresh(self):
         """Reload this object from its node id in the database"""
@@ -243,13 +229,13 @@ class FakeInstanceRel(object):
     Fake rel manager for our fake category node
     """
     def __init__(self, cls):
+        from .match import NodeSet
         self.node_class = cls
-
-    def _new_traversal(self):
-        return TraversalSet(connection(), self.node_class)
+        self._node_set = NodeSet(cls)
 
     def __len__(self):
-        return len(self._new_traversal())
+        from .match import QueryBuilder
+        return QueryBuilder(self._node_set)._count()
 
     def __bool__(self):
         return len(self) > 0
@@ -261,13 +247,15 @@ class FakeInstanceRel(object):
         return self.__len__()
 
     def all(self):
-        return self._new_traversal().run()
+        from .match import QueryBuilder
+        return QueryBuilder(self._node_set)._execute()
 
     def search(self, **kwargs):
-        t = self._new_traversal()
+        from .match import QueryBuilder
+        ns = self._node_set
         for field, value in kwargs.items():
-            t.where(field, '=', value)
-        return t.run()
+            ns.filter(**{field: value})
+        return QueryBuilder(ns)._execute()
 
     def get(self, **kwargs):
         result = self.search(**kwargs)
