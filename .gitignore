@@ -10,3 +10,4 @@ dist
 development.env
 *.pyc
 .idea
+.python-version
