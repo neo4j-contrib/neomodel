@@ -140,7 +140,7 @@ class RelationshipManager(object):
     def relationship(self, obj):
         """relationship: node"""
         self._check_node(obj)
-        if not 'model' in self.definition:
+        if 'model' not in self.definition:
             raise NotImplemented("'relationship' method only available on relationships"
                     + " that have a model defined")
 
@@ -206,7 +206,8 @@ class RelationshipManager(object):
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
         self.module_name = sys._getframe(4).f_globals['__name__']
-        self.module_file = sys._getframe(4).f_globals['__file__']
+        if '__file__' in sys._getframe(4).f_globals:
+            self.module_file = sys._getframe(4).f_globals['__file__']
         self.node_class = cls_name
         self.manager = manager
         self.definition = {}
@@ -220,7 +221,7 @@ class RelationshipDefinition(object):
         else:
             module, _, name = name.rpartition('.')
 
-        if not module in sys.modules:
+        if module not in sys.modules:
             # yet another hack to get around python semantics
             # __name__ is the namespace of the parent module for __init__.py files,
             # and the namespace of the current module for other .py files,
@@ -228,6 +229,9 @@ class RelationshipDefinition(object):
             # these two cases in order for . in relative imports to work correctly
             # (i.e. to mean the same thing for both cases).
             # For example in the comments below, namespace == myapp, always
+            if not hasattr(self, 'module_file'):
+                raise ImportError("Couldn't lookup '{}'".format(name))
+
             if '__init__.py' in self.module_file:
                 # e.g. myapp/__init__.py -[__name__]-> myapp
                 namespace = self.module_name
