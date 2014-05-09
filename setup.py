@@ -14,7 +14,7 @@ setup(
     keywords='graph neo4j py2neo ORM',
     tests_require=['nose==1.1.2'],
     test_suite='nose.collector',
-    install_requires=['py2neo==1.6.4', 'pytz==2013.8'],
+    install_requires=['py2neo==1.6.4', 'pytz==2014.2'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
