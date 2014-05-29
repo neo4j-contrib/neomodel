@@ -155,7 +155,7 @@ class StructuredNode(NodeBase):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("START self=node({self}) DELETE self")
+        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
         del self.__dict__['_id']
         self.deleted = True
         return True
