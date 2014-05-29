@@ -100,3 +100,9 @@ def test_count():
     Coffee(name='Nescafe', price=99).save()
     count = QueryBuilder(NodeSet(source=Coffee))._count()
     assert count > 0
+
+
+def test_cls_nodes():
+    # check we dont blow up on installing traversals
+    Coffee.nodes
+    assert True

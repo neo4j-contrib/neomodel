@@ -35,10 +35,13 @@ def install_traversals(cls, node_set):
         if hasattr(node_set, key):
             raise ValueError("Can't install traversal '{}' exists on NodeSet".format(key))
 
+        rel = getattr(cls, key)
+        rel.build_label_map()
+
         traversal = Traversal(
             source=node_set,
             key=key,
-            definition=getattr(cls, key).definition)
+            definition=rel.definition)
 
         setattr(node_set, key, traversal)
 
@@ -59,7 +62,7 @@ def process_filter_args(cls, kwargs):
             prop = key
             operator = '='
 
-        if not prop in cls.defined_properties(rels=False, aliases=False):
+        if prop not in cls.defined_properties(rels=False, aliases=False):
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
 
         deflated_value = getattr(cls, prop).deflate(value)
@@ -77,7 +80,7 @@ def process_has_args(cls, kwargs):
     match, dont_match = {}, {}
 
     for key, value in kwargs.items():
-        if not key in rel_definitions:
+        if key not in rel_definitions:
             raise ValueError("No such relation {} defined on a {}".format(key, cls.__name__))
 
         rhs_ident = key
@@ -164,7 +167,7 @@ class Traversal(object):
         self.filters = []
 
     def match(self, **kwargs):
-        if not 'model' in self.definition:
+        if 'model' not in self.definition:
             raise ValueError("match() only available on relationships with a model")
         if kwargs:
             self.filters.append(process_filter_args(self.definition['model'], kwargs))
@@ -227,7 +230,7 @@ class QueryBuilder(object):
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
-        if not 'start' in self._ast:
+        if 'start' not in self._ast:
             self._ast['start'] = []
 
         place_holder = self._register_place_holder(ident)
