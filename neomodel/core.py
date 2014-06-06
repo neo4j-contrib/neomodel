@@ -85,9 +85,9 @@ class StructuredNode(NodeBase):
     __abstract_node__ = True
 
     @classproperty
-    def nodes(self):
+    def nodes(cls):
         from .match import NodeSet
-        return NodeSet(self)
+        return NodeSet(cls)
 
     def __init__(self, *args, **kwargs):
         if 'deleted' in kwargs:
@@ -155,7 +155,7 @@ class StructuredNode(NodeBase):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("START self=node({self}) OPTIONAL MATCH (self)-[r]-() DELETE r, self")
         del self.__dict__['_id']
         self.deleted = True
         return True
@@ -167,6 +167,8 @@ class StructuredNode(NodeBase):
             node = self.inflate(self.cypher("START n=node({self}) RETURN n")[0][0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
+        else:
+            raise ValueError("Can't refresh unsaved node")
 
     @classmethod
     def create(cls, *props):
