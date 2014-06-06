@@ -24,7 +24,7 @@ def test_filter_exclude_via_labels():
     Coffee(name='Java', price=99).save()
 
     node_set = NodeSet(Coffee)
-    qb = QueryBuilder(node_set)
+    qb = QueryBuilder(node_set).build_ast()
 
     results = qb._execute()
 
@@ -37,7 +37,7 @@ def test_filter_exclude_via_labels():
     # with filter and exclude
     Coffee(name='Kenco', price=3).save()
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name='Java')
-    qb = QueryBuilder(node_set)
+    qb = QueryBuilder(node_set).build_ast()
 
     results = qb._execute()
     assert '(coffee:Coffee)' in qb._ast['match']
@@ -52,7 +52,7 @@ def test_simple_has_via_label():
     nescafe.suppliers.connect(tesco)
 
     ns = NodeSet(Coffee).has(suppliers=True)
-    qb = QueryBuilder(ns)
+    qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
     assert 'SUPPLIES' in qb._ast['where'][0]
     assert len(results) == 1
@@ -60,7 +60,7 @@ def test_simple_has_via_label():
 
     Coffee(name='nespresso', price=99).save()
     ns = NodeSet(Coffee).has(suppliers=False)
-    qb = QueryBuilder(ns)
+    qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
     assert len(results) > 0
     assert 'NOT' in qb._ast['where'][0]
@@ -73,7 +73,7 @@ def test_simple_traverse_with_filter():
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
 
-    results = qb._execute()
+    results = qb.build_ast()._execute()
 
     assert 'start' in qb._ast
     assert 'match' in qb._ast
@@ -89,7 +89,7 @@ def test_double_traverse():
     tesco.coffees.connect(Coffee(name='Decafe', price=2).save())
 
     ns = NodeSet(NodeSet(source=nescafe).suppliers.match()).coffees.match()
-    qb = QueryBuilder(ns)
+    qb = QueryBuilder(ns).build_ast()
 
     results = qb._execute()
     assert len(results) == 1
@@ -98,11 +98,43 @@ def test_double_traverse():
 
 def test_count():
     Coffee(name='Nescafe', price=99).save()
-    count = QueryBuilder(NodeSet(source=Coffee))._count()
+    count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
     assert count > 0
 
 
-def test_cls_nodes():
-    # check we dont blow up on installing traversals
-    Coffee.nodes
-    assert True
+def test_len_and_iter_and_bool():
+    iterations = 0
+
+    Coffee(name="Icelands finest").save()
+
+    for c in Coffee.nodes:
+        iterations += 1
+        c.delete()
+
+    assert iterations > 0
+
+    assert len(Coffee.nodes) == 0
+
+
+def test_contains():
+    expensive = Coffee(price=1000, name="Pricey").save()
+    asda = Coffee(name='Asda', price=1).save()
+
+    assert expensive in Coffee.nodes.filter(price__gt=999)
+    assert asda not in Coffee.nodes.filter(price__gt=999)
+
+    # bad value raises
+    try:
+        2 in Coffee.nodes
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+    # unsaved
+    try:
+        Coffee() in Coffee.nodes
+    except ValueError:
+        assert True
+    else:
+        assert False

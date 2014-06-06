@@ -141,6 +141,23 @@ class NodeSet(object):
         self.dont_match.update(dont_match)
         return self
 
+    def __iter__(self):
+        return (i for i in QueryBuilder(self).build_ast()._execute())
+
+    def __len__(self):
+        return QueryBuilder(self).build_ast()._count()
+
+    def __bool__(self):
+        return QueryBuilder(self).build_ast()._count()
+
+    def __contains__(self, obj):
+        if isinstance(obj, StructuredNode):
+            if hasattr(obj, '_id'):
+                return QueryBuilder(self).build_ast()._contains(int(obj._id))
+            raise ValueError("Unsaved node: " + repr(obj))
+        else:
+            raise ValueError("Expecting StructuredNode instance")
+
 
 class Traversal(object):
     """
@@ -184,6 +201,7 @@ class QueryBuilder(object):
 
     def build_ast(self):
         self.build_source(self.node_set)
+        return self
 
     def build_source(self, source):
         if isinstance(source, Traversal):
@@ -317,20 +335,26 @@ class QueryBuilder(object):
 
         if 'where' in self._ast and self._ast['where']:
             query += ' WHERE '
-            query += ', '.join(self._ast['where'])
+            query += ' AND '.join(self._ast['where'])
 
         query += ' RETURN ' + self._ast['return']
         return query
 
     def _count(self):
-        self.build_ast()
         self._ast['return'] = 'count({})'.format(self._ast['return'])
         query = self.build_query()
         results, _ = cypher_query(connection(), query, self._query_params)
         return int(results[0][0])
 
+    def _contains(self, node_id):
+        # inject id = into ast
+        ident = self._ast['return']
+        place_holder = self._register_place_holder(ident + '_contains')
+        self._ast['where'].append('id({}) = {{{}}}'.format(ident, place_holder))
+        self._query_params[place_holder] = node_id
+        return self._count() == 1
+
     def _execute(self):
-        self.build_ast()
         query = self.build_query()
         results, _ = cypher_query(connection(), query, self._query_params)
         if results:
