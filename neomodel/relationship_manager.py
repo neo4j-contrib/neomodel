@@ -3,7 +3,7 @@ import functools
 from importlib import import_module
 from .exception import DoesNotExist, NotConnected
 from .util import deprecated
-from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal, QueryBuilder, NodeSet
+from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal
 
 
 # check origin node is saved and not deleted
@@ -46,18 +46,18 @@ class RelationshipManager(object):
 
     @check_origin
     def __len__(self):
-        return len(NodeSet(self._traversal))
+        return len(self._traversal)
 
     @check_origin
     def count(self):
-        return len(NodeSet(self._traversal))
+        return len(self._traversal)
 
     @check_origin
     def all(self):
-        return NodeSet(self._traversal).all()
+        return self._traversal.all()
 
     def match(self, **kwargs):
-        return QueryBuilder(self._traversal.match(**kwargs)).build_ast()._execute()
+        return self._traversal.match(**kwargs).all()
 
     @check_origin
     def get(self, **kwargs):
@@ -72,12 +72,13 @@ class RelationshipManager(object):
     @check_origin
     @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
-        ns = NodeSet(self._traversal)
+        ns = self._traversal
         for field, value in kwargs.items():
             ns.filter(**{field: value})
         return ns.all()
 
     @check_origin
+    @deprecated("is_connected() is now deprecated please use node in othernode.set")
     def is_connected(self, obj):
         self._check_node(obj)
 
@@ -199,7 +200,7 @@ class RelationshipManager(object):
     @check_origin
     def single(self):
         # TODO need to limit to one result
-        nodes = NodeSet(self._traversal).all()
+        nodes = self._traversal.all()
         return nodes[0] if nodes else None
 
 

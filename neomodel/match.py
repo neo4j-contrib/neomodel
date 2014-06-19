@@ -99,7 +99,32 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
-class NodeSet(object):
+class BaseSet(object):
+    def all(self):
+        return QueryBuilder(self).build_ast()._execute()
+
+    def __iter__(self):
+        return (i for i in QueryBuilder(self).build_ast()._execute())
+
+    def __len__(self):
+        return QueryBuilder(self).build_ast()._count()
+
+    def __bool__(self):
+        return QueryBuilder(self).build_ast()._count() > 0
+
+    def __nonzero__(self):
+        return QueryBuilder(self).build_ast()._count() > 0
+
+    def __contains__(self, obj):
+        if isinstance(obj, StructuredNode):
+            if hasattr(obj, '_id'):
+                return QueryBuilder(self).build_ast()._contains(int(obj._id))
+            raise ValueError("Unsaved node: " + repr(obj))
+        else:
+            raise ValueError("Expecting StructuredNode instance")
+
+
+class NodeSet(BaseSet):
     """
     a set of matched nodes of a single type
         source: how to produce the set of nodes
@@ -141,28 +166,8 @@ class NodeSet(object):
         self.dont_match.update(dont_match)
         return self
 
-    def all(self):
-        return QueryBuilder(self).build_ast()._execute()
 
-    def __iter__(self):
-        return (i for i in QueryBuilder(self).build_ast()._execute())
-
-    def __len__(self):
-        return QueryBuilder(self).build_ast()._count()
-
-    def __bool__(self):
-        return QueryBuilder(self).build_ast()._count()
-
-    def __contains__(self, obj):
-        if isinstance(obj, StructuredNode):
-            if hasattr(obj, '_id'):
-                return QueryBuilder(self).build_ast()._contains(int(obj._id))
-            raise ValueError("Unsaved node: " + repr(obj))
-        else:
-            raise ValueError("Expecting StructuredNode instance")
-
-
-class Traversal(object):
+class Traversal(BaseSet):
     """
         source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
         definition: relationship definition
