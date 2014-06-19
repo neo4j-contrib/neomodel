@@ -46,18 +46,18 @@ class RelationshipManager(object):
 
     @check_origin
     def __len__(self):
-        return QueryBuilder(self._traversal)._count()
+        return len(NodeSet(self._traversal))
 
     @check_origin
     def count(self):
-        return self.__len__()
+        return len(NodeSet(self._traversal))
 
     @check_origin
     def all(self):
-        return QueryBuilder(self._traversal)._execute()
+        return NodeSet(self._traversal).all()
 
     def match(self, **kwargs):
-        return QueryBuilder(self._traversal.match(**kwargs))._execute()
+        return QueryBuilder(self._traversal.match(**kwargs)).build_ast()._execute()
 
     @check_origin
     def get(self, **kwargs):
@@ -75,7 +75,7 @@ class RelationshipManager(object):
         ns = NodeSet(self._traversal)
         for field, value in kwargs.items():
             ns.filter(**{field: value})
-        return QueryBuilder(ns)._execute()
+        return ns.all()
 
     @check_origin
     def is_connected(self, obj):
@@ -199,7 +199,7 @@ class RelationshipManager(object):
     @check_origin
     def single(self):
         # TODO need to limit to one result
-        nodes = QueryBuilder(self._traversal)._execute()
+        nodes = NodeSet(self._traversal).all()
         return nodes[0] if nodes else None
 
 

@@ -141,6 +141,9 @@ class NodeSet(object):
         self.dont_match.update(dont_match)
         return self
 
+    def all(self):
+        return QueryBuilder(self).build_ast()._execute()
+
     def __iter__(self):
         return (i for i in QueryBuilder(self).build_ast()._execute())
 

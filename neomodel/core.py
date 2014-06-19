@@ -249,15 +249,13 @@ class FakeInstanceRel(object):
         return self.__len__()
 
     def all(self):
-        from .match import QueryBuilder
-        return QueryBuilder(self._node_set)._execute()
+        return self._node_set.all()
 
     def search(self, **kwargs):
-        from .match import QueryBuilder
         ns = self._node_set
         for field, value in kwargs.items():
             ns.filter(**{field: value})
-        return QueryBuilder(ns)._execute()
+        return self._node_set.all()
 
     def get(self, **kwargs):
         result = self.search(**kwargs)
