@@ -6,60 +6,34 @@ from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal
 
 
-# check origin node is saved and not deleted
-def check_origin(fn):
+# check sorce node is saved and not deleted
+def check_source(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
 
     @functools.wraps(fn)
     def checker(self, *args, **kwargs):
-        self.origin._pre_action_check(self.name + '.' + fn_name)
+        self.source._pre_action_check(self.name + '.' + fn_name)
         return fn(self, *args, **kwargs)
     return checker
 
 
-class RelationshipManager(object):
-    def __init__(self, definition, origin):
-        self.direction = definition['direction']
-        self.relation_type = definition['relation_type']
-        self.label_map = definition['label_map']
-        self.definition = definition
-        self.origin = origin
+class RelationshipManager(Traversal):
+    def __init__(self, source, key, definition):
+        super(RelationshipManager, self).__init__(source, key, definition)
 
     def __str__(self):
         direction = 'either'
-        if self.direction == OUTGOING:
+        if self.definition['direction'] == OUTGOING:
             direction = 'a outgoing'
-        elif self.direction == INCOMING:
+        elif self.definition['direction'] == INCOMING:
             direction = 'a incoming'
 
         return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
             self.description, direction,
-            self.relation_type, self.origin._id, self.origin.__class__.__name__)
+            self.definition['relation_type'], self.source._id, self.source_class.__name__)
 
-    @check_origin
-    def __bool__(self):
-        return len(self) > 0
-
-    @check_origin
-    def __nonzero__(self):
-        return len(self) > 0
-
-    @check_origin
-    def __len__(self):
-        return len(self._traversal)
-
-    @check_origin
-    def count(self):
-        return len(self._traversal)
-
-    @check_origin
-    def all(self):
-        return self._traversal.all()
-
-    def match(self, **kwargs):
-        return self._traversal.match(**kwargs).all()
-
-    @check_origin
+    # TODO
+    @check_source
     def get(self, **kwargs):
         result = self.search(**kwargs)
         if len(result) == 1:
@@ -69,38 +43,36 @@ class RelationshipManager(object):
         if not result:
             raise DoesNotExist("No items exist for the specified arguments")
 
-    @check_origin
+    # TODO
+    @check_source
     @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
-        ns = self._traversal
+        ns = self._in_node_set()
         for field, value in kwargs.items():
             ns.filter(**{field: value})
         return ns.all()
 
-    @check_origin
-    @deprecated("is_connected() is now deprecated please use node in othernode.set")
+    @check_source
+    @deprecated("is_connected() is now deprecated please use 'in'")
     def is_connected(self, obj):
         self._check_node(obj)
-
-        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
-        q = "START a=node({self}), b=node({them}) MATCH" + rel + "RETURN count(r)"
-        return bool(self.origin.cypher(q, {'them': obj._id})[0][0][0])
+        return obj in self
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
-        for label, cls in self.label_map.items():
+        for label, cls in self.definition['label_map'].items():
             if obj.__class__ is cls:
                 if not hasattr(obj, '_id'):
                     raise ValueError("Can't perform operation on unsaved node " + repr(obj))
                 return
 
         allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
-                                 for tcls, _ in self.label_map.items()])
+                                 for tcls, _ in self.definition['label_map'].items()])
         raise ValueError("Expected nodes of class "
                 + allowed_cls + " got " + repr(obj)
-                + " see relationship definition in " + self.origin.__class__.__name__)
+                + " see relationship definition in " + self.source_class.__name__)
 
-    @check_origin
+    @check_source
     def connect(self, obj, properties=None):
         self._check_node(obj)
 
@@ -113,7 +85,7 @@ class RelationshipManager(object):
         params = {'them': obj._id}
 
         if not properties and not self.definition['model']:
-            self.origin.cypher(q, params)
+            self.source.cypher(q, params)
             return True
 
         rel_model = self.definition['model']
@@ -124,20 +96,12 @@ class RelationshipManager(object):
             params['place_holder_' + p] = v
             q += " SET r." + p + " = {place_holder_" + p + "}"
 
-        rel_ = self.origin.cypher(q + " RETURN r", params)[0][0][0]
-        rel_instance = rel_model.inflate(rel_)
-
-        if self.definition['direction'] == INCOMING:
-            rel_instance._start_node_class = obj.__class__
-            rel_instance._end_node_class = self.origin.__class__
-        else:
-            rel_instance._start_node_class = self.origin.__class__
-            rel_instance._end_node_class = obj.__class__
-
-        self.origin.cypher(q, params)
+        rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
+        rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), obj)
+        self.source.cypher(q, params)
         return rel_instance
 
-    @check_origin
+    @check_source
     def relationship(self, obj):
         """relationship: node"""
         self._check_node(obj)
@@ -149,20 +113,21 @@ class RelationshipManager(object):
 
         my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "START them=node({them}), us=node({self}) MATCH " + my_rel + " RETURN r"
-        rel = self.origin.cypher(q, {'them': obj._id})[0][0][0]
+        rel = self.source.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
             return
-        rel_instance = rel_model.inflate(rel)
+        return self._set_start_end_cls(rel_model.inflate(rel), obj)
 
+    def _set_start_end_cls(self, rel_instance, obj):
         if self.definition['direction'] == INCOMING:
             rel_instance._start_node_class = obj.__class__
-            rel_instance._end_node_class = self.origin.__class__
+            rel_instance._end_node_class = self.source_class
         else:
-            rel_instance._start_node_class = self.origin.__class__
+            rel_instance._start_node_class = self.source_class
             rel_instance._end_node_class = obj.__class__
         return rel_instance
 
-    @check_origin
+    @check_source
     def reconnect(self, old_obj, new_obj):
         """reconnect: old_node, new_node"""
         self._check_node(old_obj)
@@ -172,12 +137,12 @@ class RelationshipManager(object):
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
-        result, meta = self.origin.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
+        result, meta = self.source.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
             {'old': old_obj._id})
         if result:
             existing_properties = result[0][0]._properties.keys()
         else:
-            raise NotConnected('reconnect', self.origin, old_obj)
+            raise NotConnected('reconnect', self.source, old_obj)
 
         # remove old relationship and create new one
         new_rel = rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
@@ -189,18 +154,17 @@ class RelationshipManager(object):
             q += " SET r2.{} = r.{}".format(p, p)
         q += " WITH r DELETE r"
 
-        self.origin.cypher(q, {'old': old_obj._id, 'new': new_obj._id})
+        self.source.cypher(q, {'old': old_obj._id, 'new': new_obj._id})
 
-    @check_origin
+    @check_source
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "START a=node({self}), b=node({them}) MATCH " + rel + " DELETE r"
-        self.origin.cypher(q, {'them': obj._id})
+        self.source.cypher(q, {'them': obj._id})
 
-    @check_origin
     def single(self):
         # TODO need to limit to one result
-        nodes = self._traversal.all()
+        nodes = self.all()
         return nodes[0] if nodes else None
 
 
@@ -258,16 +222,12 @@ class RelationshipDefinition(object):
             node_classes = [self._lookup(self.node_class)
                 if isinstance(self.node_class, (str,)) else self.node_class]
 
-        # build label map
         self.definition['label_map'] = dict(zip([c.__label__
                 for c in node_classes], node_classes))
 
-    def build_manager(self, origin, name):
+    def build_manager(self, source, name):
         self.build_label_map()
-        rel = self.manager(self.definition, origin)
-        rel.name = name
-        rel._traversal = Traversal(origin, name, self.definition)
-        return rel
+        return self.manager(source, name, self.definition)
 
 
 class ZeroOrMore(RelationshipManager):
