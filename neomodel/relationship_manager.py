@@ -32,7 +32,6 @@ class RelationshipManager(Traversal):
             self.description, direction,
             self.definition['relation_type'], self.source._id, self.source_class.__name__)
 
-    # TODO
     @check_source
     def get(self, **kwargs):
         result = self.search(**kwargs)
