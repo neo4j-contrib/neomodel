@@ -25,7 +25,7 @@ class NodeIndexManager(object):
         q += " AND ".join(["n.{} = {{{}}}".format(key, key) for key in params.keys()])
         return q
 
-    @deprecated(".index is deprecated please use .match()")
+    @deprecated(".index is deprecated please use .nodes")
     def search(self, **kwargs):
         """Search nodes using an via index"""
         if not kwargs:
@@ -39,7 +39,7 @@ class NodeIndexManager(object):
         except IndexError:
             return []
 
-    @deprecated(".index is deprecated please use .match()")
+    @deprecated(".index is deprecated please use .nodes")
     def get(self, **kwargs):
         """Load single node from index lookup"""
         if not kwargs:
