@@ -243,8 +243,14 @@ class QueryBuilder(object):
         traverse a relationship from a node to a set of nodes
         """
         # build source
-        lhs_ident = self.build_source(traversal.source) + ':' + traversal.source_class.__label__
-        rhs_ident = traversal.name + ':' + traversal.target_class.__label__
+        lhs_label = ':' + traversal.source_class.__label__
+        rhs_label = ':' + traversal.target_class.__label__
+        if lhs_label == rhs_label:
+            lhs_label = ''
+
+        # build source
+        lhs_ident = self.build_source(traversal.source) + lhs_label
+        rhs_ident = traversal.name + rhs_label
         self._ast['return'] = traversal.name
         self._ast['result_class'] = traversal.target_class
 
