@@ -356,7 +356,6 @@ class QueryBuilder(object):
     def _count(self):
         self._ast['return'] = 'count({})'.format(self._ast['return'])
         query = self.build_query()
-        print query
         results, _ = cypher_query(connection(), query, self._query_params)
         return int(results[0][0])
 
