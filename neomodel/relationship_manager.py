@@ -155,8 +155,7 @@ class RelationshipManager(Traversal):
         self.source.cypher(q, {'them': obj._id})
 
     def single(self):
-        # TODO need to limit to one result
-        nodes = self.all()
+        nodes = self[0]
         return nodes[0] if nodes else None
 
 
