@@ -119,6 +119,21 @@ class BaseSet(object):
         else:
             raise ValueError("Expecting StructuredNode instance")
 
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            if key.stop and key.start:
+                self.limit = key.stop - key.start
+                self.skip = key.start
+            elif key.stop:
+                self.limit = key.stop
+            elif key.start:
+                self.skip = key.start
+        elif isinstance(key, int):
+            self.skip = key
+            self.limit = 1
+
+        return QueryBuilder(self).build_ast()._execute()
+
 
 class NodeSet(BaseSet):
     """
@@ -208,6 +223,12 @@ class QueryBuilder(object):
 
     def build_ast(self):
         self.build_source(self.node_set)
+
+        if hasattr(self.node_set, 'skip'):
+            self._ast['skip'] = self.node_set.skip
+        if hasattr(self.node_set, 'limit'):
+            self._ast['limit'] = self.node_set.limit
+
         return self
 
     def build_source(self, source):
@@ -351,6 +372,13 @@ class QueryBuilder(object):
             query += ' AND '.join(self._ast['where'])
 
         query += ' RETURN ' + self._ast['return']
+
+        if 'skip' in self._ast:
+            query += ' SKIP {0:d}'.format(self._ast['skip'])
+
+        if 'limit' in self._ast:
+            query += ' LIMIT {0:d}'.format(self._ast['limit'])
+
         return query
 
     def _count(self):

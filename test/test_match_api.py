@@ -116,6 +116,21 @@ def test_len_and_iter_and_bool():
     assert len(Coffee.nodes) == 0
 
 
+def test_slice():
+    for c in Coffee.nodes:
+        c.delete()
+
+    Coffee(name="Icelands finest").save()
+    Coffee(name="Britains finest").save()
+    Coffee(name="Japans finest").save()
+
+    assert len(Coffee.nodes[1:]) == 2
+    assert len(Coffee.nodes[:1]) == 1
+    assert len(Coffee.nodes[1]) == 1
+    assert len(Coffee.nodes[0]) == 1
+    assert len(Coffee.nodes[1:2]) == 1
+
+
 def test_contains():
     expensive = Coffee(price=1000, name="Pricey").save()
     asda = Coffee(name='Asda', price=1).save()
