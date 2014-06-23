@@ -59,17 +59,10 @@ class RelationshipManager(Traversal):
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
-        for label, cls in self.definition['label_map'].items():
-            if obj.__class__ is cls:
-                if not hasattr(obj, '_id'):
-                    raise ValueError("Can't perform operation on unsaved node " + repr(obj))
-                return
-
-        allowed_cls = ", ".join([(tcls if isinstance(tcls, str) else tcls.__name__)
-                                 for tcls, _ in self.definition['label_map'].items()])
-        raise ValueError("Expected nodes of class "
-                + allowed_cls + " got " + repr(obj)
-                + " see relationship definition in " + self.source_class.__name__)
+        if not isinstance(obj, self.definition['node_class']):
+            raise ValueError("Expected node of class " + self.definition['node_class'].__name__)
+        if not hasattr(obj, '_id'):
+            raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
     def connect(self, obj, properties=None):
@@ -172,60 +165,52 @@ class RelationshipDefinition(object):
         self.module_name = sys._getframe(4).f_globals['__name__']
         if '__file__' in sys._getframe(4).f_globals:
             self.module_file = sys._getframe(4).f_globals['__file__']
-        self.node_class = cls_name
+        self._raw_class = cls_name
         self.manager = manager
         self.definition = {}
         self.definition['relation_type'] = relation_type
         self.definition['direction'] = direction
         self.definition['model'] = model
 
-    def _lookup(self, name):
-        if name.find('.') == -1:
-            module = self.module_name
+    def _lookup_node_class(self):
+        if not isinstance(self._raw_class, str):
+            self.definition['node_class'] = self._raw_class
         else:
-            module, _, name = name.rpartition('.')
-
-        if module not in sys.modules:
-            # yet another hack to get around python semantics
-            # __name__ is the namespace of the parent module for __init__.py files,
-            # and the namespace of the current module for other .py files,
-            # therefore there's a need to define the namespace differently for
-            # these two cases in order for . in relative imports to work correctly
-            # (i.e. to mean the same thing for both cases).
-            # For example in the comments below, namespace == myapp, always
-            if not hasattr(self, 'module_file'):
-                raise ImportError("Couldn't lookup '{}'".format(name))
-
-            if '__init__.py' in self.module_file:
-                # e.g. myapp/__init__.py -[__name__]-> myapp
-                namespace = self.module_name
+            name = self._raw_class
+            if name.find('.') == -1:
+                module = self.module_name
             else:
-                # e.g. myapp/models.py -[__name__]-> myapp.models
-                namespace = self.module_name.rpartition('.')[0]
+                module, _, name = name.rpartition('.')
 
-            # load a module from a namespace (e.g. models from myapp)
-            if module:
-                module = import_module(module, namespace).__name__
-            # load the namespace itself (e.g. myapp)
-            # (otherwise it would look like import . from myapp)
-            else:
-                module = import_module(namespace).__name__
-        return getattr(sys.modules[module], name)
+            if module not in sys.modules:
+                # yet another hack to get around python semantics
+                # __name__ is the namespace of the parent module for __init__.py files,
+                # and the namespace of the current module for other .py files,
+                # therefore there's a need to define the namespace differently for
+                # these two cases in order for . in relative imports to work correctly
+                # (i.e. to mean the same thing for both cases).
+                # For example in the comments below, namespace == myapp, always
+                if not hasattr(self, 'module_file'):
+                    raise ImportError("Couldn't lookup '{}'".format(name))
 
-    def build_label_map(self):
-        # get classes for related nodes
-        if isinstance(self.node_class, list):
-            node_classes = [self._lookup(cls) if isinstance(cls, (str,)) else cls
-                        for cls in self.node_class]
-        else:
-            node_classes = [self._lookup(self.node_class)
-                if isinstance(self.node_class, (str,)) else self.node_class]
+                if '__init__.py' in self.module_file:
+                    # e.g. myapp/__init__.py -[__name__]-> myapp
+                    namespace = self.module_name
+                else:
+                    # e.g. myapp/models.py -[__name__]-> myapp.models
+                    namespace = self.module_name.rpartition('.')[0]
 
-        self.definition['label_map'] = dict(zip([c.__label__
-                for c in node_classes], node_classes))
+                # load a module from a namespace (e.g. models from myapp)
+                if module:
+                    module = import_module(module, namespace).__name__
+                # load the namespace itself (e.g. myapp)
+                # (otherwise it would look like import . from myapp)
+                else:
+                    module = import_module(namespace).__name__
+            self.definition['node_class'] = getattr(sys.modules[module], name)
 
     def build_manager(self, source, name):
-        self.build_label_map()
+        self._lookup_node_class()
         return self.manager(source, name, self.definition)
 
 
@@ -234,9 +219,9 @@ class ZeroOrMore(RelationshipManager):
 
 
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
-    if not isinstance(cls_name, (str, list, object)):
-        raise ValueError('Expected class name or list of class names, got ' + repr(cls_name))
-    from .relationship import StructuredRel
+    if not isinstance(cls_name, (str, object)):
+        raise ValueError('Expected class name or class got ' + repr(cls_name))
+    from .relationship import StructuredRel # TODO
     if model and not issubclass(model, (StructuredRel,)):
         raise ValueError('model must be a StructuredRel')
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)

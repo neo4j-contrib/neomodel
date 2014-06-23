@@ -232,7 +232,6 @@ class FakeInstanceRel(object):
     """
     def __init__(self, cls):
         from .match import NodeSet
-        self.node_class = cls
         self._node_set = NodeSet(cls)
 
     def __len__(self):

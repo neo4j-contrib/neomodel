@@ -170,22 +170,6 @@ own query parameters to the cypher method.
 
 You may log queries by setting the environment variable `NEOMODEL_CYPHER_DEBUG` to true.
 
-Relating to many node types
---------------------------------
-You can define relations of a single type to different `StructuredNode` classes.::
-
-    class Humanbeing(StructuredNode):
-        name = StringProperty()
-        has_a = RelationshipTo(['Location', 'Nationality'], 'HAS_A')
-
-    class Location(StructuredNode):
-        name = StringProperty()
-
-    class Nationality(StructuredNode):
-        name = StringProperty()
-
-Remember that when traversing the `has_a` relation you will retrieve objects of different types.
-
 Batch create
 ------------
 Atomically create multiple nodes in a single operation::

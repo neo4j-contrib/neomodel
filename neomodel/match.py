@@ -36,13 +36,9 @@ def install_traversals(cls, node_set):
             raise ValueError("Can't install traversal '{}' exists on NodeSet".format(key))
 
         rel = getattr(cls, key)
-        rel.build_label_map()
+        rel._lookup_node_class()
 
-        traversal = Traversal(
-            source=node_set,
-            key=key,
-            definition=rel.definition)
-
+        traversal = Traversal(source=node_set, key=key, definition=rel.definition)
         setattr(node_set, key, traversal)
 
 
@@ -85,7 +81,7 @@ def process_has_args(cls, kwargs):
 
         rhs_ident = key
 
-        rel_definitions[key].build_label_map()
+        rel_definitions[key]._lookup_node_class()
 
         if value is True:
             match[rhs_ident] = rel_definitions[key].definition
@@ -187,7 +183,7 @@ class Traversal(BaseSet):
             raise ValueError("Bad source for traversal: {}".format(repr(source)))
 
         self.definition = definition
-        self.target_class = definition['label_map'].values()[0]
+        self.target_class = definition['node_class']
         self.name = key
         self.filters = []
 
@@ -294,7 +290,7 @@ class QueryBuilder(object):
         source_ident = ident
 
         for key, value in node_set.must_match.items():
-            label = ':' + value['label_map'].keys()[0]
+            label = ':' + value['node_class'].__label__
             if isinstance(value, dict):
                 stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **value)
                 self._ast['where'].append(stmt)
@@ -303,7 +299,7 @@ class QueryBuilder(object):
                 self.add_node_set(ns, key)
 
         for key, val in node_set.dont_match.items():
-            label = ':' + val['label_map'].keys()[0]
+            label = ':' + val['node_class'].__label__
             if isinstance(val, dict):
                 stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **val)
                 self._ast['where'].append('NOT ' + stmt)
