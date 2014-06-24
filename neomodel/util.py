@@ -7,6 +7,7 @@ from threading import local
 from py2neo import neo4j
 from py2neo.exceptions import ClientError
 from py2neo.packages.httpstream import SocketError
+from py2neo import cypher as py2neo_cypher
 from .exception import CypherException, UniqueProperty
 
 if sys.version_info >= (3, 0):
@@ -49,6 +50,7 @@ def _hydrated(data):
         return data
 
 neo4j._hydrated = _hydrated
+py2neo_cypher._hydrated = _hydrated
 
 
 class Database(local):
@@ -75,13 +77,45 @@ class Database(local):
             raise Exception("Support for neo4j versions prior to 2.0 are "
                     + "supported by the 0.x.x series releases of neomodel")
 
+    def begin(self):
+        if hasattr(self, 'tx_session'):
+            raise SystemError("Transaction already in progress")
+
+        self.tx_session = py2neo_cypher.Session(self.url).create_transaction()
+
+    def commit(self):
+        if not hasattr(self, 'tx_session'):
+            raise SystemError("No transaction in progress, can't commit")
+
+        results = self.tx_session.commit()
+        delattr(self, 'tx_session')
+        return results
+
+    def rollback(self):
+        if not hasattr(self, 'tx_session'):
+            raise SystemError("No transaction in progress, can't rollback")
+
+        self.tx_session.rollback()
+        delattr(self, 'tx_session')
+
+    def _execute_query(self, query, params):
+        if hasattr(self, 'tx_session'):
+            self.tx_session.append(query, params or {})
+            results = self.tx_session.execute()[0]
+            if results:
+                return [list(results[0].values)], list(results[0].columns)
+            else:
+                return [], None
+        else:
+            cq = neo4j.CypherQuery(self.session, '')
+            result = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
+            return [list(r.values) for r in result.data], list(result.columns)
+
     def cypher_query(self, query, params=None, handle_unique=True):
         try:
-            cq = neo4j.CypherQuery(self.session, '')
             start = time.clock()
-            result = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
+            results = self._execute_query(query, params)
             end = time.clock()
-            results = result.data, list(result.columns)
         except ClientError as e:
             if (handle_unique and e.exception == 'CypherExecutionException' and
                     " already exists with label " in e.message and e.message.startswith('Node ')):
