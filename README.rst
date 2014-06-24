@@ -162,8 +162,9 @@ this inflates py2neo nodes to neomodel node objects::
             return [self.__class__.inflate(row[0]) for row in results]
 
     # for standalone queries
-    from neomodel import cypher_query
-    cypher_query(query, params)
+    from neomodel import db
+    db.cypher_query(query, params)
+    # TODO - inflate example
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.

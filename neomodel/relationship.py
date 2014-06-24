@@ -1,5 +1,5 @@
 from .properties import Property, PropertyManager
-from .core import connection, cypher_query
+from .core import db
 
 
 class RelationshipMeta(type):
@@ -32,7 +32,7 @@ class StructuredRel(StructuredRelBase):
             query += " SET r.{} = {{{}}}".format(key, key)
         props['self'] = self._id
 
-        cypher_query(connection(), query, props)
+        db.cypher_query(query, props)
 
         return self
 

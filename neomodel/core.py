@@ -1,51 +1,22 @@
 import os
-import sys
-from py2neo.packages.httpstream import SocketError
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
-from .util import neo4j, cypher_query, deprecated, classproperty
-
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
-else:
-    from urlparse import urlparse  # noqa
+from .util import Database, deprecated, classproperty
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
-
-
-def connection():
-    if hasattr(connection, 'db'):
-        return connection.db
-
-    url = DATABASE_URL
-    u = urlparse(url)
-    if u.netloc.find('@') > -1:
-        credentials, host = u.netloc.split('@')
-        user, password, = credentials.split(':')
-        neo4j.authenticate(host, user, password)
-        url = ''.join([u.scheme, '://', host, u.path, u.query])
-
-    try:
-        connection.db = neo4j.GraphDatabaseService(url)
-    except SocketError as e:
-        raise SocketError("Error connecting to {0} - {1}".format(url, e))
-
-    if connection.db.neo4j_version < (2, 0):
-        raise Exception("Support for neo4j versions prior to 2.0 are "
-                + "supported by the 0.x.x series releases of neomodel")
-
-    return connection.db
+db = Database(DATABASE_URL)
+db.new_session()
 
 
 def install_labels(cls):
     # TODO when to execute this?
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-            cypher_query(connection(), "CREATE INDEX on :{}({}); ".format(cls.__label__, key))
+            db.cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
         elif prop.unique_index:
-            cypher_query(connection(), "CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+            db.cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
                     cls.__label__, key))
 
 
@@ -116,7 +87,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check('cypher')
         params = params or {}
         params.update({'self': self._id})
-        return cypher_query(connection(), query, params)
+        return db.cypher_query(query, params)
 
     @classmethod
     def inherited_labels(cls):
@@ -189,7 +160,7 @@ class StructuredNode(NodeBase):
         query += "RETURN "
         query += ", ".join(["n" + str(i) for i in range(0, len(deflated))])
 
-        results, meta = cypher_query(connection(), query, params)
+        results, meta = db.cypher_query(query, params)
 
         if hasattr(cls, 'post_create'):
             for node in results:

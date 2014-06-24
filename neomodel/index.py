@@ -1,5 +1,5 @@
 from .properties import AliasProperty
-from .core import cypher_query, connection
+from .core import db
 from .util import deprecated
 
 
@@ -34,7 +34,7 @@ class NodeIndexManager(object):
         self._check_params(kwargs)
 
         try:
-            results, _ = cypher_query(connection(), self._build_query(kwargs) + " RETURN n", kwargs)
+            results, _ = db.cypher_query(self._build_query(kwargs) + " RETURN n", kwargs)
             return [self.node_class.inflate(n) for n in results[0]]
         except IndexError:
             return []
