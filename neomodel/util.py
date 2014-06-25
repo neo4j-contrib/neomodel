@@ -8,7 +8,7 @@ from py2neo import neo4j
 from py2neo.exceptions import ClientError
 from py2neo.packages.httpstream import SocketError
 from py2neo import cypher as py2neo_cypher
-from .exception import CypherException, UniqueProperty
+from .exception import CypherException, UniqueProperty, TransactionError
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -18,6 +18,37 @@ else:
 logger = logging.getLogger(__name__)
 
 path_to_id = lambda val: int(neo4j.URI(val).path.segments[-1])
+
+
+class PatchedTransaction(py2neo_cypher.Transaction):
+    def __init__(self, uri):
+        super(PatchedTransaction, self).__init__(uri)
+
+    def _post(self, resource):
+        self._assert_unfinished()
+        rs = resource._post({"statements": self._statements})
+        location = dict(rs.headers).get("location")
+        if location:
+            self._execute = py2neo_cypher.Resource(location)
+        j = rs.json
+        rs.close()
+        self._clear()
+        if "commit" in j:
+            self._commit = py2neo_cypher.Resource(j["commit"])
+        if "errors" in j and len(j['errors']):
+            error = j["errors"][0]
+            txid = int(str(self._execute._resource._uri.path).split('/')[-1])
+            raise TransactionError(
+                error['message'], error['code'], error['stackTrace'], txid
+            )
+        out = []
+        for result in j["results"]:
+            producer = py2neo_cypher.RecordProducer(result["columns"])
+            out.append([
+                producer.produce(_hydrated(r["rest"]))
+                for r in result["data"]
+            ])
+        return out
 
 
 class Node(object):
@@ -51,6 +82,7 @@ def _hydrated(data):
 
 neo4j._hydrated = _hydrated
 py2neo_cypher._hydrated = _hydrated
+py2neo_cypher.Transaction = PatchedTransaction
 
 
 class Database(local):
@@ -76,6 +108,37 @@ class Database(local):
         if self.session.neo4j_version < (2, 0):
             raise Exception("Support for neo4j versions prior to 2.0 are "
                     + "supported by the 0.x.x series releases of neomodel")
+
+        if hasattr(self, 'tx_session'):
+            delattr(self, 'tx_session')
+
+    @property
+    def transaction(self):
+        db = self
+
+        class TX(object):
+            def __init__(s, func):
+                s.func = func
+                for n in set(dir(func)) - set(dir(s)):
+                    setattr(s, n, getattr(func, n))
+
+            def __call__(s, *args):
+                db.begin()
+                try:
+                    r = s.func(*args)
+                except (ClientError, UniqueProperty, TransactionError):
+                    # error from database so don't rollback
+                    exc_info = sys.exc_info()
+                    db.new_session()
+                    raise exc_info[1], None, exc_info[2]
+                except Exception:
+                    exc_info = sys.exc_info()
+                    db.rollback()
+                    raise exc_info[1], None, exc_info[2]
+                db.commit()
+                return r
+
+        return TX
 
     def begin(self):
         if hasattr(self, 'tx_session'):
@@ -116,11 +179,10 @@ class Database(local):
             start = time.clock()
             results = self._execute_query(query, params)
             end = time.clock()
-        except ClientError as e:
-            if (handle_unique and e.exception == 'CypherExecutionException' and
-                    " already exists with label " in e.message and e.message.startswith('Node ')):
+        except (ClientError, TransactionError) as e:
+            if (handle_unique and e.message and " already exists with label " in e.message
+                    and e.message.startswith('Node ')):
                 raise UniqueProperty(e.message)
-
             raise CypherException(query, params, e.message, e.exception, e.stack_trace)
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
