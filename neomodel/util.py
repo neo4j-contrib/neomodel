@@ -38,9 +38,8 @@ class PatchedTransaction(py2neo_cypher.Transaction):
         if "errors" in j and len(j['errors']):
             error = j["errors"][0]
             txid = int(str(self._execute._resource._uri.path).split('/')[-1])
-            raise TransactionError(
-                error['message'], error['code'], error['stackTrace'], txid
-            )
+            trace = error.get('stackTrace', error.get('stacktrace', ''))
+            raise TransactionError(error['message'], error['code'], trace, txid)
         out = []
         for result in j["results"]:
             producer = py2neo_cypher.RecordProducer(result["columns"])
