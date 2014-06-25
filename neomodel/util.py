@@ -9,7 +9,6 @@ from py2neo.exceptions import ClientError
 from py2neo.packages.httpstream import SocketError
 from py2neo import cypher as py2neo_cypher
 from .exception import CypherException, UniqueProperty, TransactionError
-
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
@@ -129,7 +128,11 @@ class Database(local):
                     # error from database so don't rollback
                     exc_info = sys.exc_info()
                     db.new_session()
-                    raise exc_info[1], None, exc_info[2]
+
+                    if sys.version_info >= (3, 0):
+                        raise exc_info[1].with_traceback()
+                    else:
+                        raise exc_info[1], None, exc_info[2]
                 except Exception:
                     exc_info = sys.exc_info()
                     db.rollback()
