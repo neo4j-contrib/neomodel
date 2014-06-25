@@ -132,7 +132,7 @@ class Database(local):
                     if sys.version_info >= (3, 0):
                         raise exc_info[1].with_traceback()
                     else:
-                        raise exc_info[1], None, exc_info[2]
+                        raise exc_info[1]
                 except Exception:
                     exc_info = sys.exc_info()
                     db.rollback()
