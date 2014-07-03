@@ -38,7 +38,7 @@ class NodeIndexManager(object):
             self._check_params(kwargs)
             query = functools.reduce(lambda x, y: x & y, [Q(k, v) for k, v in kwargs.items()])
 
-        return [self.node_class.inflate(n) for n in self._execute(str(query))]
+        return [self.node_class.inflate(n) for n in self._execute(unicode(query))]
 
     def get(self, query=None, **kwargs):
         """Load single node from index lookup"""
