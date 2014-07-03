@@ -19,7 +19,7 @@ class PropertyManager(object):
 
         for key, val in self.defined_properties(rels=False, aliases=False).items():
             # handle default values
-            if not key in kwargs or kwargs[key] is None:
+            if key not in kwargs or kwargs[key] is None:
                 if hasattr(val, 'has_default') and val.has_default:
                     setattr(self, key, val.default_value())
                 else:
