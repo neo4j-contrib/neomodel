@@ -53,11 +53,12 @@ def cypher_query(connection, query, params=None, handle_unique=True):
         end = time.clock()
         results = result.data, list(result.columns)
     except ClientError as e:
+        errorstr = str(e)
         if (handle_unique and e.exception == 'CypherExecutionException' and
-                " already exists with label " in e.message and e.message.startswith('Node ')):
-            raise UniqueProperty(e.message)
+                " already exists with label " in errorstr and errorstr.startswith('Node ')):
+            raise UniqueProperty(errorstr)
 
-        raise CypherException(query, params, e.message, e.exception, e.stack_trace)
+        raise CypherException(query, params, errorstr, e.exception, e.stack_trace)
 
     if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
         logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
