@@ -119,20 +119,6 @@ forget to call `super()`. Otherwise things start to fail::
 
             super(Person, self).__init__(self, **args)
 
-Category nodes - DEPRECATED
----------------------------
-Access all your instances of a class via the category node::
-
-    country_category = Country.category()
-    for c in country_category.instance.all():
-        print c.name
-
-Ordering and pagination is possible via `.traverse('instance')`::
-
-    country_category.traverse('instance').limit(10).run()
-
-Note that `connect` and `disconnect` are not available through the `instance` relation.
-
 Cardinality
 -----------
 It's possible to enforce cardinality restrictions on your relationships.
@@ -196,6 +182,18 @@ Signals are also supported *if* django is available::
     from django.db.models import signals
     signals.post_save.connect(your_func, sender=Person)
 
+Transactions
+------------
+transactions can be used via a function decorator or context mangaer::
+
+    with db.transaction:
+        Person(name='Bob').save()
+
+    @db.transaction
+    def update_user_name(uid, name):
+        user = Person.nodes.filter(uid=uid)[0]
+        user.name = name
+        user.save()
 
 Indexing - DEPRECATED
 ---------------------

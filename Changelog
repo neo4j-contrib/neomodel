@@ -1,3 +1,11 @@
+Version 0.9.0 unreleased
+ * support for transactions
+ * new nodes class property (match API)
+ * support for neo4j 2
+ * no support for neo4j < 2
+ * deprecated category nodes
+ * deprecated index property
+
 Version 0.4.0 unreleased
  * server compatability check (Robin Edwards)
  * 1.9 server fixes (Robin Edwards)

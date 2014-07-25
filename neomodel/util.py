@@ -115,32 +115,43 @@ class Database(local):
         db = self
 
         class TX(object):
-            def __init__(s, func):
-                s.func = func
-                for n in set(dir(func)) - set(dir(s)):
-                    setattr(s, n, getattr(func, n))
+            def __call__(s, func):
 
-            def __call__(s, *args):
-                db.begin()
-                try:
-                    r = s.func(*args)
-                except (ClientError, UniqueProperty, TransactionError):
-                    # error from database so don't rollback
-                    exc_info = sys.exc_info()
-                    db.new_session()
+                def wrapper(*args, **kwargs):
+                    db.begin()
+                    try:
+                        r = func(*args)
+                    except (ClientError, UniqueProperty, TransactionError):
+                        # error from database so don't rollback
+                        exc_info = sys.exc_info()
+                        db.new_session()
 
-                    if sys.version_info >= (3, 0):
-                        raise exc_info[1].with_traceback()
-                    else:
+                        if sys.version_info >= (3, 0):
+                            raise exc_info[1].with_traceback()
+                        else:
+                            raise exc_info[1]
+                    except Exception:
+                        exc_info = sys.exc_info()
+                        db.rollback()
                         raise exc_info[1]
-                except Exception:
-                    exc_info = sys.exc_info()
-                    db.rollback()
-                    raise exc_info[1], None, exc_info[2]
-                db.commit()
-                return r
+                    db.commit()
+                    return r
 
-        return TX
+                return wrapper
+
+            def __enter__(self):
+                db.begin()
+
+            def __exit__(self, exception_type, exception_value, traceback):
+                if not all([exception_type, exception_value, traceback]):
+                    return db.commit()
+
+                if isinstance(exception_value, (ClientError, UniqueProperty, TransactionError)):
+                    # error from database so don't rollback
+                    db.new_session()
+                else:
+                    db.rollback()
+        return TX()
 
     def begin(self):
         if hasattr(self, 'tx_session'):

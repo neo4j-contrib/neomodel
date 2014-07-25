@@ -47,3 +47,18 @@ def test_transaction_decorator():
         assert False
 
     assert 'Jim' not in [p.name for p in Person.nodes]
+
+
+def test_transaction_as_a_context():
+    with db.transaction:
+        Person(name='Tim').save()
+
+    assert Person.nodes.filter(name='Tim')
+
+    try:
+        with db.transaction:
+            Person(name='Tim').save()
+    except UniqueProperty:
+        assert True
+    else:
+        assert False
