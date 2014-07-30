@@ -1,4 +1,5 @@
 from .core import StructuredNode, db
+from .properties import AliasProperty
 from .exception import MultipleNodesReturned
 import inspect
 OUTGOING, INCOMING, EITHER = 1, -1, 0
@@ -59,10 +60,16 @@ def process_filter_args(cls, kwargs):
             prop = key
             operator = '='
 
-        if prop not in cls.defined_properties(rels=False, aliases=False):
+        if prop not in cls.defined_properties(rels=False):
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
 
-        deflated_value = getattr(cls, prop).deflate(value)
+        property_obj = getattr(cls, prop)
+        if isinstance(property_obj, AliasProperty):
+            prop = property_obj.aliased_to()
+            deflated_value = getattr(cls, prop).deflate(value)
+        else:
+            deflated_value = property_obj.deflate(value)
+
         output[prop] = (operator, deflated_value)
 
     return output
