@@ -3,7 +3,7 @@ jdk:
   - oraclejdk7 
 python:
   - "2.7"
-  - "3.3"
+  - "3.4"
 install: "pip install . --use-mirrors"
 script: nosetests -s
 env:
