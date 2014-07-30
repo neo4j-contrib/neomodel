@@ -177,7 +177,7 @@ class NodeSet(BaseSet):
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
         elif not result:
-            raise self.source_class.DoesNotExist
+            raise self.source_class.DoesNotExist(repr(kwargs))
         else:
             return result[0]
 

@@ -1,13 +1,16 @@
 class UniqueProperty(ValueError):
-    pass
+    def __init__(self, msg):
+        self.message = msg
 
 
 class DoesNotExist(Exception):
-    pass
+    def __init__(self, msg):
+        self.message = msg
 
 
 class MultipleNodesReturned(ValueError):
-    pass
+    def __init__(self, msg):
+        self.message = msg
 
 
 class RequiredProperty(Exception):
