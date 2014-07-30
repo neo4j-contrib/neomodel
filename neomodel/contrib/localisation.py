@@ -14,7 +14,7 @@ class Locale(StructuredNode):
 
     @classmethod
     def get(cls, code):
-        return Locale.index.get(code=code)
+        return Locale.nodes.get(code=code)
 
 
 class LocalisedIndexManager(NodeIndexManager):
