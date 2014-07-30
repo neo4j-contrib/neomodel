@@ -1,6 +1,7 @@
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
         RelationshipTo, StructuredRel, DateTimeProperty)
 from neomodel.match import NodeSet, QueryBuilder
+from neomodel.exception import MultipleNodesReturned
 from datetime import datetime
 
 
@@ -15,7 +16,7 @@ class Supplier(StructuredNode):
 
 
 class Coffee(StructuredNode):
-    name = StringProperty()
+    name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, 'SUPPLIES', model=SupplierRel)
 
@@ -66,9 +67,30 @@ def test_simple_has_via_label():
     assert 'NOT' in qb._ast['where'][0]
 
 
+def test_get():
+    Coffee(name='1', price=3).save()
+    assert Coffee.nodes.get(name='1')
+
+    try:
+        Coffee.nodes.get(name='2')
+    except Coffee.DoesNotExist:
+        assert True
+    else:
+        assert False
+
+    Coffee(name='2', price=3).save()
+
+    try:
+        Coffee.nodes.get(price=3)
+    except MultipleNodesReturned:
+        assert True
+    else:
+        assert False
+
+
 def test_simple_traverse_with_filter():
-    nescafe = Coffee(name='Nescafe', price=99).save()
-    tesco = Supplier(name='Tesco', delivery_cost=2).save()
+    nescafe = Coffee(name='Nescafe2', price=99).save()
+    tesco = Supplier(name='Sainsburys', delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
@@ -79,12 +101,12 @@ def test_simple_traverse_with_filter():
     assert 'match' in qb._ast
     assert qb._ast['return'] == 'suppliers'
     assert len(results) == 1
-    assert results[0].name == 'Tesco'
+    assert results[0].name == 'Sainsburys'
 
 
 def test_double_traverse():
-    nescafe = Coffee(name='Nescafe', price=99).save()
-    tesco = Supplier(name='Tesco', delivery_cost=2).save()
+    nescafe = Coffee(name='Nescafe plus', price=99).save()
+    tesco = Supplier(name='Asda', delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
     tesco.coffees.connect(Coffee(name='Decafe', price=2).save())
 
@@ -97,7 +119,7 @@ def test_double_traverse():
 
 
 def test_count():
-    Coffee(name='Nescafe', price=99).save()
+    Coffee(name='Nescafe Gold', price=99).save()
     count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
     assert count > 0
 

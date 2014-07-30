@@ -1,4 +1,5 @@
 from .core import StructuredNode, db
+from .exception import MultipleNodesReturned
 import inspect
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
@@ -160,6 +161,18 @@ class NodeSet(BaseSet):
         # used by has()
         self.must_match = {}
         self.dont_match = {}
+
+    def get(self, **kwargs):
+        output = process_filter_args(self.source_class, kwargs)
+        self.filters.append(output)
+        self.limit = 2
+        result = QueryBuilder(self).build_ast()._execute()
+        if len(result) > 1:
+            raise MultipleNodesReturned(repr(kwargs))
+        elif not result:
+            raise self.source_class.DoesNotExist
+        else:
+            return result[0]
 
     def filter(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)

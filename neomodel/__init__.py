@@ -8,5 +8,5 @@ from .cardinality import (AttemptedCardinalityViolation,
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
         JSONProperty, ArrayProperty)
-from .exception import InflateError, DeflateError, UniqueProperty, CypherException
+from .exception import InflateError, DeflateError, UniqueProperty, CypherException, MultipleNodesReturned
 from .signals import SIGNAL_SUPPORT

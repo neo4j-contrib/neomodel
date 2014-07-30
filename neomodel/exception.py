@@ -6,6 +6,10 @@ class DoesNotExist(Exception):
     pass
 
 
+class MultipleNodesReturned(ValueError):
+    pass
+
+
 class RequiredProperty(Exception):
     def __init__(self, key, cls):
         self.property_name = key
