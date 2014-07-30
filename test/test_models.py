@@ -20,7 +20,7 @@ def test_array_properties():
     user = User(email='foo@bar.com', aliases=['Tim', 'Bob']).save()
     assert user
     assert 'Tim' in user.aliases
-    user = User.index.get(email='foo@bar.com')
+    user = User.nodes.get(email='foo@bar.com')
     assert user
     assert 'Tim' in user.aliases
 
@@ -42,16 +42,9 @@ def test_required():
 def test_get():
     u = User(email='robin@test.com', age=3)
     assert u.save()
-    rob = User.index.get(email='robin@test.com')
+    rob = User.nodes.get(email='robin@test.com')
     assert rob.email == 'robin@test.com'
     assert rob.age == 3
-
-
-def test_search():
-    assert User(email='robin1@test.com', age=3).save()
-    assert User(email='robin2@test.com', age=3).save()
-    users = User.index.search(age=3)
-    assert len(users)
 
 
 def test_save_to_model():
@@ -87,7 +80,7 @@ def test_update():
     assert user
     user.email = 'jim2000@test.com'
     user.save()
-    jim = User.index.get(email='jim2000@test.com')
+    jim = User.nodes.get(email='jim2000@test.com')
     assert jim
     assert jim.email == 'jim2000@test.com'
 
@@ -95,7 +88,7 @@ def test_update():
 def test_save_through_magic_property():
     user = User(email_alias='blah@test.com', age=8).save()
     assert user.email_alias == 'blah@test.com'
-    user = User.index.get(email='blah@test.com')
+    user = User.nodes.get(email='blah@test.com')
     assert user.email == 'blah@test.com'
     assert user.email_alias == 'blah@test.com'
 
@@ -103,7 +96,7 @@ def test_save_through_magic_property():
     assert user1.email_alias == 'blah1@test.com'
     user1.email_alias = 'blah2@test.com'
     assert user1.save()
-    user2 = User.index.get(email='blah2@test.com')
+    user2 = User.nodes.get(email='blah2@test.com')
     assert user2
 
 
@@ -121,10 +114,10 @@ def test_not_updated_on_unique_error():
         test.save()
     except UniqueProperty:
         pass
-    customers = Customer2.category().instance.all()
+    customers = Customer2.nodes.all()
     assert customers[0].email != customers[1].email
-    assert Customer2.index.get(email='jim@bob.com').age == 7
-    assert Customer2.index.get(email='jim1@bob.com').age == 2
+    assert Customer2.nodes.get(email='jim@bob.com').age == 7
+    assert Customer2.nodes.get(email='jim1@bob.com').age == 2
 
 
 def test_label_not_inherited():
@@ -136,7 +129,7 @@ def test_label_not_inherited():
     assert 'customers' in c.labels()
     assert 'Customer3' in c.labels()
 
-    c = Customer2.index.get(email='test@test.com')
+    c = Customer2.nodes.get(email='test@test.com')
     assert isinstance(c, Customer2)
     assert 'customers' in c.labels()
     assert 'Customer3' in c.labels()
@@ -145,7 +138,7 @@ def test_label_not_inherited():
 def test_refresh():
     c = Customer2(email='my@email.com', age=16).save()
     c.my_custom_prop = 'value'
-    copy = Customer2.index.get(email='my@email.com')
+    copy = Customer2.nodes.get(email='my@email.com')
     copy.age = 20
     copy.save()
 
