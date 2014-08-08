@@ -183,6 +183,8 @@ class Database(local):
             else:
                 return [], None
         else:
+            if not hasattr(self, 'session'):
+                self.new_session()
             cq = neo4j.CypherQuery(self.session, '')
             result = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
             return [list(r.values) for r in result.data], list(result.columns)
