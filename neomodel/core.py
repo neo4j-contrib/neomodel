@@ -7,7 +7,6 @@ from .util import Database, deprecated, classproperty
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 db = Database(DATABASE_URL)
-db.new_session()
 
 
 def install_labels(cls):
