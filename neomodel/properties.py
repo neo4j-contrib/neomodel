@@ -215,7 +215,7 @@ class DateTimeProperty(Property):
 
 class JSONProperty(Property):
     def __init__(self, *args, **kwargs):
-        super(JSONProperty, self).__init__(self, *args, **kwargs)
+        super(JSONProperty, self).__init__(*args, **kwargs)
 
     @validator
     def inflate(self, value):
