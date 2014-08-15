@@ -8,7 +8,7 @@ Don't need an OGM? Try the awesome py2neo_ (which this library is built on).
 .. _py2neo: http://www.py2neo.org
 .. _neo4j: http://www.neo4j.org
 
-Supports: neo4j 2.0+ python 2.7, 3.3
+Supports: neo4j 2.0+ python 2.7
 
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
@@ -137,6 +137,63 @@ The following cardinality classes are available::
 If cardinality is broken by existing data a *CardinalityViolation* exception is raised.
 On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
 
+Matching
+--------
+The new API for accessing and traversing many nodes at once::
+
+    class SupplierRel(StructuredRel):
+        since = DateTimeProperty(default=datetime.now)
+
+
+    class Supplier(StructuredNode):
+        name = StringProperty()
+        delivery_cost = IntegerProperty()
+        coffees = RelationshipTo('Coffee', 'SUPPLIES')
+
+
+    class Coffee(StructuredNode):
+        name = StringProperty(unique_index=True)
+        price = IntegerProperty()
+        suppliers = RelationshipFrom(Supplier, 'SUPPLIES', model=SupplierRel)
+
+Filter (chainable) and get::
+
+    # nodes with label Coffee whose price is greater than 2
+    Coffee.nodes.filter(price__gt=2)
+
+    try:
+        java = Coffee.nodes.get(name='Java')
+    except Coffee.DoesNotExist:
+        print "Couldn't find coffee 'Java'"
+
+Checking for the existence of at least one relationship with has::
+
+    Coffee.nodes.has(suppliers=True)
+
+Iteration, slicing, counting::
+
+    # Iterable
+    for coffee in Coffee.nodes:
+        print coffee.name
+
+    # Sliceable
+    coffee = Coffee.nodes.filter(price__gt=2)[2:]
+
+    # Count
+    print len(Coffee.nodes.filter(price__gt=2))
+
+Boolean::
+
+    if Coffee.nodes:
+        print "We have coffee nodes!"
+
+Filtering on relationship properties using match::
+
+    nescafe = Coffee.nodes.get(name="Nescafe")
+
+    for supplier in nescafe.suppliers.match(since_lt=january):
+        print supplier.name
+
 Cypher queries
 --------------
 You may handle more complex queries via cypher. Each node provides an 'inflate' class method,
@@ -149,8 +206,8 @@ this inflates py2neo nodes to neomodel node objects::
 
     # for standalone queries
     from neomodel import db
-    db.cypher_query(query, params)
-    # TODO - inflate example
+    results, meta = db.cypher_query(query, params)
+    perople = [Person.inflate(row[0] for row in results]
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
@@ -184,7 +241,7 @@ Signals are also supported *if* django is available::
 
 Transactions
 ------------
-transactions can be used via a function decorator or context mangaer::
+transactions can be used via a function decorator or context manager::
 
     with db.transaction:
         Person(name='Bob').save()
@@ -197,6 +254,8 @@ transactions can be used via a function decorator or context mangaer::
 
 Indexing - DEPRECATED
 ---------------------
+Please use Object.nodes instead.
+
 Make use of indexes::
 
     jim = Person.index.get(name='Jim')
