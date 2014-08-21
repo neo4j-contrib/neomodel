@@ -14,12 +14,12 @@ def test_batch_create():
             {'email': 'jim3@aol.com', 'age': 9},
             {'email': 'jim4@aol.com', 'age': 7},
             {'email': 'jim5@aol.com', 'age': 99},
-            )
+    )
     assert len(users) == 5
     assert users[0].age == 11
     assert users[1].age == 7
     assert users[1].email == 'jim2@aol.com'
-    assert Customer.index.get(email='jim1@aol.com')
+    assert Customer.nodes.get(email='jim1@aol.com')
 
 
 def test_batch_validation():
@@ -35,7 +35,7 @@ def test_batch_validation():
 
 
 def test_batch_index_violation():
-    for u in Customer.category().instance.all():
+    for u in Customer.nodes.all():
         u.delete()
 
     users = Customer.create(
@@ -52,7 +52,5 @@ def test_batch_index_violation():
     else:
         assert False
 
-    # not in index
-    assert not Customer.index.search(email='jim7@aol.com')
-    # not found via category
-    assert not Customer.category().instance.search(email='jim7@aol.com')
+    # not found
+    assert not Customer.nodes.filter(email='jim7@aol.com')

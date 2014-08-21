@@ -1,276 +1,237 @@
-from py2neo import neo4j
-from py2neo.packages.httpstream import SocketError
-from py2neo.exceptions import ClientError
-from .exception import DoesNotExist, CypherException
-from .util import camel_to_upper, CustomBatch, _legacy_conflict_check
-from .properties import Property, PropertyManager, AliasProperty
-from .relationship_manager import RelationshipManager, OUTGOING
-from .traversal import TraversalSet, Query
-from .signals import hooks
-from .index import NodeIndexManager
 import os
-import time
-import sys
-import logging
-logger = logging.getLogger(__name__)
-
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
-else:
-    from urlparse import urlparse  # noqa
+from .exception import DoesNotExist
+from .properties import Property, PropertyManager
+from .signals import hooks
+from .util import Database, deprecated, classproperty
 
 
 DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
+db = Database(DATABASE_URL)
 
 
-def connection():
-    if hasattr(connection, 'db'):
-        return connection.db
-
-    url = DATABASE_URL
-    u = urlparse(url)
-    if u.netloc.find('@') > -1:
-        credentials, host = u.netloc.split('@')
-        user, password, = credentials.split(':')
-        neo4j.authenticate(host, user, password)
-        url = ''.join([u.scheme, '://', host, u.path, u.query])
-
-    try:
-        connection.db = neo4j.GraphDatabaseService(url)
-    except SocketError as e:
-        raise SocketError("Error connecting to {0} - {1}".format(url, e))
-
-    if connection.db.neo4j_version >= (2, 0):
-        raise Exception("Support for neo4j 2.0 is in progress but not supported by this release.")
-    if connection.db.neo4j_version < (1, 8):
-        raise Exception("Versions of neo4j prior to 1.8 are unsupported.")
-
-    return connection.db
+def install_labels(cls):
+    # TODO when to execute this?
+    for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+        if prop.index:
+            db.cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
+        elif prop.unique_index:
+            db.cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                    cls.__label__, key))
 
 
-def cypher_query(query, params=None):
-    if isinstance(query, Query):
-        query = query.__str__()
 
-    try:
-        cq = neo4j.CypherQuery(connection(), '')
-        start = time.clock()
-        r = neo4j.CypherResults(cq._cypher._post({'query': query, 'params': params or {}}))
-        end = time.clock()
-        results = [list(rr.values) for rr in r.data], list(r.columns)
-    except ClientError as e:
-        raise CypherException(query, params, e.args[0], e.exception, e.stack_trace)
-
-    if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-        logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
-
-    return results
-
-
-class CypherMixin(object):
-    @property
-    def client(self):
-        return connection()
-
-    def cypher(self, query, params=None):
-        self._pre_action_check('cypher')
-        assert self.__node__ is not None
-        params = params or {}
-        params.update({'self': self.__node__._id})
-        return cypher_query(query, params)
-
-
-class StructuredNodeMeta(type):
+class NodeMeta(type):
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
-        inst = super(StructuredNodeMeta, mcs).__new__(mcs, name, bases, dct)
+        inst = super(NodeMeta, mcs).__new__(mcs, name, bases, dct)
 
         if hasattr(inst, '__abstract_node__'):
             delattr(inst, '__abstract_node__')
         else:
             for key, value in dct.items():
+                if key == 'deleted':
+                    raise ValueError("Class property called 'deleted' "
+                            + "conflicts with neomodel internals")
                 if issubclass(value.__class__, Property):
                     value.name = key
                     value.owner = inst
                     # support for 'magic' properties
                     if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
                         value.setup()
-            if '__index__' in dct or hasattr(inst, '__index__'):
-                name = dct['__index__'] if '__index__' in dct else getattr(inst, '__index__')
-            inst.index = NodeIndexManager(inst, name)
+            if '__label__' in dct:
+                inst.__label__ = dct['__label__']
+            else:
+                inst.__label__ = inst.__name__
+
+            install_labels(inst)
+            from .index import NodeIndexManager
+            inst.index = NodeIndexManager(inst, inst.__label__)
         return inst
 
 
-StructuredNodeBase = StructuredNodeMeta('StructuredNodeBase', (PropertyManager,), {})
+NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
 
 
-class StructuredNode(StructuredNodeBase, CypherMixin):
-    """ Base class for nodes requiring declaration of formal structure.
-
-        :ivar __node__: neo4j.Node instance bound to database for this instance
-    """
-
+class StructuredNode(NodeBase):
     __abstract_node__ = True
 
-    def __init__(self, *args, **kwargs):
-        self.__node__ = None
-        super(StructuredNode, self).__init__(*args, **kwargs)
+    @classproperty
+    def nodes(cls):
+        from .match import NodeSet
+        return NodeSet(cls)
 
-    @classmethod
-    def category(cls):
-        return category_factory(cls)
+    def __init__(self, *args, **kwargs):
+        if 'deleted' in kwargs:
+            raise ValueError("deleted property is reserved for neomodel")
+
+        for key, val in self.defined_properties(aliases=False, properties=False).items():
+            self.__dict__[key] = val.build_manager(self, key)
+
+        super(StructuredNode, self).__init__(*args, **kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a {}".format(other.__class__.__name__))
-        return self.__node__ == other.__node__
+            return False
+        if hasattr(self, '_id') and hasattr(other, '_id'):
+            return self._id == other._id
+        return False
 
     def __ne__(self, other):
-        if not isinstance(other, (StructuredNode,)):
-            raise TypeError("Cannot compare neomodel node with a {}".format(other.__class__.__name__))
-        return self.__node__ != other.__node__
+        return not self.__eq__(other)
+
+    def labels(self):
+        self._pre_action_check('labels')
+        return self.cypher("START self=node({self}) RETURN labels(self)")[0][0][0]
+
+    def cypher(self, query, params=None):
+        self._pre_action_check('cypher')
+        params = params or {}
+        params.update({'self': self._id})
+        return db.cypher_query(query, params)
+
+    @classmethod
+    def inherited_labels(cls):
+        return [scls.__label__ for scls in cls.mro()
+                if hasattr(scls, '__label__') and not hasattr(scls, '__abstract_node__')]
+
+    @classmethod
+    @deprecated("Category nodes are now deprecated, the functionality is emulated using labels")
+    def category(cls):
+        return FakeCategory(cls)
 
     @hooks
     def save(self):
         # create or update instance node
-        if self.__node__ is not None:
-            batch = CustomBatch(connection(), self.index.name, self.__node__._id)
-            batch.remove_from_index(neo4j.Node, index=self.index.__index__, entity=self.__node__)
-            props = self.deflate(self.__properties__, self.__node__._id)
-            batch.set_properties(self.__node__, props)
-            self._update_indexes(self.__node__, props, batch)
-            batch.submit()
-        elif hasattr(self, '_is_deleted') and self._is_deleted:
+        if hasattr(self, '_id'):
+            # update
+            query = "START self=node({self})\n"
+            query += "\n".join(["SET self.{} = {{{}}}".format(key, key) + "\n"
+                for key in self.__properties__.keys()])
+            for label in self.inherited_labels():
+                query += "SET self:`{}`\n".format(label)
+            params = self.deflate(self.__properties__, self)
+            self.cypher(query, params)
+        elif hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
-        else:
-            self.__node__ = self.create(self.__properties__)[0].__node__
-            if hasattr(self, 'post_create'):
-                self.post_create()
+        else: # create
+            self._id = self.create(self.__properties__)[0]._id
         return self
 
     def _pre_action_check(self, action):
-        if hasattr(self, '_is_deleted') and self._is_deleted:
+        if hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.{}() attempted on deleted node".format(self.__class__.__name__, action))
-        if self.__node__ is None:
+        if not hasattr(self, '_id'):
             raise ValueError("{}.{}() attempted on unsaved node".format(self.__class__.__name__, action))
 
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.index.__index__.remove(entity=self.__node__)  # not sure if this is necessary
-        self.cypher("START self=node({self}) MATCH (self)-[r]-() DELETE r, self")
-        self.__node__ = None
-        self._is_deleted = True
+        self.cypher("START self=node({self}) OPTIONAL MATCH (self)-[r]-() DELETE r, self")
+        del self.__dict__['_id']
+        self.deleted = True
         return True
 
-    def traverse(self, rel_manager, *args):
-        self._pre_action_check('traverse')
-        return TraversalSet(self).traverse(rel_manager, *args)
-
     def refresh(self):
+        """Reload this object from its node id in the database"""
         self._pre_action_check('refresh')
-        """Reload this object from its node in the database"""
-        if self.__node__ is not None:
-            msg = 'Node %s does not exist in the database anymore'
-            try:
-                props = self.inflate(
-                    self.client.node(self.__node__._id)).__properties__
-                for key, val in props.items():
-                    setattr(self, key, val)
-            # in case py2neo raises error when actually getting the node
-            except ClientError as e:
-                if 'not found' in e.args[0].lower():
-                    raise self.DoesNotExist(msg % self.__node__._id)
-                else:
-                    raise e
+        if hasattr(self, '_id'):
+            node = self.inflate(self.cypher("START n=node({self}) RETURN n")[0][0][0])
+            for key, val in node.__properties__.items():
+                setattr(self, key, val)
+        else:
+            raise ValueError("Can't refresh unsaved node")
 
     @classmethod
     def create(cls, *props):
-        category = cls.category()
-        batch = CustomBatch(connection(), cls.index.name)
+        query = ""
         deflated = [cls.deflate(p) for p in list(props)]
-        # build batch
-        for p in deflated:
-            batch.create(neo4j.Node.abstract(**p))
-
+        params = {}
         for i in range(0, len(deflated)):
-            batch.create(neo4j.Relationship.abstract(category.__node__,
-                    cls.relationship_type(), i, __instance__=True))
-            cls._update_indexes(i, deflated[i], batch)
-        results = batch.submit()
-        return [cls.inflate(node) for node in results[:len(props)]]
+            props = ", ".join(["{}: {{n{}_{}}}".format(key, i, key)
+                    for key, value in deflated[i].items()])
+            query += "CREATE (n{} {{{}}})\n".format(i, props)
+
+            for label in cls.inherited_labels():
+                query += "SET n{}:`{}`\n".format(i, label)
+
+            for key, value in deflated[i].items():
+                params["n{}_{}".format(i, key)] = value
+
+        query += "RETURN "
+        query += ", ".join(["n" + str(i) for i in range(0, len(deflated))])
+
+        results, meta = db.cypher_query(query, params)
+
+        if hasattr(cls, 'post_create'):
+            for node in results:
+                node.post_create()
+
+        return [cls.inflate(node) for node in results[0]]
 
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in cls._class_properties().items():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
+        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+            if key in node._properties:
+                props[key] = prop.inflate(node._properties[key], node)
+            elif prop.has_default:
+                props[key] = prop.default_value()
+            else:
+                props[key] = None
 
         snode = cls(**props)
-        snode.__node__ = node
+        snode._id = node._id
         return snode
 
-    @classmethod
-    def relationship_type(cls):
-        return camel_to_upper(cls.__name__)
 
-    @classmethod
-    def _update_indexes(cls, node, props, batch):
-        # check for conflicts prior to execution
-        if batch._graph_db.neo4j_version < (1, 9):
-            _legacy_conflict_check(cls, node, props)
+class FakeCategory(object):
+    """
+    Category nodes are no longer required with the introduction of labels.
+    This class behaves like the old category nodes used in earlier version of neomodel
+    but uses labels under the hood calling the traversal api.
+    """
+    def __init__(self, cls):
+        self.instance = FakeInstanceRel(cls)
 
-        for key, value in props.items():
-            if key in cls._class_properties():
-                node_property = cls.get_property(key)
-                if node_property.unique_index:
-                    try:
-                        batch.add_to_index_or_fail(neo4j.Node, cls.index.__index__, key, value, node)
-                    except NotImplementedError:
-                        batch.get_or_add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
-                elif node_property.index:
-                    batch.add_to_index(neo4j.Node, cls.index.__index__, key, value, node)
-        return batch
+    def cypher(self, *args, **kwargs):
+        raise NotImplemented("cypher method on category nodes no longer supported")
 
 
-class CategoryNode(CypherMixin):
-    def __init__(self, name):
-        self.name = name
+class FakeInstanceRel(object):
+    """
+    Fake rel manager for our fake category node
+    """
+    def __init__(self, cls):
+        from .match import NodeSet
+        self._node_set = NodeSet(cls)
 
-    def traverse(self, rel):
-        return TraversalSet(self).traverse(rel)
+    def __len__(self):
+        from .match import QueryBuilder
+        return QueryBuilder(self._node_set)._count()
 
-    def _pre_action_check(self, action):
-        pass
+    def __bool__(self):
+        return len(self) > 0
 
+    def __nonzero__(self):
+        return len(self) > 0
 
-class InstanceManager(RelationshipManager):
-    """Manage 'instance' rel of category nodes"""
-    def connect(self, node):
-        raise Exception("connect not available from category node")
+    def count(self):
+        return self.__len__()
 
-    def disconnect(self, node):
-        raise Exception("disconnect not available from category node")
+    def all(self):
+        return self._node_set.all()
 
+    def search(self, **kwargs):
+        ns = self._node_set
+        for field, value in kwargs.items():
+            ns.filter(**{field: value})
+        return self._node_set.all()
 
-def category_factory(instance_cls):
-    """ Retrieve category node by name """
-    name = instance_cls.__name__
-    category_index = connection().get_or_create_index(neo4j.Node, 'Category')
-    category = CategoryNode(name)
-    category.__node__ = category_index.get_or_create('category', name, {'category': name})
-    rel_type = camel_to_upper(instance_cls.__name__)
-    category.instance = InstanceManager({
-        'direction': OUTGOING,
-        'relation_type': rel_type,
-        'target_map': {rel_type: instance_cls},
-    }, category)
-    category.instance.name = 'instance'
-    return category
+    def get(self, **kwargs):
+        result = self.search(**kwargs)
+        if len(result) == 1:
+            return result[0]
+        if len(result) > 1:
+            raise Exception("Multiple items returned, use search?")
+        if not result:
+            raise DoesNotExist("No items exist for the specified arguments")

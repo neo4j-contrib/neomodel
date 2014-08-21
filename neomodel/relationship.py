@@ -1,4 +1,5 @@
-from .properties import Property, PropertyManager, AliasProperty
+from .properties import Property, PropertyManager
+from .core import db
 
 
 class RelationshipMeta(type):
@@ -25,31 +26,43 @@ class StructuredRel(StructuredRelBase):
         super(StructuredRel, self).__init__(*args, **kwargs)
 
     def save(self):
-        props = self.deflate(self.__properties__, self.__relationship__)
-        self.__relationship__.set_properties(props)
+        props = self.deflate(self.__properties__)
+        query = "START r=relationship({self})"
+        for key in props:
+            query += " SET r.{} = {{{}}}".format(key, key)
+        props['self'] = self._id
+
+        db.cypher_query(query, props)
+
         return self
 
     def delete(self):
-        raise Exception("Can not delete relationships please use 'disconnect'")
+        raise NotImplemented("Can not delete relationships please use 'disconnect'")
 
     def start_node(self):
-        return self._start_node_class.inflate(self.__relationship__.start_node)
+        node = self._start_node_class()
+        node._id = self._start_node_id
+        node.refresh()
+        return node
 
     def end_node(self):
-        return self._end_node_class.inflate(self.__relationship__.end_node)
+        node = self._end_node_class()
+        node._id = self._end_node_id
+        node.refresh()
+        return node
 
     @classmethod
     def inflate(cls, rel):
         props = {}
-        for key, prop in cls._class_properties().items():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in rel.__metadata__['data']:
-                    props[key] = prop.inflate(rel.__metadata__['data'][key], obj=rel)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
+        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+            if key in rel._properties:
+                props[key] = prop.inflate(rel._properties[key], obj=rel)
+            elif prop.has_default:
+                props[key] = prop.default_value()
+            else:
+                props[key] = None
         srel = cls(**props)
-        srel.__relationship__ = rel
+        srel._start_node_id = rel._start_node_id
+        srel._end_node_id = rel._end_node_id
+        srel._id = rel._id
         return srel

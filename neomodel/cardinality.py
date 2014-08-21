@@ -64,8 +64,8 @@ class One(RelationshipManager):
         raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
     def connect(self, obj, properties=None):
-        if self.origin.__node__ is None:
-            raise Exception("Node has not been saved cannot connect!")
+        if not hasattr(self.source, '_id'):
+            raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
         else:

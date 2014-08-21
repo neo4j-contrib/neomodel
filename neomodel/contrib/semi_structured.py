@@ -1,5 +1,4 @@
 from ..core import StructuredNode
-from ..properties import Property, AliasProperty
 
 
 class InflateConflict(Exception):
@@ -52,23 +51,21 @@ class SemiStructuredNode(StructuredNode):
     @classmethod
     def inflate(cls, node):
         props = {}
-        for key, prop in cls._class_properties().items():
-            if (issubclass(prop.__class__, Property)
-                    and not isinstance(prop, AliasProperty)):
-                if key in node.__metadata__['data']:
-                    props[key] = prop.inflate(node.__metadata__['data'][key], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
+        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+            if key in node._properties:
+                props[key] = prop.inflate(node._properties[key])
+            elif prop.has_default:
+                props[key] = prop.default_value()
+            else:
+                props[key] = None
         # handle properties not defined on the class
-        for free_key in [key for key in node.__metadata__['data'] if key not in props]:
+        for free_key in [key for key in node._properties if key not in props]:
             if hasattr(cls, free_key):
-                raise InflateConflict(cls, free_key, node.__metadata__['data'][free_key], node._id)
-            props[free_key] = node.__metadata__['data'][free_key]
+                raise InflateConflict(cls, free_key, node._properties[free_key], node._id)
+            props[free_key] = node._properties[free_key]
 
         snode = cls(**props)
-        snode.__node__ = node
+        snode._id = node._id
         return snode
 
     @classmethod

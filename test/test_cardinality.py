@@ -30,7 +30,7 @@ class ToothBrush(StructuredNode):
 def test_cardinality_zero_or_more():
     m = Monkey(name='tim').save()
     assert m.dryers.all() == []
-    assert m.dryers.single() == None
+    assert m.dryers.single() is None
     h = HairDryer(version=1).save()
 
     m.dryers.connect(h)
@@ -39,13 +39,13 @@ def test_cardinality_zero_or_more():
 
     m.dryers.disconnect(h)
     assert m.dryers.all() == []
-    assert m.dryers.single() == None
+    assert m.dryers.single() is None
 
 
 def test_cardinality_zero_or_one():
     m = Monkey(name='bob').save()
     assert m.driver.all() == []
-    assert m.driver.single() == None
+    assert m.driver.single() is None
     h = ScrewDriver(version=1).save()
 
     m.driver.connect(h)

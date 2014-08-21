@@ -1,6 +1,7 @@
 from __future__ import print_function
 import warnings
-from neomodel.core import connection
+from neomodel.core import db
 warnings.simplefilter('default')
-connection().clear()
-print("neo4j version: ", *connection().neo4j_version)
+db.new_session()
+db.session.clear()
+print("neo4j version: ", *db.session.neo4j_version)

@@ -1,8 +1,14 @@
 language: python
+jdk:
+  - oraclejdk7 
 python:
   - "2.7"
-  - "3.3"
+  - "3.4"
 install: "pip install . --use-mirrors"
 script: nosetests -s
-services:
-  - neo4j
+env:
+  - NEO4J_VERSION="2.1.2"
+before_install:
+  - wget dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz
+  - tar -xzf neo4j-community-$NEO4J_VERSION-unix.tar.gz
+  - neo4j-community-$NEO4J_VERSION/bin/neo4j start

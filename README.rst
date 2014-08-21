@@ -8,7 +8,7 @@ Don't need an OGM? Try the awesome py2neo_ (which this library is built on).
 .. _py2neo: http://www.py2neo.org
 .. _neo4j: http://www.neo4j.org
 
-Supports: neo4j 1.8+ (1.9 recommended), not version 2.0 just yet. python 2.7, 3.3
+Supports: neo4j 2.0+ python 2.7
 
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
@@ -81,7 +81,7 @@ Relationship models, define your relationship properties::
     rel = jim.friend.connect(bob)
     rel.since # datetime object
 
-You can optional specify the properties during connect::
+You can specify the properties during connect::
 
     rel = jim.friend.connect(bob, {'since': yesterday, 'met': 'Paris'})
 
@@ -119,51 +119,6 @@ forget to call `super()`. Otherwise things start to fail::
 
             super(Person, self).__init__(self, **args)
 
-Traversals - EXPERIMENTAL
--------------------------
-The first argument for the traverse method is the name of the relationship manager,
-in this example we traverse the friends relationship skipping the first node and limit to 10 nodes::
-
-    # query executes on iteration
-    for friend in jim.traverse('friends').order_by_desc('age').skip(1).limit(10).run():
-        print friend.name
-
-You can traverse as many levels as you like, run() executes the query::
-
-    # order by country name
-    results = jim.traverse('friends').traverse('country').order_by('name').run()
-
-    # or friends name
-    jim.traverse('friends').traverse('country').order_by('friends.name')
-
-Filtering by node properties is achieved using the where method, values are deflated accordingly so datetimes
-for example work as expected::
-
-    results = jim.traverse('friends').where('age', '>', 18).run()
-
-length and bool operations::
-
-    print "Jim has " + len(jim.traverse('friends') + " friends"
-
-You may also filter on relationship properties whilst traversing. In order to do this a relationship model
-must be specified on the start nodes relationship definition::
-
-    recent_friends = jim.traverse('friends', ('since', '>', last_week), ('since', '<', today)).run()
-
-Category nodes
---------------
-Access all your instances of a class via the category node::
-
-    country_category = Country.category()
-    for c in country_category.instance.all():
-        print c.name
-
-Ordering and pagination is possible via `.traverse('instance')`::
-
-    country_category.traverse('instance').limit(10).run()
-
-Note that `connect` and `disconnect` are not available through the `instance` relation.
-
 Cardinality
 -----------
 It's possible to enforce cardinality restrictions on your relationships.
@@ -182,6 +137,63 @@ The following cardinality classes are available::
 If cardinality is broken by existing data a *CardinalityViolation* exception is raised.
 On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
 
+Matching
+--------
+The new API for accessing and traversing many nodes at once::
+
+    class SupplierRel(StructuredRel):
+        since = DateTimeProperty(default=datetime.now)
+
+
+    class Supplier(StructuredNode):
+        name = StringProperty()
+        delivery_cost = IntegerProperty()
+        coffees = RelationshipTo('Coffee', 'SUPPLIES')
+
+
+    class Coffee(StructuredNode):
+        name = StringProperty(unique_index=True)
+        price = IntegerProperty()
+        suppliers = RelationshipFrom(Supplier, 'SUPPLIES', model=SupplierRel)
+
+Filter (chainable) and get::
+
+    # nodes with label Coffee whose price is greater than 2
+    Coffee.nodes.filter(price__gt=2)
+
+    try:
+        java = Coffee.nodes.get(name='Java')
+    except Coffee.DoesNotExist:
+        print "Couldn't find coffee 'Java'"
+
+Checking for the existence of at least one relationship with has::
+
+    Coffee.nodes.has(suppliers=True)
+
+Iteration, slicing, counting::
+
+    # Iterable
+    for coffee in Coffee.nodes:
+        print coffee.name
+
+    # Sliceable
+    coffee = Coffee.nodes.filter(price__gt=2)[2:]
+
+    # Count
+    print len(Coffee.nodes.filter(price__gt=2))
+
+Boolean::
+
+    if Coffee.nodes:
+        print "We have coffee nodes!"
+
+Filtering on relationship properties using match::
+
+    nescafe = Coffee.nodes.get(name="Nescafe")
+
+    for supplier in nescafe.suppliers.match(since_lt=january):
+        print supplier.name
+
 Cypher queries
 --------------
 You may handle more complex queries via cypher. Each node provides an 'inflate' class method,
@@ -193,29 +205,14 @@ this inflates py2neo nodes to neomodel node objects::
             return [self.__class__.inflate(row[0]) for row in results]
 
     # for standalone queries
-    from neomodel import cypher_query
-    cypher_query(query, params)
+    from neomodel import db
+    results, meta = db.cypher_query(query, params)
+    perople = [Person.inflate(row[0] for row in results]
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
 
 You may log queries by setting the environment variable `NEOMODEL_CYPHER_DEBUG` to true.
-
-Relating to many node types
---------------------------------
-You can define relations of a single type to different `StructuredNode` classes.::
-
-    class Humanbeing(StructuredNode):
-        name = StringProperty()
-        has_a = RelationshipTo(['Location', 'Nationality'], 'HAS_A')
-
-    class Location(StructuredNode):
-        name = StringProperty()
-
-    class Nationality(StructuredNode):
-        name = StringProperty()
-
-Remember that when traversing the `has_a` relation you will retrieve objects of different types.
 
 Batch create
 ------------
@@ -242,9 +239,23 @@ Signals are also supported *if* django is available::
     from django.db.models import signals
     signals.post_save.connect(your_func, sender=Person)
 
+Transactions
+------------
+transactions can be used via a function decorator or context manager::
 
-Indexing
---------
+    with db.transaction:
+        Person(name='Bob').save()
+
+    @db.transaction
+    def update_user_name(uid, name):
+        user = Person.nodes.filter(uid=uid)[0]
+        user.name = name
+        user.save()
+
+Indexing - DEPRECATED
+---------------------
+Please use Object.nodes instead.
+
 Make use of indexes::
 
     jim = Person.index.get(name='Jim')
@@ -283,7 +294,7 @@ Properties
 ----------
 The following properties are available::
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty
+    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, ArrayProperty
 
     DateProperty, DateTimeProperty, JSONProperty, AliasProperty
 

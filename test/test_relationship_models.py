@@ -96,5 +96,5 @@ def test_traversal_where_clause():
     assert rel.since < now
     rel2 = tim.friend.connect(phill)
     assert rel2.since > now
-    friends = tim.traverse('friend', ('since', '>', now)).run()
+    friends = tim.friend.match(since__gt=now)
     assert len(friends) == 1
