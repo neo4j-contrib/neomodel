@@ -36,7 +36,7 @@ class PatchedTransaction(py2neo_cypher.Transaction):
             self._commit = py2neo_cypher.Resource(j["commit"])
         if "errors" in j and len(j['errors']):
             error = j["errors"][0]
-            txid = int(str(self._execute._resource._uri.path).split('/')[-1])
+            txid = int(j['commit'].split('/')[-2])
             trace = error.get('stackTrace', error.get('stacktrace', ''))
             raise TransactionError(error['message'], error['code'], trace, txid)
         out = []
@@ -127,7 +127,7 @@ class Database(local):
                         db.new_session()
 
                         if sys.version_info >= (3, 0):
-                            raise exc_info[1].with_traceback()
+                            raise exc_info[1].with_traceback(exc_info[2])
                         else:
                             raise exc_info[1]
                     except Exception:
