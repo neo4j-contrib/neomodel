@@ -8,7 +8,7 @@ Don't need an OGM? Try the awesome py2neo_ (which this library is built on).
 .. _py2neo: http://www.py2neo.org
 .. _neo4j: http://www.neo4j.org
 
-Supports: neo4j 2.0+ python 2.7
+Supports: neo4j 2.0+ python 2.7, 3.4
 
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
