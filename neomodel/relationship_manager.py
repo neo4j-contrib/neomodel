@@ -172,10 +172,7 @@ class RelationshipDefinition(object):
         self.definition['model'] = model
 
     def _lookup_node_class(self):
-        if not isinstance(self._raw_class, str):
-            self.definition['node_class'] = self._raw_class
-        else:
-            name = self._raw_class
+        def lookup(name):
             if name.find('.') == -1:
                 module = self.module_name
             else:
@@ -206,7 +203,14 @@ class RelationshipDefinition(object):
                 # (otherwise it would look like import . from myapp)
                 else:
                     module = import_module(namespace).__name__
-            self.definition['node_class'] = getattr(sys.modules[module], name)
+            return getattr(sys.modules[module], name)
+
+        if isinstance(self._raw_class, str):
+            self.definition['node_class'] = lookup(self._raw_class)
+        elif isinstance(self._raw_class, (list, tuple)):
+            self.definition['node_class'] = tuple(map(lookup, self._raw_class))
+        else:
+            self.definition['node_class'] = self._raw_class
 
     def build_manager(self, source, name):
         self._lookup_node_class()
