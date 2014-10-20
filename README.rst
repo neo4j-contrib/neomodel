@@ -207,7 +207,7 @@ this inflates py2neo nodes to neomodel node objects::
     # for standalone queries
     from neomodel import db
     results, meta = db.cypher_query(query, params)
-    perople = [Person.inflate(row[0] for row in results]
+    people = [Person.inflate(row[0]) for row in results]
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
