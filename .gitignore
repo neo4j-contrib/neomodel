@@ -2,6 +2,7 @@ venv
 venv2
 venv3
 build
+doc/build
 dist
 *.egg-info
 *.swp
@@ -11,3 +12,4 @@ development.env
 *.pyc
 .idea
 .python-version
+.ropeproject
