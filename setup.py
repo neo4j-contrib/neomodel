@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name=__package__,
+    name='neomodel',
     version='1.0.2',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
