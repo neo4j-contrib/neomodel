@@ -1,4 +1,4 @@
-.. image:: https://raw.github.com/robinedwards/neomodel/master/art/neomodel-300.png
+.. image:: https://raw.githubusercontent.com/robinedwards/neomodel/master/doc/source/_static/neomodel-300.png
    :alt: neomodel
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome py2neo_.
