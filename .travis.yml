@@ -6,7 +6,7 @@ python:
   - "3.4"
   - "pypy"
   - "pypy3"
-install: "pip install . --use-mirrors"
+install: "python setup.py install"
 script: nosetests -s
 env:
   - NEO4J_VERSION="2.1.2"

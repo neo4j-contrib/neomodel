@@ -10,3 +10,9 @@ from .properties import (StringProperty, IntegerProperty, AliasProperty,
         JSONProperty, ArrayProperty)
 from .exception import InflateError, DeflateError, UniqueProperty, CypherException, MultipleNodesReturned
 from .signals import SIGNAL_SUPPORT
+
+__author__ = 'Robin Edwards'
+__email__ = 'robin.ge@gmail.com'
+__license__ = 'MIT'
+__package__ = 'neomodel'
+__version__ = '1.0.1'
