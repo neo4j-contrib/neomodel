@@ -11,3 +11,4 @@ development.env
 *.pyc
 .idea
 .python-version
+.ropeproject
