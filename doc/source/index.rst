@@ -1,8 +1,6 @@
 ======================
-neomodel documentation
+Neomodel documentation
 ======================
-
-.. image:: _static/neomodel-300.png
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome py2neo_.
 
@@ -18,11 +16,11 @@ Requirements
 Installation
 ============
 
-Install from pypi (recommended):
+Install from pypi (recommended)::
 
     $ pip install neomodel
 
-To install from github:
+To install from github::
 
     $ pip install git+git://github.com/robinedwards/neomodel.git@HEAD#egg=neomodel-dev
 

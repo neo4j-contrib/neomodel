@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
 
 from neomodel import __version__, __author__, __package__
+
+sys.path.insert(0, os.path.abspath('_themes'))
+print sys.path
+
+import alabaster
 
 #
 # neomodel documentation build configuration file, created by
@@ -30,6 +37,7 @@ from neomodel import __version__, __author__, __package__
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'alabaster'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -100,23 +108,24 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #html_theme_options = {}
-#html_theme_options = {
-#    'logo': 'neomodel-148.png',
+html_theme_options = {
+    'logo': 'neomodel-148.png',
 #    'logo_align': 'left',
-#    'github_user': 'robinedwards',
-#    'github_repo': 'neomodel',
-#    'github_branch': 'master',
-#    'travis_button': True,
-#}
+    'github_user': 'robinedwards',
+    'github_repo': 'neomodel',
+   # 'github_branch': 'master',
+    'travis_button': True,
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
+# html_theme_path = []
+html_theme_path = [alabaster.get_path()]
 
 
 # The name for this set of Sphinx documents.  If None, it defaults to
@@ -154,7 +163,9 @@ html_static_path = ['_static']
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {}
+html_sidebars = {
+       '**': ['about.html', 'navigation.html', 'searchbox.html']
+}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -170,7 +181,7 @@ html_static_path = ['_static']
 #html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-#html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #html_show_sphinx = True
