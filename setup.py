@@ -1,17 +1,15 @@
 from setuptools import setup, find_packages
-from neomodel import (__version__, __package__, __author__, __email__,
-    __license__)
 
 setup(
     name=__package__,
-    version=__version__,
+    version='1.0.1',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
-    author=__author__,
-    author_email=__email__,
+    author='Robin Edwards',
+    author_email='robin.ge@gmail.com',
     zip_safe=True,
     url='http://github.com/robinedwards/neomodel',
-    license=__license__,
+    license='MIT',
     packages=find_packages(),
     keywords='graph neo4j py2neo ORM',
     tests_require=['nose==1.1.2'],
