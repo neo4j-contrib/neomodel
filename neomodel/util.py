@@ -198,6 +198,10 @@ class Database(local):
             if (handle_unique and e.message and " already exists with label " in e.message
                     and e.message.startswith('Node ')):
                 raise UniqueProperty(e.message)
+
+            if isinstance(e, TransactionError):
+                raise CypherException(query, params, e.message, e.java_exception, e.java_trace)
+
             raise CypherException(query, params, e.message, e.exception, e.stack_trace)
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
