@@ -1,8 +1,13 @@
 .. image:: https://raw.githubusercontent.com/robinedwards/neomodel/master/doc/source/_static/neomodel-300.png
    :alt: neomodel
 
-
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome py2neo_.
+
+- Familiar Django model style definitions.
+- Powerful query API.
+- Enforce your schema through cardinality restrictions.
+- Full transaction support.
+- Hooks including (optional) Django signals support.
 
 .. _py2neo: http://www.py2neo.org
 .. _neo4j: http://www.neo4j.org
