@@ -38,3 +38,8 @@ Install from pypi (recommended)::
 To install from github::
 
     $ pip install git+git://github.com/robinedwards/neomodel.git@HEAD#egg=neomodel-dev
+
+Contributing
+============
+
+Ideas, bugs, tests and pull requests always welcome.
