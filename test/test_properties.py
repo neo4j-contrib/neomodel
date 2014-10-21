@@ -10,6 +10,23 @@ class FooBar(object):
     pass
 
 
+def test_string_property_w_choice():
+    class TestChoices(StructuredNode):
+        SEXES = (('M', 'Male'), ('F', 'Female'))
+        sex = StringProperty(required=True, choices=SEXES)
+
+    try:
+        TestChoices(sex='Z').save()
+    except DeflateError as e:
+        assert True
+        assert str(e).index('choice')
+    else:
+        assert False
+
+    node = TestChoices(sex='M').save()
+    assert node.get_sex_display() == 'Male'
+
+
 def test_deflate_inflate():
     prop = IntegerProperty(required=True)
     prop.name = 'age'

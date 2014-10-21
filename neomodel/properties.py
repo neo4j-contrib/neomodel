@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
 
+def display_for(key):
+    def display_choice(self):
+        return getattr(self.__class__, key).choice_map[getattr(self, key)]
+    return display_choice
 
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
@@ -26,6 +30,10 @@ class PropertyManager(object):
                     setattr(self, key, None)
             else:
                 setattr(self, key, kwargs[key])
+
+            if hasattr(val, 'choices') and getattr(val, 'choices'):
+                setattr(self, 'get_{}_display'.format(key),
+                        types.MethodType(display_for(key), self))
 
             if key in kwargs:
                 del kwargs[key]
@@ -97,7 +105,7 @@ def validator(fn):
 
 
 class Property(object):
-    def __init__(self, unique_index=False, index=False, required=False, default=None):
+    def __init__(self, unique_index=False, index=False, required=False, default=None, **kwargs):
         if default and required:
             raise Exception("required and default are mutually exclusive")
 
@@ -125,12 +133,30 @@ class Property(object):
 
 
 class StringProperty(Property):
+    def __init__(self, **kwargs):
+        super(StringProperty, self).__init__(**kwargs)
+        self.choices = kwargs.get('choices', None)
+
+        if self.choices:
+            if not isinstance(self.choices, tuple):
+                raise ValueError("Choices must be a tuple of tuples")
+
+            self.choice_map = dict(self.choices)
+
     @validator
     def inflate(self, value):
+        if self.choices and value not in self.choice_map:
+            raise ValueError("Invalid choice {} not in {}".format(
+                value, ', '.join(self.choice_map.keys())))
+
         return unicode(value)
 
     @validator
     def deflate(self, value):
+        if self.choices and value not in self.choice_map:
+            raise ValueError("Invalid choice {} not in {}".format(
+                value, ','.join(self.choice_map.keys())))
+
         return unicode(value)
 
     def default_value(self):

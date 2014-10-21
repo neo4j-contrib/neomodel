@@ -1,3 +1,6 @@
+Version 1.0.3 unreleased
+ * add support for choices on string properites.
+
 Version 1.0.2 2014-10-21
  * updated documentation
  * sphinx and rtd

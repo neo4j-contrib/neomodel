@@ -20,6 +20,24 @@ You may provide arguments using a wrapper function or lambda::
 
         my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
+Choices
+=======
+
+You can specify a list of valid values for a `StringProperty` using choices::
+
+    class Person(StructuredNode):
+        SEXES = (
+            ('M', 'Male'),
+            ('F', 'Female')
+        )
+        sex = StringProperty(required=True, choices=SEXES)
+
+    tim = Person(sex='M').save()
+    tim.sex # M
+    tim.get_sex_display() # 'Male'
+
+The value will be checked both when saved and loaded from neo4j.
+
 Dates and times
 ===============
 
