@@ -1,3 +1,8 @@
+Version 1.0.2 2014-10-21
+ * updated documentation
+ * sphinx and rtd
+ * exception handling in cypher fix (tjakobsen)
+
 Version 1.0.1 2014-08-21
  * support for transactions
  * new nodes class property (match API)
