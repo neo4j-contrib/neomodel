@@ -15,6 +15,12 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
    :target: https://secure.travis-ci.org/robinedwards/neomodel/
 
+Documentation
+=============
+
+Available on readthedocs_.
+
+.. _readthedocs: http://neomodel.readthedocs.org
 
 Requirements
 ============
@@ -32,10 +38,3 @@ Install from pypi (recommended)::
 To install from github::
 
     $ pip install git+git://github.com/robinedwards/neomodel.git@HEAD#egg=neomodel-dev
-
-Documentation
-=============
-
-Available on readthedocs_.
-
-.. _readthedocs: http://neomodel.readthedocs.org
