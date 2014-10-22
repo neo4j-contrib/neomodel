@@ -51,7 +51,7 @@ Ideas, bugs, tests and pull requests always welcome.
 Running the test suite
 ----------------------
 
-Make sure you have `nose` installed::
+Make sure you have a fresh virtualenv and `nose` installed::
 
     $ pip install nose
 
@@ -59,6 +59,7 @@ A Neo4j database to run the tests on, (it will wipe this database)::
 
     $ export NEO4J_REST_URL=http://localhost:7474/db/data # (the default)
 
-Run the suite::
+Install neomodel for development and run the suite::
 
+    $ python setup.py develop
     $ nosetests -s
