@@ -47,3 +47,18 @@ Contributing
 ============
 
 Ideas, bugs, tests and pull requests always welcome.
+
+Running the test suite
+----------------------
+
+Make sure you have `nose` installed::
+
+    $ pip install nose
+
+A Neo4j database to run the tests on, (it will wipe this database)::
+
+    $ export NEO4J_REST_URL=http://localhost:7474/db/data # (the default)
+
+Run the suite::
+
+    $ nosetests -s
