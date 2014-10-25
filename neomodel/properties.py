@@ -53,7 +53,7 @@ class PropertyManager(object):
         from .relationship_manager import RelationshipManager
         props = {}
         for key, value in self.__dict__.items():
-            if not (key.startswith('_') or value is None
+            if not (key.startswith('_')
                     or isinstance(value,
                         (types.MethodType, RelationshipManager, AliasProperty,))):
                 props[key] = value
@@ -70,6 +70,8 @@ class PropertyManager(object):
                 deflated[key] = prop.deflate(prop.default_value(), obj)
             elif prop.required:
                 raise RequiredProperty(key, cls)
+            else:
+                deflated[key] = None
         return deflated
 
     @classmethod
