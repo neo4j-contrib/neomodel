@@ -179,7 +179,7 @@ class Database(local):
             self.tx_session.append(query, params or {})
             results = self.tx_session.execute()[0]
             if results:
-                return [list(results[0].values)], list(results[0].columns)
+                return [list(r.values) for r in results], list(results[0].columns)
             else:
                 return [], None
         else:

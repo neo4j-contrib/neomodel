@@ -62,3 +62,14 @@ def test_transaction_as_a_context():
         assert True
     else:
         assert False
+
+
+def test_query_inside_transaction():
+    for p in Person.nodes:
+        p.delete()
+
+    with db.transaction:
+        Person('Alice').save()
+        Person('Bob').save()
+
+        assert len([p.name for p in Person.nodes]) == 2
