@@ -147,3 +147,14 @@ def test_refresh():
     c.refresh()
     assert c.age == 20
     assert c.my_custom_prop == 'value'
+
+
+def test_setting_value_to_none():
+    c = Customer2(email='alice@bob.com', age=42).save()
+    assert c.age is not None
+
+    c.age = None
+    c.save()
+
+    copy = Customer2.nodes.get(email='alice@bob.com')
+    assert copy.age is None
