@@ -26,8 +26,15 @@ class PatchedTransaction(py2neo_cypher.Transaction):
     def _post(self, resource):
         self._assert_unfinished()
         rs = resource._post({"statements": self._statements})
-        location = dict(rs.headers).get("location")
-        if location:
+        headers = dict(rs.headers)
+        location = None
+        # when run in python 2 the keys in the header dictionary all start with lowercase letters
+        # but when run in python 3 they start with uppercase letters (so check for both)
+        if "location" in headers:
+            location = headers["location"]
+        elif "Location" in headers:
+            location = headers["Location"]
+        if location is not None:
             self._execute = py2neo_cypher.Resource(location)
         j = rs.json
         rs.close()
@@ -179,7 +186,7 @@ class Database(local):
             self.tx_session.append(query, params or {})
             results = self.tx_session.execute()[0]
             if results:
-                return [list(results[0].values)], list(results[0].columns)
+                return [list(r.values) for r in results], list(results[0].columns)
             else:
                 return [], None
         else:
