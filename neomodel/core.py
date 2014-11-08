@@ -206,8 +206,7 @@ class FakeInstanceRel(object):
         self._node_set = NodeSet(cls)
 
     def __len__(self):
-        from .match import QueryBuilder
-        return QueryBuilder(self._node_set)._count()
+        return self._node_set.query_cls(self._node_set)._count()
 
     def __bool__(self):
         return len(self) > 0
