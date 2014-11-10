@@ -82,3 +82,25 @@ Filtering on relationship properties is also possible using the `match` method. 
 
     for supplier in nescafe.suppliers.match(since_lt=january):
         print supplier.name
+
+Ordering by property
+====================
+
+To order results by a particular property, use the `order_by` method::
+
+    # Ascending sort
+    for coffee in Coffee.nodes.order_by('price'):
+        print coffee, coffee.price
+
+    # Descending sort
+    for supplier in Supplier.nodes.order_by('-delivery_cost'):
+        print supplier, supplier.delivery_cost
+
+
+To remove ordering from a previously defined query, pass `None` to `order_by`::
+
+    # Sort in descending order
+    suppliers = Supplier.nodes.order_by('-delivery_cost')
+
+    # Don't order; yield nodes in the order neo4j returns them
+    suppliers = suppliers.order_by(None)
