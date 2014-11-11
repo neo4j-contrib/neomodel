@@ -406,7 +406,7 @@ class NodeSet(BaseSet):
         if not hasattr(self, '_order_by') or should_remove:
             self._order_by = []
             if should_remove:
-                return
+                return self
 
         for prop in props:
             prop = prop.strip()
