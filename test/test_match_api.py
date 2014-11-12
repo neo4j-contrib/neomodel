@@ -175,3 +175,22 @@ def test_contains():
         assert True
     else:
         assert False
+
+
+def test_order_by():
+    for c in Coffee.nodes:
+        c.delete()
+
+    Coffee(name="Icelands finest", price=5).save()
+    Coffee(name="Britains finest", price=10).save()
+    Coffee(name="Japans finest", price=35).save()
+
+    assert Coffee.nodes.order_by('price').all()[0].price == 5
+    assert Coffee.nodes.order_by('-price').all()[0].price == 35
+
+    ns = Coffee.nodes.order_by('-price')
+    qb = QueryBuilder(ns).build_ast()
+    assert qb._ast['order_by']
+    ns = ns.order_by(None)
+    qb = QueryBuilder(ns).build_ast()
+    assert not qb._ast['order_by']

@@ -103,136 +103,6 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
-class BaseSet(object):
-    def all(self):
-        return QueryBuilder(self).build_ast()._execute()
-
-    def __iter__(self):
-        return (i for i in QueryBuilder(self).build_ast()._execute())
-
-    def __len__(self):
-        return QueryBuilder(self).build_ast()._count()
-
-    def __bool__(self):
-        return QueryBuilder(self).build_ast()._count() > 0
-
-    def __nonzero__(self):
-        return QueryBuilder(self).build_ast()._count() > 0
-
-    def __contains__(self, obj):
-        if isinstance(obj, StructuredNode):
-            if hasattr(obj, '_id'):
-                return QueryBuilder(self).build_ast()._contains(int(obj._id))
-            raise ValueError("Unsaved node: " + repr(obj))
-        else:
-            raise ValueError("Expecting StructuredNode instance")
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            if key.stop and key.start:
-                self.limit = key.stop - key.start
-                self.skip = key.start
-            elif key.stop:
-                self.limit = key.stop
-            elif key.start:
-                self.skip = key.start
-        elif isinstance(key, int):
-            self.skip = key
-            self.limit = 1
-
-        return QueryBuilder(self).build_ast()._execute()
-
-
-class NodeSet(BaseSet):
-    """
-    a set of matched nodes of a single type
-        source: how to produce the set of nodes
-        node_cls: what type of nodes are they
-    """
-    def __init__(self, source):
-        self.source = source  # could be a Traverse object or a node class
-        if isinstance(source, Traversal):
-            self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
-            self.source_class = source
-        elif isinstance(source, StructuredNode):
-            self.source_class = source.__class__
-        else:
-            raise ValueError("Bad source for nodeset " + repr(source))
-
-        # setup Traversal objects using relationship definitions
-        install_traversals(self.source_class, self)
-
-        self.filters = []
-
-        # used by has()
-        self.must_match = {}
-        self.dont_match = {}
-
-    def get(self, **kwargs):
-        output = process_filter_args(self.source_class, kwargs)
-        self.filters.append(output)
-        self.limit = 2
-        result = QueryBuilder(self).build_ast()._execute()
-        if len(result) > 1:
-            raise MultipleNodesReturned(repr(kwargs))
-        elif not result:
-            raise self.source_class.DoesNotExist(repr(kwargs))
-        else:
-            return result[0]
-
-    def filter(self, **kwargs):
-        output = process_filter_args(self.source_class, kwargs)
-        self.filters.append(output)
-        return self
-
-    def exclude(self, **kwargs):
-        output = process_filter_args(self.source_class, kwargs)
-        self.filters.append({'__NOT__': output})
-        return self
-
-    def has(self, **kwargs):
-        must_match, dont_match = process_has_args(self.source_class, kwargs)
-        self.must_match.update(must_match)
-        self.dont_match.update(dont_match)
-        return self
-
-
-class Traversal(BaseSet):
-    """
-        source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
-        definition: relationship definition
-    """
-    def __init__(self, source, key, definition):
-        self.source = source
-
-        if isinstance(source, Traversal):
-            self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
-            self.source_class = source
-        elif isinstance(source, StructuredNode):
-            self.source_class = source.__class__
-        elif isinstance(source, NodeSet):
-            self.source_class = source.source_class
-        else:
-            raise ValueError("Bad source for traversal: {}".format(repr(source)))
-
-        self.definition = definition
-        self.target_class = definition['node_class']
-        self.name = key
-        self.filters = []
-
-    def match(self, **kwargs):
-        if 'model' not in self.definition:
-            raise ValueError("match() only available on relationships with a model")
-        if kwargs:
-            self.filters.append(process_filter_args(self.definition['model'], kwargs))
-        return self
-
-    def _in_node_set(self):
-        return NodeSet(self)
-
-
 class QueryBuilder(object):
     def __init__(self, node_set):
         self.node_set = node_set
@@ -262,6 +132,9 @@ class QueryBuilder(object):
 
             self.build_additional_match(ident, source)
 
+            if hasattr(self.node_set, '_order_by'):
+                self.build_order_by(ident, source)
+
             if source.filters:
                 self.build_where_stmt(ident, source.filters)
 
@@ -274,6 +147,10 @@ class QueryBuilder(object):
     def create_ident(self):
         self._ident_count += 1
         return 'r' + str(self._ident_count)
+
+    def build_order_by(self, ident, source):
+        self._ast['order_by'] = ['{}.{}'.format(ident, p)
+                                 for p in source._order_by]
 
     def build_traversal(self, traversal):
         """
@@ -390,6 +267,10 @@ class QueryBuilder(object):
 
         query += ' RETURN ' + self._ast['return']
 
+        if 'order_by' in self._ast and self._ast['order_by']:
+            query += ' ORDER BY '
+            query += ', '.join(self._ast['order_by'])
+
         if 'skip' in self._ast:
             query += ' SKIP {0:d}'.format(self._ast['skip'])
 
@@ -418,3 +299,166 @@ class QueryBuilder(object):
         if results:
             return [self._ast['result_class'].inflate(n[0]) for n in results]
         return []
+
+
+class BaseSet(object):
+    query_cls = QueryBuilder
+
+    def all(self):
+        return self.query_cls(self).build_ast()._execute()
+
+    def __iter__(self):
+        return (i for i in self.query_cls(self).build_ast()._execute())
+
+    def __len__(self):
+        return self.query_cls(self).build_ast()._count()
+
+    def __bool__(self):
+        return self.query_cls(self).build_ast()._count() > 0
+
+    def __nonzero__(self):
+        return self.query_cls(self).build_ast()._count() > 0
+
+    def __contains__(self, obj):
+        if isinstance(obj, StructuredNode):
+            if hasattr(obj, '_id'):
+                return self.query_cls(self).build_ast()._contains(int(obj._id))
+            raise ValueError("Unsaved node: " + repr(obj))
+        else:
+            raise ValueError("Expecting StructuredNode instance")
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            if key.stop and key.start:
+                self.limit = key.stop - key.start
+                self.skip = key.start
+            elif key.stop:
+                self.limit = key.stop
+            elif key.start:
+                self.skip = key.start
+        elif isinstance(key, int):
+            self.skip = key
+            self.limit = 1
+
+        return self.query_cls(self).build_ast()._execute()
+
+
+class NodeSet(BaseSet):
+    """
+    a set of matched nodes of a single type
+        source: how to produce the set of nodes
+        node_cls: what type of nodes are they
+    """
+    def __init__(self, source):
+        self.source = source  # could be a Traverse object or a node class
+        if isinstance(source, Traversal):
+            self.source_class = source.target_class
+        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+            self.source_class = source
+        elif isinstance(source, StructuredNode):
+            self.source_class = source.__class__
+        else:
+            raise ValueError("Bad source for nodeset " + repr(source))
+
+        # setup Traversal objects using relationship definitions
+        install_traversals(self.source_class, self)
+
+        self.filters = []
+
+        # used by has()
+        self.must_match = {}
+        self.dont_match = {}
+
+    def get(self, **kwargs):
+        output = process_filter_args(self.source_class, kwargs)
+        self.filters.append(output)
+        self.limit = 2
+        result = self.query_cls(self).build_ast()._execute()
+        if len(result) > 1:
+            raise MultipleNodesReturned(repr(kwargs))
+        elif not result:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+        else:
+            return result[0]
+
+    def filter(self, **kwargs):
+        output = process_filter_args(self.source_class, kwargs)
+        self.filters.append(output)
+        return self
+
+    def exclude(self, **kwargs):
+        output = process_filter_args(self.source_class, kwargs)
+        self.filters.append({'__NOT__': output})
+        return self
+
+    def has(self, **kwargs):
+        must_match, dont_match = process_has_args(self.source_class, kwargs)
+        self.must_match.update(must_match)
+        self.dont_match.update(dont_match)
+        return self
+
+    def order_by(self, *props):
+        """
+        Order by properties. Prepend with minus to do descending. Pass None to
+        remove ordering.
+        """
+        should_remove = len(props) == 1 and props[0] is None
+        if not hasattr(self, '_order_by') or should_remove:
+            self._order_by = []
+            if should_remove:
+                return self
+
+        for prop in props:
+            prop = prop.strip()
+            if prop.startswith('-'):
+                prop = prop[1:]
+                desc = True
+            else:
+                desc = False
+
+            if prop not in self.source_class.defined_properties(rels=False):
+                raise ValueError("No such property {} on {}".format(
+                    prop, self.source_class.__name__))
+
+            property_obj = getattr(self.source_class, prop)
+            if isinstance(property_obj, AliasProperty):
+                prop = property_obj.aliased_to()
+
+            self._order_by.append(prop + (' DESC' if desc else ''))
+
+        return self
+
+
+class Traversal(BaseSet):
+    """
+        source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
+        definition: relationship definition
+    """
+    def __init__(self, source, key, definition):
+        self.source = source
+
+        if isinstance(source, Traversal):
+            self.source_class = source.target_class
+        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+            self.source_class = source
+        elif isinstance(source, StructuredNode):
+            self.source_class = source.__class__
+        elif isinstance(source, NodeSet):
+            self.source_class = source.source_class
+        else:
+            raise ValueError("Bad source for traversal: {}".format(repr(source)))
+
+        self.definition = definition
+        self.target_class = definition['node_class']
+        self.name = key
+        self.filters = []
+
+    def match(self, **kwargs):
+        if 'model' not in self.definition:
+            raise ValueError("match() only available on relationships with a model")
+        if kwargs:
+            self.filters.append(process_filter_args(self.definition['model'], kwargs))
+        return self
+
+    def _in_node_set(self):
+        return NodeSet(self)
