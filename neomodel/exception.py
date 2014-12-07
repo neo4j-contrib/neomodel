@@ -7,13 +7,12 @@ class UniqueProperty(ValueError):
 
 
 class DoesNotExist(Exception):
-    def __init__(self, msg, *args, **kwargs):
+    def __init__(self, msg):
         self.message = msg
         Exception.__init__(self, msg)
 
     def __reduce__(self):
-        return _unpickle_does_not_exist, (self.__module__, self.message,
-                                          self.args)
+        return _unpickle_does_not_exist, (self.__module__, self.message)
 
 
 class MultipleNodesReturned(ValueError):
@@ -107,8 +106,8 @@ class NotConnected(Exception):
         return msg
 
 
-def _unpickle_does_not_exist(cls, message, args):
+def _unpickle_does_not_exist(cls, message):
     app_label, class_name = cls.rsplit(".", 1)
     neo_app = importlib.import_module(app_label)
     neo_object = getattr(neo_app, class_name)
-    return neo_object.DoesNotExist(message, *args)
+    return neo_object.DoesNotExist(message)
