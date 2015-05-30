@@ -106,14 +106,14 @@ class StructuredNode(NodeBase):
             # update
             query = "START self=node({self})\n"
             query += "\n".join(["SET self.{} = {{{}}}".format(key, key) + "\n"
-                for key in self.__properties__.keys()])
+                                for key in self.__properties__.keys()])
             for label in self.inherited_labels():
                 query += "SET self:`{}`\n".format(label)
             params = self.deflate(self.__properties__, self)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
-        else: # create
+        else:  # create
             self._id = self.create(self.__properties__)[0]._id
         return self
 
@@ -172,8 +172,8 @@ class StructuredNode(NodeBase):
     def inflate(cls, node):
         props = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            if key in node._properties:
-                props[key] = prop.inflate(node._properties[key], node)
+            if key in node.properties:
+                props[key] = prop.inflate(node.properties[key], node)
             elif prop.has_default:
                 props[key] = prop.default_value()
             else:
