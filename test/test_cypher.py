@@ -1,4 +1,5 @@
-from neomodel import StructuredNode, StringProperty, CypherException
+from neomodel import StructuredNode, StringProperty
+from py2neo.cypher.error.statement import InvalidSyntax
 
 
 class User2(StructuredNode):
@@ -24,11 +25,8 @@ def test_cypher_syntax_error():
     jim = User2(email='jim1@test.com').save()
     try:
         jim.cypher("START a=node({self}) RETURN xx")
-    except CypherException as e:
+    except InvalidSyntax as e:
         assert hasattr(e, 'message')
-        assert hasattr(e, 'query')
-        assert hasattr(e, 'query_parameters')
-        assert hasattr(e, 'java_trace')
-        assert hasattr(e, 'java_exception')
+        assert hasattr(e, 'code')
     else:
         assert False

@@ -136,7 +136,7 @@ class RelationshipManager(Traversal):
         result, meta = self.source.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
             {'old': old_obj._id})
         if result:
-            existing_properties = result[0][0]._properties.keys()
+            existing_properties = result[0][0].properties.keys()
         else:
             raise NotConnected('reconnect', self.source, old_obj)
 
