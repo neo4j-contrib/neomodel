@@ -11,12 +11,21 @@ db = Database(DATABASE_URL)
 
 def install_labels(cls):
     # TODO when to execute this?
+    if not hasattr(db, 'session'):
+        db.new_session()
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-            db.cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
-        elif prop.unique_index:
-            db.cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+            indexes = db.session.schema.get_indexes(cls.__label__)
+            if key not in indexes:
+                db.cypher_query("CREATE INDEX on :{}({}); ".format(
                     cls.__label__, key))
+        elif prop.unique_index:
+            unique_const = db.session.schema.get_uniqueness_constraints(
+                cls.__label__)
+            if key not in unique_const:
+                db.cypher_query("CREATE CONSTRAINT "
+                                "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                                    cls.__label__, key))
 
 
 
