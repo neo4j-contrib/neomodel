@@ -83,8 +83,9 @@ class StructuredNode(NodeBase):
 
     def labels(self):
         self._pre_action_check('labels')
+        # "START self=node({self}) RETURN labels(self)"
         return self.cypher("MATCH n WHERE id(n)={self} "
-                           "RETURN labels(self)")[0][0][0]
+                           "RETURN labels(n)")[0][0][0]
 
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
@@ -110,10 +111,10 @@ class StructuredNode(NodeBase):
         if hasattr(self, '_id'):
             # update
             query = "MATCH n WHERE id(n)={self} \n"
-            query += "\n".join(["SET self.{} = {{{}}}".format(key, key) + "\n"
+            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
                                 for key in self.__properties__.keys()])
             for label in self.inherited_labels():
-                query += "SET self:`{}`\n".format(label)
+                query += "SET n:`{}`\n".format(label)
             params = self.deflate(self.__properties__, self)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
