@@ -83,7 +83,6 @@ class StructuredNode(NodeBase):
 
     def labels(self):
         self._pre_action_check('labels')
-        # "START self=node({self}) RETURN labels(self)"
         return self.cypher("MATCH n WHERE id(n)={self} "
                            "RETURN labels(n)")[0][0][0]
 
@@ -135,7 +134,8 @@ class StructuredNode(NodeBase):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("START self=node({self}) OPTIONAL MATCH (self)-[r]-()"
+        self.cypher("MATCH self WHERE id(self)={self} "
+                    "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
         del self.__dict__['_id']
         self.deleted = True

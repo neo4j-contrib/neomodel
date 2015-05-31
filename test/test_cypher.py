@@ -17,7 +17,8 @@ def test_cypher():
     assert data[0][0] == 'jim1@test.com'
     assert 'a.email' in meta
 
-    data, meta = jim.cypher("START a=node({self}) MATCH (a)<-[:USER2]-(b) "
+    data, meta = jim.cypher("MATCH a WHERE id(a)={self}"
+                            " MATCH (a)<-[:USER2]-(b) "
                             "RETURN a, b, 3")
     assert 'a' in meta and 'b' in meta
 
