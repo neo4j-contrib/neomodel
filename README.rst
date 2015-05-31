@@ -29,8 +29,8 @@ Available on readthedocs_.
 Requirements
 ============
 
-- Python 2.7, 3.4, pypy and pypy3
-- neo4j 2.0 or 2.1
+- Python 2.7, 3.4
+- neo4j 2.0, 2.1, 2.2
 
 Installation
 ============
