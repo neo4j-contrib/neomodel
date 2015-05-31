@@ -109,7 +109,7 @@ class RelationshipManager(Traversal):
         rel_model = self.definition['model']
 
         my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH them, us WHERE id(them)={them} and id(us)={self}) MATCH " \
+        q = "MATCH them, us WHERE id(them)={them} and id(us)={self} MATCH " \
             "" + my_rel + " RETURN r"
         rel = self.source.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
