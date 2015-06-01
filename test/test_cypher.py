@@ -13,18 +13,20 @@ def test_cypher():
     """
 
     jim = User2(email='jim1@test.com').save()
-    data, meta = jim.cypher("START a=node({self}) RETURN a.email")
+    data, meta = jim.cypher("MATCH a WHERE id(a)={self} RETURN a.email")
     assert data[0][0] == 'jim1@test.com'
     assert 'a.email' in meta
 
-    data, meta = jim.cypher("START a=node({self}) MATCH (a)<-[:USER2]-(b) RETURN a, b, 3")
+    data, meta = jim.cypher("MATCH a WHERE id(a)={self}"
+                            " MATCH (a)<-[:USER2]-(b) "
+                            "RETURN a, b, 3")
     assert 'a' in meta and 'b' in meta
 
 
 def test_cypher_syntax_error():
     jim = User2(email='jim1@test.com').save()
     try:
-        jim.cypher("START a=node({self}) RETURN xx")
+        jim.cypher("MATCH a WHERE id(a)={self} RETURN xx")
     except InvalidSyntax as e:
         assert hasattr(e, 'message')
         assert hasattr(e, 'code')

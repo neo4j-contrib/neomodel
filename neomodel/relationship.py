@@ -27,7 +27,7 @@ class StructuredRel(StructuredRelBase):
 
     def save(self):
         props = self.deflate(self.__properties__)
-        query = "START r=relationship({self})"
+        query = "MATCH ()-[r]->() WHERE id(r)={self} "
         for key in props:
             query += " SET r.{} = {{{}}}".format(key, key)
         props['self'] = self._id
@@ -37,7 +37,8 @@ class StructuredRel(StructuredRelBase):
         return self
 
     def delete(self):
-        raise NotImplemented("Can not delete relationships please use 'disconnect'")
+        raise NotImplemented("Can not delete relationships please use"
+                             " 'disconnect'")
 
     def start_node(self):
         node = self._start_node_class()
