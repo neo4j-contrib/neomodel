@@ -1,4 +1,8 @@
 import os
+
+from py2neo.cypher.error.schema import (IndexAlreadyExists,
+                                        ConstraintAlreadyExists)
+
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
@@ -11,12 +15,27 @@ db = Database(DATABASE_URL)
 
 def install_labels(cls):
     # TODO when to execute this?
+    if not hasattr(db, 'session'):
+        db.new_session()
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-            db.cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
+            indexes = db.session.schema.get_indexes(cls.__label__)
+            if key not in indexes:
+                try:
+                    db.cypher_query("CREATE INDEX on :{}({}); ".format(
+                        cls.__label__, key))
+                except IndexAlreadyExists:
+                    pass
         elif prop.unique_index:
-            db.cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                    cls.__label__, key))
+            unique_const = db.session.schema.get_uniqueness_constraints(
+                cls.__label__)
+            if key not in unique_const:
+                try:
+                    db.cypher_query("CREATE CONSTRAINT "
+                                    "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                                        cls.__label__, key))
+                except ConstraintAlreadyExists:
+                    pass
 
 
 
