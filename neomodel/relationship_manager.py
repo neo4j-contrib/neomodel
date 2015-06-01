@@ -77,7 +77,8 @@ class RelationshipManager(Traversal):
                     "using a relationship model is no longer supported")
 
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "START them=node({them}), us=node({self}) CREATE UNIQUE" + new_rel
+        q = "MATCH them, us WHERE id(them)={them} and id(us)={self} " \
+            "CREATE UNIQUE" + new_rel
         params = {'them': obj._id}
 
         if not properties and not self.definition['model']:
@@ -108,7 +109,8 @@ class RelationshipManager(Traversal):
         rel_model = self.definition['model']
 
         my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "START them=node({them}), us=node({self}) MATCH " + my_rel + " RETURN r"
+        q = "MATCH them, us WHERE id(them)={them} and id(us)={self} MATCH " \
+            "" + my_rel + " RETURN r"
         rel = self.source.cypher(q, {'them': obj._id})[0][0][0]
         if not rel:
             return
@@ -133,8 +135,9 @@ class RelationshipManager(Traversal):
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
-        result, meta = self.source.cypher("START us=node({self}), old=node({old}) MATCH " + old_rel + " RETURN r",
-            {'old': old_obj._id})
+        result, meta = self.source.cypher(
+            "MATCH us, old WHERE id(us)={self} and id(old)={old} "
+            "MATCH " + old_rel + " RETURN r", {'old': old_obj._id})
         if result:
             existing_properties = result[0][0].properties.keys()
         else:
@@ -142,7 +145,9 @@ class RelationshipManager(Traversal):
 
         # remove old relationship and create new one
         new_rel = rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
-        q = "START us=node({self}), old=node({old}), new=node({new}) MATCH " + old_rel
+        q = "MATCH us, old, new " \
+            "WHERE id(us)={self} and id(old)={old} and id(new)={new} " \
+            "MATCH " + old_rel
         q += " CREATE UNIQUE" + new_rel
 
         # copy over properties if we have
@@ -155,7 +160,8 @@ class RelationshipManager(Traversal):
     @check_source
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
-        q = "START a=node({self}), b=node({them}) MATCH " + rel + " DELETE r"
+        q = "MATCH a, b WHERE id(a)={self} and id(b)={them} " \
+            "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': obj._id})
 
     def single(self):
