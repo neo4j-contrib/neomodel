@@ -7,7 +7,7 @@ When defining models that have a custom `__init__(self, ...)` method, you must a
     class Person(StructuredNode):
         name = StringProperty(unique_index=True)
 
-        def __init__(self, name, **args):
+        def __init__(self, name, *args, **kwargs):
             self.name = name
 
-            super(Person, self).__init__(self, **args)
+            super(Person, self).__init__(self, *args, **kwargs)
