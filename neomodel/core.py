@@ -34,7 +34,7 @@ def install_labels(cls):
                     db.cypher_query("CREATE CONSTRAINT "
                                     "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
                                         cls.__label__, key))
-                except ConstraintAlreadyExists:
+                except (ConstraintAlreadyExists, IndexAlreadyExists):
                     pass
 
 
