@@ -281,6 +281,9 @@ class QueryBuilder(object):
 
     def _count(self):
         self._ast['return'] = 'count({})'.format(self._ast['return'])
+        # (count + order_by) builds invalid query
+        if self._ast.get('order_by'):
+            self._ast.pop('order_by')
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
