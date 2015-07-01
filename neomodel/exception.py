@@ -92,6 +92,15 @@ class DeflateError(ValueError):
             self.property_name, self.obj, self.node_class.__name__, self.msg)
 
 
+
+class MergeException(Exception):
+
+    def __init__(self, msg):
+        self.message = msg
+
+
+
+
 class NotConnected(Exception):
     def __init__(self, action, node1, node2):
         self.action = action

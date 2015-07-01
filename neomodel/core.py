@@ -1,5 +1,5 @@
 import os
-from .exception import DoesNotExist
+from .exception import DoesNotExist, MergeException
 from .properties import Property, PropertyManager
 from .signals import hooks
 from .util import Database, deprecated, classproperty
@@ -140,6 +140,42 @@ class StructuredNode(NodeBase):
                 setattr(self, key, val)
         else:
             raise ValueError("Can't refresh unsaved node")
+
+    @classmethod
+    def merge(cls, *props):
+        query = ""
+        deflated = [cls.deflate(p) for p in list(props)]
+
+        def get_unique_property_name():
+            for property_name, property in cls.defined_properties().items():
+                if property.unique_index and property.required:
+                    return property_name
+            raise MergeException("Didn't find unique and required property "
+                                 "to merge by on StructuredNode %s" % cls.__label__)
+
+        merge_property = get_unique_property_name()
+
+        params = {}
+        for i in range(0, len(deflated)):
+            query_id_field = "n{i}_{merge_property}".format(i=i, merge_property=merge_property)
+
+            id_field_part = "{%s: {%s}}" % (merge_property, query_id_field)
+            query += "MERGE (n{i}:{cls} {id_field_part})\n".format(i=i,
+                                            cls=cls.__label__,
+                                            id_field_part=id_field_part)
+            props = ", ".join(["n{}.{}={{n{}_{}}}".format(i, key, i, key)
+                for key, value in deflated[i].items()])
+
+            query += "ON CREATE SET {}\n".format(props)
+            query += "ON MATCH SET {}\n".format(props)
+
+            for key, value in deflated[i].items():
+                params["n{}_{}".format(i, key)] = value
+
+        query += "RETURN "
+        query += ", ".join(["n" + str(i) for i in range(0, len(deflated))])
+        results, meta = db.cypher_query(query, params)
+        return [cls.inflate(node) for node in results[0]]
 
     @classmethod
     def create(cls, *props):
