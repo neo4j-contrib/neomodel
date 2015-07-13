@@ -39,10 +39,9 @@ class CypherException(Exception):
         self.query_parameters = params
 
     def __str__(self):
-        trace = "\n    ".join(self.java_trace)
-
         return "\n{0}: {1}\nQuery: {2}\nParams: {3}\nTrace: {4}\n".format(
-            self.java_exception, self.message, self.query, repr(self.query_parameters), trace)
+            self.java_exception, self.message, self.query,
+            repr(self.query_parameters), self.java_trace)
 
 
 class TransactionError(Exception):

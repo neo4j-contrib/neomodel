@@ -1,10 +1,13 @@
-from neomodel import StructuredNode, StringProperty, DoesNotExist
+from neomodel import StructuredNode, StringProperty, DoesNotExist, CypherException
 import pickle
 
 
 class Person(StructuredNode):
     name = StringProperty(unique_index=True)
 
+
+def test_cypher_exception_can_be_displayed():
+    print(CypherException("SOME QUERY", (), "ERROR", None, None))
 
 def test_object_does_not_exist():
     try:
