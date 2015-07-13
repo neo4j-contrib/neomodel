@@ -7,7 +7,7 @@ class Person(StructuredNode):
 
 
 def test_cypher_exception_can_be_displayed():
-    print CypherException("SOME QUERY", (), "ERROR", None, None)
+    print(CypherException("SOME QUERY", (), "ERROR", None, None))
 
 def test_object_does_not_exist():
     try:
