@@ -7,13 +7,20 @@ OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 def rel_helper(**rel):
     if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
+        stmt = '-[{0}]->'
     elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
+        stmt = '<-[{0}]-'
     else:
-        stmt = '-[{0}:{1}]-'
-    ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
+        stmt = '-[{0}]-'
+
+    relation_type = rel.get('relation_type')
+    # support "wildcard" relation_type
+    if relation_type is None or relation_type == '*':
+        stmt = stmt.format('*')
+    else:
+        ident = rel['ident'] if 'ident' in rel else ''
+        stmt = stmt.format('%s:%s' % (ident, relation_type))
+
     return "({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
 
 
