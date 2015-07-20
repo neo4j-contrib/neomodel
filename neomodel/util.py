@@ -97,7 +97,7 @@ class Database(local):
 
         u = urlparse(_url)
         if u.netloc.find('@') > -1:
-            credentials, self.host = u.netloc.rsplit('@')
+            credentials, self.host = u.netloc.rsplit('@', 1)
             self.user, self.password, = credentials.split(':')
             self.url = ''.join([u.scheme, '://', self.host, u.path, u.query])
             neo4j.authenticate(self.host, self.user, self.password)
