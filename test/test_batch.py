@@ -22,6 +22,37 @@ def test_batch_create():
     assert Customer.nodes.get(email='jim1@aol.com')
 
 
+
+def test_batch_merge():
+    users = Customer.merge(
+            {'email': 'jim1@aol.com', 'age': 11},
+            {'email': 'jim2@aol.com', 'age': 7},
+            {'email': 'jim3@aol.com', 'age': 9},
+            {'email': 'jim4@aol.com', 'age': 7},
+            {'email': 'jim5@aol.com', 'age': 99},
+    )
+    assert len(users) == 5
+    assert users[0].age == 11
+    assert users[1].age == 7
+    assert users[1].email == 'jim2@aol.com'
+    assert Customer.nodes.get(email='jim1@aol.com')
+
+
+def test_batch_merge_creates_and_updates_graph():
+    for u in Customer.nodes.all():
+        u.delete()
+
+    Customer.merge(
+            {'email': 'jim@aol.com', 'age': 11},
+            {'email': 'jim@aol.com', 'age': 7},
+            {'email': 'jim@aol.com', 'age': 9},
+            {'email': 'jim@aol.com', 'age': 7},
+            {'email': 'jim@aol.com', 'age': 99},
+    )
+    assert len(Customer.nodes.all()) == 1
+    assert Customer.nodes.get(email="jim@aol.com").age == 99
+
+
 def test_batch_validation():
     # test validation in batch create
     try:
