@@ -6,7 +6,8 @@ import sys
 from threading import local
 
 from py2neo import authenticate, Graph, Resource
-from py2neo.cypher import CypherTransaction, CypherResource
+from py2neo.batch import CypherJob
+from py2neo.cypher import CypherTransaction, CypherResource, RecordList
 from py2neo.cypher.core import RecordProducer
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.cypher.error import ClientError
@@ -169,6 +170,10 @@ class Database(local):
         if hasattr(self, 'tx_session'):
             raise SystemError("Transaction already in progress")
 
+        # make sure thread local session is set
+        if not hasattr(self, 'session'):
+            self.new_session()
+
         self.tx_session = self.session.cypher.begin()
 
     def commit(self):
@@ -222,6 +227,28 @@ class Database(local):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
         return results
+
+    def cypher_batch_query(self, queries):
+        """
+        Streams the provided queries, and generates responses when iterated.
+
+        :param queries:  List of tuples, each with a (cypher query, params)
+        :type queries: list of tuples
+        :rtype: generator
+        """
+        jobs = []
+        for query, params in queries:
+            jobs.append(CypherJob(query, params))
+
+        # make sure thread local session is set
+        if not hasattr(self, 'session'):
+            self.new_session()
+
+        for r in self.session.batch.stream(jobs):
+            if r.content:
+                yield RecordList.hydrate(r.content, self.session)
+            else:
+                yield None
 
 
 def deprecated(message):
