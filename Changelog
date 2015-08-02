@@ -1,3 +1,15 @@
+Version 2.0.1 2015-08-01
+ * add support for py2neo 2.x
+ * transitioned START queries to MATCH
+ * added authentication documentation for neo4j 2.2.x
+ * removed tight coupling with pytz
+ * resolved DeadlockDetectedException due to duplicate constraint and index
+ creation
+ * resolved conform errors NodeSet.get() and RelationshipManager.get()
+ * resolved username and password interpretation
+ * resolved on_count()'s order_by bug
+ * resolved CypherException TyperError exception bug
+
 Version 1.0.3 unreleased
  * add support for choices on string properites.
 
