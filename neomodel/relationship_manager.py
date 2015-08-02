@@ -1,7 +1,7 @@
 import sys
 import functools
 from importlib import import_module
-from .exception import DoesNotExist, NotConnected
+from .exception import NotConnected, MultipleNodesReturned
 from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal
 
@@ -35,16 +35,12 @@ class RelationshipManager(Traversal):
     @check_source
     def get(self, **kwargs):
         result = self.search(**kwargs)
-        if len(result) == 1:
-            return result[0]
-        if kwargs:
-            msg = ", ".join(["{}: {}".format(str(k), str(v)) for k, v in kwargs.items()])
-        else:
-            msg = ""
         if len(result) > 1:
-            raise Exception("Multiple items returned, use search?{}".format(msg))
-        if not result:
-            raise DoesNotExist("No items exist for the specified arguments.{}".format(msg))
+            raise MultipleNodesReturned(repr(kwargs))
+        elif not result:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+        else:
+            return result[0]
 
     # TODO
     @check_source
