@@ -7,7 +7,7 @@ this inflates nodes to their class. It is your responsibility to make sure nodes
 
     class Person(StructuredNode):
         def friends(self):
-            results, columns = self.cypher("START a=node({self}) MATCH a-[:FRIEND]->(b) RETURN b")
+            results, columns = self.cypher("MATCH a WHERE id(a)={self} MATCH (a)-[:FRIEND]->(b) RETURN b")
             return [self.inflate(row[0]) for row in results]
 
 The self query parameter is prepopulated with the current node id. It's possible to pass in your

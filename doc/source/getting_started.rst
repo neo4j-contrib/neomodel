@@ -4,10 +4,27 @@ Getting started
 
 Connecting
 ==========
+Authentication
+--------------
+Please note that if you are utilizing Neo4j version 2.2 or newer there are
+some additional setup steps necessary relating to authentication. As of version 2.2
+Neo4j authentication is activated by default on new instances. Please follow the
+outstanding documentation provided by py2neo's Authentication_
+section to setup new credentials. If you are utilizing a hosted service this
+is most likely already taken care for you. If you don't want to setup the
+credentials an alternative method would be to go into your neo4j-server.properties files
+and deactivate authentication as detailed in the Neo4j Manual_ but as Neo4j points
+out this is not suggested.
 
+.. _Authentication: http://py2neo.org/2.0/essentials.html#authentication
+.. _Manual: http://neo4j.com/docs/stable/security-server.html#security-server-auth
+
+Neomodel Connection
+-------------------
 Set the location of neo4j via an environment variable (default is http://localhost:7474/db/data/)::
 
     export NEO4J_REST_URL=http://user:password@localhost:7474/db/data/
+
 
 Definition
 ==========

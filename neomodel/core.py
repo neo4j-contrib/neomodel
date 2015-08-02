@@ -1,4 +1,8 @@
 import os
+
+from py2neo.cypher.error.schema import (IndexAlreadyExists,
+                                        ConstraintAlreadyExists)
+
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
@@ -11,12 +15,27 @@ db = Database(DATABASE_URL)
 
 def install_labels(cls):
     # TODO when to execute this?
+    if not hasattr(db, 'session'):
+        db.new_session()
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-            db.cypher_query("CREATE INDEX on :{}({}); ".format(cls.__label__, key))
+            indexes = db.session.schema.get_indexes(cls.__label__)
+            if key not in indexes:
+                try:
+                    db.cypher_query("CREATE INDEX on :{}({}); ".format(
+                        cls.__label__, key))
+                except IndexAlreadyExists:
+                    pass
         elif prop.unique_index:
-            db.cypher_query("CREATE CONSTRAINT on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                    cls.__label__, key))
+            unique_const = db.session.schema.get_uniqueness_constraints(
+                cls.__label__)
+            if key not in unique_const:
+                try:
+                    db.cypher_query("CREATE CONSTRAINT "
+                                    "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                                        cls.__label__, key))
+                except (ConstraintAlreadyExists, IndexAlreadyExists):
+                    pass
 
 
 
@@ -36,7 +55,8 @@ class NodeMeta(type):
                     value.name = key
                     value.owner = inst
                     # support for 'magic' properties
-                    if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
+                    if hasattr(value, 'setup') and hasattr(
+                            value.setup, '__call__'):
                         value.setup()
             if '__label__' in dct:
                 inst.__label__ = dct['__label__']
@@ -64,7 +84,8 @@ class StructuredNode(NodeBase):
         if 'deleted' in kwargs:
             raise ValueError("deleted property is reserved for neomodel")
 
-        for key, val in self.defined_properties(aliases=False, properties=False).items():
+        for key, val in self.defined_properties(
+                aliases=False, properties=False).items():
             self.__dict__[key] = val.build_manager(self, key)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
@@ -81,7 +102,8 @@ class StructuredNode(NodeBase):
 
     def labels(self):
         self._pre_action_check('labels')
-        return self.cypher("START self=node({self}) RETURN labels(self)")[0][0][0]
+        return self.cypher("MATCH n WHERE id(n)={self} "
+                           "RETURN labels(n)")[0][0][0]
 
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
@@ -92,10 +114,12 @@ class StructuredNode(NodeBase):
     @classmethod
     def inherited_labels(cls):
         return [scls.__label__ for scls in cls.mro()
-                if hasattr(scls, '__label__') and not hasattr(scls, '__abstract_node__')]
+                if hasattr(scls, '__label__') and not hasattr(
+                scls, '__abstract_node__')]
 
     @classmethod
-    @deprecated("Category nodes are now deprecated, the functionality is emulated using labels")
+    @deprecated("Category nodes are now deprecated, the functionality is "
+                "emulated using labels")
     def category(cls):
         return FakeCategory(cls)
 
@@ -104,29 +128,34 @@ class StructuredNode(NodeBase):
         # create or update instance node
         if hasattr(self, '_id'):
             # update
-            query = "START self=node({self})\n"
-            query += "\n".join(["SET self.{} = {{{}}}".format(key, key) + "\n"
-                for key in self.__properties__.keys()])
+            query = "MATCH n WHERE id(n)={self} \n"
+            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
+                                for key in self.__properties__.keys()])
             for label in self.inherited_labels():
-                query += "SET self:`{}`\n".format(label)
+                query += "SET n:`{}`\n".format(label)
             params = self.deflate(self.__properties__, self)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.save() attempted on deleted node".format(self.__class__.__name__))
-        else: # create
+            raise ValueError("{}.save() attempted on deleted node".format(
+                self.__class__.__name__))
+        else:  # create
             self._id = self.create(self.__properties__)[0]._id
         return self
 
     def _pre_action_check(self, action):
         if hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.{}() attempted on deleted node".format(self.__class__.__name__, action))
+            raise ValueError("{}.{}() attempted on deleted node".format(
+                self.__class__.__name__, action))
         if not hasattr(self, '_id'):
-            raise ValueError("{}.{}() attempted on unsaved node".format(self.__class__.__name__, action))
+            raise ValueError("{}.{}() attempted on unsaved node".format(
+                self.__class__.__name__, action))
 
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("START self=node({self}) OPTIONAL MATCH (self)-[r]-() DELETE r, self")
+        self.cypher("MATCH self WHERE id(self)={self} "
+                    "OPTIONAL MATCH (self)-[r]-()"
+                    " DELETE r, self")
         del self.__dict__['_id']
         self.deleted = True
         return True
@@ -135,7 +164,8 @@ class StructuredNode(NodeBase):
         """Reload this object from its node id in the database"""
         self._pre_action_check('refresh')
         if hasattr(self, '_id'):
-            node = self.inflate(self.cypher("START n=node({self}) RETURN n")[0][0][0])
+            node = self.inflate(self.cypher("MATCH n WHERE id(n)={self}"
+                                            " RETURN n")[0][0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
         else:
@@ -172,8 +202,8 @@ class StructuredNode(NodeBase):
     def inflate(cls, node):
         props = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            if key in node._properties:
-                props[key] = prop.inflate(node._properties[key], node)
+            if key in node.properties:
+                props[key] = prop.inflate(node.properties[key], node)
             elif prop.has_default:
                 props[key] = prop.default_value()
             else:
