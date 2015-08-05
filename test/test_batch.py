@@ -9,17 +9,54 @@ class Customer(StructuredNode):
 
 def test_batch_create():
     users = Customer.create(
-            {'email': 'jim1@aol.com', 'age': 11},
-            {'email': 'jim2@aol.com', 'age': 7},
-            {'email': 'jim3@aol.com', 'age': 9},
-            {'email': 'jim4@aol.com', 'age': 7},
-            {'email': 'jim5@aol.com', 'age': 99},
+        {'email': 'jim1@aol.com', 'age': 11},
+        {'email': 'jim2@aol.com', 'age': 7},
+        {'email': 'jim3@aol.com', 'age': 9},
+        {'email': 'jim4@aol.com', 'age': 7},
+        {'email': 'jim5@aol.com', 'age': 99},
     )
     assert len(users) == 5
     assert users[0].age == 11
     assert users[1].age == 7
     assert users[1].email == 'jim2@aol.com'
     assert Customer.nodes.get(email='jim1@aol.com')
+
+
+def test_batch_create_streaming():
+    users = Customer.create(
+        {'email': 'dan1@aol.com', 'age': 11},
+        {'email': 'dan2@aol.com', 'age': 7},
+        {'email': 'dan3@aol.com', 'age': 9},
+        {'email': 'dan4@aol.com', 'age': 7},
+        {'email': 'dan5@aol.com', 'age': 99},
+        streaming=True,
+    )
+    users = list(users)
+    assert len(users) == 5
+    assert users[0].age == 11
+    assert users[1].age == 7
+    assert users[1].email == 'dan2@aol.com'
+    assert Customer.nodes.get(email='dan1@aol.com')
+
+
+def test_batch_create_or_update():
+    users = Customer.create_or_update(
+        {'email': 'merge1@aol.com', 'age': 11},
+        {'email': 'merge2@aol.com'},
+        {'email': 'merge3@aol.com', 'age': 1},
+        {'email': 'merge2@aol.com', 'age': 2},
+    )
+    assert len(users) == 4
+    assert users[1] == users[3]
+    assert Customer.nodes.get(email='merge1@aol.com').age == 11
+
+    more_users = Customer.create_or_update(
+        {'email': 'merge1@aol.com', 'age': 22},
+        {'email': 'merge4@aol.com', 'age': None}
+    )
+    assert len(more_users) == 2
+    assert users[0] == more_users[0]
+    assert Customer.nodes.get(email='merge1@aol.com').age == 22
 
 
 def test_batch_validation():

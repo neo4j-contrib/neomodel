@@ -228,7 +228,7 @@ class Database(local):
 
         return results
 
-    def cypher_batch_query(self, queries):
+    def cypher_stream_query(self, queries):
         """
         Streams the provided queries, and generates responses when iterated.
 
@@ -250,6 +250,54 @@ class Database(local):
             else:
                 yield None
 
+    def cypher_batch_query(self, queries, handle_unique=True):
+        """
+        Batch the provided queries, and returns all responses.
+
+        :param queries:  List of tuples, each with a (cypher query, params)
+        :type queries: list of tuples
+        :rtype: list of RecordList
+        """
+        tx_created = False
+        tx = getattr(self, 'tx_session', None)
+        # operation requires a transaction for batch processing
+        if not tx:
+            # make sure thread local session is set
+            if not hasattr(self, 'session'):
+                self.new_session()
+            tx = self.session.cypher.begin()
+            tx_created = True
+
+        try:
+            # process all queries
+            for q, params in queries:
+                tx.append(q, params)
+            results = tx.process()
+
+            # if tx was created internally, make sure to commit changes
+            if tx_created:
+                tx.commit()
+
+            return results
+        except (ClientError, TransactionError) as e:
+            # if tx was created internally, make try to rollback changes
+            if tx_created:
+                try:
+                    tx.rollback()
+                except:
+                    pass
+
+            if (handle_unique and e.message and " already exists with label " in e.message
+                    and e.message.startswith('Node ')):
+                raise UniqueProperty(e.message)
+
+            if isinstance(e, ClientError):
+                raise e
+
+            if isinstance(e, TransactionError):
+                raise CypherException(queries, {}, e.message, e.java_exception, e.java_trace)
+
+            raise CypherException(queries, {}, e.message, e.exception, e.stack_trace)
 
 def deprecated(message):
     def f__(f):
