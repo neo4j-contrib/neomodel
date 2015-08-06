@@ -3,7 +3,7 @@ Batch nodes operations
 ======================
 
 All batch operations can be executed with one or more node. These are carried out in a transaction if one was defined.
-These methods except an optional "streaming" parameter, when set to ``True``, ``StructuredNode``s are returned by an
+These methods except an optional "streaming" parameter, when set to ``True``, ``StructuredNode`` s are returned by an
 iterable generator instead of a simple list. See streaming_.
 
 create()
@@ -84,6 +84,7 @@ In case when the only required property is unique, the operation is redundant. H
 the relationship becomes a part of the unique identifier.
 
 .. _streaming:
+
 Using streaming=True
 --------------------
 This parameter is supported by all batch operations::
