@@ -58,7 +58,7 @@ class NodeMeta(type):
                         value.setup()
 
             # cache the names of all required and unique_index properties
-            all_required = set(name for name, p in inst.defined_properties(aliases=False, rels=False).iteritems()
+            all_required = set(name for name, p in inst.defined_properties(aliases=False, rels=False).items()
                                if p.required or p.unique_index)
             inst.__required_properties__ = tuple(all_required)
 
@@ -219,7 +219,7 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in create_params])
-        params = dict(("n_{}".format(key), value) for key, value in create_params.iteritems())
+        params = dict(("n_{}".format(key), value) for key, value in create_params.items())
         query = "CREATE (n {{{}}})\n".format(props)
         # add all inherited labels to the created entity
         for label in cls.inherited_labels():
@@ -241,12 +241,12 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in match_params])
-        params = dict(("n_{}".format(key), value) for key, value in match_params.iteritems())
+        params = dict(("n_{}".format(key), value) for key, value in match_params.items())
         query = "MERGE (n {{{}}})\n".format(props)
         # add update properties
         if update_params:
             update_props = ", ".join(["n.{0}={{n_{0}}}".format(key) for key in update_params])
-            params.update(dict(("n_{}".format(key), value) for key, value in update_params.iteritems()))
+            params.update(dict(("n_{}".format(key), value) for key, value in update_params.items()))
             query += "ON CREATE SET {}\n".format(update_props)
             query += "ON MATCH SET {}\n".format(update_props)
         # add all inherited labels to the created entity
@@ -275,7 +275,7 @@ class StructuredNode(NodeBase):
         query += "CREATE UNIQUE (source)-[:{}]->(n:{} ".format(relation_type, cls.__label__)
         # add cls properties, and close create unique "})"
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in create_params])
-        params = dict(("n_{}".format(key), value) for key, value in create_params.iteritems())
+        params = dict(("n_{}".format(key), value) for key, value in create_params.items())
         query += "{{{}}})\n".format(props)
         # add all inherited labels to the created entity
         for label in cls.inherited_labels():
