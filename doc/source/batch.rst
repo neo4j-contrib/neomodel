@@ -4,7 +4,7 @@ Batch nodes operations
 
 All batch operations can be executed with one or more node. These are carried out in a transaction if one was defined.
 These methods except an optional "streaming" parameter, when set to ``True``, ``StructuredNode`` s are returned by an
-iterable generator instead of a simple list. See using-streamingtrue_.
+iterable generator instead of a simple list.
 
 create()
 --------
