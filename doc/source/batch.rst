@@ -4,7 +4,7 @@ Batch nodes operations
 
 All batch operations can be executed with one or more node. These are carried out in a transaction if one was defined.
 These methods except an optional "streaming" parameter, when set to ``True``, ``StructuredNode`` s are returned by an
-iterable generator instead of a simple list. See streaming_.
+iterable generator instead of a simple list. See using-streamingtrue_.
 
 create()
 --------
@@ -83,8 +83,6 @@ matching is done based on that relationship and not globally::
 In case when the only required property is unique, the operation is redundant. However with simple required properties,
 the relationship becomes a part of the unique identifier.
 
-.. _streaming:
-
 Using streaming=True
 --------------------
 This parameter is supported by all batch operations::
@@ -95,4 +93,4 @@ This parameter is supported by all batch operations::
 
         yield person
 
- IMPORTANT: In streaming mode results are not fetched inside an existing transaction.
+IMPORTANT: In streaming mode results are not fetched inside an existing transaction.
