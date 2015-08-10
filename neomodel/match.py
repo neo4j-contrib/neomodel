@@ -132,7 +132,7 @@ class QueryBuilder(object):
 
             self.build_additional_match(ident, source)
 
-            if hasattr(self.node_set, '_order_by'):
+            if hasattr(source, '_order_by'):
                 self.build_order_by(ident, source)
 
             if source.filters:
