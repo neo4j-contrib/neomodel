@@ -192,7 +192,10 @@ class StructuredNode(NodeBase):
         :rtype: tuple of dict, dict
         """
         required_params = dict((name, None) for name in cls.__required_properties__)
-        optional_params = dict(params)
+        if required_only:
+            optional_params = {}
+        else:
+            optional_params = dict(params)
 
         # validate required params
         for required in required_params:
@@ -201,11 +204,7 @@ class StructuredNode(NodeBase):
                 raise ValueError('Missing required property [%s] in %s' % (required, repr(params)))
             required_params[required] = value
             # remove required parameter
-            optional_params.pop(required)
-
-        # validate required params only
-        if required_only and optional_params:
-            raise ValueError('Required properties only expected, got optional: %s' % repr(optional_params))
+            optional_params.pop(required, None)
 
         return required_params, optional_params
 
@@ -242,16 +241,20 @@ class StructuredNode(NodeBase):
         """
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in match_params])
         params = dict(("n_{}".format(key), value) for key, value in match_params.items())
-        query = "MERGE (n {{{}}})\n".format(props)
-        # add update properties
-        if update_params:
+        query = "MERGE (n:{} {{{}}})\n".format(cls.__label__, props)
+        # all inherited labels to the created entity
+        labels = ''.join(["SET n:`{}`\n".format(l) for l in cls.inherited_labels()])
+        # add labels on create when no update properties
+        if not update_params:
+            if labels:
+                query += "ON CREATE {}".format(labels)
+        else:
+            # add update properties
             update_props = ", ".join(["n.{0}={{n_{0}}}".format(key) for key in update_params])
             params.update(dict(("n_{}".format(key), value) for key, value in update_params.items()))
-            query += "ON CREATE SET {}\n".format(update_props)
             query += "ON MATCH SET {}\n".format(update_props)
-        # add all inherited labels to the created entity
-        for label in cls.inherited_labels():
-            query += "SET n:`{}`\n".format(label)
+            query += "ON CREATE SET {}\n".format(update_props)
+            query += labels
         # close query
         query += "RETURN n"
 
@@ -344,12 +347,8 @@ class StructuredNode(NodeBase):
         :param streaming: Optional, Specify streaming=True to get a results generator instead of a list.
         :rtype: list
         """
-        # get values for each properties dict in collection
-        deflated = [cls.deflate(p) for p in props]
-        # validate all properties have all required params, and only them
-        for p in deflated:
-            cls._validate_params(p, required_only=True)
-
+        # validate all properties have all required params, and only use them
+        deflated = [cls._validate_params(cls.deflate(p), required_only=True)[0] for p in props]
         # define the build query type to use MERGE or CREATE UNIQUE and default args
         query_args = ()
         relationship = kwargs.get('relationship')
