@@ -194,3 +194,29 @@ def test_order_by():
     ns = ns.order_by(None)
     qb = QueryBuilder(ns).build_ast()
     assert not qb._ast['order_by']
+
+
+def test_extra_filters():
+
+    for c in Coffee.nodes:
+        c.delete()
+
+    c1 = Coffee(name="Icelands finest", price=5).save()
+    c2 = Coffee(name="Britains finest", price=10).save()
+    c3 = Coffee(name="Japans finest", price=35).save()
+    c4 = Coffee(name="US extra-fine", price=None).save()
+
+    coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5]).all()
+    assert len(coffees_5_10) == 2, "unexpected number of results"
+    assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
+    assert c2 in coffees_5_10, "doesnt contain 10 price coffee"
+
+    finest_coffees = Coffee.nodes.filter(name__iendswith=' Finest').all()
+    assert len(finest_coffees) == 3, "unexpected number of results"
+    assert c1 in finest_coffees, "doesnt contain 1st finest coffee"
+    assert c2 in finest_coffees, "doesnt contain 2nd finest coffee"
+    assert c3 in finest_coffees, "doesnt contain 3rd finest coffee"
+
+    unpriced_coffees = Coffee.nodes.filter(price__isnull=True).all()
+    assert len(unpriced_coffees) == 1, "unexpected number of results"
+    assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
