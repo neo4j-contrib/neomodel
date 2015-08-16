@@ -5,6 +5,12 @@ import inspect
 import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
+# basestring python 3.x fallback
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 def rel_helper(**rel):
     if rel['direction'] == OUTGOING:
