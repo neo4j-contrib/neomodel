@@ -220,9 +220,8 @@ class StructuredNode(NodeBase):
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in create_params])
         params = dict(("n_{}".format(key), value) for key, value in create_params.items())
         query = "CREATE (n {{{}}})\n".format(props)
-        # add all inherited labels to the created entity
-        for label in cls.inherited_labels():
-            query += "SET n:`{}`\n".format(label)
+        # add node labels
+        query += ''.join(["SET n:`{}`\n".format(l) for l in cls.inherited_labels()])
         # close query
         query += "RETURN n"
 
@@ -280,9 +279,8 @@ class StructuredNode(NodeBase):
         props = ", ".join(["{0}: {{n_{0}}}".format(key) for key in create_params])
         params = dict(("n_{}".format(key), value) for key, value in create_params.items())
         query += "{{{}}})\n".format(props)
-        # add all inherited labels to the created entity
-        for label in cls.inherited_labels():
-            query += "SET n:`{}`\n".format(label)
+        # add node labels
+        query += ''.join(["SET n:`{}`\n".format(l) for l in cls.inherited_labels()])
         # close query
         query += "RETURN n"
 

@@ -236,10 +236,7 @@ class Database(local):
         :type queries: list of tuples
         :rtype: generator
         """
-        jobs = []
-        for query, params in queries:
-            jobs.append(CypherJob(query, params))
-
+        jobs = [CypherJob(query, params) for query, params in queries]
         # make sure thread local session is set
         if not hasattr(self, 'session'):
             self.new_session()
