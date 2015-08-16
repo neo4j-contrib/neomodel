@@ -69,7 +69,7 @@ def test_query_inside_transaction():
         p.delete()
 
     with db.transaction:
-        Person('Alice').save()
-        Person('Bob').save()
+        Person(name='Alice').save()
+        Person(name='Bob').save()
 
         assert len([p.name for p in Person.nodes]) == 2

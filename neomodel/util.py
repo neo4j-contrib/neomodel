@@ -6,7 +6,8 @@ import sys
 from threading import local
 
 from py2neo import authenticate, Graph, Resource
-from py2neo.cypher import CypherTransaction, CypherResource
+from py2neo.batch import CypherJob
+from py2neo.cypher import CypherTransaction, CypherResource, RecordList
 from py2neo.cypher.core import RecordProducer
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.cypher.error import ClientError
@@ -169,6 +170,10 @@ class Database(local):
         if hasattr(self, 'tx_session'):
             raise SystemError("Transaction already in progress")
 
+        # make sure thread local session is set
+        if not hasattr(self, 'session'):
+            self.new_session()
+
         self.tx_session = self.session.cypher.begin()
 
     def commit(self):
@@ -223,6 +228,73 @@ class Database(local):
 
         return results
 
+    def cypher_stream_query(self, queries):
+        """
+        Streams the provided queries, and generates responses when iterated.
+
+        :param queries:  List of tuples, each with a (cypher query, params)
+        :type queries: list of tuples
+        :rtype: generator
+        """
+        jobs = [CypherJob(query, params) for query, params in queries]
+        # make sure thread local session is set
+        if not hasattr(self, 'session'):
+            self.new_session()
+
+        for r in self.session.batch.stream(jobs):
+            if r.content:
+                yield RecordList.hydrate(r.content, self.session)
+            else:
+                yield None
+
+    def cypher_batch_query(self, queries, handle_unique=True):
+        """
+        Batch the provided queries, and returns all responses.
+
+        :param queries:  List of tuples, each with a (cypher query, params)
+        :type queries: list of tuples
+        :rtype: list of RecordList
+        """
+        tx_created = False
+        tx = getattr(self, 'tx_session', None)
+        # operation requires a transaction for batch processing
+        if not tx:
+            # make sure thread local session is set
+            if not hasattr(self, 'session'):
+                self.new_session()
+            tx = self.session.cypher.begin()
+            tx_created = True
+
+        try:
+            # process all queries
+            for q, params in queries:
+                tx.append(q, params)
+            results = tx.process()
+
+            # if tx was created internally, make sure to commit changes
+            if tx_created:
+                tx.commit()
+
+            return results
+        except (ClientError, TransactionError) as e:
+            # if tx was created internally, make try to rollback changes
+            if tx_created:
+                try:
+                    tx.rollback()
+                except:
+                    pass
+
+            if (handle_unique and e.message and " already exists with label " in e.message
+                    and e.message.startswith('Node ')):
+                raise UniqueProperty(e.message)
+
+            if isinstance(e, ClientError):
+                raise e
+
+            if isinstance(e, TransactionError):
+                raise CypherException(queries, {}, e.message, e.java_exception, e.java_trace)
+
+            raise CypherException(queries, {}, e.message, e.exception, e.stack_trace)
 
 def deprecated(message):
     def f__(f):

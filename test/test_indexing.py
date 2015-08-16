@@ -20,15 +20,15 @@ def test_unique_error():
 
 
 def test_optional_properties_dont_get_indexed():
-    Human(name=None, age=99).save()
+    Human(name='99', age=99).save()
     h = Human.index.get(age=99)
     assert h
-    assert h.name is None
+    assert h.name == '99'
 
-    Human(age=98).save()
+    Human(name='98', age=98).save()
     h = Human.index.get(age=98)
     assert h
-    assert h.name is None
+    assert h.name == '98'
 
 
 def test_escaped_chars():
