@@ -9,7 +9,15 @@ from .signals import hooks
 from .util import Database, deprecated, classproperty
 
 
-DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
+try:
+    from django.core.exceptions import ImproperlyConfigured
+    try:
+        from django.conf import settings
+        DATABASE_URL = settings.NEO4J_REST_URL
+    except (ImproperlyConfigured, AttributeError):
+        raise ImportError
+except ImportError:
+    DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
 db = Database(DATABASE_URL)
 
 
