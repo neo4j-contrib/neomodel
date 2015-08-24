@@ -41,6 +41,18 @@ The filter method borrows the same django filter format with double underscore p
 - lte - less than or equal to
 - gte - greater than or equal to
 - ne - not equal
+- in - item in list
+- isnull - `True` IS NULL, `False` IS NOT NULL
+- exact - string equals
+- iexact - string equals, case insensitive
+- contains - contains string value
+- icontains - contains string value, case insensitive
+- startswith - starts with string value
+- istartswith - starts with string value, case insensitive
+- endswith - ends with string value
+- iendswith - ends with string value, case insensitive
+- regex - matches a regex expression
+- iregex - matches a regex expression, case insensitive
 
 Has a relationship
 ==================

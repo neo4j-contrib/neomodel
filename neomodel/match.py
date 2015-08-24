@@ -2,7 +2,14 @@ from .core import StructuredNode, db
 from .properties import AliasProperty
 from .exception import MultipleNodesReturned
 import inspect
+import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
+
+# basestring python 3.x fallback
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwargs):
@@ -45,13 +52,51 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwarg
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
 
+# special operators
+_SPECIAL_OPERATOR_IN = 'IN'
+_SPECIAL_OPERATOR_INSESITIVE = '(?i)'
+_SPECIAL_OPERATOR_ISNULL = 'IS NULL'
+_SPECIAL_OPERATOR_ISNOTNULL = 'IS NOT NULL'
+_SPECIAL_OPERATOR_REGEX = '=~'
+
+_UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
+
+_REGEX_INSESITIVE = _SPECIAL_OPERATOR_INSESITIVE + '{}'
+_REGEX_CONTAINS = '.*{}.*'
+_REGEX_STARTSWITH = '{}.*'
+_REGEX_ENDSWITH = '.*{}'
+
+# regex operations that require escaping
+_STRING_REGEX_OPERATOR_TABLE = {
+    'iexact': _REGEX_INSESITIVE,
+    'contains': _REGEX_CONTAINS,
+    'icontains': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_CONTAINS,
+    'startswith': _REGEX_STARTSWITH,
+    'istartswith': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_STARTSWITH,
+    'endswith': _REGEX_ENDSWITH,
+    'iendswith': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_ENDSWITH,
+}
+# regex operations that do not require escaping
+_REGEX_OPERATOR_TABLE = {
+    'iregex': _REGEX_INSESITIVE,
+}
+# list all regex operations, these will require formatting of the value
+_REGEX_OPERATOR_TABLE.update(_STRING_REGEX_OPERATOR_TABLE)
+
+# list all supported operators
 OPERATOR_TABLE = {
     'lt': '<',
     'gt': '>',
     'lte': '<=',
     'gte': '>=',
     'ne': '<>',
+    'in': _SPECIAL_OPERATOR_IN,
+    'isnull': _SPECIAL_OPERATOR_ISNULL,
+    'regex': _SPECIAL_OPERATOR_REGEX,
+    'exact': '='
 }
+# add all regex operators
+OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
 
 def install_traversals(cls, node_set):
@@ -96,7 +141,26 @@ def process_filter_args(cls, kwargs):
             prop = property_obj.aliased_to()
             deflated_value = getattr(cls, prop).deflate(value)
         else:
-            deflated_value = property_obj.deflate(value)
+            # handle special operators
+            if operator == _SPECIAL_OPERATOR_IN:
+                if not isinstance(value, tuple) and not isinstance(value, list):
+                    raise ValueError('Value must be a tuple or list for IN operation {}={}'.format(key, value))
+                deflated_value = [property_obj.deflate(v) for v in value]
+            elif operator == _SPECIAL_OPERATOR_ISNULL:
+                if not isinstance(value, bool):
+                    raise ValueError('Value must be a bool for isnull operation on {}'.format(key))
+                operator = 'IS NULL' if value else 'IS NOT NULL'
+                deflated_value = None
+            elif operator in _REGEX_OPERATOR_TABLE.values():
+                deflated_value = property_obj.deflate(value)
+                if not isinstance(deflated_value, basestring):
+                    raise ValueError('Must be a string value for {}'.format(key))
+                if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+                    deflated_value = re.escape(deflated_value)
+                deflated_value = operator.format(deflated_value)
+                operator = _SPECIAL_OPERATOR_REGEX
+            else:
+                deflated_value = property_obj.deflate(value)
 
         output[prop] = (operator, deflated_value)
 
@@ -271,11 +335,14 @@ class QueryBuilder(object):
 
             for prop, op_and_val in row.items():
                 op, val = op_and_val
-                place_holder = self._register_place_holder(ident + '_' + prop)
-                statement = '{} {}.{} {} {{{}}}'.format(
-                    'NOT' if negate else '', ident, prop, op, place_holder)
+                if op in _UNARY_OPERATORS:
+                    # unary operators do not have a parameter
+                    statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
+                else:
+                    place_holder = self._register_place_holder(ident + '_' + prop)
+                    statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                    self._query_params[place_holder] = val
                 stmts.append(statement)
-                self._query_params[place_holder] = val
 
         self._ast['where'].append(' AND '.join(stmts))
 
