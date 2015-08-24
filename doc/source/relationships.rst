@@ -62,3 +62,18 @@ You can retrieve relationships between two nodes using the 'relationship' method
 This is only available for relationships with a defined relationship model::
 
     rel = jim.friend.relationship(bob)
+
+Explicit Traversal
+==================
+
+It is possible to specify a node traversal by creating a Traversal object. This will get all Person entities that are
+directly related to another Person, through all relationships::
+
+    definition = dict(node_class=Person, direction=OUTGOING, relation_type=None, model=None)
+    relations_traversal = Traversal(jim, Person.__label__, definition)
+    all_jims_relations = relations_traversal.all()
+
+- node class: the type of the relationship target
+- direction: OUTGOING/INCOMING/EITHER
+- realtion_type: can be None (any direct), '*' for all paths or an explicit name of the relationship type.
+- model: the tpye of the model object, None for simple relationship

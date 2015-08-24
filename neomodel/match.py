@@ -5,16 +5,44 @@ import inspect
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
-def rel_helper(**rel):
-    if rel['direction'] == OUTGOING:
-        stmt = '-[{0}:{1}]->'
-    elif rel['direction'] == INCOMING:
-        stmt = '<-[{0}:{1}]-'
+def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwargs):
+    """
+    Generate a relationship matching string, with specified parameters.
+    Examples:
+    relation_direction = OUTGOING: (lhs)-[relation_ident:relation_type]->(rhs)
+    relation_direction = INCOMING: (lhs)<-[relation_ident:relation_type]-(rhs)
+    relation_direction = EITHER: (lhs)-[relation_ident:relation_type]-(rhs)
+
+    :param lhs: The left hand statement.
+    :type lhs: str
+    :param rhs: The right hand statement.
+    :type rhs: str
+    :param ident: A specific identity to name the relationship, or None.
+    :type ident: str
+    :param relation_type: None for all direct rels, * for all of any length, or a name of an explicit rel.
+    :type relation_type: str
+    :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
+    :rtype: str
+    """
+
+    if direction == OUTGOING:
+        stmt = '-{0}->'
+    elif direction == INCOMING:
+        stmt = '<-{0}-'
     else:
-        stmt = '-[{0}:{1}]-'
-    ident = rel['ident'] if 'ident' in rel else ''
-    stmt = stmt.format(ident, rel['relation_type'])
-    return "({0}){1}({2})".format(rel['lhs'], stmt, rel['rhs'])
+        stmt = '-{0}-'
+
+    # direct, relation_type=None is unspecified, relation_type
+    if relation_type is None:
+        stmt = stmt.format('')
+    # all("*" wildcard) relation_type
+    elif relation_type == '*':
+        stmt = stmt.format('[*]')
+    else:
+        # explicit relation_type
+        stmt = stmt.format('[%s:%s]' % (ident if ident else '', relation_type))
+
+    return "({0}){1}({2})".format(lhs, stmt, rhs)
 
 
 OPERATOR_TABLE = {
