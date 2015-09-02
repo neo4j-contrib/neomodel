@@ -50,27 +50,33 @@ class SemiStructuredNode(StructuredNode):
 
     @classmethod
     def inflate(cls, node):
-        props = {}
-        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            if key in node.properties:
-                props[key] = prop.inflate(node.properties[key])
-            elif prop.has_default:
-                props[key] = prop.default_value()
-            else:
-                props[key] = None
-        # handle properties not defined on the class
-        for free_key in [key for key in node.properties if key not in props]:
-            if hasattr(cls, free_key):
-                raise InflateConflict(cls, free_key, node.properties[free_key], node._id)
-            props[free_key] = node.properties[free_key]
+        # support lazy loading
+        if isinstance(node, int):
+            snode = cls()
+            snode._id = node
+        else:
+            props = {}
+            for key, prop in cls.__all_properties__:
+                if key in node.properties:
+                    props[key] = prop.inflate(node.properties[key], node)
+                elif prop.has_default:
+                    props[key] = prop.default_value()
+                else:
+                    props[key] = None
+            # handle properties not defined on the class
+            for free_key in [key for key in node.properties if key not in props]:
+                if hasattr(cls, free_key):
+                    raise InflateConflict(cls, free_key, node.properties[free_key], node._id)
+                props[free_key] = node.properties[free_key]
 
-        snode = cls(**props)
-        snode._id = node._id
+            snode = cls(**props)
+            snode._id = node._id
+
         return snode
 
     @classmethod
-    def deflate(cls, node_props, obj=None):
-        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj)
+    def deflate(cls, node_props, obj=None, skip_empty=False):
+        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
                 raise DeflateConflict(cls, key, deflated[key], obj._id)
