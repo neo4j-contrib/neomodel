@@ -1,3 +1,12 @@
+Version 2.0.2 2015-09-04
+ * support for creating or updating a node
+ * support for getting or creating a node
+ * support for wildcard and non explicit traversals
+ * support for additional filters
+ * improved performance for bulk operations
+ * resolved NodeSet.get() and RelationshipManager.get() error messaging
+ * resolved "order_by" bug
+
 Version 2.0.1 2015-08-01
  * add support for py2neo 2.x
  * transitioned START queries to MATCH
