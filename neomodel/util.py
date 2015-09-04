@@ -228,24 +228,21 @@ class Database(local):
 
         return results
 
-    def cypher_stream_query(self, queries):
+    def cypher_stream_query(self, query, params=None):
         """
-        Streams the provided queries, and generates responses when iterated.
+        Streams the provided query, and generates responses when iterated.
 
-        :param queries:  List of tuples, each with a (cypher query, params)
-        :type queries: list of tuples
+        :param query:  A CYPHER query.
+        :type query: str
+        :param params: optional, key value params to pass into the query.
+        :type params: dict
         :rtype: generator
         """
-        jobs = [CypherJob(query, params) for query, params in queries]
         # make sure thread local session is set
         if not hasattr(self, 'session'):
             self.new_session()
 
-        for r in self.session.batch.stream(jobs):
-            if r.content:
-                yield RecordList.hydrate(r.content, self.session)
-            else:
-                yield None
+        return self.session.cypher.stream(query, params)
 
     def cypher_batch_query(self, queries, handle_unique=True):
         """
