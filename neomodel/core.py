@@ -145,12 +145,12 @@ class StructuredNode(NodeBase):
         # create or update instance node
         if hasattr(self, '_id'):
             # update
+            params = self.deflate(self.__properties__, self)
             query = "MATCH n WHERE id(n)={self} \n"
             query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
-                                for key in self.__properties__.keys()])
+                                for key in params.keys()])
             for label in self.inherited_labels():
                 query += "SET n:`{}`\n".format(label)
-            params = self.deflate(self.__properties__, self)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.save() attempted on deleted node".format(
@@ -366,8 +366,11 @@ class StructuredNode(NodeBase):
         else:
             props = {}
             for key, prop in cls.__all_properties__:
-                if key in node.properties:
-                    props[key] = prop.inflate(node.properties[key], node)
+                # map property name from database to object property
+                db_property = prop.db_property or key
+
+                if db_property in node.properties:
+                    props[key] = prop.inflate(node.properties[db_property], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:

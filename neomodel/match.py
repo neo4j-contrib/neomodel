@@ -162,7 +162,10 @@ def process_filter_args(cls, kwargs):
             else:
                 deflated_value = property_obj.deflate(value)
 
-        output[prop] = (operator, deflated_value)
+        # map property to correct property name in the database
+        db_property = cls.defined_properties(rels=False)[prop].db_property or prop
+
+        output[db_property] = (operator, deflated_value)
 
     return output
 
