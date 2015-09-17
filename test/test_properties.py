@@ -187,7 +187,7 @@ def test_independent_property_name():
     results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
     assert results[0][0].properties['name'] == "jim"
 
-    assert not results[0][0].properties.has_key('name_')
+    assert not 'name_' in results[0][0].properties
     assert not hasattr(x, 'name')
     assert hasattr(x, 'name_')
     assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
