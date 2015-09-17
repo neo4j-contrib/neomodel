@@ -57,3 +57,21 @@ Allows aliasing to other properties can be useful to provide 'magic' behaviour, 
         name = AliasProperty(to='full_name')
 
     Person.nodes.filter(name='Jim') # just works
+    
+Independent database property name
+================================
+
+You can specify an independent property name with 'db_property', which is used on database level. It behaves like Django's 'db_column'.
+This is useful for e.g. hiding graph properties behind a python property::
+
+    class Person(StructuredNode):
+        name_ = StringProperty(db_property='name')
+        
+        @property
+        def name(self):
+            return self.name_.lower() if self.name_ else None
+
+        @name.setter
+        def name(self, value):
+            self.name_ = value
+
