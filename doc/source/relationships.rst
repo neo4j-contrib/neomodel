@@ -45,12 +45,12 @@ Neomodel uses relationship models to define the properties stored on relations::
         name = StringProperty()
         friends = RelationshipTo('Person', 'FRIEND', model=FriendRel)
 
-    rel = jim.friend.connect(bob)
+    rel = jim.friends.connect(bob)
     rel.since # datetime object
 
 These can be passed in when calling the connect method::
 
-    rel = jim.friend.connect(bob, {'since': yesterday, 'met': 'Paris'})
+    rel = jim.friends.connect(bob, {'since': yesterday, 'met': 'Paris'})
 
     print(rel.start_node().name) # jim
     print(rel.end_node().name) # bob
@@ -61,7 +61,7 @@ These can be passed in when calling the connect method::
 You can retrieve relationships between two nodes using the 'relationship' method.
 This is only available for relationships with a defined relationship model::
 
-    rel = jim.friend.relationship(bob)
+    rel = jim.friends.relationship(bob)
 
 Explicit Traversal
 ==================
