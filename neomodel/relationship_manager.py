@@ -91,7 +91,6 @@ class RelationshipManager(Traversal):
 
         rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), obj)
-        self.source.cypher(q, params)
         return rel_instance
 
     @check_source
