@@ -1,7 +1,7 @@
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
     DateProperty, StringProperty, JSONProperty)
 from neomodel.exception import InflateError, DeflateError
-from neomodel import StructuredNode
+from neomodel import StructuredNode, db
 from pytz import timezone
 from datetime import datetime, date
 
@@ -174,3 +174,24 @@ def test_default_valude_callable_type():
     assert x.uid == '123'
     x.refresh()
     assert x.uid == '123'
+
+
+def test_independent_property_name():
+    class TestNode(StructuredNode):
+        name_ = StringProperty(db_property="name")
+    x = TestNode()
+    x.name_ = "jim"
+    x.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
+    assert results[0][0].properties['name'] == "jim"
+
+    assert not 'name_' in results[0][0].properties
+    assert not hasattr(x, 'name')
+    assert hasattr(x, 'name_')
+    assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
+    assert TestNode.nodes.get(name_="jim").name_ == x.name_
+
+    # delete node afterwards
+    x.delete()
