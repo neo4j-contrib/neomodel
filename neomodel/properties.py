@@ -311,6 +311,30 @@ class DateProperty(Property):
 
 
 class DateTimeProperty(Property):
+
+    def __init__(self, **kwargs):
+        """Initializes new date time property accessor.
+
+        :param bool default_now: indicates whether default should be
+        current date and time
+
+        If you pass `default_now` and `default` at same time,
+        `ValueError` will be thrown.
+
+        """
+        super(DateTimeProperty, self).__init__(
+            **self.__patch_default(kwargs)
+        )
+
+    def __patch_default(self, kwargs):
+        default_now = kwargs.get('default_now', False)
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: \
+                datetime.utcnow().replace(tzinfo=pytz.utc)
+        return kwargs
+
     @validator
     def inflate(self, value):
         try:
