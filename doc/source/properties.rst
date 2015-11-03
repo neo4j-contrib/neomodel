@@ -20,6 +20,10 @@ You may provide arguments using a wrapper function or lambda::
 
         my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
+In fact, for date and time property case, you can just use `default_now` argument::
+
+        my_datetime = DateTimeProperty(default_now=True)
+
 Choices
 =======
 
