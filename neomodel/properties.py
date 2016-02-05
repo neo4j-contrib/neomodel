@@ -168,7 +168,7 @@ class StringProperty(Property):
             raise ValueError("Invalid choice {} not in {}".format(
                 value, ','.join(self.choice_map.keys())))
 
-        return unicode(value, 'utf-8')
+        return unicode(value)
 
     def default_value(self):
         return unicode(super(StringProperty, self).default_value())
