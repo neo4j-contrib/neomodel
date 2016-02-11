@@ -7,8 +7,13 @@ python:
 install: "python setup.py install"
 script: nosetests -s
 env:
-  - NEO4J_VERSION="2.1.5"
+  - NEO4J_VERSION="2.1.5",PIP="travis/empty.txt"
+  - NEO4J_VERSION="2.1.5",PIP="travis/django.txt"
+  - NEO4J_VERSION="2.1.5",PIP="travis/django.txt",DJANGO_SETTINGS_MODULE="travis.not_set"
+  - NEO4J_VERSION="2.1.5",PIP="travis/django.txt",DJANGO_SETTINGS_MODULE="travis.settings",NEO4J_REST_URL="bad_url"
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - tar -xzf neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - neo4j-community-$NEO4J_VERSION/bin/neo4j start
+  - pip install -r $PIP
+  - pip list
