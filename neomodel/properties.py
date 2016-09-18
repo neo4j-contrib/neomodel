@@ -116,7 +116,7 @@ def validator(fn):
 
 class Property(object):
     def __init__(self, unique_index=False, index=False, required=False, default=None, db_property=None, **kwargs):
-        if default and required:
+        if (default != None) and required:
             raise Exception("required and default are mutually exclusive")
 
         if unique_index and index:
