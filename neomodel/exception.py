@@ -1,7 +1,12 @@
 import importlib
 
 
-class UniqueProperty(ValueError):
+class ConstraintValidationFailed(ValueError):
+    def __init__(self, msg):
+        self.message = msg
+
+
+class UniqueProperty(ConstraintValidationFailed):
     def __init__(self, msg):
         self.message = msg
 

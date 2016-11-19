@@ -357,7 +357,7 @@ class QueryBuilder(object):
             query += ', '.join(self._ast['start'])
 
         query += ' MATCH '
-        query += ', '.join(self._ast['match'])
+        query += ', '.join(['({})'.format(i) for i in self._ast['match']])
 
         if 'where' in self._ast and self._ast['where']:
             query += ' WHERE '

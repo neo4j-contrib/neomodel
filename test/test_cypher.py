@@ -1,5 +1,5 @@
 from neomodel import StructuredNode, StringProperty
-from py2neo.cypher.error.statement import InvalidSyntax
+from neo4j.v1.exceptions import CypherError
 
 
 class User2(StructuredNode):
@@ -8,16 +8,15 @@ class User2(StructuredNode):
 
 def test_cypher():
     """
-    py2neo's cypher result format changed in 1.6 this tests its return value
-    is backward compatible with earlier versions of neomodel
+    test result format is backward compatible with earlier versions of neomodel
     """
 
     jim = User2(email='jim1@test.com').save()
-    data, meta = jim.cypher("MATCH a WHERE id(a)={self} RETURN a.email")
+    data, meta = jim.cypher("MATCH (a) WHERE id(a)={self} RETURN a.email")
     assert data[0][0] == 'jim1@test.com'
     assert 'a.email' in meta
 
-    data, meta = jim.cypher("MATCH a WHERE id(a)={self}"
+    data, meta = jim.cypher("MATCH (a) WHERE id(a)={self}"
                             " MATCH (a)<-[:USER2]-(b) "
                             "RETURN a, b, 3")
     assert 'a' in meta and 'b' in meta
@@ -27,7 +26,7 @@ def test_cypher_syntax_error():
     jim = User2(email='jim1@test.com').save()
     try:
         jim.cypher("MATCH a WHERE id(a)={self} RETURN xx")
-    except InvalidSyntax as e:
+    except CypherError as e:
         assert hasattr(e, 'message')
         assert hasattr(e, 'code')
     else:

@@ -92,7 +92,7 @@ def test_either_direction_connect():
     assert sakis.knows.is_connected(rey)
     sakis.knows.connect(rey)
 
-    result, meta = sakis.cypher("""MATCH us, them
+    result, meta = sakis.cypher("""MATCH (us), (them)
             WHERE id(us)={self} and id(them)={them}
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
             {'them': rey._id})

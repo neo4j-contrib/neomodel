@@ -21,24 +21,6 @@ def test_batch_create():
     assert users[1].email == 'jim2@aol.com'
     assert Customer.nodes.get(email='jim1@aol.com')
 
-
-def test_batch_create_streaming():
-    users = Customer.create(
-        {'email': 'dan1@aol.com', 'age': 11},
-        {'email': 'dan2@aol.com', 'age': 7},
-        {'email': 'dan3@aol.com', 'age': 9},
-        {'email': 'dan4@aol.com', 'age': 7},
-        {'email': 'dan5@aol.com', 'age': 99},
-        streaming=True,
-    )
-    users = list(users)
-    assert len(users) == 5
-    assert users[0].age == 11
-    assert users[1].age == 7
-    assert users[1].email == 'dan2@aol.com'
-    assert Customer.nodes.get(email='dan1@aol.com')
-
-
 def test_batch_create_or_update():
     users = Customer.create_or_update(
         {'email': 'merge1@aol.com', 'age': 11},

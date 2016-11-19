@@ -1,40 +1,26 @@
 import os
+import warnings
 
-from py2neo.cypher.error.schema import (IndexAlreadyExists,
-                                        ConstraintAlreadyExists)
 
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
 from .util import Database, deprecated, classproperty
 
-DATABASE_URL = os.environ.get('NEO4J_REST_URL', 'http://localhost:7474/db/data/')
+
+DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:test@localhost')
 db = Database(DATABASE_URL)
 
 
 def install_labels(cls):
-    # TODO when to execute this?
-    if not hasattr(db, 'session'):
-        db.new_session()
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-            indexes = db.session.schema.get_indexes(cls.__label__)
-            if key not in indexes:
-                try:
-                    db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                        cls.__label__, key))
-                except IndexAlreadyExists:
-                    pass
+                db.cypher_query("CREATE INDEX on :{}({}); ".format(
+                    cls.__label__, key))
         elif prop.unique_index:
-            unique_const = db.session.schema.get_uniqueness_constraints(
-                cls.__label__)
-            if key not in unique_const:
-                try:
-                    db.cypher_query("CREATE CONSTRAINT "
-                                    "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                        cls.__label__, key))
-                except (ConstraintAlreadyExists, IndexAlreadyExists):
-                    pass
+                db.cypher_query("CREATE CONSTRAINT "
+                                "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                    cls.__label__, key))
 
 
 class NodeMeta(type):
@@ -119,7 +105,7 @@ class StructuredNode(NodeBase):
 
     def labels(self):
         self._pre_action_check('labels')
-        return self.cypher("MATCH n WHERE id(n)={self} "
+        return self.cypher("MATCH (n) WHERE id(n)={self} "
                            "RETURN labels(n)")[0][0][0]
 
     def cypher(self, query, params=None):
@@ -146,7 +132,7 @@ class StructuredNode(NodeBase):
         if hasattr(self, '_id'):
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH n WHERE id(n)={self} \n"
+            query = "MATCH (n) WHERE id(n)={self} \n"
             query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
                                 for key in params.keys()])
             for label in self.inherited_labels():
@@ -170,7 +156,7 @@ class StructuredNode(NodeBase):
     @hooks
     def delete(self):
         self._pre_action_check('delete')
-        self.cypher("MATCH self WHERE id(self)={self} "
+        self.cypher("MATCH (self) WHERE id(self)={self} "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
         del self.__dict__['_id']
@@ -181,31 +167,12 @@ class StructuredNode(NodeBase):
         """Reload this object from its node id in the database"""
         self._pre_action_check('refresh')
         if hasattr(self, '_id'):
-            node = self.inflate(self.cypher("MATCH n WHERE id(n)={self}"
+            node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
                                             " RETURN n")[0][0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
         else:
             raise ValueError("Can't refresh unsaved node")
-
-    @classmethod
-    def _build_create_query(cls, create_params, lazy=False):
-        """
-        Get a tuple of a CYPHER query and a params dict for the specified CREATE query.
-
-        :param create_params: A list of the target nodes parameters.
-        :type create_params: list of dict
-        :rtype: tuple
-        """
-        # create mapped query
-        query = "CREATE (n:{} {{create_params}})".format(':'.join(cls.inherited_labels()))
-        # close query
-        if lazy:
-            query += " RETURN id(n)"
-        else:
-            query += " RETURN n"
-
-        return query, dict(create_params=create_params)
 
     @classmethod
     def _build_merge_query(cls, merge_params, update_existing=False, lazy=False, relationship=None):
@@ -251,48 +218,43 @@ class StructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
-    def _stream_nodes(cls, results, lazy=False):
-        """
-        yeilds results
-
-        :rtype: generator
-        """
-        post_create = not lazy and hasattr(cls, 'post_create')
-
-        # generate iterate post_create() and inflate
-        for n in results:
-            if post_create:
-                n[0].post_create()
-            yield cls.inflate(n[0])
-
-    @classmethod
     def create(cls, *props, **kwargs):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
-        When using streaming=True, operation is not in current transaction if one exists.
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
-        :param streaming: Optional, Specify streaming=True to get a results generator instead of a list.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :type lazy: bool
         :rtype: list
         """
+
+        if 'streaming' in kwargs:
+            warnings.warn('streaming is not supported by bolt, please remove the kwarg',
+                          category=DeprecationWarning, stacklevel=1)
+
         lazy = kwargs.get('lazy', False)
-        # build create query
-        create_params = [cls.deflate(p, skip_empty=True) for p in props]
-        query, params = cls._build_create_query(create_params, lazy=lazy)
+        # create mapped query
+        query = "CREATE (n:{} {{create_params}})".format(':'.join(cls.inherited_labels()))
 
-        if kwargs.get('streaming', False) is True:
-            return cls._stream_nodes(db.cypher_stream_query(query, params), lazy=lazy)
+        # close query
+        if lazy:
+            query += " RETURN id(n)"
         else:
-            # fetch and build instance for each result
-            results = db.cypher_query(query, params)
+            query += " RETURN n"
 
-            if not lazy and hasattr(cls, 'post_create'):
-                for r in results[0]:
-                    r[0].post_create()
+        results = []
+        for item in [cls.deflate(p, skip_empty=True) for p in props]:
+            node, _ = db.cypher_query(query, {'create_params': item})
+            results.extend(node[0])
 
-            return [cls.inflate(r[0]) for r in results[0]]
+        nodes = [cls.inflate(node) for node in results]
+
+        if not lazy and hasattr(cls, 'post_create'):
+            for r in nodes[0]:
+                r[0].post_create()
+
+        return nodes
 
     @classmethod
     def get_or_create(cls, *props, **kwargs):
@@ -300,12 +262,10 @@ class StructuredNode(NodeBase):
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation.
         Parameters must contain all required properties, any non required properties will be set on created nodes only.
-        When using streaming=True, operation is not in current transaction if one exists.
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param streaming: Optional, Specify streaming=True to get a results generator instead of a list.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :rtype: list
         """
@@ -316,25 +276,24 @@ class StructuredNode(NodeBase):
         get_or_create_params = [{"create": cls.deflate(p, skip_empty=True)} for p in props]
         query, params = cls._build_merge_query(get_or_create_params, relationship=relationship, lazy=lazy)
 
-        if kwargs.get('streaming', False) is True:
-            return cls._stream_nodes(db.cypher_stream_query(query, params), lazy=lazy)
-        else:
-            # fetch and build instance for each result
-            results = db.cypher_query(query, params)
-            # TODO: check each node if created call post_create()
-            return [cls.inflate(r[0]) for r in results[0]]
+        if 'streaming' in kwargs:
+            warnings.warn('streaming is not supported by bolt, please remove the kwarg',
+                          category=DeprecationWarning, stacklevel=1)
+
+        # fetch and build instance for each result
+        results = db.cypher_query(query, params)
+        # TODO: check each node if created call post_create()
+        return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
     def create_or_update(cls, *props, **kwargs):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
-        When using streaming=True, operation is not in current transaction if one exists.
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param streaming: Optional, Specify streaming=True to get a results generator instead of a list.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :rtype: list
         """
@@ -349,13 +308,14 @@ class StructuredNode(NodeBase):
         query, params = cls._build_merge_query(create_or_update_params, update_existing=True, relationship=relationship,
                                                lazy=lazy)
 
-        if kwargs.get('streaming', False) is True:
-            return cls._stream_nodes(db.cypher_stream_query(query, params), lazy=lazy)
-        else:
-            # fetch and build instance for each result
-            results = db.cypher_query(query, params)
-            # TODO: check each node if created call post_create()
-            return [cls.inflate(r[0]) for r in results[0]]
+        if 'streaming' in kwargs:
+            warnings.warn('streaming is not supported by bolt, please remove the kwarg',
+                          category=DeprecationWarning, stacklevel=1)
+
+        # fetch and build instance for each result
+        results = db.cypher_query(query, params)
+        # TODO: check each node if created call post_create()
+        return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
     def inflate(cls, node):
@@ -377,7 +337,7 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            snode._id = node._id
+            snode._id = node.id  # TODO rename _id property to just id
 
         return snode
 

@@ -66,11 +66,11 @@ class SemiStructuredNode(StructuredNode):
             # handle properties not defined on the class
             for free_key in [key for key in node.properties if key not in props]:
                 if hasattr(cls, free_key):
-                    raise InflateConflict(cls, free_key, node.properties[free_key], node._id)
+                    raise InflateConflict(cls, free_key, node.properties[free_key], node.id)
                 props[free_key] = node.properties[free_key]
 
             snode = cls(**props)
-            snode._id = node._id
+            snode._id = node.id
 
         return snode
 
