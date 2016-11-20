@@ -1,3 +1,15 @@
+Version 3.0.0
+ * neo4j_driver now used as backend
+ * Support for neo4j versions prior to 3 dropped
+ * REST via py2neo support dropped
+ * NEO4J_BOLT_URL environment var now used to set connnection
+ * streaming kwarg now deprecated
+ * py2neo.cypher.error.statement.InvalidSyntax replaced by
+ neo4j.v1.exceptions.CypherError for cypher errors (syntax etc)
+ * ConstraintValidationFailed exception introduced as super class of
+ UniqueProperty to allow additional classes in the future
+ * Remove category() method from StructuredNode's following its deprecation
+
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
  * support for getting or creating a node
