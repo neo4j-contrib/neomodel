@@ -2,22 +2,23 @@
 Neomodel documentation
 ======================
 
-An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome py2neo_.
+An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
 
 - Familiar Django model style definitions.
 - Powerful query API.
 - Enforce your schema through cardinality restrictions.
 - Full transaction support.
+- Thread safe.
 - Hooks including (optional) Django signals support.
 
-.. _py2neo: http://www.py2neo.org
-.. _neo4j: http://www.neo4j.org
+.. _neo4j: https://www.neo4j.org
+.. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
 Requirements
 ============
 
-- Python 2.7, 3.4, pypy and pypy3
-- neo4j 2.0 or 2.1
+- Python 2.7, 3.3
+- neo4j 3+
 
 Installation
 ============

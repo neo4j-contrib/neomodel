@@ -9,6 +9,7 @@ Version 3.0.0
  * ConstraintValidationFailed exception introduced as super class of
  UniqueProperty to allow additional classes in the future
  * Remove category() method from StructuredNode's following its deprecation
+ * Batch operations now must be wrapped in a transaction in order to be atomic (see batch in docs)
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
