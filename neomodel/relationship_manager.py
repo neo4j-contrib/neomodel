@@ -6,7 +6,7 @@ from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal
 
 
-# check sorce node is saved and not deleted
+# check source node is saved and not deleted
 def check_source(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
 
