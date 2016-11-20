@@ -1,11 +1,10 @@
 import os
 import warnings
 
-
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
-from .util import Database, deprecated, classproperty
+from .util import Database, classproperty
 
 
 DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:test@localhost')
@@ -121,10 +120,9 @@ class StructuredNode(NodeBase):
                 scls, '__abstract_node__')]
 
     @classmethod
-    @deprecated("Category nodes are now deprecated, the functionality is "
-                "emulated using labels")
     def category(cls):
-        return FakeCategory(cls)
+        raise NotImplementedError("Category nodes were deprecated and have now been removed, "
+            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
 
     @hooks
     def save(self):
@@ -340,58 +338,3 @@ class StructuredNode(NodeBase):
             snode._id = node.id  # TODO rename _id property to just id
 
         return snode
-
-
-class FakeCategory(object):
-    """
-    Category nodes are no longer required with the introduction of labels.
-    This class behaves like the old category nodes used in earlier version of neomodel
-    but uses labels under the hood calling the traversal api.
-    """
-
-    def __init__(self, cls):
-        self.instance = FakeInstanceRel(cls)
-
-    def cypher(self, *args, **kwargs):
-        raise NotImplemented("cypher method on category nodes no longer supported")
-
-
-class FakeInstanceRel(object):
-    """
-    Fake rel manager for our fake category node
-    """
-
-    def __init__(self, cls):
-        from .match import NodeSet
-
-        self._node_set = NodeSet(cls)
-
-    def __len__(self):
-        return self._node_set.query_cls(self._node_set)._count()
-
-    def __bool__(self):
-        return len(self) > 0
-
-    def __nonzero__(self):
-        return len(self) > 0
-
-    def count(self):
-        return self.__len__()
-
-    def all(self):
-        return self._node_set.all()
-
-    def search(self, **kwargs):
-        ns = self._node_set
-        for field, value in kwargs.items():
-            ns.filter(**{field: value})
-        return self._node_set.all()
-
-    def get(self, **kwargs):
-        result = self.search(**kwargs)
-        if len(result) == 1:
-            return result[0]
-        if len(result) > 1:
-            raise Exception("Multiple items returned, use search?")
-        if not result:
-            raise DoesNotExist("No items exist for the specified arguments")
