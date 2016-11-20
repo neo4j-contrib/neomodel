@@ -50,7 +50,7 @@ def test_get():
 def test_save_to_model():
     u = User(email='jim@test.com', age=3)
     assert u.save()
-    assert u._id > 0
+    assert u.id > 0
     assert u.email == 'jim@test.com'
     assert u.age == 3
 

@@ -83,6 +83,15 @@ class StructuredNode(NodeBase):
 
         return NodeSet(cls)
 
+    @property
+    def _id(self, val):
+        warnings.warn('the _id property is deprecated please use .id',
+                      category=DeprecationWarning, stacklevel=1)
+        if val:
+            self.id = val
+
+        return self.id
+
     def __init__(self, *args, **kwargs):
         if 'deleted' in kwargs:
             raise ValueError("deleted property is reserved for neomodel")
@@ -95,8 +104,8 @@ class StructuredNode(NodeBase):
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             return False
-        if hasattr(self, '_id') and hasattr(other, '_id'):
-            return self._id == other._id
+        if hasattr(self, 'id') and hasattr(other, 'id'):
+            return self.id == other.id
         return False
 
     def __ne__(self, other):
@@ -110,7 +119,7 @@ class StructuredNode(NodeBase):
     def cypher(self, query, params=None):
         self._pre_action_check('cypher')
         params = params or {}
-        params.update({'self': self._id})
+        params.update({'self': self.id})
         return db.cypher_query(query, params)
 
     @classmethod
@@ -127,7 +136,7 @@ class StructuredNode(NodeBase):
     @hooks
     def save(self):
         # create or update instance node
-        if hasattr(self, '_id'):
+        if hasattr(self, 'id'):
             # update
             params = self.deflate(self.__properties__, self)
             query = "MATCH (n) WHERE id(n)={self} \n"
@@ -140,14 +149,14 @@ class StructuredNode(NodeBase):
             raise ValueError("{}.save() attempted on deleted node".format(
                 self.__class__.__name__))
         else:  # create
-            self._id = self.create(self.__properties__)[0]._id
+            self.id = self.create(self.__properties__)[0].id
         return self
 
     def _pre_action_check(self, action):
         if hasattr(self, 'deleted') and self.deleted:
             raise ValueError("{}.{}() attempted on deleted node".format(
                 self.__class__.__name__, action))
-        if not hasattr(self, '_id'):
+        if not hasattr(self, 'id'):
             raise ValueError("{}.{}() attempted on unsaved node".format(
                 self.__class__.__name__, action))
 
@@ -157,14 +166,14 @@ class StructuredNode(NodeBase):
         self.cypher("MATCH (self) WHERE id(self)={self} "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
-        del self.__dict__['_id']
+        del self.__dict__['id']
         self.deleted = True
         return True
 
     def refresh(self):
         """Reload this object from its node id in the database"""
         self._pre_action_check('refresh')
-        if hasattr(self, '_id'):
+        if hasattr(self, 'id'):
             node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
                                             " RETURN n")[0][0][0])
             for key, val in node.__properties__.items():
@@ -197,7 +206,7 @@ class StructuredNode(NodeBase):
             if not relation_type:
                 raise ValueError('No relation_type is specified on provided relationship')
 
-            query_params["source_id"] = relationship.source._id
+            query_params["source_id"] = relationship.source.id
             query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
             query += "MERGE (source)-[:{}]->{} \n ".format(relation_type, n_merge)
@@ -320,7 +329,7 @@ class StructuredNode(NodeBase):
         # support lazy loading
         if isinstance(node, int):
             snode = cls()
-            snode._id = node
+            snode.id = node
         else:
             props = {}
             for key, prop in cls.__all_properties__:
@@ -335,6 +344,6 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            snode._id = node.id  # TODO rename _id property to just id
+            snode.id = node.id
 
         return snode

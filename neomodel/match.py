@@ -276,7 +276,7 @@ class QueryBuilder(object):
 
         place_holder = self._register_place_holder(ident)
         self._ast['start'].append('{} = node({{{}}})'.format(ident, place_holder))
-        self._query_params[place_holder] = node._id
+        self._query_params[place_holder] = node.id
 
         self._ast['return'] = ident
         self._ast['result_class'] = node.__class__
@@ -421,8 +421,8 @@ class BaseSet(object):
 
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):
-            if hasattr(obj, '_id'):
-                return self.query_cls(self).build_ast()._contains(int(obj._id))
+            if hasattr(obj, 'id'):
+                return self.query_cls(self).build_ast()._contains(int(obj.id))
             raise ValueError("Unsaved node: " + repr(obj))
         else:
             raise ValueError("Expecting StructuredNode instance")

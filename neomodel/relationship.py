@@ -30,7 +30,7 @@ class StructuredRel(StructuredRelBase):
         query = "MATCH ()-[r]->() WHERE id(r)={self} "
         for key in props:
             query += " SET r.{} = {{{}}}".format(key, key)
-        props['self'] = self._id
+        props['self'] = self.id
 
         db.cypher_query(query, props)
 
@@ -42,13 +42,13 @@ class StructuredRel(StructuredRelBase):
 
     def start_node(self):
         node = self._start_node_class()
-        node._id = self._start_node_id
+        node.id = self._start_node_id
         node.refresh()
         return node
 
     def end_node(self):
         node = self._end_node_class()
-        node._id = self._end_node_id
+        node.id = self._end_node_id
         node.refresh()
         return node
 
@@ -65,5 +65,5 @@ class StructuredRel(StructuredRelBase):
         srel = cls(**props)
         srel._start_node_id = rel.start
         srel._end_node_id = rel.end
-        srel._id = rel.id
+        srel.id = rel.id
         return srel

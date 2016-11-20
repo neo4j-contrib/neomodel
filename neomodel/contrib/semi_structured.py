@@ -53,7 +53,7 @@ class SemiStructuredNode(StructuredNode):
         # support lazy loading
         if isinstance(node, int):
             snode = cls()
-            snode._id = node
+            snode.id = node
         else:
             props = {}
             for key, prop in cls.__all_properties__:
@@ -70,7 +70,7 @@ class SemiStructuredNode(StructuredNode):
                 props[free_key] = node.properties[free_key]
 
             snode = cls(**props)
-            snode._id = node.id
+            snode.id = node.id
 
         return snode
 
@@ -79,6 +79,6 @@ class SemiStructuredNode(StructuredNode):
         deflated = super(SemiStructuredNode, cls).deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
-                raise DeflateConflict(cls, key, deflated[key], obj._id)
+                raise DeflateConflict(cls, key, deflated[key], obj.id)
         node_props.update(deflated)
         return node_props

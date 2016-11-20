@@ -30,7 +30,7 @@ class RelationshipManager(Traversal):
 
         return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
             self.description, direction,
-            self.definition['relation_type'], self.source._id, self.source_class.__name__)
+            self.definition['relation_type'], self.source.id, self.source_class.__name__)
 
     @check_source
     def get(self, **kwargs):
@@ -61,7 +61,7 @@ class RelationshipManager(Traversal):
         """check for valid node i.e correct class and is saved"""
         if not isinstance(obj, self.definition['node_class']):
             raise ValueError("Expected node of class " + self.definition['node_class'].__name__)
-        if not hasattr(obj, '_id'):
+        if not hasattr(obj, 'id'):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
@@ -75,7 +75,7 @@ class RelationshipManager(Traversal):
         new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
-        params = {'them': obj._id}
+        params = {'them': obj.id}
 
         if not properties and not self.definition['model']:
             self.source.cypher(q, params)
@@ -106,7 +106,7 @@ class RelationshipManager(Traversal):
         my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} MATCH " \
             "" + my_rel + " RETURN r"
-        rel = self.source.cypher(q, {'them': obj._id})[0][0][0]
+        rel = self.source.cypher(q, {'them': obj.id})[0][0][0]
         if not rel:
             return
         return self._set_start_end_cls(rel_model.inflate(rel), obj)
@@ -125,14 +125,14 @@ class RelationshipManager(Traversal):
         """reconnect: old_node, new_node"""
         self._check_node(old_obj)
         self._check_node(new_obj)
-        if old_obj._id == new_obj._id:
+        if old_obj.id == new_obj.id:
             return
         old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
         result, meta = self.source.cypher(
             "MATCH (us), (old) WHERE id(us)={self} and id(old)={old} "
-            "MATCH " + old_rel + " RETURN r", {'old': old_obj._id})
+            "MATCH " + old_rel + " RETURN r", {'old': old_obj.id})
         if result:
             existing_properties = result[0][0].properties.keys()
         else:
@@ -150,14 +150,14 @@ class RelationshipManager(Traversal):
             q += " SET r2.{} = r.{}".format(p, p)
         q += " WITH r DELETE r"
 
-        self.source.cypher(q, {'old': old_obj._id, 'new': new_obj._id})
+        self.source.cypher(q, {'old': old_obj.id, 'new': new_obj.id})
 
     @check_source
     def disconnect(self, obj):
         rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "MATCH (a), (b) WHERE id(a)={self} and id(b)={them} " \
             "MATCH " + rel + " DELETE r"
-        self.source.cypher(q, {'them': obj._id})
+        self.source.cypher(q, {'them': obj.id})
 
     def single(self):
         nodes = self[0]
