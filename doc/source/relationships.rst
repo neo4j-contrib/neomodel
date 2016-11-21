@@ -48,6 +48,8 @@ Neomodel uses relationship models to define the properties stored on relations::
     rel = jim.friends.connect(bob)
     rel.since # datetime object
 
+NOTE: Calling connect multiple times with the same destination node will only create one relationship between the two nodes.
+
 These can be passed in when calling the connect method::
 
     rel = jim.friends.connect(bob, {'since': yesterday, 'met': 'Paris'})
