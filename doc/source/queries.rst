@@ -116,3 +116,7 @@ To remove ordering from a previously defined query, pass `None` to `order_by`::
 
     # Don't order; yield nodes in the order neo4j returns them
     suppliers = suppliers.order_by(None)
+
+For random ordering simply pass '?' to the order_by method::
+
+    Coffee.nodes.order_by('?')

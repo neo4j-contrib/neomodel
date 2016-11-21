@@ -11,6 +11,8 @@ Version 3.0.0
  * Remove category() method from StructuredNode's following its deprecation
  * Batch operations now must be wrapped in a transaction in order to be atomic (see batch in docs)
  * Renamed _id property to id, old property now deprecated
+ * Fix numeric propertys defaulting to 0 failing required check
+ * support order_by('?') to mimic django random order by
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
