@@ -194,6 +194,10 @@ def test_order_by():
     ns = ns.order_by(None)
     qb = QueryBuilder(ns).build_ast()
     assert not qb._ast['order_by']
+    ns = ns.order_by('?')
+    qb = QueryBuilder(ns).build_ast()
+    assert qb._ast['with'] == 'coffee, rand() as r'
+    assert qb._ast['order_by'] == 'r'
 
 
 def test_extra_filters():
