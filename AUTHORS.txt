@@ -6,6 +6,7 @@ Nigel Small - https://github.com/nigelsmall
 Panos Katseas - https://github.com/pkatseas
 Peter Neubauer - https://github.com/peterneubauer
 Robin Edwards - https://github.com/robinedwards
+Romain Thalineau - https://github.com/romaintha
 Sam Millar - https://github.com/millr
 Tony Landis - https://github.com/tony-landis
 Wes Freeman - https://github.com/wfreeman
