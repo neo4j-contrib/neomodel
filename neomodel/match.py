@@ -244,8 +244,12 @@ class QueryBuilder(object):
         return 'r' + str(self._ident_count)
 
     def build_order_by(self, ident, source):
-        self._ast['order_by'] = ['{}.{}'.format(ident, p)
-                                 for p in source._order_by]
+        if '?' in source._order_by:
+            self._ast['with'] = '{}, rand() as r'.format(ident)
+            self._ast['order_by'] = 'r'
+        else:
+            self._ast['order_by'] = ['{}.{}'.format(ident, p)
+                                     for p in source._order_by]
 
     def build_traversal(self, traversal):
         """
@@ -362,6 +366,10 @@ class QueryBuilder(object):
         if 'where' in self._ast and self._ast['where']:
             query += ' WHERE '
             query += ' AND '.join(self._ast['where'])
+
+        if 'with' in self._ast and self._ast['with']:
+            query += ' WITH '
+            query += self._ast['with']
 
         query += ' RETURN ' + self._ast['return']
 
@@ -507,24 +515,26 @@ class NodeSet(BaseSet):
             self._order_by = []
             if should_remove:
                 return self
+        if '?' in props:
+            self._order_by.append('?')
+        else:
+            for prop in props:
+                prop = prop.strip()
+                if prop.startswith('-'):
+                    prop = prop[1:]
+                    desc = True
+                else:
+                    desc = False
 
-        for prop in props:
-            prop = prop.strip()
-            if prop.startswith('-'):
-                prop = prop[1:]
-                desc = True
-            else:
-                desc = False
+                if prop not in self.source_class.defined_properties(rels=False):
+                    raise ValueError("No such property {} on {}".format(
+                        prop, self.source_class.__name__))
 
-            if prop not in self.source_class.defined_properties(rels=False):
-                raise ValueError("No such property {} on {}".format(
-                    prop, self.source_class.__name__))
+                property_obj = getattr(self.source_class, prop)
+                if isinstance(property_obj, AliasProperty):
+                    prop = property_obj.aliased_to()
 
-            property_obj = getattr(self.source_class, prop)
-            if isinstance(property_obj, AliasProperty):
-                prop = property_obj.aliased_to()
-
-            self._order_by.append(prop + (' DESC' if desc else ''))
+                self._order_by.append(prop + (' DESC' if desc else ''))
 
         return self
 
