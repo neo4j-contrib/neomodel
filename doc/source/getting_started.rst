@@ -53,6 +53,7 @@ Using convenient methods::
     jim.save() # validation happens here
     jim.delete()
     jim.refresh() # reload properties from neo
+    jim.id # neo4j internal id
 
 Relationships
 =============
