@@ -7,7 +7,7 @@ from .signals import hooks
 from .util import Database, classproperty
 
 
-DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:test@localhost')
+DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687')
 db = Database(DATABASE_URL)
 
 

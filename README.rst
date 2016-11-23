@@ -63,7 +63,7 @@ Make sure you have a fresh virtualenv and `nose` installed::
 
 A Neo4j database to run the tests on, make sure you have set a password from the web interface prior to running the tests. (it will wipe this database)::
 
-    $ export NEO4J_BOLT_URL=bolt://neo4j:test@localhost # (the default)
+    $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
 
 Setup a virtual environment, install neomodel for development and run the test suite::
 

@@ -12,10 +12,10 @@ this can be achieved through the web interface on http://localhost:7474 after st
 
 Neomodel Connection
 -------------------
-Set the location of neo4j via an environment variable (default is bolt://neo4j:test@localhost).
+Set the location of neo4j via an environment variable (default is bolt://neo4j:neo4j@localhost:7687).
 NOTE: This must be set in the shell or environment that you are executing your code::
 
-    export NEO4J_BOLT_URL=bolt://user:password@localhost
+    export NEO4J_BOLT_URL=bolt://user:password@localhost:7687
 
 Definition
 ==========

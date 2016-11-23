@@ -29,7 +29,7 @@ class Database(local):
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
         else:
-            raise ValueError("Expecting auth credentials in url, e.g: bolt://user:password@localhost")
+            raise ValueError("Expecting auth credentials in url, e.g: bolt://user:password@localhost:7687")
 
         self.driver = GraphDatabase.driver('bolt://' + hostname,
                                            auth=basic_auth(username, password))
