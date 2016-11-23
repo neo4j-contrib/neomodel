@@ -21,61 +21,30 @@ def test_unique_error():
 
 def test_optional_properties_dont_get_indexed():
     Human(name='99', age=99).save()
-    h = Human.index.get(age=99)
+    h = Human.nodes.get(age=99)
     assert h
     assert h.name == '99'
 
     Human(name='98', age=98).save()
-    h = Human.index.get(age=98)
+    h = Human.nodes.get(age=98)
     assert h
     assert h.name == '98'
 
 
 def test_escaped_chars():
     Human(name='sarah:test', age=3).save()
-    r = Human.index.search(name='sarah:test')
+    r = Human.nodes.filter(name='sarah:test')
     assert r
-    assert r[0].name == 'sarah:test'
-
-
-def test_no_args():
-    try:
-        Human.index.search()
-    except ValueError:
-        assert True
-    else:
-        assert False
-
-    try:
-        Human.index.search()
-    except ValueError:
-        assert True
-    else:
-        assert False
+    assert r[0][0].name == 'sarah:test'
 
 
 def test_does_not_exist():
     try:
-        Human.index.get(name='XXXX')
+        Human.nodes.get(name='XXXX')
     except Human.DoesNotExist:
         assert True
     else:
         assert False
-
-
-def test_index_inherited_props():
-
-    class Mixin(object):
-        extra = StringProperty(unique_index=True)
-
-    class MixedHuman(Human, Mixin):
-        pass
-
-    jim = MixedHuman(age=23, name='jimmy', extra='extra').save()
-
-    assert MixedHuman.index.name == 'MixedHuman'
-    node = MixedHuman.index.get(extra='extra')
-    assert node.name == jim.name
 
 
 def test_custom_label_name():
@@ -84,12 +53,11 @@ def test_custom_label_name():
         name = StringProperty(unique_index=True)
 
     jim = Giraffe(name='timothy').save()
-    assert Giraffe.index.name == 'Giraffes'
-    node = Giraffe.index.get(name='timothy')
+    node = Giraffe.nodes.get(name='timothy')
     assert node.name == jim.name
 
     class SpecialGiraffe(Giraffe):
         power = StringProperty()
 
-    # custom indexes aren't inherited
-    assert SpecialGiraffe.index.name == 'SpecialGiraffe'
+    # custom labels aren't inherited
+    assert SpecialGiraffe.__label__ == 'SpecialGiraffe'

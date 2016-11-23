@@ -57,9 +57,6 @@ class NodeMeta(type):
             if config.AUTO_INSTALL_LABELS:
                 install_labels(inst)
 
-            from .index import NodeIndexManager
-
-            inst.index = NodeIndexManager(inst, inst.__label__)
         return inst
 
 
@@ -130,7 +127,7 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def category(cls):
-        raise NotImplementedError("Category nodes were deprecated and have now been removed, "
+        raise NotImplementedError("Category was deprecated and has now been removed, "
             "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
 
     @hooks

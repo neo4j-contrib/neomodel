@@ -158,3 +158,21 @@ def test_setting_value_to_none():
 
     copy = Customer2.nodes.get(email='alice@bob.com')
     assert copy.age is None
+
+
+def test_mixin_inherited_props():
+    class Human(StructuredNode):
+        name = StringProperty(unique_index=True)
+        age = IntegerProperty(index=True)
+
+    class Mixin(object):
+        extra = StringProperty(unique_index=True)
+
+    class MixedHuman(Human, Mixin):
+        pass
+
+    jim = MixedHuman(age=23, name='jimmy', extra='extra').save()
+
+    assert MixedHuman.__label__ == 'MixedHuman'
+    node = MixedHuman.nodes.get(extra='extra')
+    assert node.name == jim.name
