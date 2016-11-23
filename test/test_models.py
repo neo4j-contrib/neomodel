@@ -160,19 +160,48 @@ def test_setting_value_to_none():
     assert copy.age is None
 
 
-def test_mixin_inherited_props():
-    class Human(StructuredNode):
+def test_inheritance():
+    class User(StructuredNode):
+        __abstract_node__ = True
         name = StringProperty(unique_index=True)
-        age = IntegerProperty(index=True)
 
-    class Mixin(object):
-        extra = StringProperty(unique_index=True)
+    class Shopper(User):
+        balance = IntegerProperty(index=True)
 
-    class MixedHuman(Human, Mixin):
+        def credit_account(self, amount):
+            self.balance = self.balance + int(amount)
+            self.save()
+
+    jim = Shopper(name='jimmy', balance=300).save()
+    jim.credit_account(50)
+
+    assert Shopper.__label__ == 'Shopper'
+    assert jim.balance == 350
+    assert len(jim.inherited_labels()) == 1
+    assert len(jim.labels()) == 1
+    assert jim.labels()[0] == 'Shopper'
+
+
+def test_mixins():
+    class UserMixin(object):
+        name = StringProperty(unique_index=True)
+        password = StringProperty()
+
+    class CreditMixin(object):
+        balance = IntegerProperty(index=True)
+
+        def credit_account(self, amount):
+            self.balance = self.balance + int(amount)
+            self.save()
+
+    class Shopper2(StructuredNode, UserMixin, CreditMixin):
         pass
 
-    jim = MixedHuman(age=23, name='jimmy', extra='extra').save()
+    jim = Shopper2(name='jimmy', balance=300).save()
+    jim.credit_account(50)
 
-    assert MixedHuman.__label__ == 'MixedHuman'
-    node = MixedHuman.nodes.get(extra='extra')
-    assert node.name == jim.name
+    assert Shopper2.__label__ == 'Shopper2'
+    assert jim.balance == 350
+    assert len(jim.inherited_labels()) == 1
+    assert len(jim.labels()) == 1
+    assert jim.labels()[0] == 'Shopper2'

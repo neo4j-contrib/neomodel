@@ -21,6 +21,7 @@ Version 3.0.0
  * Add config option DJANGO_SIGNALS
  * Add config option AUTO_INSTALL_LABELS
  * Remove deprecated .index class property on StructuredNode
+ * Added docs and better tests on inheritance
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
