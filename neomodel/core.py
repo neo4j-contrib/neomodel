@@ -4,7 +4,7 @@ from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .signals import hooks
 from .util import Database, classproperty
-
+from . import config
 
 db = Database()
 
@@ -54,7 +54,9 @@ class NodeMeta(type):
             else:
                 inst.__label__ = inst.__name__
 
-            install_labels(inst)
+            if config.AUTO_INSTALL_LABELS:
+                install_labels(inst)
+
             from .index import NodeIndexManager
 
             inst.index = NodeIndexManager(inst, inst.__label__)

@@ -1,0 +1,1 @@
+AUTO_INSTALL_LABELS = True

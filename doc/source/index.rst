@@ -47,3 +47,4 @@ Contents
    hooks
    batch
    extending
+   configuration
