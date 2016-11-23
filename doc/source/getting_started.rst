@@ -5,17 +5,17 @@ Getting started
 Connecting
 ==========
 
-Authentication
---------------
-Prior to starting, please make sure you have a set a new password for the neo4j server,
-this can be achieved through the web interface on http://localhost:7474 after starting the server for the first time.
+Before executing any neomodel code set the connection url as below::
 
-Neomodel Connection
--------------------
-Set the location of neo4j via an environment variable (default is bolt://neo4j:neo4j@localhost:7687).
-NOTE: This must be set in the shell or environment that you are executing your code::
+    from neomodel import db
+    db.set_connection('bolt://neo4j:neo4j@localhost:7687')
 
-    export NEO4J_BOLT_URL=bolt://user:password@localhost:7687
+Note that if you are using Django this code should live in your settings.py file.
+
+*If you are using your neo4j server for the first time you will need to change the default password*.
+This can be achieved by visiting the neo4j admin panel (default: http://localhost:7474 ).
+
+Calling `set_connection()` can be called at any point in execution but be warned that it applies to the whole thread.
 
 Definition
 ==========

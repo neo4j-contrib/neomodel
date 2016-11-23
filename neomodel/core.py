@@ -1,4 +1,3 @@
-import os
 import warnings
 
 from .exception import DoesNotExist
@@ -7,8 +6,7 @@ from .signals import hooks
 from .util import Database, classproperty
 
 
-DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687')
-db = Database(DATABASE_URL)
+db = Database()
 
 
 def install_labels(cls):

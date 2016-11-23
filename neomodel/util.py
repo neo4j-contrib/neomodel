@@ -19,12 +19,25 @@ else:
 logger = logging.getLogger(__name__)
 
 
-class Database(local):
-    def __init__(self, _url):
-        if hasattr(self, 'session'):
-            raise SystemError('__init__ called too many times')
+# make sure the connection url has been set prior to executing the wrapped function
+def check_connection_url_set(func):
+    def wrapper(self, *args, **kwargs):
+        if not self.url:
+            raise SystemError("Please call db.set_connection(url)"
+                              + " in your code before using neomodel")
+        return func(self, *args, **kwargs)
+    return wrapper
 
-        u = urlparse(_url)
+
+class Database(local):
+    def __init__(self):
+        self._active_transaction = None
+        self.url = None
+        self.driver = None
+
+    def set_connection(self, url):
+        self.url = url
+        u = urlparse(url)
         if u.netloc.find('@') > -1:
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
@@ -33,35 +46,40 @@ class Database(local):
 
         self.driver = GraphDatabase.driver('bolt://' + hostname,
                                            auth=basic_auth(username, password))
-        self._active_transaction = None
         self.refresh_connection()
 
+    @check_connection_url_set
     def refresh_connection(self):
         if self._active_transaction:
             raise SystemError("Can't refresh connection with active transaction")
 
-        self.session = self.driver.session()
+        self._session = self.driver.session()
         self._pid = os.getpid()
         self._active_transaction = None
 
     @property
+    @check_connection_url_set
     def transaction(self):
         return TransactionProxy(self)
 
+    @check_connection_url_set
     def begin(self):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.session.begin_transaction()
+        self._active_transaction = self._session.begin_transaction()
 
+    @check_connection_url_set
     def commit(self):
         r = self._active_transaction.commit()
         self._active_transaction = None
         return r
 
+    @check_connection_url_set
     def rollback(self):
         self._active_transaction.rollback()
         self._active_transaction = None
 
+    @check_connection_url_set
     def cypher_query(self, query, params=None, handle_unique=True):
         if self._pid != os.getpid():
             self.refresh_connection()
@@ -69,7 +87,7 @@ class Database(local):
         if self._active_transaction:
             session = self._active_transaction
         else:
-            session = self.session
+            session = self._session
 
         try:
             start = time.clock()

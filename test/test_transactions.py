@@ -73,3 +73,18 @@ def test_query_inside_transaction():
         Person(name='Bob').save()
 
         assert len([p.name for p in Person.nodes]) == 2
+
+
+def test_set_connection_works():
+    assert Person(name='New guy').save()
+    from socket import gaierror
+
+    old_url = db.url
+    try:
+        db.set_connection('bolt://user:password@nowhere:7687')
+        assert False  # Shouldnt get here
+    except gaierror:
+        assert True
+        db.set_connection(old_url)
+    # set connection back
+    assert Person(name='New guy2').save()

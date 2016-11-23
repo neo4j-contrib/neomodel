@@ -44,7 +44,7 @@ Upgrading 2.x to 3.x
 ====================
 
  * Now utilises neo4j_driver as the backend which uses bolt so neo4j 3 is required
- * NEO4J_REST_URL has become NEO4J_BOLT_URL (see docs below)
+ * Connection now set through db.set_connection() (see getting started docs)
  * The deprecated category() method on StructuredNode has been removed
  * The streaming=True flag is now irrelevant with bolt and produces a deprecation warning
  * Batch operations must now be wrapped in a transaction in order to be atomic.
@@ -61,7 +61,7 @@ Make sure you have a fresh virtualenv and `nose` installed::
 
     $ pip install nose
 
-A Neo4j database to run the tests on, make sure you have set a password from the web interface prior to running the tests. (it will wipe this database)::
+Also a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
 
     $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
 
@@ -72,6 +72,7 @@ Setup a virtual environment, install neomodel for development and run the test s
     $ python setup.py develop
     $ nosetests -s
 
+If your running a neo4j database for the first time the test suite will set the password to 'test'.
 
 .. image:: https://badges.gitter.im/Join%20Chat.svg
    :alt: Join the chat at https://gitter.im/robinedwards/neomodel
