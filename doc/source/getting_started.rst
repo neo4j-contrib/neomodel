@@ -20,9 +20,7 @@ Calling `set_connection()` can be called at any point in execution but be warned
 Definition
 ==========
 
-In the example below, there is one type of relationship present `IS_FROM`,
-we are defining two different ways for traversing it
-one accessible via Person objects and one via Country objects::
+Below is a definition of two types of node `Person` and `Country::
 
     from neomodel import (StructuredNode, StringProperty, IntegerProperty,
         RelationshipTo, RelationshipFrom)
@@ -41,7 +39,15 @@ one accessible via Person objects and one via Country objects::
         # traverse outgoing IS_FROM relations, inflate to Country objects
         country = RelationshipTo(Country, 'IS_FROM')
 
-We can use the `Relationship` class if we don't want to specify a direction.
+
+There is one type of relationship present `IS_FROM`, we are defining two different ways for traversing it
+one accessible via Person objects and one via Country objects
+
+We can use the `Relationship` class as opposed to the `RelationshipTo` or `RelationshipFrom`
+if we don't want to specify a direction.
+
+Neomodel automatically creates a label for each StructuredNode class in the database
+ with the corresponding indexes and constraints.
 
 Create, Save, Delete
 ====================
