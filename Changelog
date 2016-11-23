@@ -2,7 +2,8 @@ Version 3.0.0
  * neo4j_driver now used as backend
  * Support for neo4j versions prior to 3 dropped
  * REST via py2neo support dropped
- * New db.set_connection() method as opposed to using env var for db url
+ * New db.set_connection() method to override connection url
+ * New config module for DATABASE_URL and other settings
  * streaming kwarg now deprecated
  * py2neo.cypher.error.statement.InvalidSyntax replaced by
  neo4j.v1.exceptions.CypherError for cypher errors (syntax etc)
@@ -17,7 +18,8 @@ Version 3.0.0
  * Stopped connections being shared across processes which caused incorrect
  results to be returned (in py2neo version) or an SSLError (bolt version).
  neomodel is now process and thread safe.
-
+ * Add config option DJANGO_SIGNALS
+ * Add config option AUTO_INSTALL_LABELS
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
