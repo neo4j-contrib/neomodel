@@ -10,8 +10,8 @@ Set your connection details::
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
 
-Disabling automatic index and constraint creation
--------------------------------------------------
+Disable automatic index and constraint creation
+-----------------------------------------------
 
 After a StructuredNode class definition neomodel installs the corresponding constraints and indexes at compile time.
 This can be annoying when unit testing.
@@ -26,3 +26,7 @@ If you wish to manually install a nodes indexes and constraints::
     from neomodel import install_labels
     install_labels(YourClass)
 
+Disable Django signals integration
+----------------------------------
+
+This is enabled automatically should django be installed. Set `config.DJANGO_SIGNALS = False` to disable them.

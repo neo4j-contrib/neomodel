@@ -1,4 +1,6 @@
 import os
+from . import config
+
 signals = None
 try:
     if not 'DJANGO_SETTINGS_MODULE' in os.environ:
@@ -13,9 +15,11 @@ except ImportError:
 def exec_hook(hook_name, self, *args, **kwargs):
     if hasattr(self, hook_name):
         getattr(self, hook_name)(*args, **kwargs)
-    if signals and hasattr(signals, hook_name):
+
+    if config.DJANGO_SIGNALS and signals and hasattr(signals, hook_name):
         sig = getattr(signals, hook_name)
         sig.send(sender=self.__class__, instance=self)
+
 
 
 def hooks(fn):
