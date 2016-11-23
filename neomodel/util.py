@@ -33,7 +33,15 @@ class Database(local):
 
         self.driver = GraphDatabase.driver('bolt://' + hostname,
                                            auth=basic_auth(username, password))
+        self._active_transaction = None
+        self.refresh_connection()
+
+    def refresh_connection(self):
+        if self._active_transaction:
+            raise SystemError("Can't refresh connection with active transaction")
+
         self.session = self.driver.session()
+        self._pid = os.getpid()
         self._active_transaction = None
 
     @property
@@ -55,6 +63,9 @@ class Database(local):
         self._active_transaction = None
 
     def cypher_query(self, query, params=None, handle_unique=True):
+        if self._pid != os.getpid():
+            self.refresh_connection()
+
         if self._active_transaction:
             session = self._active_transaction
         else:

@@ -14,6 +14,10 @@ Version 3.0.0
  * Renamed _id property to id, old property now deprecated
  * Fix numeric propertys defaulting to 0 failing required check
  * support order_by('?') to mimic django random order by
+ * Stopped connections being shared across processes which caused incorrect
+ results to be returned (in py2neo version) or an SSLError (bolt version).
+ neomodel should now be both process and thread safe.
+
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
