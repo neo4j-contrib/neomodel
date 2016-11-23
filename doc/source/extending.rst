@@ -2,6 +2,9 @@
 Extending neomodel
 ==================
 
+Overriding the StructuredNode constructor
+-----------------------------------------
+
 When defining models that have a custom `__init__(self, ...)` method, you must always call `super()`::
 
     class Person(StructuredNode):
