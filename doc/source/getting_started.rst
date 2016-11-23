@@ -5,25 +5,32 @@ Getting started
 Connecting
 ==========
 
-Before executing any neomodel code set the connection url as below::
+Before executing any neomodel code set the connection url::
+
+    from neomodel import config
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
+
+This needs to be called early on in your app, if you are using Django the settings.py file is ideal.
+
+If you are using your neo4j server for the first time you will need to change the default password.
+This can be achieved by visiting the neo4j admin panel (default: http://localhost:7474 ).
+
+You can also change the connection url at any time by calling `set_connection`::
 
     from neomodel import db
     db.set_connection('bolt://neo4j:neo4j@localhost:7687')
 
-Note that if you are using Django this code should live in your settings.py file.
-
-*If you are using your neo4j server for the first time you will need to change the default password*.
-This can be achieved by visiting the neo4j admin panel (default: http://localhost:7474 ).
-
-Calling `set_connection()` can be called at any point in execution but be warned that it applies to the whole thread.
+The new connection url will be applied to the current thread or process.
 
 Definition
 ==========
 
 Below is a definition of two types of node `Person` and `Country::
 
-    from neomodel import (StructuredNode, StringProperty, IntegerProperty,
+    from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
         RelationshipTo, RelationshipFrom)
+
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)

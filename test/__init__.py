@@ -1,12 +1,13 @@
 from __future__ import print_function
 import warnings
 import os
-from neomodel.core import db
+
+from neomodel import config, db
 from neo4j.v1.exceptions import CypherError
 
 warnings.simplefilter('default')
 
-db.set_connection(os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687'))
+config.DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687')
 
 try:
     db.cypher_query("MATCH (a) DETACH DELETE a")

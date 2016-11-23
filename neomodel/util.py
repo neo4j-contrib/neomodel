@@ -6,6 +6,7 @@ import sys
 from threading import local
 
 from .exception import UniqueProperty, ConstraintValidationFailed
+from . import config
 
 from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc
 
@@ -20,11 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 # make sure the connection url has been set prior to executing the wrapped function
-def check_connection_url_set(func):
+def ensure_connection(func):
     def wrapper(self, *args, **kwargs):
         if not self.url:
-            raise SystemError("Please call db.set_connection(url)"
-                              + " in your code before using neomodel")
+            self.set_connection(config.DATABASE_URL)
         return func(self, *args, **kwargs)
     return wrapper
 
@@ -38,17 +38,19 @@ class Database(local):
     def set_connection(self, url):
         self.url = url
         u = urlparse(url)
-        if u.netloc.find('@') > -1:
+
+        if u.netloc.find('@') > -1 or u.scheme != 'bolt':
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
         else:
-            raise ValueError("Expecting auth credentials in url, e.g: bolt://user:password@localhost:7687")
+            raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
+                             " got {}".format(url))
 
         self.driver = GraphDatabase.driver('bolt://' + hostname,
                                            auth=basic_auth(username, password))
         self.refresh_connection()
 
-    @check_connection_url_set
+    @ensure_connection
     def refresh_connection(self):
         if self._active_transaction:
             raise SystemError("Can't refresh connection with active transaction")
@@ -58,28 +60,28 @@ class Database(local):
         self._active_transaction = None
 
     @property
-    @check_connection_url_set
+    @ensure_connection
     def transaction(self):
         return TransactionProxy(self)
 
-    @check_connection_url_set
+    @ensure_connection
     def begin(self):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
         self._active_transaction = self._session.begin_transaction()
 
-    @check_connection_url_set
+    @ensure_connection
     def commit(self):
         r = self._active_transaction.commit()
         self._active_transaction = None
         return r
 
-    @check_connection_url_set
+    @ensure_connection
     def rollback(self):
         self._active_transaction.rollback()
         self._active_transaction = None
 
-    @check_connection_url_set
+    @ensure_connection
     def cypher_query(self, query, params=None, handle_unique=True):
         if self._pid != os.getpid():
             self.refresh_connection()

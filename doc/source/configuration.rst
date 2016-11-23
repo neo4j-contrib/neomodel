@@ -3,6 +3,13 @@ Configuration
 
 Covering the neomodel 'config' module and its variables.
 
+Database url
+------------
+
+Set your connection details::
+
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
+
 Disabling automatic index and constraint creation
 -------------------------------------------------
 
