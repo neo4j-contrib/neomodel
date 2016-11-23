@@ -35,34 +35,6 @@ class RequiredProperty(Exception):
             self.property_name, self.node_class.__name__)
 
 
-class CypherException(Exception):
-    def __init__(self, query, params, message, jexception, trace):
-        self.message = message
-        self.java_exception = jexception
-        self.java_trace = trace
-        self.query = query
-        self.query_parameters = params
-
-    def __str__(self):
-        return "\n{0}: {1}\nQuery: {2}\nParams: {3}\nTrace: {4}\n".format(
-            self.java_exception, self.message, self.query,
-            repr(self.query_parameters), self.java_trace)
-
-
-class TransactionError(Exception):
-    def __init__(self, message, jexception, java_trace, id):
-        self.java_exception = jexception
-        self.id = id
-        self.message = message
-        self.java_trace = java_trace
-
-    def __str__(self):
-        trace = "\n    ".join(self.java_trace)
-
-        return "\nException: {0}\n Transaction ID {1}\nTrace: {2}\n".format(
-                self.java_exception, self.id, self.message, trace)
-
-
 def _obj_to_str(obj):
     if obj is None:
         return "object"

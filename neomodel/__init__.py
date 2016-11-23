@@ -8,11 +8,11 @@ from .cardinality import (AttemptedCardinalityViolation,
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
         JSONProperty, ArrayProperty)
-from .exception import InflateError, DeflateError, UniqueProperty, CypherException, MultipleNodesReturned
+from .exception import InflateError, DeflateError, UniqueProperty, MultipleNodesReturned
 from .signals import SIGNAL_SUPPORT
 
 __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
 __license__ = 'MIT'
 __package__ = 'neomodel'
-__version__ = '2.0.2'
+__version__ = '3.0.0'

@@ -6,6 +6,7 @@ Version 3.0.0
  * streaming kwarg now deprecated
  * py2neo.cypher.error.statement.InvalidSyntax replaced by
  neo4j.v1.exceptions.CypherError for cypher errors (syntax etc)
+ * CypherException and TransactionException have now been removed
  * ConstraintValidationFailed exception introduced as super class of
  UniqueProperty to allow additional classes in the future
  * Remove category() method from StructuredNode's following its deprecation
