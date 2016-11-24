@@ -47,13 +47,18 @@ def test_repr_and_str():
     assert True
 
 
-def test_get():
+def test_get_and_get_or_none():
     u = User(email='robin@test.com', age=3)
     assert u.save()
     rob = User.nodes.get(email='robin@test.com')
     assert rob.email == 'robin@test.com'
     assert rob.age == 3
 
+    rob = User.nodes.get_or_none(email='robin@test.com')
+    assert rob.email == 'robin@test.com'
+
+    n = User.nodes.get_or_none(email='robin@nothere.com')
+    assert n is None
 
 def test_save_to_model():
     u = User(email='jim@test.com', age=3)

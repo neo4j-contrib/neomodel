@@ -68,6 +68,20 @@ Using convenient methods::
     jim.refresh() # reload properties from neo
     jim.id # neo4j internal id
 
+Finding nodes
+=============
+
+Using the '.nodes' class property::
+
+    # raises Person.DoesNotExist if no match
+    jim = Person.nodes.get(name='Jim')
+
+    # Will return None unless bob exists
+    someone = Person.nodes.get_or_none(name='bob')
+
+    # Return set of nodes
+    people = Person.nodes.filter(age__gt=3)
+
 Relationships
 =============
 

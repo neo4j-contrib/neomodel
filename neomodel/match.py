@@ -489,6 +489,12 @@ class NodeSet(BaseSet):
         else:
             return result[0]
 
+    def get_or_none(self, **kwargs):
+        try:
+            return self.get(**kwargs)
+        except self.source_class.DoesNotExist:
+            pass
+
     def filter(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)
         self.filters.append(output)
