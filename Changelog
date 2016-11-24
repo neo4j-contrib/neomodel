@@ -22,6 +22,7 @@ Version 3.0.0
  * Add config option AUTO_INSTALL_LABELS
  * Remove deprecated .index class property on StructuredNode
  * Added docs and better tests on inheritance
+ * Added __repr__ and __str__ methods to StructuredNode
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node
