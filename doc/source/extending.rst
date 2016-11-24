@@ -50,10 +50,16 @@ Overriding the StructuredNode constructor
 When defining classes that have a custom `__init__(self, ...)` method,
 you must always call `super()` for the neomodel magic to work::
 
-    class Person(StructuredNode):
+    class Item(StructuredNode):
         name = StringProperty(unique_index=True)
+        uid = StringProperty(unique_index=True)
 
-        def __init__(self, name, *args, **kwargs):
-            self.name = name
+        def __init__(self, product, *args, **kwargs):
+            self.product = product
+            kwargs["uid"] = 'g.' + str(self.product.pk)
+            kwargs["name"] = self.product.product_name
 
-            super(Person, self).__init__(self, *args, **kwargs)
+            super(Item, self).__init__(self, *args, **kwargs)
+
+It's important to note that `StructuredNode`'s constructor will override properties set (which are defined on the class).
+So you must pass the values in via `kwargs` (as above). You may set them after calling the constructor but it does skip validation.
