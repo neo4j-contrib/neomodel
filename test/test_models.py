@@ -1,3 +1,4 @@
+from __future__ import print_function
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, ArrayProperty)
 from neomodel.exception import RequiredProperty, UniqueProperty
 
@@ -37,6 +38,13 @@ def test_required():
         assert True
     else:
         assert False
+
+
+def test_repr_and_str():
+    u = User(email='robin@test.com', age=3)
+    print(repr(u))
+    print(str(u))
+    assert True
 
 
 def test_get():

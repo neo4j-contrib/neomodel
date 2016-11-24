@@ -98,6 +98,12 @@ class StructuredNode(NodeBase):
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
+    def __str__(self):
+        return repr(self.__properties__)
+
+    def __repr__(self):
+        return '<{}: {}>'.format(self.__class__.__name__, self)
+
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             return False
