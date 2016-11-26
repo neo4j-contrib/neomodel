@@ -7,6 +7,7 @@ from datetime import datetime
 
 class SupplierRel(StructuredRel):
     since = DateTimeProperty(default=datetime.now)
+    courier = StringProperty()
 
 
 class Supplier(StructuredNode):
@@ -151,6 +152,20 @@ def test_slice():
     assert len(Coffee.nodes[1]) == 1
     assert len(Coffee.nodes[0]) == 1
     assert len(Coffee.nodes[1:2]) == 1
+
+
+def test_issue_208():
+    # calls to match persist across queries.
+
+    b = Coffee(name="basics").save()
+    l = Supplier(name="lidl").save()
+    a = Supplier(name="aldi").save()
+
+    b.suppliers.connect(l, {'courier': 'fedex'})
+    b.suppliers.connect(a, {'courier': 'dhl'})
+
+    assert len(b.suppliers.match(courier='fedex'))
+    assert len(b.suppliers.match(courier='dhl'))
 
 
 def test_contains():

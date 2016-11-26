@@ -24,6 +24,7 @@ Version 3.0.0
  * Add docs and better tests on inheritance
  * Add __repr__ and __str__ methods to StructuredNode
  * Add get_or_none method to NodeSet
+ * Fixed filters persisting across node relationship queries (#208)
 
 
 Version 2.0.2 2015-09-04

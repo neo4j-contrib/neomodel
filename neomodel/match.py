@@ -575,6 +575,3 @@ class Traversal(BaseSet):
         if kwargs:
             self.filters.append(process_filter_args(self.definition['model'], kwargs))
         return self
-
-    def _in_node_set(self):
-        return NodeSet(self)

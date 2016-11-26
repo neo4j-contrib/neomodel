@@ -3,7 +3,7 @@ import functools
 from importlib import import_module
 from .exception import NotConnected, MultipleNodesReturned
 from .util import deprecated
-from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal
+from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal, NodeSet
 
 
 # check source node is saved and not deleted
@@ -17,9 +17,12 @@ def check_source(fn):
     return checker
 
 
-class RelationshipManager(Traversal):
+class RelationshipManager(object):
     def __init__(self, source, key, definition):
-        super(RelationshipManager, self).__init__(source, key, definition)
+        self.source = source
+        self.source_class = source.__class__
+        self.name = key
+        self.definition = definition
 
     def __str__(self):
         direction = 'either'
@@ -31,31 +34,6 @@ class RelationshipManager(Traversal):
         return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
             self.description, direction,
             self.definition['relation_type'], self.source.id, self.source_class.__name__)
-
-    @check_source
-    def get(self, **kwargs):
-        result = self.search(**kwargs)
-        if len(result) > 1:
-            raise MultipleNodesReturned(repr(kwargs))
-        elif not result:
-            raise self.source_class.DoesNotExist(repr(kwargs))
-        else:
-            return result[0]
-
-    # TODO
-    @check_source
-    @deprecated("search() is now deprecated please use filter() and exclude()")
-    def search(self, **kwargs):
-        ns = self._in_node_set()
-        for field, value in kwargs.items():
-            ns.filter(**{field: value})
-        return ns.all()
-
-    @check_source
-    @deprecated("is_connected() is now deprecated please use 'in'")
-    def is_connected(self, obj):
-        self._check_node(obj)
-        return obj in self
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
@@ -159,9 +137,61 @@ class RelationshipManager(Traversal):
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': obj.id})
 
+    def _new_traversal(self):
+        return Traversal(self.source, self.name, self.definition)
+
+    # methods proxying the match engine
+    @check_source
+    def get(self, **kwargs):
+        result = self.search(**kwargs)
+        if len(result) > 1:
+            raise MultipleNodesReturned(repr(kwargs))
+        elif not result:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+        else:
+            return result[0]
+
+    @check_source
+    @deprecated("search() is now deprecated please use filter() and exclude()")
+    def search(self, **kwargs):
+        ns = NodeSet(self._new_traversal())
+        for field, value in kwargs.items():
+            ns.filter(**{field: value})
+        return ns.all()
+
+    @check_source
+    @deprecated("is_connected() is now deprecated please use 'in'")
+    def is_connected(self, obj):
+        self._check_node(obj)
+        return obj in self
+
     def single(self):
         nodes = self[0]
         return nodes[0] if nodes else None
+
+    def match(self, **kwargs):
+        return self._new_traversal().match(**kwargs)
+
+    def all(self):
+        return self._new_traversal().all()
+
+    def __iter__(self):
+        return self._new_traversal().__iter__()
+
+    def __len__(self):
+        return self._new_traversal().__len__()
+
+    def __bool__(self):
+        return self._new_traversal().__bool__()
+
+    def __nonzero__(self):
+        return self._new_traversal().__nonzero__()
+
+    def __contains__(self, obj):
+        return self._new_traversal().__contains__(obj)
+
+    def __getitem__(self, key):
+        return self._new_traversal().__getitem__(key)
 
 
 class RelationshipDefinition(object):
