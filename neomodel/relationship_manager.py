@@ -140,16 +140,10 @@ class RelationshipManager(object):
     def _new_traversal(self):
         return Traversal(self.source, self.name, self.definition)
 
-    # methods proxying the match engine
+    # The methods below simply proxy the match engine.
     @check_source
     def get(self, **kwargs):
-        result = self.search(**kwargs)
-        if len(result) > 1:
-            raise MultipleNodesReturned(repr(kwargs))
-        elif not result:
-            raise self.source_class.DoesNotExist(repr(kwargs))
-        else:
-            return result[0]
+        return NodeSet(self._new_traversal()).get(**kwargs)
 
     @check_source
     @deprecated("search() is now deprecated please use filter() and exclude()")
