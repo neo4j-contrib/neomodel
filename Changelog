@@ -25,7 +25,7 @@ Version 3.0.0
  * Add __repr__ and __str__ methods to StructuredNode
  * Add get_or_none method to NodeSet
  * Fixed filters persisting across node relationship queries (#208)
-
+ * Un-deprecate is_connected, its intuitive 
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node

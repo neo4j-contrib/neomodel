@@ -160,10 +160,8 @@ class RelationshipManager(object):
         return ns.all()
 
     @check_source
-    @deprecated("is_connected() is now deprecated please use 'in'")
     def is_connected(self, obj):
-        self._check_node(obj)
-        return obj in self
+        return self._new_traversal().__contains__(obj)
 
     def single(self):
         nodes = self[0]
