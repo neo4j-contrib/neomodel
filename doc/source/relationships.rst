@@ -79,4 +79,4 @@ directly related to another Person, through all relationships::
 - node class: the type of the relationship target
 - direction: OUTGOING/INCOMING/EITHER
 - realtion_type: can be None (any direct), '*' for all paths or an explicit name of the relationship type.
-- model: the tpye of the model object, None for simple relationship
+- model: the type of the model object, None for simple relationship
