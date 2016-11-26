@@ -46,9 +46,10 @@ Upgrading 2.x to 3.x
  * Now utilises neo4j_driver as the backend which uses bolt so neo4j 3 is required
  * Connection now set through config.DATABASE_URL (see getting started docs)
  * The deprecated category() method on StructuredNode has been removed
- * The deprecarted index property on StructuredNoded has been removed
+ * The deprecated index property on StructuredNode has been removed
  * The streaming=True flag is now irrelevant with bolt and produces a deprecation warning
- * Batch operations must now be wrapped in a transaction in order to be atomic.
+ * Batch operations must now be wrapped in a transaction in order to be atomic
+ * Indexing NodeSets returns a single node now as opposed to a list
 
 Contributing
 ============

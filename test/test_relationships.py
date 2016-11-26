@@ -99,7 +99,7 @@ def test_either_direction_connect():
     assert int(result[0][0]) == 1
 
 
-def test_search():
+def test_search_and_filter_and_exclude():
     fred = Person(name='Fred', age=13).save()
     zz = Country(code='ZZ').save()
     zx = Country(code='ZX').save()
@@ -109,6 +109,12 @@ def test_search():
     fred.is_from.connect(zt)
     result = fred.is_from.search(code='ZX')
     assert result[0].code == 'ZX'
+
+    result = fred.is_from.filter(code='ZX')
+    assert result[0].code == 'ZX'
+
+    result = fred.is_from.exclude(code='ZZ').exclude(code='ZY')
+    assert result[0].code == 'ZX' and len(result) == 1
 
 
 def test_custom_methods():

@@ -26,6 +26,9 @@ Version 3.0.0
  * Add get_or_none method to NodeSet
  * Fixed filters persisting across node relationship queries (#208)
  * Un-deprecate is_connected, its intuitive 
+ * Fixed NodeSet index returning a list now returns just the node, e.g
+ jim.friends[0] returns a node as opposed to a list containing one node.
+ * Added missing filter and exclude methods to rel manager enabling: jim.friends.filter(name='bob')
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node

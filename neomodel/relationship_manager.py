@@ -145,21 +145,25 @@ class RelationshipManager(object):
     def get(self, **kwargs):
         return NodeSet(self._new_traversal()).get(**kwargs)
 
-    @check_source
     @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
-        ns = NodeSet(self._new_traversal())
-        for field, value in kwargs.items():
-            ns.filter(**{field: value})
-        return ns.all()
+        return self.filter(**kwargs).all()
+
+    def filter(self, **kwargs):
+        return NodeSet(self._new_traversal()).filter(**kwargs)
+
+    def exclude(self, **kwargs):
+        return NodeSet(self._new_traversal()).exclude(**kwargs)
 
     @check_source
     def is_connected(self, obj):
         return self._new_traversal().__contains__(obj)
 
     def single(self):
-        nodes = self[0]
-        return nodes[0] if nodes else None
+        try:
+            return self[0]
+        except IndexError:
+            pass
 
     def match(self, **kwargs):
         return self._new_traversal().match(**kwargs)

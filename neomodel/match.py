@@ -444,11 +444,14 @@ class BaseSet(object):
                 self.limit = key.stop
             elif key.start:
                 self.skip = key.start
+
+            return self.query_cls(self).build_ast()._execute()
+
         elif isinstance(key, int):
             self.skip = key
             self.limit = 1
 
-        return self.query_cls(self).build_ast()._execute()
+            return self.query_cls(self).build_ast()._execute()[0]
 
 
 class NodeSet(BaseSet):

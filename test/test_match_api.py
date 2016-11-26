@@ -149,8 +149,8 @@ def test_slice():
 
     assert len(Coffee.nodes[1:]) == 2
     assert len(Coffee.nodes[:1]) == 1
-    assert len(Coffee.nodes[1]) == 1
-    assert len(Coffee.nodes[0]) == 1
+    assert isinstance(Coffee.nodes[1], Coffee)
+    assert isinstance(Coffee.nodes[0], Coffee)
     assert len(Coffee.nodes[1:2]) == 1
 
 
