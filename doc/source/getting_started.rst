@@ -25,7 +25,7 @@ The new connection url will be applied to the current thread or process.
 Definition
 ==========
 
-Below is a definition of two types of node `Person` and `Country::
+Below is a definition of two types of node `Person` and `Country`::
 
     from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
         RelationshipTo, RelationshipFrom)
