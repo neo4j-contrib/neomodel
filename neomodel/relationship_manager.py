@@ -3,7 +3,7 @@ import functools
 from importlib import import_module
 from .exception import NotConnected, MultipleNodesReturned
 from .util import deprecated
-from .match import OUTGOING, INCOMING, EITHER, rel_helper, Traversal, NodeSet
+from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 
 
 # basestring python 3.x fallback
@@ -70,7 +70,7 @@ class RelationshipManager(object):
                 rp[p] = '{' + p + '}'
                 params[p] = v
 
-        new_rel = rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
+        new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
 
@@ -94,7 +94,7 @@ class RelationshipManager(object):
 
         rel_model = self.definition['model']
 
-        my_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} MATCH " \
             "" + my_rel + " RETURN r"
         rel = self.source.cypher(q, {'them': obj.id})[0][0][0]
@@ -118,7 +118,7 @@ class RelationshipManager(object):
         self._check_node(new_obj)
         if old_obj.id == new_obj.id:
             return
-        old_rel = rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
+        old_rel = _rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
         result, meta = self.source.cypher(
@@ -130,7 +130,7 @@ class RelationshipManager(object):
             raise NotConnected('reconnect', self.source, old_obj)
 
         # remove old relationship and create new one
-        new_rel = rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
+        new_rel = _rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
         q = "MATCH (us), (old), (new) " \
             "WHERE id(us)={self} and id(old)={old} and id(new)={new} " \
             "MATCH " + old_rel
@@ -145,7 +145,7 @@ class RelationshipManager(object):
 
     @check_source
     def disconnect(self, obj):
-        rel = rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
+        rel = _rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "MATCH (a), (b) WHERE id(a)={self} and id(b)={them} " \
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': obj.id})
