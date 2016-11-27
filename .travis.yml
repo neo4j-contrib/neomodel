@@ -1,6 +1,5 @@
 language: python
-jdk:
-  - oraclejdk8
+sudo: required
 python:
   - "2.7"
   - "3.5"
@@ -9,6 +8,8 @@ script: nosetests -s
 env:
   - NEO4J_VERSION="3.0.7"
 before_install:
+  - sudo apt-get update && sudo apt-get install oracle-java8-installer
+  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
   - wget dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - tar -xzf neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - neo4j-community-$NEO4J_VERSION/bin/neo4j start
