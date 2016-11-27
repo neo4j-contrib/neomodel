@@ -16,6 +16,11 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
     :target: https://secure.travis-ci.org/robinedwards/neomodel/
 
+.. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
+    :alt: Documentation Status
+    :scale: 100%
+    :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
+
 Documentation
 =============
 
