@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = __package__
-copyright = u'2014, ' + __author__
+copyright = u'2016, ' + __author__
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -263,7 +263,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'neomodel', u'neomodel Documentation',
-   __author__, 'neomodel', 'One line description of project.',
+   __author__, 'neomodel', ' An Object Graph Mapper (OGM) for the neo4j graph database',
    'Miscellaneous'),
 ]
 
