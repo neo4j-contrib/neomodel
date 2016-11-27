@@ -1,4 +1,4 @@
-Version 3.0.0
+Version 3.0.0 2016-11-27
  * neo4j_driver now used as backend
  * Support for neo4j versions prior to 3 dropped
  * REST via py2neo support dropped
@@ -29,6 +29,7 @@ Version 3.0.0
  * Fixed NodeSet index returning a list now returns just the node, e.g
  jim.friends[0] returns a node as opposed to a list containing one node.
  * Added missing filter and exclude methods to rel manager enabling: jim.friends.filter(name='bob')
+ * Add NormalProperty, RegexProperty, EmailProperty (Rafael Pivato++)
 
 Version 2.0.2 2015-09-04
  * support for creating or updating a node

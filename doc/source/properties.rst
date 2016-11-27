@@ -51,6 +51,13 @@ to raise an exception on receiving a datetime without a timezone you set the env
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
+Other properties
+================
+
+* `EmailProperty` - validate emails (via a regex).
+* `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
+* `NormalProperty` - use one method (normalize) to inflate and deflate.
+
 Aliasing properties
 ===================
 

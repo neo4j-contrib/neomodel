@@ -145,11 +145,9 @@ class Property(object):
 
 
 class NormalProperty(Property):
-    """Base class for normalized properties.
-
-    Normalized properties are those that use the same normalization
+    """
+    Base class for Normalized properties - those that use the same normalization
     method to inflate or deflate.
-
     """
 
     @validator
@@ -176,19 +174,12 @@ class RegexProperty(NormalProperty):
 
     This helps quickly defining your own expression in case you want
     to extend :py:class:`RegexProperty`.
-
     """
 
     def __init__(self, expression=None, **kwargs):
         """Initializes new property with an expression.
 
         :param str expression: regular expression validating this property
-
-        If no `expression` is given, then
-        :py:attr:`RegexProperty.expression` is used instead, which is
-        `None` by default, except if :py:class:`RegexProperty` is
-        extended.
-
         """
         super(RegexProperty, self).__init__(**kwargs)
         actual_re = expression or self.expression
