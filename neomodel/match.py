@@ -12,7 +12,7 @@ except NameError:
     basestring = str
 
 
-def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
+def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
     """
     Generate a relationship matching string, with specified parameters.
     Examples:
@@ -30,7 +30,7 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relatio
     :type relation_type: str
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
-    :rtype: str
+    :returns: string
     """
 
     if direction == OUTGOING:
@@ -61,14 +61,14 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relatio
 
 # special operators
 _SPECIAL_OPERATOR_IN = 'IN'
-_SPECIAL_OPERATOR_INSESITIVE = '(?i)'
+_SPECIAL_OPERATOR_INSENSITIVE = '(?i)'
 _SPECIAL_OPERATOR_ISNULL = 'IS NULL'
 _SPECIAL_OPERATOR_ISNOTNULL = 'IS NOT NULL'
 _SPECIAL_OPERATOR_REGEX = '=~'
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
-_REGEX_INSESITIVE = _SPECIAL_OPERATOR_INSESITIVE + '{}'
+_REGEX_INSESITIVE = _SPECIAL_OPERATOR_INSENSITIVE + '{}'
 _REGEX_CONTAINS = '.*{}.*'
 _REGEX_STARTSWITH = '{}.*'
 _REGEX_ENDSWITH = '.*{}'
@@ -77,11 +77,11 @@ _REGEX_ENDSWITH = '.*{}'
 _STRING_REGEX_OPERATOR_TABLE = {
     'iexact': _REGEX_INSESITIVE,
     'contains': _REGEX_CONTAINS,
-    'icontains': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_CONTAINS,
+    'icontains': _SPECIAL_OPERATOR_INSENSITIVE + _REGEX_CONTAINS,
     'startswith': _REGEX_STARTSWITH,
-    'istartswith': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_STARTSWITH,
+    'istartswith': _SPECIAL_OPERATOR_INSENSITIVE + _REGEX_STARTSWITH,
     'endswith': _REGEX_ENDSWITH,
-    'iendswith': _SPECIAL_OPERATOR_INSESITIVE + _REGEX_ENDSWITH,
+    'iendswith': _SPECIAL_OPERATOR_INSENSITIVE + _REGEX_ENDSWITH,
 }
 # regex operations that do not require escaping
 _REGEX_OPERATOR_TABLE = {
@@ -108,7 +108,7 @@ OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
 def install_traversals(cls, node_set):
     """
-    from a StructuredNode class install Traversal objects for each
+    For a StructuredNode class install Traversal objects for each
     relationship definition on a NodeSet instance
     """
     rels = cls.defined_properties(rels=True, aliases=False, properties=False)
@@ -272,7 +272,7 @@ class QueryBuilder(object):
         self._ast['result_class'] = traversal.target_class
 
         rel_ident = self.create_ident()
-        stmt = rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
+        stmt = _rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
         self._ast['match'].append(stmt)
 
         if traversal.filters:
@@ -313,7 +313,7 @@ class QueryBuilder(object):
         for key, value in node_set.must_match.items():
             label = ':' + value['node_class'].__label__
             if isinstance(value, dict):
-                stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **value)
+                stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
                 self._ast['where'].append(stmt)
             elif isinstance(value, tuple):
                 rel_manager, ns = value
@@ -322,7 +322,7 @@ class QueryBuilder(object):
         for key, val in node_set.dont_match.items():
             label = ':' + val['node_class'].__label__
             if isinstance(val, dict):
-                stmt = rel_helper(lhs=source_ident, rhs=label, ident='', **val)
+                stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **val)
                 self._ast['where'].append('NOT ' + stmt)
             else:
                 raise ValueError("WTF? " + repr(val))
@@ -417,9 +417,19 @@ class QueryBuilder(object):
 
 
 class BaseSet(object):
+    """
+    Base class for all node sets.
+
+    Contains common python magic methods, __len__, __contains__ etc
+    """
     query_cls = QueryBuilder
 
     def all(self):
+        """
+        Return all nodes belonging to the set
+        :return: list of nodes
+        :rtype: list
+        """
         return self.query_cls(self).build_ast()._execute()
 
     def __iter__(self):
@@ -463,9 +473,7 @@ class BaseSet(object):
 
 class NodeSet(BaseSet):
     """
-    a set of matched nodes of a single type
-        source: how to produce the set of nodes
-        node_cls: what type of nodes are they
+    A class representing as set of nodes matching common query parameters
     """
     def __init__(self, source):
         self.source = source  # could be a Traverse object or a node class
@@ -488,6 +496,12 @@ class NodeSet(BaseSet):
         self.dont_match = {}
 
     def get(self, **kwargs):
+        """
+        Retrieve one node from the set matching supplied parameters
+
+        :param kwargs: same syntax as `filter()`
+        :return: node
+        """
         output = process_filter_args(self.source_class, kwargs)
         if output:
             self.filters.append(output)
@@ -501,18 +515,61 @@ class NodeSet(BaseSet):
             return result[0]
 
     def get_or_none(self, **kwargs):
+        """
+        Retrieve a node from the set matching supplied parameters or return none
+
+        :param kwargs: same syntax as `filter()`
+        :return: node or none
+        """
         try:
             return self.get(**kwargs)
         except self.source_class.DoesNotExist:
             pass
 
     def filter(self, **kwargs):
+        """
+        Apply filters to the existing nodes in the set.
+
+        :param kwargs: filter parameters
+
+            Filters mimic Django's syntax with the double '__' to separate field and operators.
+
+            e.g `.filter(salary__gt=20000)` results in `salary > 20000`.
+
+            The following operators are available:
+
+             * 'lt': less than
+             * 'gt': greater than
+             * 'lte': less than or equal to
+             * 'gte': greater than or equal to
+             * 'ne': not equal to
+             * 'in': matches one of list (or tuple)
+             * 'isnull': is null
+             * 'regex': matches supplied regex (neo4j regex format)
+             * 'exact': exactly match string (just '=')
+             * 'iexact': case insensitive match string
+             * 'contains': contains string
+             * 'icontains': case insensitive contains
+             * 'startswith': string starts with
+             * 'istartswith': case insensitive string starts with
+             * 'endswith': string ends with
+             * 'iendswith': case insensitive string ends with
+
+        :return: self
+        """
+
         output = process_filter_args(self.source_class, kwargs)
         if output:
             self.filters.append(output)
         return self
 
     def exclude(self, **kwargs):
+        """
+        Exclude nodes from the NodeSet via filters.
+
+        :param kwargs: filter parameters see syntax for the filter method
+        :return: self
+        """
         output = process_filter_args(self.source_class, kwargs)
         if output:
             self.filters.append({'__NOT__': output})
@@ -560,10 +617,16 @@ class NodeSet(BaseSet):
 
 class Traversal(BaseSet):
     """
-        source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
-        definition: relationship definition
+    Models a traversal from a node to another, inherits from BaseSet
     """
+
     def __init__(self, source, key, definition):
+        """
+        Create a traversal
+        :param source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
+        :param key:
+        :param definition: relationship definition
+        """
         self.source = source
 
         if isinstance(source, Traversal):
@@ -583,6 +646,14 @@ class Traversal(BaseSet):
         self.filters = []
 
     def match(self, **kwargs):
+        """
+        Traverse relationships with properties matching the given parameters.
+
+            e.g: `.match(price__lt=10)`
+
+        :param kwargs: see `NodeSet.filter()` for syntax
+        :return: self
+        """
         if 'model' not in self.definition:
             raise ValueError("match() only available on relationships with a model")
         if kwargs:

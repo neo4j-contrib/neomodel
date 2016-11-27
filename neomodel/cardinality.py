@@ -2,6 +2,9 @@ from .relationship_manager import RelationshipManager, ZeroOrMore # noqa
 
 
 class ZeroOrOne(RelationshipManager):
+    """
+    A relationship to zero or one node
+    """
     description = "zero or one relationship"
 
     def single(self):
@@ -24,6 +27,9 @@ class ZeroOrOne(RelationshipManager):
 
 
 class OneOrMore(RelationshipManager):
+    """
+    A relationship to zero or more nodes
+    """
     description = "one or more relationships"
 
     def single(self):
@@ -45,6 +51,9 @@ class OneOrMore(RelationshipManager):
 
 
 class One(RelationshipManager):
+    """
+    A relationship to a single node
+    """
     description = "one relationship"
 
     def single(self):

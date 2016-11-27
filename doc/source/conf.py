@@ -5,6 +5,7 @@ import sys
 from neomodel import __version__, __author__, __package__
 
 sys.path.insert(0, os.path.abspath('_themes'))
+sys.path.insert(0, os.path.abspath('..'))
 print sys.path
 
 import alabaster
@@ -54,7 +55,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = __package__
-copyright = u'2016, ' + __author__
+copyright = u'2017, ' + __author__
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

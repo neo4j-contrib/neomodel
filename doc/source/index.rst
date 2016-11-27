@@ -48,3 +48,10 @@ Contents
    batch
    extending
    configuration
+   module_documentation
+
+Indices and tables
+================== 
+
+* :ref:`genindex`
+* :ref:`modindex`

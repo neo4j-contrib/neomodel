@@ -10,6 +10,15 @@ db = Database()
 
 
 def install_labels(cls, quiet=True):
+    """
+    Setup labels with indexes and constraints for a given class
+
+    :param cls: StructuredNode class
+    :type: class
+    :param quiet: (default true) enable standard output
+    :type: bool
+    :return: None
+    """
 
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
@@ -32,7 +41,9 @@ def install_labels(cls, quiet=True):
 
 def install_all_labels():
     """
-    Installs all the labels defined in your schema. The code must be loaded for it to be found.
+    Discover all subclasses of StructuredNode in your application and execute install_labels on each.
+    Note: code most be loaded (imported) in order for a class to be discovered.
+
     :return: None
     """
     def subsub(cls):  # recursively return all subclasses
@@ -46,7 +57,7 @@ def install_all_labels():
 
 class NodeMeta(type):
     def __new__(mcs, name, bases, dct):
-        dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), dct)})
+        dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), {})})
         inst = super(NodeMeta, mcs).__new__(mcs, name, bases, dct)
 
         if hasattr(inst, '__abstract_node__'):
@@ -88,6 +99,14 @@ NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
 
 
 class StructuredNode(NodeBase):
+    """
+    Base class for all node definitions to inherit from.
+
+
+    If you want to create your own abstract classes set:
+        __abstract_node__ = True
+    """
+
     __abstract_node__ = True
     __required_properties__ = ()
     """ Names of all required properties of this StructuredNode """
@@ -100,6 +119,11 @@ class StructuredNode(NodeBase):
 
     @classproperty
     def nodes(cls):
+        """
+        Returns a NodeSet object representing all nodes of the classes label
+        :return: NodeSet
+        :rtype: NodeSet
+        """
         from .match import NodeSet
 
         return NodeSet(cls)
@@ -139,11 +163,27 @@ class StructuredNode(NodeBase):
         return not self.__eq__(other)
 
     def labels(self):
+        """
+        Returns list of labels tied to the node from neo4j.
+
+        :return: list of labels
+        :rtype: list
+        """
         self._pre_action_check('labels')
         return self.cypher("MATCH (n) WHERE id(n)={self} "
                            "RETURN labels(n)")[0][0][0]
 
     def cypher(self, query, params=None):
+        """
+        Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
+
+        :param query: cypher query string
+        :type: string
+        :param params: query parameters
+        :type: dict
+        :return: list containing query results
+        :rtype: list
+        """
         self._pre_action_check('cypher')
         params = params or {}
         params.update({'self': self.id})
@@ -151,6 +191,11 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def inherited_labels(cls):
+        """
+        Return list of labels from nodes class hierarchy.
+
+        :return: list
+        """
         return [scls.__label__ for scls in cls.mro()
                 if hasattr(scls, '__label__') and not hasattr(
                 scls, '__abstract_node__')]
@@ -162,6 +207,12 @@ class StructuredNode(NodeBase):
 
     @hooks
     def save(self):
+        """
+        Save the node to neo4j or raise an exception
+
+        :return: the node instance
+        """
+
         # create or update instance node
         if hasattr(self, 'id'):
             # update
@@ -189,6 +240,11 @@ class StructuredNode(NodeBase):
 
     @hooks
     def delete(self):
+        """
+        Delete a node and it's relationships
+
+        :return: True
+        """
         self._pre_action_check('delete')
         self.cypher("MATCH (self) WHERE id(self)={self} "
                     "OPTIONAL MATCH (self)-[r]-()"
@@ -198,7 +254,7 @@ class StructuredNode(NodeBase):
         return True
 
     def refresh(self):
-        """Reload this object from its node id in the database"""
+        """Reload the node from neo4j"""
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
             node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
@@ -256,10 +312,10 @@ class StructuredNode(NodeBase):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
-        :param props: List of dict arguments to get or create the entities with.
+        :param props: List of dict arguments to get or create the nodes.
         :type props: tuple
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :type lazy: bool
+        :type: bool
         :rtype: list
         """
 
@@ -353,6 +409,11 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def inflate(cls, node):
+        """
+        Inflate a raw neo4j_driver node to a neomodel node
+        :param node:
+        :return: node object
+        """
         # support lazy loading
         if isinstance(node, int):
             snode = cls()
