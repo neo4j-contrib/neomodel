@@ -17,8 +17,8 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 Requirements
 ============
 
-- Python 2.7, 3.3
-- neo4j 3+
+- Python 2.7, 3.3, 3.4 and 3.5
+- neo4j 3.0+
 
 Installation
 ============
