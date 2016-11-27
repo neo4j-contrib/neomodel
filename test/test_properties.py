@@ -1,4 +1,5 @@
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
+    NormalProperty, RegexProperty, EmailProperty,
     DateProperty, StringProperty, JSONProperty)
 from neomodel.exception import InflateError, DeflateError
 from neomodel import StructuredNode, db
@@ -195,3 +196,78 @@ def test_independent_property_name():
 
     # delete node afterwards
     x.delete()
+
+
+def test_normal_property():
+    class TestProperty(NormalProperty):
+        def normalize(self, value):
+            self._called_with = value
+            self._called = True
+            return value + 'bar'
+
+    inflate = TestProperty()
+    inflate_res = inflate.inflate('foo')
+    assert getattr(inflate, '_called', False)
+    assert getattr(inflate, '_called_with', None) == 'foo'
+    assert inflate_res == 'foobar'
+
+    deflate = TestProperty()
+    deflate_res = deflate.deflate('bar')
+    assert getattr(deflate, '_called', False)
+    assert getattr(deflate, '_called_with', None) == 'bar'
+    assert deflate_res == 'barbar'
+
+    default = TestProperty(default='qux')
+    default_res = default.default_value()
+    assert getattr(default, '_called', False)
+    assert getattr(default, '_called_with', None) == 'qux'
+    assert default_res == 'quxbar'
+
+
+def test_regex_property():
+    class MissingExpression(RegexProperty):
+        pass
+
+    try:
+        MissingExpression()
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+    class TestProperty(RegexProperty):
+        name = 'test'
+        owner = object()
+        expression = '\w+ \w+$'
+
+        def normalize(self, value):
+            self._called = True
+            return super(TestProperty, self).normalize(value)
+
+    prop = TestProperty()
+    result = prop.inflate('foo bar')
+    assert getattr(prop, '_called', False)
+    assert result == 'foo bar'
+
+    try:
+        prop.deflate('qux')
+    except DeflateError:
+        assert True
+    else:
+        assert False
+
+
+def test_email_property():
+
+    prop = EmailProperty()
+    prop.name = 'email'
+    prop.owner = object()
+    result = prop.inflate('foo@example.com')
+    assert result == 'foo@example.com'
+
+    try:
+        prop.deflate('foo@example')
+    except DeflateError:
+        assert True
+    else:
+        assert False

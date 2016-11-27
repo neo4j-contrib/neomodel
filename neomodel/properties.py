@@ -1,6 +1,7 @@
 from .exception import InflateError, DeflateError, RequiredProperty
 from datetime import datetime, date
 import os
+import re
 import types
 import pytz
 import json
@@ -143,6 +144,76 @@ class Property(object):
         return self.unique_index or self.index
 
 
+class NormalProperty(Property):
+    """Base class for normalized properties.
+
+    Normalized properties are those that use the same normalization
+    method to inflate or deflate.
+
+    """
+
+    @validator
+    def inflate(self, value):
+        return self.normalize(value)
+
+    @validator
+    def deflate(self, value):
+        return self.normalize(value)
+
+    def default_value(self):
+        default = super(NormalProperty, self).default_value()
+        return self.normalize(default)
+
+    def normalize(self, value):
+        raise NotImplementedError('Specialize normalize method')
+
+
+class RegexProperty(NormalProperty):
+    """Validates a normal property using a regular expression."""
+
+    expression = None
+    """Can be overriden in subclasses.
+
+    This helps quickly defining your own expression in case you want
+    to extend :py:class:`RegexProperty`.
+
+    """
+
+    def __init__(self, expression=None, **kwargs):
+        """Initializes new property with an expression.
+
+        :param str expression: regular expression validating this property
+
+        If no `expression` is given, then
+        :py:attr:`RegexProperty.expression` is used instead, which is
+        `None` by default, except if :py:class:`RegexProperty` is
+        extended.
+
+        """
+        super(RegexProperty, self).__init__(**kwargs)
+        actual_re = expression or self.expression
+        if actual_re is None:
+            raise ValueError('expression is undefined')
+        self.expression = actual_re
+
+    def normalize(self, value):
+        normal = unicode(value)
+        if not re.match(self.expression, normal):
+            raise ValueError(
+                '{0!r} does not matches {1!r}'.format(
+                    value,
+                    self.expression,
+                )
+            )
+        return normal
+
+
+class EmailProperty(RegexProperty):
+    """Suitable for email addresses."""
+
+    expression = r'[^@]+@[^@]+\.[^@]+'
+
+
 class StringProperty(Property):
     def __init__(self, **kwargs):
         super(StringProperty, self).__init__(**kwargs)
@@ -240,6 +311,30 @@ class DateProperty(Property):
 
 
 class DateTimeProperty(Property):
+
+    def __init__(self, **kwargs):
+        """Initializes new date time property accessor.
+
+        :param bool default_now: indicates whether default should be
+        current date and time
+
+        If you pass `default_now` and `default` at same time,
+        `ValueError` will be thrown.
+
+        """
+        super(DateTimeProperty, self).__init__(
+            **self.__patch_default(kwargs)
+        )
+
+    def __patch_default(self, kwargs):
+        default_now = kwargs.get('default_now', False)
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: \
+                datetime.utcnow().replace(tzinfo=pytz.utc)
+        return kwargs
+
     @validator
     def inflate(self, value):
         try:

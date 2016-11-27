@@ -7,6 +7,7 @@ from .cardinality import (AttemptedCardinalityViolation,
         CardinalityViolation, ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
+        NormalProperty, RegexProperty, EmailProperty,
         JSONProperty, ArrayProperty)
 from .exception import InflateError, DeflateError, UniqueProperty, MultipleNodesReturned
 from .signals import SIGNAL_SUPPORT
