@@ -482,7 +482,8 @@ class NodeSet(BaseSet):
 
     def get(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)
-        self.filters.append(output)
+        if output:
+            self.filters.append(output)
         self.limit = 2
         result = self.query_cls(self).build_ast()._execute()
         if len(result) > 1:
@@ -500,12 +501,14 @@ class NodeSet(BaseSet):
 
     def filter(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)
-        self.filters.append(output)
+        if output:
+            self.filters.append(output)
         return self
 
     def exclude(self, **kwargs):
         output = process_filter_args(self.source_class, kwargs)
-        self.filters.append({'__NOT__': output})
+        if output:
+            self.filters.append({'__NOT__': output})
         return self
 
     def has(self, **kwargs):
@@ -576,5 +579,7 @@ class Traversal(BaseSet):
         if 'model' not in self.definition:
             raise ValueError("match() only available on relationships with a model")
         if kwargs:
-            self.filters.append(process_filter_args(self.definition['model'], kwargs))
+            output = process_filter_args(self.definition['model'], kwargs) 
+            if output:
+                self.filters.append(output)
         return self
