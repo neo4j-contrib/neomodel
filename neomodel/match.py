@@ -44,7 +44,7 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relatio
 
     if relation_properties:
         rel_props = ' {{{0}}}'.format(', '.join(
-            ['{}: {}'.format(key, value) for key, value in relation_properties.iteritems()]))
+            ['{}: {}'.format(key, value) for key, value in relation_properties.items()]))
 
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
