@@ -1,6 +1,7 @@
 Version 3.0.2
  * Fix multiple relationships not being created when using a rel model
  * Fix connection logic for using in ipython
+ * Fix unicode string passed as class in relationship
 
 Version 3.0.1 2016-12-17
  * Fix empty filters causing empty WHERE clause - Siddharth Maheshwari

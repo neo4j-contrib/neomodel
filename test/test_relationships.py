@@ -6,7 +6,7 @@ class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
-    knows = Relationship('Person', 'KNOWS')
+    knows = Relationship(u'Person', 'KNOWS')  # use unicode to check issue
 
     @property
     def special_name(self):
@@ -163,3 +163,4 @@ def test_props_relationship():
         assert True
     else:
         assert False
+
