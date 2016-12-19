@@ -14,14 +14,14 @@ Disable automatic index and constraint creation
 -----------------------------------------------
 
 After a StructuredNode class definition neomodel installs the corresponding constraints and indexes at compile time.
-This can be annoying when unit testing.
+This can be annoying for unit testing and may result in deadlocks when used with gunicorn.
 
 You can disable this feature by setting the follow var (prior to loading your class definitions::
 
     from neomodel import config
     config.AUTO_INSTALL_LABELS = False
 
-If you wish to manually install a nodes indexes and constraints::
+If you wish to manually install a nodes indexes and constraints, you may want to do this as part of your deployment mechanism::
 
     from neomodel import install_labels
     install_labels(YourClass)
