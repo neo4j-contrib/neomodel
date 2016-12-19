@@ -1,4 +1,5 @@
 Version 3.0.2
+ * Install all constraints via core.install_all_labels()
  * Fix multiple relationships not being created when using a rel model
  * Fix connection logic for using in ipython
  * Fix unicode string passed as class in relationship
