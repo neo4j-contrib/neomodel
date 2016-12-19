@@ -9,15 +9,39 @@ from . import config
 db = Database()
 
 
-def install_labels(cls):
+def install_labels(cls, quiet=True):
+
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
-                db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                    cls.__label__, key))
+            if not quiet:
+                print('+ Creating index {} on label {} for class {}.{}'.format(
+                    key, cls.__label__, cls.__module__, cls.__name__))
+
+            db.cypher_query("CREATE INDEX on :{}({}); ".format(
+                cls.__label__, key))
+
         elif prop.unique_index:
+            if not quiet:
+                print('+ Creating unique constraint for {} on label {} for class {}.{}'.format(
+                    key, cls.__label__, cls.__module__, cls.__name__))
+
                 db.cypher_query("CREATE CONSTRAINT "
                                 "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
                     cls.__label__, key))
+
+
+def install_all_labels():
+    """
+    Installs all the labels defined in your schema. The code must be loaded for it to be found.
+    :return: None
+    """
+    def subsub(cls):  # recursively return all subclasses
+        return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in subsub(s)]
+
+    print("Setting up labels and constraints...\n")
+    for cls in subsub(StructuredNode):
+        install_labels(cls, quiet=False)
+        print("{}.{} done.".format(cls.__module__, cls.__name__))
 
 
 class NodeMeta(type):
