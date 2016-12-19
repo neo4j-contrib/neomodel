@@ -50,22 +50,28 @@ class RelationshipManager(object):
             raise NotImplementedError("Relationship properties without " +
                     "using a relationship model is no longer supported")
 
-        new_rel = rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        params = {}
+        rel_model = self.definition['model']
+        rp = None  # rel_properties
+
+        if rel_model:
+            rp = {}
+            # need to generate defaults etc to create fake instance
+            tmp = rel_model(**properties) if properties else rel_model()
+            # build params and place holders to pass to rel_helper
+            for p, v in rel_model.deflate(tmp.__properties__).items():
+                rp[p] = '{' + p + '}'
+                params[p] = v
+
+        new_rel = rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
-        params = {'them': obj.id}
 
-        if not properties and not self.definition['model']:
+        params['them'] = obj.id
+
+        if not rel_model:
             self.source.cypher(q, params)
             return True
-
-        rel_model = self.definition['model']
-        # need to generate defaults etc to create fake instance
-        tmp = rel_model(**properties) if properties else rel_model()
-
-        for p, v in rel_model.deflate(tmp.__properties__).items():
-            params['place_holder_' + p] = v
-            q += " SET r." + p + " = {place_holder_" + p + "}"
 
         rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), obj)

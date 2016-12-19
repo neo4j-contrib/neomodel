@@ -12,7 +12,7 @@ except NameError:
     basestring = str
 
 
-def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwargs):
+def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
     """
     Generate a relationship matching string, with specified parameters.
     Examples:
@@ -29,6 +29,7 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwarg
     :param relation_type: None for all direct rels, * for all of any length, or a name of an explicit rel.
     :type relation_type: str
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
+    :param relation_properties: dictionary of relationship properties to match
     :rtype: str
     """
 
@@ -39,6 +40,12 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwarg
     else:
         stmt = '-{0}-'
 
+    rel_props = ''
+
+    if relation_properties:
+        rel_props = ' {{{0}}}'.format(', '.join(
+            ['{}: {}'.format(key, value) for key, value in relation_properties.iteritems()]))
+
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
         stmt = stmt.format('')
@@ -47,7 +54,7 @@ def rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, **kwarg
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[%s:%s]' % (ident if ident else '', relation_type))
+        stmt = stmt.format('[%s:%s%s]' % (ident if ident else '', relation_type, rel_props))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 

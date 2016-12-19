@@ -1,5 +1,10 @@
+Version 3.0.2
+ * Fix multiple relationships not being created when using a rel model
+ * Fix connection logic for using in ipython
+
 Version 3.0.1 2016-12-17
  * Fix empty filters causing empty WHERE clause - Siddharth Maheshwari
+
 Version 3.0.0 2016-11-27
  * neo4j_driver now used as backend
  * Support for neo4j versions prior to 3 dropped

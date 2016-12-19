@@ -98,3 +98,17 @@ def test_traversal_where_clause():
     assert rel2.since > now
     friends = tim.friend.match(since__gt=now)
     assert len(friends) == 1
+
+
+def test_multiple_rels_exist_issue_223():
+    # check a badger can dislike a stoat for multiple reasons
+    phill = Badger(name="Phill").save()
+    ian = Stoat(name="Stoat").save()
+
+    rel_a = phill.hates.connect(ian, {'reason': 'a'})
+    rel_b = phill.hates.connect(ian, {'reason': 'b'})
+    assert rel_a.id != rel_b.id
+
+    ian_a = phill.hates.match(reason='a')[0]
+    ian_b = phill.hates.match(reason='b')[0]
+    assert ian_a.id == ian_b.id

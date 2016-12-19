@@ -49,7 +49,6 @@ Neomodel uses relationship models to define the properties stored on relations::
     rel = jim.friends.connect(bob)
     rel.since # datetime object
 
-NOTE: Calling connect multiple times with the same destination node will only create one relationship between the two nodes.
 
 These can be passed in when calling the connect method::
 
@@ -65,6 +64,12 @@ You can retrieve relationships between two nodes using the 'relationship' method
 This is only available for relationships with a defined relationship model::
 
     rel = jim.friends.relationship(bob)
+
+Relationship Uniqueness
+=======================
+
+By default in neomodel there is only one relationship of one type between two nodes
+unless you define different properties when calling connect. neomodel utilises `CREATE UNIQUE` in cypher to achieve this.
 
 Explicit Traversal
 ==================
