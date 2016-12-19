@@ -9,7 +9,7 @@ from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
         NormalProperty, RegexProperty, EmailProperty,
         JSONProperty, ArrayProperty)
-from .exception import InflateError, DeflateError, UniqueProperty, MultipleNodesReturned
+from .exception import InflateError, DeflateError, UniqueProperty, MultipleNodesReturned, RequiredProperty
 from .signals import SIGNAL_SUPPORT
 
 __author__ = 'Robin Edwards'
