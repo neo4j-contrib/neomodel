@@ -34,12 +34,13 @@ class Database(local):
         self._active_transaction = None
         self.url = None
         self.driver = None
+        self._pid = None
 
     def set_connection(self, url):
         self.url = url
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 or u.scheme != 'bolt':
+        if u.netloc.find('@') > -1 and u.scheme == 'bolt':
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
         else:
