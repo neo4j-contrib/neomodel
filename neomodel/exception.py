@@ -17,7 +17,7 @@ class DoesNotExist(Exception):
         Exception.__init__(self, msg)
 
     def __reduce__(self):
-        return _unpickle_does_not_exist, (self.__module__, self.message)
+        return _get_correct_dne_obj, (self.__module__, self.message)
 
 
 class MultipleNodesReturned(ValueError):
@@ -82,7 +82,7 @@ class NotConnected(Exception):
         return msg
 
 
-def _unpickle_does_not_exist(cls, message):
+def _get_correct_dne_obj(cls, message):
     app_label, class_name = cls.rsplit(".", 1)
     neo_app = importlib.import_module(app_label)
     neo_object = getattr(neo_app, class_name)
