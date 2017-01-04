@@ -1,4 +1,4 @@
-Version 3.0.2
+Version 3.0.2 2017-01-04
  * More doc strings and added autodoc to sphinx
  * Install all constraints via core.install_all_labels()
  * Fix multiple relationships not being created when using a rel model
