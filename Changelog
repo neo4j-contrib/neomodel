@@ -1,3 +1,6 @@
+Version 3.0.3 2017-01-04
+ * Fix indexing bug caught by travis
+
 Version 3.0.2 2017-01-04
  * More doc strings and added autodoc to sphinx
  * Install all constraints via core.install_all_labels()
