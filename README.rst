@@ -31,7 +31,7 @@ Available on readthedocs_.
 Requirements
 ============
 
-- Python 2.7, 3.3, 3.4 + 3.5
+- Python 2.7, 3.3+
 - neo4j 3.0+
 
 Installation
