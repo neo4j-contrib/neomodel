@@ -1,5 +1,3 @@
-import unittest
-
 from neomodel import config, StructuredNode, StringProperty, install_all_labels
 from neomodel.core import db
 
@@ -23,7 +21,6 @@ def test_labels_were_not_installed():
         n.delete()
 
 
-@unittest.skip('disabled, broken in travis')
 def test_install_all():
     # run install all labels
     install_all_labels()
