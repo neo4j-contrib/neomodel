@@ -35,9 +35,9 @@ def install_labels(cls, quiet=True):
                 print('+ Creating unique constraint for {} on label {} for class {}.{}'.format(
                     key, cls.__label__, cls.__module__, cls.__name__))
 
-                db.cypher_query("CREATE CONSTRAINT "
-                                "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                    cls.__label__, key))
+            db.cypher_query("CREATE CONSTRAINT "
+                            "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                cls.__label__, key))
 
 
 def install_all_labels():
