@@ -19,7 +19,6 @@ Note there currently is no support for hooking relationship disconnect / connect
 Django signals
 ==============
 
-Signals are also supported providing django is available::
+Signals are supported through the django_neomodel_ module.
 
-    from django.db.models import signals
-    signals.post_save.connect(your_func, sender=Person)
+.. _django_neomodel: https://github.com/robinedwards/django-neomodel

@@ -4,7 +4,7 @@ import sys
 
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
-from .signals import hooks
+from .hooks import hooks
 from .util import Database, classproperty
 from . import config
 

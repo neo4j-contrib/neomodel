@@ -8,8 +8,10 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 - Enforce your schema through cardinality restrictions.
 - Full transaction support.
 - Thread safe.
-- Hooks including (optional) Django signals support.
+- pre/post save/delete hooks.
+- Django integration via django_neomodel_
 
+.. _django_neomodel: https://github.com/robinedwards/django-neomodel
 .. _neo4j: https://www.neo4j.org
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 

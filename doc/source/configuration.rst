@@ -39,7 +39,3 @@ Or for your entire 'schema' ::
 
 You may want to build this into your deployment mechanism.
 
-Disable Django signals integration
-----------------------------------
-
-This is enabled automatically should django be installed. Set `config.DJANGO_SIGNALS = False` to disable them.
