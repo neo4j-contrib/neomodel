@@ -1,5 +1,6 @@
 from __future__ import print_function
 import warnings
+import sys
 
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
@@ -10,13 +11,14 @@ from . import config
 db = Database()
 
 
-def install_labels(cls, quiet=True):
+def install_labels(cls, quiet=True, stdout=None):
     """
     Setup labels with indexes and constraints for a given class
 
     :param cls: StructuredNode class
     :type: class
     :param quiet: (default true) enable standard output
+    :param stdout: stdout stream
     :type: bool
     :return: None
     """
@@ -24,7 +26,7 @@ def install_labels(cls, quiet=True):
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
             if not quiet:
-                print('+ Creating index {} on label {} for class {}.{}'.format(
+                stdout.write('+ Creating index {} on label {} for class {}.{}\n'.format(
                     key, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE INDEX on :{}({}); ".format(
@@ -32,7 +34,7 @@ def install_labels(cls, quiet=True):
 
         elif prop.unique_index:
             if not quiet:
-                print('+ Creating unique constraint for {} on label {} for class {}.{}'.format(
+                stdout.write('+ Creating unique constraint for {} on label {} for class {}.{}\n'.format(
                     key, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE CONSTRAINT "
@@ -40,20 +42,24 @@ def install_labels(cls, quiet=True):
                 cls.__label__, key))
 
 
-def install_all_labels():
+def install_all_labels(stdout=sys.stdout):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
     Note: code most be loaded (imported) in order for a class to be discovered.
 
+    :param stdout: output stream
     :return: None
     """
+
     def subsub(cls):  # recursively return all subclasses
         return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in subsub(s)]
 
-    print("Setting up labels and constraints...\n")
+    stdout.write("Setting up labels and constraints...\n\n")
     for cls in subsub(StructuredNode):
-        install_labels(cls, quiet=False)
-        print("{}.{} done.".format(cls.__module__, cls.__name__))
+        install_labels(cls, quiet=False, stdout=stdout)
+        stdout.write("{}.{} done.\n".format(cls.__module__, cls.__name__))
+
+    stdout.write('Finished.\n')
 
 
 class NodeMeta(type):
