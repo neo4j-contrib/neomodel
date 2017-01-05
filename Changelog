@@ -1,3 +1,7 @@
+Version 3.1.0
+ * Move django signal support to neomodel
+ * Add stdout input to install_labels etc
+
 Version 3.0.3 2017-01-04
  * Fix indexing bug caught by travis
 
