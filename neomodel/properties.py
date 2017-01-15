@@ -1,14 +1,14 @@
 from .exception import InflateError, DeflateError, RequiredProperty
+from . import config
+
 from datetime import datetime, date
-import os
 import re
 import types
 import pytz
 import json
 import sys
 import functools
-import logging
-logger = logging.getLogger(__name__)
+
 
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
@@ -353,17 +353,15 @@ class DateTimeProperty(Property):
 
     @validator
     def deflate(self, value):
-        #: Fixed timestamp strftime following suggestion from
-        # http://stackoverflow.com/questions/11743019/convert-python-datetime-to-epoch-with-strftime
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}'.format(value))
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
             epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
-        elif os.environ.get('NEOMODEL_FORCE_TIMEZONE', False):
+        elif config.FORCE_TIMEZONE:
             raise ValueError("Error deflating {} no timezone provided".format(value))
         else:
-            logger.warning("No timezone sepecified on datetime object.. will be inflated to UTC")
+            # No timezone specified on datetime object.. assuming UTC
             epoch_date = datetime(1970, 1, 1)
         return float((value - epoch_date).total_seconds())
 
