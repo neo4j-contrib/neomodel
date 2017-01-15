@@ -90,7 +90,7 @@ class PropertyManager(object):
         for scls in reversed(cls.mro()):
             for key, prop in scls.__dict__.items():
                 if ((aliases and isinstance(prop, AliasProperty))
-                        or (properties and issubclass(prop.__class__, Property)
+                        or (properties and hasattr(prop, '__class__') and issubclass(prop.__class__, Property)
                             and not isinstance(prop, AliasProperty))
                         or (rels and isinstance(prop, RelationshipDefinition))):
                     props[key] = prop

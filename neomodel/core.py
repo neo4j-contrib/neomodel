@@ -74,7 +74,8 @@ class NodeMeta(type):
                 if key == 'deleted':
                     raise ValueError("Class property called 'deleted' conflicts with neomodel internals")
 
-                if issubclass(value.__class__, Property):
+                # If not a class (django-neomodel Meta)
+                if hasattr(value, '__class__') and issubclass(value.__class__, Property):
                     value.name = key
                     value.owner = inst
                     # support for 'magic' properties
