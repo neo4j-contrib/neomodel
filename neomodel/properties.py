@@ -175,6 +175,7 @@ class NormalProperty(Property):
 
 class RegexProperty(NormalProperty):
     """Validates a normal property using a regular expression."""
+    form_field_class = 'RegexField'
 
     expression = None
     """Can be overriden in subclasses.
@@ -208,7 +209,7 @@ class RegexProperty(NormalProperty):
 
 class EmailProperty(RegexProperty):
     """Suitable for email addresses."""
-
+    form_field_class = 'EmailField'
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
@@ -244,6 +245,8 @@ class StringProperty(Property):
 
 
 class IntegerProperty(Property):
+    form_field_class = 'IntegerField'
+
     @validator
     def inflate(self, value):
         return int(value)
@@ -270,6 +273,8 @@ class ArrayProperty(Property):
 
 
 class FloatProperty(Property):
+    form_field_class = 'FloatField'
+
     @validator
     def inflate(self, value):
         return float(value)
@@ -283,6 +288,8 @@ class FloatProperty(Property):
 
 
 class BooleanProperty(Property):
+    form_field_class = 'BooleanField'
+
     @validator
     def inflate(self, value):
         return bool(value)
@@ -296,6 +303,8 @@ class BooleanProperty(Property):
 
 
 class DateProperty(Property):
+    form_field_class = 'DateField'
+
     @validator
     def inflate(self, value):
         return datetime.strptime(unicode(value), "%Y-%m-%d").date()
@@ -309,6 +318,7 @@ class DateProperty(Property):
 
 
 class DateTimeProperty(Property):
+    form_field_class = 'DateTimeField'
 
     def __init__(self, **kwargs):
         """Initializes new date time property accessor.
