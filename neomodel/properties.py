@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 if sys.version_info >= (3, 0):
     unicode = lambda x: str(x)
 
+
 def display_for(key):
     def display_choice(self):
         return getattr(self.__class__, key).choice_map[getattr(self, key)]
     return display_choice
+
 
 class PropertyManager(object):
     """Common stuff for handling properties in nodes and relationships"""
@@ -116,7 +118,10 @@ def validator(fn):
 
 
 class Property(object):
-    def __init__(self, unique_index=False, index=False, required=False, default=None, db_property=None, **kwargs):
+    form_field_class = 'CharField'
+
+    def __init__(self, unique_index=False, index=False, required=False, default=None,
+                 db_property=None, label=None, help_text=None, **kwargs):
         if (default != None) and required:
             raise Exception("required and default are mutually exclusive")
 
@@ -129,6 +134,8 @@ class Property(object):
         self.default = default
         self.has_default = True if self.default is not None else False
         self.db_property = db_property  # define the name of the property in the database
+        self.label = label
+        self.help_text = help_text
 
     def default_value(self):
         if self.has_default:
