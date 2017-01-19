@@ -223,6 +223,7 @@ class StringProperty(Property):
                 raise ValueError("Choices must be a tuple of tuples")
 
             self.choice_map = dict(self.choices)
+            self.form_field_class = 'TypedChoiceField'
 
     @validator
     def inflate(self, value):
