@@ -27,3 +27,12 @@ Logging
 =======
 
 You may log queries and timings by setting the environment variable `NEOMODEL_CYPHER_DEBUG` to `1`.
+
+Utilities
+=========
+The following utility functions are available::
+
+    clear_neo4j_database(db)  # deletes all nodes and relationships
+
+    # Change database password (you will need to call db.set_connection(...) after
+    change_neo4j_password(db, new_password)

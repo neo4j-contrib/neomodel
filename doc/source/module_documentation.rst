@@ -1,10 +1,13 @@
 Module documentation
 ====================
 
+Core
+----
 .. automodule:: neomodel.core
   :members:
 
-
+Match
+-----
 .. module:: neomodel.match
 .. autoclass:: neomodel.match.BaseSet
    :members:
@@ -16,6 +19,7 @@ Module documentation
    :members:
    :undoc-members:
 
-
+Cardinality
+-----------
 .. automodule:: neomodel.cardinality
   :members:

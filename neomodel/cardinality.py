@@ -8,6 +8,11 @@ class ZeroOrOne(RelationshipManager):
     description = "zero or one relationship"
 
     def single(self):
+        """
+        Return the associated node.
+
+        :return: node
+        """
         nodes = super(ZeroOrOne, self).all()
         if len(nodes) == 1:
             return nodes[0]
@@ -18,7 +23,16 @@ class ZeroOrOne(RelationshipManager):
         node = self.single()
         return [node] if node else []
 
-    def connect(self, obj, properties=None):
+    def connect(self, node, properties=None):
+        """
+        Connect a node
+
+        :param node:
+        :type: StructuredNode
+        :param properties: relationship properties
+        :type: dict
+        :return: True / rel instance
+        """
         if len(self):
             raise AttemptedCardinalityViolation(
                     "Node already has {0} can't connect more".format(self))
@@ -33,21 +47,36 @@ class OneOrMore(RelationshipManager):
     description = "one or more relationships"
 
     def single(self):
+        """
+        Fetch one of the related nodes
+
+        :return: Node
+        """
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes[0]
         raise CardinalityViolation(self, 'none')
 
     def all(self):
+        """
+        Return all related nodes
+
+        :return: [node1, node2...]
+        """
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes
         raise CardinalityViolation(self, 'none')
 
-    def disconnect(self, obj):
+    def disconnect(self, node):
+        """
+        Disconnect node
+        :param node:
+        :return:
+        """
         if super(OneOrMore, self).__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
-        return super(OneOrMore, self).disconnect(obj)
+        return super(OneOrMore, self).disconnect(node)
 
 
 class One(RelationshipManager):
@@ -57,6 +86,11 @@ class One(RelationshipManager):
     description = "one relationship"
 
     def single(self):
+        """
+        Return the associated node.
+
+        :return: node
+        """
         nodes = super(One, self).all()
         if nodes:
             if len(nodes) == 1:
@@ -67,25 +101,47 @@ class One(RelationshipManager):
             raise CardinalityViolation(self, 'none')
 
     def all(self):
+        """
+        Return single node in an array
+
+        :return: [node]
+        """
         return [self.single()]
 
     def disconnect(self, obj):
         raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
-    def connect(self, obj, properties=None):
+    def connect(self, node, properties=None):
+        """
+        Connect a node
+
+        :param node:
+        :param properties: relationship properties
+        :return: True / rel instance
+        """
         if not hasattr(self.source, 'id'):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
         else:
-            return super(One, self).connect(obj, properties)
+            return super(One, self).connect(node, properties)
 
 
 class AttemptedCardinalityViolation(Exception):
+    """
+    Attempted to alter the database state against the cardinality definitions.
+
+    Example: a relationship of type `One` trying to connect a second node.
+    """
     pass
 
 
 class CardinalityViolation(Exception):
+    """
+    The state of database doesn't match the nodes cardinality definition.
+
+    For example a relationship type `OneOrMore` returns no nodes.
+    """
     def __init__(self, rel_manager, actual):
         self.rel_manager = str(rel_manager)
         self.actual = str(actual)

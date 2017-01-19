@@ -258,6 +258,9 @@ class RelationshipDefinition(object):
 
 
 class ZeroOrMore(RelationshipManager):
+    """
+    A relationship of zero or more nodes (the default)
+    """
     description = "zero or more relationships"
 
 

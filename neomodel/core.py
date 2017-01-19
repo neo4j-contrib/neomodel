@@ -42,7 +42,7 @@ def install_labels(cls, quiet=True, stdout=None):
                 cls.__label__, key))
 
 
-def install_all_labels(stdout=sys.stdout):
+def install_all_labels(stdout=None):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
     Note: code most be loaded (imported) in order for a class to be discovered.
@@ -50,6 +50,9 @@ def install_all_labels(stdout=sys.stdout):
     :param stdout: output stream
     :return: None
     """
+
+    if not stdout:
+        stdout = sys.stdout
 
     def subsub(cls):  # recursively return all subclasses
         return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in subsub(s)]
@@ -110,20 +113,15 @@ class StructuredNode(NodeBase):
     """
     Base class for all node definitions to inherit from.
 
-
     If you want to create your own abstract classes set:
         __abstract_node__ = True
     """
 
     __abstract_node__ = True
     __required_properties__ = ()
-    """ Names of all required properties of this StructuredNode """
     __all_properties__ = ()
-    """ Tuple of (name, property) of all regular properties """
     __all_aliases__ = ()
-    """ Tuple of (name, property) of all aliases """
     __all_relationships__ = ()
-    """ Tuple of (name, property) of all relationships """
 
     @classproperty
     def nodes(cls):
@@ -262,7 +260,9 @@ class StructuredNode(NodeBase):
         return True
 
     def refresh(self):
-        """Reload the node from neo4j"""
+        """
+        Reload the node from neo4j
+        """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
             node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"

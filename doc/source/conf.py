@@ -6,7 +6,6 @@ from neomodel import __version__, __author__, __package__
 
 sys.path.insert(0, os.path.abspath('_themes'))
 sys.path.insert(0, os.path.abspath('..'))
-print sys.path
 
 import alabaster
 
