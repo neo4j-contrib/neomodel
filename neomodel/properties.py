@@ -227,16 +227,14 @@ class StringProperty(Property):
     @validator
     def inflate(self, value):
         if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {} not in {}".format(
-                value, ', '.join(self.choice_map.keys())))
+            raise ValueError("Invalid choice {}".format(value))
 
         return unicode(value)
 
     @validator
     def deflate(self, value):
         if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {} not in {}".format(
-                value, ','.join(self.choice_map.keys())))
+            raise ValueError("Invalid choice {}".format(value))
 
         return unicode(value)
 
