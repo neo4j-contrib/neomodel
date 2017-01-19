@@ -1,6 +1,6 @@
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
     NormalProperty, RegexProperty, EmailProperty,
-    DateProperty, StringProperty, JSONProperty)
+    DateProperty, StringProperty, JSONProperty, UniqueIdProperty)
 from neomodel.exception import InflateError, DeflateError
 from neomodel import StructuredNode, db
 from pytz import timezone
@@ -271,3 +271,17 @@ def test_email_property():
         assert True
     else:
         assert False
+
+
+def test_uid_property():
+    prop = UniqueIdProperty()
+    prop.name = 'uid'
+    prop.owner = object()
+    myuid = prop.default_value()
+    assert len(myuid)
+
+    class CheckMyId(StructuredNode):
+        uid = UniqueIdProperty()
+
+    cmid = CheckMyId().save()
+    assert len(cmid.uid)

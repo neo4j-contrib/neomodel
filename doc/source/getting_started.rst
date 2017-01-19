@@ -28,7 +28,7 @@ Definition
 Below is a definition of two types of node `Person` and `Country`::
 
     from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
-        RelationshipTo, RelationshipFrom)
+        UniqueIdProperty, RelationshipTo, RelationshipFrom)
 
     config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
 
@@ -40,6 +40,7 @@ Below is a definition of two types of node `Person` and `Country`::
 
 
     class Person(StructuredNode):
+        uid = UniqueIdProperty()
         name = StringProperty(unique_index=True)
         age = IntegerProperty(index=True, default=0)
 

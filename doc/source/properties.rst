@@ -6,7 +6,7 @@ The following properties are available on nodes and relationships::
 
     StringProperty, IntegerProperty, FloatProperty, BooleanProperty, ArrayProperty
 
-    DateProperty, DateTimeProperty, JSONProperty, AliasProperty
+    DateProperty, DateTimeProperty, JSONProperty, AliasProperty, UniqueIdProperty
 
 Defaults
 ========
@@ -19,10 +19,6 @@ Defaults
 You may provide arguments using a wrapper function or lambda::
 
         my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
-
-In fact, for date and time property case, you can just use `default_now` argument::
-
-        my_datetime = DateTimeProperty(default_now=True)
 
 Choices
 =======
@@ -42,14 +38,30 @@ You can specify a list of valid values for a `StringProperty` using choices::
 
 The value will be checked both when saved and loaded from neo4j.
 
+Unique Identifiers
+==================
+All nodes in neo4j have an internal id (accessible by the 'id' property in neomodel)
+however these should not be used by an application.
+neomodel provides the `UniqueIdProperty` to generate unique identifiers for your nodes (with an unique index)::
+
+    class Person(StructuredNode):
+        uid = UniqueIdProperty()
+
+    Person.nodes.get(uid='a12df...')
+
 Dates and times
 ===============
 
 The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
-These epoch values are inflated to datetime.datetime objects with the UTC timezone set. If you want neomodel
-to raise an exception on receiving a datetime without a timezone you set the env var NEOMODEL_FORCE_TIMEZONE=1.
+These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
+
+You can use `default_now` argument to store the current time by default::
+
+        created = DateTimeProperty(default_now=True)
+
+You can enforce timezones by setting the config var NEOMODEL_FORCE_TIMEZONE=1.
 
 Other properties
 ================

@@ -8,7 +8,7 @@ from .cardinality import (AttemptedCardinalityViolation,
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
         NormalProperty, RegexProperty, EmailProperty,
-        JSONProperty, ArrayProperty)
+        JSONProperty, ArrayProperty, UniqueIdProperty)
 from .exception import InflateError, DeflateError, UniqueProperty, MultipleNodesReturned, RequiredProperty
 
 __author__ = 'Robin Edwards'

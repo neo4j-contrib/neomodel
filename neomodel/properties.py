@@ -2,6 +2,7 @@ from .exception import InflateError, DeflateError, RequiredProperty
 from . import config
 
 from datetime import datetime, date
+from uuid import uuid4
 import re
 import types
 import pytz
@@ -122,11 +123,11 @@ class Property(object):
 
     def __init__(self, unique_index=False, index=False, required=False, default=None,
                  db_property=None, label=None, help_text=None, **kwargs):
-        if (default != None) and required:
-            raise Exception("required and default are mutually exclusive")
+        if default is not None and required:
+            raise ValueError("required and default arguments are mutually exclusive")
 
         if unique_index and index:
-            raise Exception("unique_index and index are mutually exclusive")
+            raise ValueError("unique_index and index arguments are mutually exclusive")
 
         self.required = required
         self.unique_index = unique_index
@@ -329,18 +330,13 @@ class DateTimeProperty(Property):
         `ValueError` will be thrown.
 
         """
-        super(DateTimeProperty, self).__init__(
-            **self.__patch_default(kwargs)
-        )
-
-    def __patch_default(self, kwargs):
         default_now = kwargs.get('default_now', False)
         if default_now:
             if 'default' in kwargs:
                 raise ValueError('too many defaults')
-            kwargs['default'] = lambda: \
-                datetime.utcnow().replace(tzinfo=pytz.utc)
-        return kwargs
+            kwargs['default'] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
+
+        super(DateTimeProperty, self).__init__(**kwargs)
 
     @validator
     def inflate(self, value):
@@ -400,3 +396,25 @@ class AliasProperty(property, Property):
     @property
     def unique_index(self):
         return getattr(self.owner, self.aliased_to()).unique_index
+
+
+class UniqueIdProperty(Property):
+    """
+    A unique identifier, a randomly generated uid (uuid4) with a unique index
+    """
+    def __init__(self, **kwargs):
+        for item in ['required', 'unique_index', 'index', 'default']:
+            if item in kwargs:
+                raise ValueError('{} argument ignored by {}'.format(item, self.__class__.__name__))
+
+        kwargs['unique_index'] = True
+        kwargs['default'] = lambda: uuid4().hex
+        super(UniqueIdProperty, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return unicode(value)
+
+    @validator
+    def deflate(self, value):
+        return unicode(value)
