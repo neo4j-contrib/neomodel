@@ -42,6 +42,6 @@ You may want to build this into your deployment mechanism.
 Require timezones on DateTimeProperty
 -------------------------------------
 
-Ensure or DateTimes are provided with a timezone before being serialised to UTC epoch::
+Ensure all DateTimes are provided with a timezone before being serialised to UTC epoch::
 
     config.FORCE_TIMEZONE = True  # default False
