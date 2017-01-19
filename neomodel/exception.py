@@ -35,21 +35,12 @@ class RequiredProperty(Exception):
             self.property_name, self.node_class.__name__)
 
 
-def _obj_to_str(obj):
-    if obj is None:
-        return "object"
-    if obj.__class__.__name__ == 'Node':
-        return "node ({0})".format(obj.id)
-    else:
-        return "relationship ({0})".format(obj.id)
-
-
 class InflateError(ValueError):
     def __init__(self, key, cls, msg, obj=None):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.obj = _obj_to_str(obj)
+        self.obj = repr(obj)
 
     def __str__(self):
         return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
@@ -61,7 +52,7 @@ class DeflateError(ValueError):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
-        self.obj = _obj_to_str(obj)
+        self.obj = repr(obj)
 
     def __str__(self):
         return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
