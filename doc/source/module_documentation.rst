@@ -6,6 +6,11 @@ Core
 .. automodule:: neomodel.core
   :members:
 
+Properties
+----------
+.. automodule:: neomodel.properties
+  :members:
+
 Match
 -----
 .. module:: neomodel.match

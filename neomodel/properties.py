@@ -22,7 +22,8 @@ def display_for(key):
 
 
 class PropertyManager(object):
-    """Common stuff for handling properties in nodes and relationships"""
+    # Common methods for handling properties on node and relationship objects
+
     def __init__(self, *args, **kwargs):
 
         properties = getattr(self, "__all_properties__", None)
@@ -71,7 +72,7 @@ class PropertyManager(object):
 
     @classmethod
     def deflate(cls, obj_props, obj=None, skip_empty=False):
-        """ deflate dict ready to be stored """
+        # deflate dict ready to be stored
         deflated = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
             # map property name to correct database property
@@ -119,10 +120,31 @@ def validator(fn):
 
 
 class Property(object):
+    """
+    Base class for object properties
+    """
     form_field_class = 'CharField'
 
     def __init__(self, unique_index=False, index=False, required=False, default=None,
                  db_property=None, label=None, help_text=None, **kwargs):
+        """
+        Define a new property
+
+        :param unique_index: create unique index for this property
+        :type: bool
+        :param index: False
+        :type: bool
+        :param required: False
+        :type: bool
+        :param default: function or value
+        :param db_property: name of neo4j property it should map to
+        :type: str
+        :param label: Optional, used by Django
+        :type: str
+        :param help_text: Optional, used by Django
+        :type: str
+        :param kwargs:
+        """
         if default is not None and required:
             raise ValueError("required and default arguments are mutually exclusive")
 
@@ -139,6 +161,11 @@ class Property(object):
         self.help_text = help_text
 
     def default_value(self):
+        """
+        Generate a default value
+
+        :return: the value
+        """
         if self.has_default:
             if hasattr(self.default, '__call__'):
                 return self.default()
@@ -154,8 +181,9 @@ class Property(object):
 
 class NormalProperty(Property):
     """
-    Base class for Normalized properties - those that use the same normalization
-    method to inflate or deflate.
+    Base class for Normalized properties
+
+    Those that use the same normalization method to inflate or deflate.
     """
 
     @validator
@@ -175,18 +203,20 @@ class NormalProperty(Property):
 
 
 class RegexProperty(NormalProperty):
-    """Validates a normal property using a regular expression."""
+    """
+    Validates a property against a regular expression.
+
+    If sub-classing set:
+
+        expression = r'[^@]+@[^@]+\.[^@]+'
+    """
     form_field_class = 'RegexField'
 
     expression = None
-    """Can be overriden in subclasses.
-
-    This helps quickly defining your own expression in case you want
-    to extend :py:class:`RegexProperty`.
-    """
 
     def __init__(self, expression=None, **kwargs):
-        """Initializes new property with an expression.
+        """
+        Initializes new property with an expression.
 
         :param str expression: regular expression validating this property
         """
@@ -209,15 +239,25 @@ class RegexProperty(NormalProperty):
 
 
 class EmailProperty(RegexProperty):
-    """Suitable for email addresses."""
+    """
+    Store email addresses
+    """
     form_field_class = 'EmailField'
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
 class StringProperty(Property):
-    def __init__(self, **kwargs):
+    """
+    Store strings
+    """
+    def __init__(self, choices=None, **kwargs):
+        """
+        :param choices: tuple of tuple pairs.
+        :type: tuple
+        :param kwargs:
+        """
         super(StringProperty, self).__init__(**kwargs)
-        self.choices = kwargs.get('choices', None)
+        self.choices = choices
 
         if self.choices:
             if not isinstance(self.choices, tuple):
@@ -245,6 +285,9 @@ class StringProperty(Property):
 
 
 class IntegerProperty(Property):
+    """
+    Stores an Integer value
+    """
     form_field_class = 'IntegerField'
 
     @validator
@@ -260,6 +303,9 @@ class IntegerProperty(Property):
 
 
 class ArrayProperty(Property):
+    """
+    Stores a list of items
+    """
     @validator
     def inflate(self, value):
         return list(value)
@@ -273,6 +319,9 @@ class ArrayProperty(Property):
 
 
 class FloatProperty(Property):
+    """
+    Store a floating point value
+    """
     form_field_class = 'FloatField'
 
     @validator
@@ -288,6 +337,9 @@ class FloatProperty(Property):
 
 
 class BooleanProperty(Property):
+    """
+    Stores a boolean value
+    """
     form_field_class = 'BooleanField'
 
     @validator
@@ -303,6 +355,9 @@ class BooleanProperty(Property):
 
 
 class DateProperty(Property):
+    """
+    Stores a date
+    """
     form_field_class = 'DateField'
 
     @validator
@@ -320,17 +375,14 @@ class DateProperty(Property):
 class DateTimeProperty(Property):
     form_field_class = 'DateTimeField'
 
-    def __init__(self, **kwargs):
-        """Initializes new date time property accessor.
-
-        :param bool default_now: indicates whether default should be
-        current date and time
-
-        If you pass `default_now` and `default` at same time,
-        `ValueError` will be thrown.
-
+    def __init__(self, default_now=False, **kwargs):
         """
-        default_now = kwargs.get('default_now', False)
+        Store a datetime.
+
+        Serialises to unix epoch.
+
+        :param bool default_now: default current date and time
+        """
         if default_now:
             if 'default' in kwargs:
                 raise ValueError('too many defaults')
@@ -362,6 +414,11 @@ class DateTimeProperty(Property):
 
 
 class JSONProperty(Property):
+    """
+    Store a data structure as a JSON string.
+
+    The structure will be inflated when a node is retrieved.
+    """
     def __init__(self, *args, **kwargs):
         super(JSONProperty, self).__init__(*args, **kwargs)
 
@@ -375,7 +432,16 @@ class JSONProperty(Property):
 
 
 class AliasProperty(property, Property):
+    """
+    Alias another existing property
+    """
     def __init__(self, to=None):
+        """
+        Create new alias
+
+        :param to: name of property aliasing
+        :type: str
+        """
         self.target = to
         self.required = False
         self.has_default = False
