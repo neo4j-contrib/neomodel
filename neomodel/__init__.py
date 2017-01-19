@@ -1,5 +1,6 @@
 # pep8: noqa
 from .core import *
+from .util import clear_neo4j_database, change_neo4j_password
 from .relationship_manager import (NotConnected, OUTGOING, INCOMING, EITHER,
         RelationshipTo, RelationshipFrom, Relationship, RelationshipManager, RelationshipDefinition)
 from .relationship import StructuredRel

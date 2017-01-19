@@ -1,4 +1,6 @@
 Version 3.1.0
+ * Add change_neo4j_password
+ * Add clear_neo4j_database
  * Add UniqueIdProperty for easy ids
  * remove NEOMODEL_FORCE_TIMEZONE environment var now a config option
  * Move django signal support to neomodel
