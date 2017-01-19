@@ -1,5 +1,6 @@
 from .properties import Property, PropertyManager
 from .core import db
+from .util import deprecated
 
 
 class RelationshipMeta(type):
@@ -22,10 +23,18 @@ StructuredRelBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
 
 
 class StructuredRel(StructuredRelBase):
+    """
+    Base class for relationship objects
+    """
     def __init__(self, *args, **kwargs):
         super(StructuredRel, self).__init__(*args, **kwargs)
 
     def save(self):
+        """
+        Save the relationship
+
+        :return: self
+        """
         props = self.deflate(self.__properties__)
         query = "MATCH ()-[r]->() WHERE id(r)={self} "
         for key in props:
@@ -36,17 +45,28 @@ class StructuredRel(StructuredRelBase):
 
         return self
 
+    @deprecated('This method will be removed in neomodel 4')
     def delete(self):
         raise NotImplemented("Can not delete relationships please use"
                              " 'disconnect'")
 
     def start_node(self):
+        """
+        Get start node
+
+        :return: StructuredNode
+        """
         node = self._start_node_class()
         node.id = self._start_node_id
         node.refresh()
         return node
 
     def end_node(self):
+        """
+        Get end node
+
+        :return: StructuredNode
+        """
         node = self._end_node_class()
         node.id = self._end_node_id
         node.refresh()
@@ -54,6 +74,11 @@ class StructuredRel(StructuredRelBase):
 
     @classmethod
     def inflate(cls, rel):
+        """
+        Inflate a neo4j_driver relationship object to a neomodel object
+        :param rel:
+        :return: StructuredRel
+        """
         props = {}
         for key, prop in cls.defined_properties(aliases=False, rels=False).items():
             if key in rel:

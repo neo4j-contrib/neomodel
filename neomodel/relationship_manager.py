@@ -1,7 +1,7 @@
 import sys
 import functools
 from importlib import import_module
-from .exception import NotConnected, MultipleNodesReturned
+from .exception import NotConnected
 from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 
@@ -25,6 +25,11 @@ def check_source(fn):
 
 
 class RelationshipManager(object):
+    """
+    Base class for all relationships managed through neomodel.
+
+    I.e the 'friends' object in  `user.friends.all()`
+    """
     def __init__(self, source, key, definition):
         self.source = source
         self.source_class = source.__class__
@@ -50,8 +55,16 @@ class RelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    def connect(self, obj, properties=None):
-        self._check_node(obj)
+    def connect(self, node, properties=None):
+        """
+        Connect a node
+
+        :param node:
+        :param properties: for the new relationship
+        :type: dict
+        :return:
+        """
+        self._check_node(node)
 
         if not self.definition['model'] and properties:
             raise NotImplementedError("Relationship properties without " +
@@ -74,20 +87,25 @@ class RelationshipManager(object):
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
 
-        params['them'] = obj.id
+        params['them'] = node.id
 
         if not rel_model:
             self.source.cypher(q, params)
             return True
 
         rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
-        rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), obj)
+        rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), node)
         return rel_instance
 
     @check_source
-    def relationship(self, obj):
-        """relationship: node"""
-        self._check_node(obj)
+    def relationship(self, node):
+        """
+        Retrieve the StructuredRel object for the relationship between the two nodes.
+
+        :param node:
+        :return: StructuredRel
+        """
+        self._check_node(node)
         if 'model' not in self.definition:
             raise NotImplemented("'relationship' method only available on relationships"
                     + " that have a model defined")
@@ -97,10 +115,10 @@ class RelationshipManager(object):
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} MATCH " \
             "" + my_rel + " RETURN r"
-        rel = self.source.cypher(q, {'them': obj.id})[0][0][0]
+        rel = self.source.cypher(q, {'them': node.id})[0][0][0]
         if not rel:
             return
-        return self._set_start_end_cls(rel_model.inflate(rel), obj)
+        return self._set_start_end_cls(rel_model.inflate(rel), node)
 
     def _set_start_end_cls(self, rel_instance, obj):
         if self.definition['direction'] == INCOMING:
@@ -112,22 +130,31 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
-    def reconnect(self, old_obj, new_obj):
-        """reconnect: old_node, new_node"""
-        self._check_node(old_obj)
-        self._check_node(new_obj)
-        if old_obj.id == new_obj.id:
+    def reconnect(self, old_node, new_node):
+        """
+        Disconnect old_node and connect new_node copying over any properties on the original relationship.
+
+        Useful for preventing cardinality violations
+
+        :param old_node:
+        :param new_node:
+        :return: None
+        """
+
+        self._check_node(old_node)
+        self._check_node(new_node)
+        if old_node.id == new_node.id:
             return
         old_rel = _rel_helper(lhs='us', rhs='old', ident='r', **self.definition)
 
         # get list of properties on the existing rel
         result, meta = self.source.cypher(
             "MATCH (us), (old) WHERE id(us)={self} and id(old)={old} "
-            "MATCH " + old_rel + " RETURN r", {'old': old_obj.id})
+            "MATCH " + old_rel + " RETURN r", {'old': old_node.id})
         if result:
             existing_properties = result[0][0].properties.keys()
         else:
-            raise NotConnected('reconnect', self.source, old_obj)
+            raise NotConnected('reconnect', self.source, old_node)
 
         # remove old relationship and create new one
         new_rel = _rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
@@ -141,14 +168,20 @@ class RelationshipManager(object):
             q += " SET r2.{} = r.{}".format(p, p)
         q += " WITH r DELETE r"
 
-        self.source.cypher(q, {'old': old_obj.id, 'new': new_obj.id})
+        self.source.cypher(q, {'old': old_node.id, 'new': new_node.id})
 
     @check_source
-    def disconnect(self, obj):
+    def disconnect(self, node):
+        """
+        Disconnect a node
+
+        :param node:
+        :return:
+        """
         rel = _rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
         q = "MATCH (a), (b) WHERE id(a)={self} and id(b)={them} " \
             "MATCH " + rel + " DELETE r"
-        self.source.cypher(q, {'them': obj.id})
+        self.source.cypher(q, {'them': node.id})
 
     def _new_traversal(self):
         return Traversal(self.source, self.name, self.definition)
@@ -156,32 +189,77 @@ class RelationshipManager(object):
     # The methods below simply proxy the match engine.
     @check_source
     def get(self, **kwargs):
+        """
+        Retrieve a related node with the matching node properties.
+
+        :param kwargs: same syntax as `NodeSet.filter()`
+        :return: node
+        """
         return NodeSet(self._new_traversal()).get(**kwargs)
 
     @deprecated("search() is now deprecated please use filter() and exclude()")
     def search(self, **kwargs):
+        """
+        Retrieve related nodes matching the provided properties.
+
+        :param kwargs: same syntax as `NodeSet.filter()`
+        :return: NodeSet
+        """
         return self.filter(**kwargs).all()
 
     def filter(self, **kwargs):
+        """
+        Retrieve related nodes matching the provided properties.
+
+        :param kwargs: same syntax as `NodeSet.filter()`
+        :return: NodeSet
+        """
         return NodeSet(self._new_traversal()).filter(**kwargs)
 
     def exclude(self, **kwargs):
+        """
+        Exclude nodes that match the provided properties.
+
+        :param kwargs: same syntax as `NodeSet.filter()`
+        :return: NodeSet
+        """
         return NodeSet(self._new_traversal()).exclude(**kwargs)
 
     @check_source
-    def is_connected(self, obj):
-        return self._new_traversal().__contains__(obj)
+    def is_connected(self, node):
+        """
+        Check if a node is connected with this relationship type
+        :param node:
+        :return: bool
+        """
+        return self._new_traversal().__contains__(node)
 
     def single(self):
+        """
+        Get a single related node or none.
+
+        :return: StructuredNode
+        """
         try:
             return self[0]
         except IndexError:
             pass
 
     def match(self, **kwargs):
+        """
+        Return set of nodes who's relationship properties match supplied args
+
+        :param kwargs: same syntax as `NodeSet.filter()`
+        :return: NodeSet
+        """
         return self._new_traversal().match(**kwargs)
 
     def all(self):
+        """
+        Return all related nodes.
+
+        :return: NodeSet
+        """
         return self._new_traversal().all()
 
     def __iter__(self):

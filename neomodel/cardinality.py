@@ -108,7 +108,7 @@ class One(RelationshipManager):
         """
         return [self.single()]
 
-    def disconnect(self, obj):
+    def disconnect(self, node):
         raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
 
     def connect(self, node, properties=None):
