@@ -30,7 +30,7 @@ def ensure_connection(func):
 
 
 def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword('{password}')", {'password': new_password})
+    db.cypher_query("CALL dbms.changePassword({password})", {'password': new_password})
 
 
 def clear_neo4j_database(db):
