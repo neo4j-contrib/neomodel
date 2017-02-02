@@ -26,7 +26,7 @@ def install_labels(cls, quiet=True, stdout=None):
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
             if not quiet:
-                stdout.write('+ Creating index {} on label {} for class {}.{}\n'.format(
+                stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
                     key, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE INDEX on :{}({}); ".format(
@@ -34,7 +34,7 @@ def install_labels(cls, quiet=True, stdout=None):
 
         elif prop.unique_index:
             if not quiet:
-                stdout.write('+ Creating unique constraint for {} on label {} for class {}.{}\n'.format(
+                stdout.write(' + Creating unique constraint for {} on label {} for class {}.{}\n'.format(
                     key, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE CONSTRAINT "
@@ -54,15 +54,21 @@ def install_all_labels(stdout=None):
     if not stdout:
         stdout = sys.stdout
 
-    def subsub(cls):  # recursively return all subclasses
-        return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in subsub(s)]
+    def subsub(kls):  # recursively return all subclasses
+        return kls.__subclasses__() + [g for s in kls.__subclasses__() for g in subsub(s)]
 
-    stdout.write("Setting up labels and constraints...\n\n")
+    stdout.write("Setting up indexes and constraints...\n\n")
+
+    i = 0
     for cls in subsub(StructuredNode):
+        stdout.write('Found {}.{}\n'.format(cls.__module__, cls.__name__))
         install_labels(cls, quiet=False, stdout=stdout)
-        stdout.write("{}.{} done.\n".format(cls.__module__, cls.__name__))
+        i += 1
 
-    stdout.write('Finished.\n')
+    if i:
+        stdout.write('\n')
+
+    stdout.write('Finished {} classes.\n'.format(i))
 
 
 class NodeMeta(type):

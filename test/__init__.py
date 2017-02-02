@@ -8,6 +8,7 @@ from neo4j.v1.exceptions import CypherError
 warnings.simplefilter('default')
 
 config.DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687')
+config.AUTO_INSTALL_LABELS = True
 
 try:
     clear_neo4j_database(db)

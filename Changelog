@@ -1,4 +1,8 @@
-Version 3.1.0
+Version 3.2.0
+ * Add neomodel_install_labels command
+ * Turn off AUTO_INSTALL_LABEL by default
+
+Version 3.1.0 2017-01-26
  * Improve docs
  * Add change_neo4j_password
  * Add clear_neo4j_database

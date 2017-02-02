@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='neomodel',
-    version='3.1.0',
+    version='3.2.0',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
     author='Robin Edwards',
@@ -12,6 +12,7 @@ setup(
     license='MIT',
     packages=find_packages(),
     keywords='graph neo4j ORM OGM',
+    scripts=['scripts/neomodel_install_labels'],
     tests_require=['nose==1.3.7'],
     test_suite='nose.collector',
     install_requires=['neo4j-driver==1.0.2', 'pytz>=2016'],
