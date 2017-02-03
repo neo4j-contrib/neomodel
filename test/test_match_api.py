@@ -196,9 +196,9 @@ def test_order_by():
     for c in Coffee.nodes:
         c.delete()
 
-    Coffee(name="Icelands finest", price=5).save()
-    Coffee(name="Britains finest", price=10).save()
-    Coffee(name="Japans finest", price=35).save()
+    c1 = Coffee(name="Icelands finest", price=5).save()
+    c2 = Coffee(name="Britains finest", price=10).save()
+    c3 = Coffee(name="Japans finest", price=35).save()
 
     assert Coffee.nodes.order_by('price').all()[0].price == 5
     assert Coffee.nodes.order_by('-price').all()[0].price == 35
@@ -213,6 +213,17 @@ def test_order_by():
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast['with'] == 'coffee, rand() as r'
     assert qb._ast['order_by'] == 'r'
+
+    # Test order by on a relationship
+    l = Supplier(name="lidl2").save()
+    l.coffees.connect(c1)
+    l.coffees.connect(c2)
+    l.coffees.connect(c3)
+
+    ordered_n = [n for n in l.coffees.order_by('name').all()]
+    assert ordered_n[0] == c2
+    assert ordered_n[1] == c1
+    assert ordered_n[2] == c3
 
 
 def test_extra_filters():

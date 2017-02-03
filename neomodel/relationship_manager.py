@@ -216,6 +216,15 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).filter(**kwargs)
 
+    def order_by(self, *props):
+        """
+        Order related nodes by specified properties
+
+        :param props:
+        :return: NodeSet
+        """
+        return NodeSet(self._new_traversal()).order_by(*props)
+
     def exclude(self, **kwargs):
         """
         Exclude nodes that match the provided properties.
