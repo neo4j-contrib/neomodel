@@ -258,7 +258,7 @@ class RelationshipManager(object):
         """
         Return all related nodes.
 
-        :return: NodeSet
+        :return: list
         """
         return self._new_traversal().all()
 
