@@ -1,4 +1,6 @@
 Version 3.2.0
+ * Add config.ENCRYPTED_CONNECTION - adrianicv
+ * Add config.MAX_POOL_SIZE
  * Add neomodel_install_labels command
  * Turn off AUTO_INSTALL_LABEL by default
 

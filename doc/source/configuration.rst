@@ -3,12 +3,20 @@ Configuration
 
 Covering the neomodel 'config' module and its variables.
 
-Database url
-------------
+Database
+--------
 
 Set your connection details::
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
+
+Disable encrypted connection (usefult for development::
+
+    config.ENCRYPTED_CONNECTION = False
+
+Adjust connection pool size::
+
+    config.MAX_POOL_SIZE = 50  # default
 
 Enable automatic index and constraint creation
 ----------------------------------------------

@@ -8,7 +8,7 @@ from threading import local
 from .exception import UniqueProperty, ConstraintValidationFailed
 from . import config
 
-from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc
+from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc, session
 
 
 if sys.version_info >= (3, 0):
@@ -45,8 +45,6 @@ class Database(local):
         self._pid = None
 
     def set_connection(self, url):
-        self.encrypted = config.ENCRYPTED_CONNECTION
-
         self.url = url
         u = urlparse(url)
 
@@ -58,7 +56,10 @@ class Database(local):
                              " got {}".format(url))
 
         self.driver = GraphDatabase.driver('bolt://' + hostname,
-                                           auth=basic_auth(username, password), encrypted=self.encrypted)
+                                           auth=basic_auth(username, password),
+                                           encrypted=config.ENCRYPTED_CONNECTION,
+                                           max_pool_size=config.MAX_POOL_SIZE)
+
         self.refresh_connection()
 
     @ensure_connection
