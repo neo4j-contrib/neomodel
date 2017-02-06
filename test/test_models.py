@@ -26,6 +26,20 @@ def test_array_properties():
     assert 'Tim' in user.aliases
 
 
+def test_issue_233():
+    class BaseIssue233(StructuredNode):
+        __abstract_node__ = True
+
+        def __getitem__(self, item):
+            return self.__dict__[item]
+
+    class Issue233(BaseIssue233):
+        uid = StringProperty(unique_index=True, required=True)
+
+    i = Issue233(uid='testgetitem').save()
+    assert i['uid'] == 'testgetitem'
+
+
 def test_issue_72():
     user = User(email='foo@bar.com')
     assert user.age is None
