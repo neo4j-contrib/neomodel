@@ -1,81 +1,34 @@
 from neomodel import (StructuredNode, StringProperty)
 
-
-class PreSaveCalled(Exception):
-    pass
+HOOKS_CALLED = {}
 
 
-class PreSaveHook(StructuredNode):
+class HookTest(StructuredNode):
     name = StringProperty()
+
+    def post_create(self):
+        HOOKS_CALLED['post_create'] = 1
 
     def pre_save(self):
-        raise PreSaveCalled
-
-
-def test_pre_save():
-    try:
-        PreSaveHook(name='x').save()
-    except PreSaveCalled:
-        assert True
-    else:
-        assert False
-
-
-class PostSaveCalled(Exception):
-    pass
-
-
-class PostSaveHook(StructuredNode):
-    name = StringProperty()
+        HOOKS_CALLED['pre_save'] = 1
 
     def post_save(self):
-        raise PostSaveCalled
-
-
-def test_post_save():
-    try:
-        PostSaveHook(name='x').save()
-    except PostSaveCalled:
-        assert True
-    else:
-        assert False
-
-
-class PreDeleteCalled(Exception):
-    pass
-
-
-class PreDeleteHook(StructuredNode):
-    name = StringProperty()
+        HOOKS_CALLED['post_save'] = 1
 
     def pre_delete(self):
-        raise PreDeleteCalled
-
-
-def test_pre_delete():
-    try:
-        PreDeleteHook(name='x').save().delete()
-    except PreDeleteCalled:
-        assert True
-    else:
-        assert False
-
-
-class PostDeleteCalled(Exception):
-    pass
-
-
-class PostDeleteHook(StructuredNode):
-    name = StringProperty()
+        HOOKS_CALLED['pre_delete'] = 1
 
     def post_delete(self):
-        raise PostDeleteCalled
+        HOOKS_CALLED['post_delete'] = 1
 
 
-def test_post_delete():
-    try:
-        PostDeleteHook(name='x').save().delete()
-    except PostDeleteCalled:
-        assert True
-    else:
-        assert False
+def test_hooks():
+    ht = HookTest(name='k').save()
+    ht.delete()
+    assert 'pre_save' in HOOKS_CALLED
+    assert 'post_save' in HOOKS_CALLED
+    assert 'post_create' in HOOKS_CALLED
+    assert 'pre_delete' in HOOKS_CALLED
+    assert 'post_delete' in HOOKS_CALLED
+
+

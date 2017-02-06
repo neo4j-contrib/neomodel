@@ -1,4 +1,5 @@
 Version 3.2.0
+ * Clean up hooks code, django_neomodel.DjangoNode required for signals
  * Add order_by method to relationships
  * Add config.ENCRYPTED_CONNECTION - adrianicv
  * Add config.MAX_POOL_SIZE
