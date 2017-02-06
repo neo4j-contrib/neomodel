@@ -355,8 +355,8 @@ class StructuredNode(NodeBase):
         nodes = [cls.inflate(node) for node in results]
 
         if not lazy and hasattr(cls, 'post_create'):
-            for r in nodes[0]:
-                r[0].post_create()
+            for node in nodes:
+                node.post_create()
 
         return nodes
 
