@@ -8,7 +8,7 @@ from threading import local
 from .exception import UniqueProperty, ConstraintValidationFailed
 from . import config
 
-from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc, session
+from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc
 
 
 if sys.version_info >= (3, 0):
