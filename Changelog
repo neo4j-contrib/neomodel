@@ -1,4 +1,4 @@
-Version 3.2.0
+Version 3.2.0 2017-02-07
  * Upgrade neo4j_driver to 1.1.0
  * Fix install_labels on an abstract node
  * Clean up hooks code, django_neomodel.DjangoNode required for signals
