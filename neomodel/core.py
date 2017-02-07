@@ -23,6 +23,11 @@ def install_labels(cls, quiet=True, stdout=None):
     :return: None
     """
 
+    if not hasattr(cls, '__label__'):
+        if not quiet:
+            stdout.write(' ! Skipping class {}.{} is abstract'.format(cls.__module__, cls.__name__))
+        return
+
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
         if prop.index:
             if not quiet:
