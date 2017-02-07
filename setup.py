@@ -15,7 +15,7 @@ setup(
     scripts=['scripts/neomodel_install_labels'],
     tests_require=['nose==1.3.7'],
     test_suite='nose.collector',
-    install_requires=['neo4j-driver==1.0.2', 'pytz>=2016'],
+    install_requires=['neo4j-driver==1.1.0', 'pytz>=2016'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',

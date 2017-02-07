@@ -8,7 +8,7 @@ from threading import local
 from .exception import UniqueProperty, ConstraintValidationFailed
 from . import config
 
-from neo4j.v1 import GraphDatabase, basic_auth, exceptions as neo4j_exc
+from neo4j.v1 import GraphDatabase, basic_auth, CypherError
 
 
 if sys.version_info >= (3, 0):
@@ -108,7 +108,7 @@ class Database(local):
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.clock()
-        except neo4j_exc.CypherError as ce:
+        except CypherError as ce:
             if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 if 'already exists with label' in ce.message and handle_unique:
                     raise UniqueProperty(ce.message)
@@ -140,7 +140,7 @@ class TransactionProxy(object):
         if exc_value:
             self.db.rollback()
 
-        if exc_type is neo4j_exc.CypherError:
+        if exc_type is CypherError:
             if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 raise UniqueProperty(exc_value.message)
 

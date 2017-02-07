@@ -3,7 +3,7 @@ import warnings
 import os
 
 from neomodel import config, db, clear_neo4j_database, change_neo4j_password
-from neo4j.v1.exceptions import CypherError
+from neo4j.v1 import CypherError
 
 warnings.simplefilter('default')
 
