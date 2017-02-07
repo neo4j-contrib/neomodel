@@ -74,6 +74,7 @@ def test_get_and_get_or_none():
     n = User.nodes.get_or_none(email='robin@nothere.com')
     assert n is None
 
+
 def test_save_to_model():
     u = User(email='jim@test.com', age=3)
     assert u.save()
