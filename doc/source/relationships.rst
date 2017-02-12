@@ -28,7 +28,7 @@ Remember this needs to be declared on both sides of the definition::
 
 The following cardinality classes are available::
 
-    ZeroOMore (default), OneOrMore, ZeroOrOne, One
+    ZeroOrMore (default), OneOrMore, ZeroOrOne, One
 
 If cardinality is broken by existing data a *CardinalityViolation* exception is raised.
 On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
