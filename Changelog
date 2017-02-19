@@ -1,3 +1,6 @@
+Version 3.2.1 2017-02-19
+ * Dont install test directory #238
+
 Version 3.2.0 2017-02-07
  * Upgrade neo4j_driver to 1.1.0
  * Fix install_labels on an abstract node
