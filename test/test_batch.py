@@ -1,8 +1,9 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty)
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty)
 from neomodel.exception import UniqueProperty, DeflateError
 
 
 class Customer(StructuredNode):
+    uid = UniqueIdProperty()
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
