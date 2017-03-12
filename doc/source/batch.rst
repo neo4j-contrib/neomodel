@@ -2,10 +2,13 @@
 Batch nodes operations
 ======================
 
-All batch operations can be executed with one or more node. These are carried out in a transaction if one was defined.
+All batch operations can be executed with one or more nodes.
 
 create()
 --------
+Note that batch create is a relic of the Neo4j REST API.
+Now neomodel uses Bolt it exists for convenience and compatibility and a CREATE query is issued for each dict provided.
+
 Create multiple nodes at once in a single transaction::
 
     with db.transaction:
@@ -20,39 +23,37 @@ create_or_update()
 ------------------
 Atomically create or update nodes in a single operation::
 
-    with db.transaction:
-        people = Person.create_or_update(
-            {'name': 'Tim', 'age': 83},
-            {'name': 'Bob', 'age': 23},
-            {'name': 'Jill', 'age': 34},
-        )
+    people = Person.create_or_update(
+        {'name': 'Tim', 'age': 83},
+        {'name': 'Bob', 'age': 23},
+        {'name': 'Jill', 'age': 34},
+    )
 
-    with db.transaction:
-        more_people = Person.create_or_update(
-            {'name': 'Tim', 'age': 73},
-            {'name': 'Bob', 'age': 35},
-            {'name': 'Jane', 'age': 24},
-        )
+    more_people = Person.create_or_update(
+        {'name': 'Tim', 'age': 73},
+        {'name': 'Bob', 'age': 35},
+        {'name': 'Jane', 'age': 24},
+    )
 
 This is useful for ensuring data is up to date, each node is matched by its' required and/or unique properties. Any
 additional properties will be set on a newly created or an existing node.
 
+It is important to provide unique identifiers where known, any fields with default values that are omitted will be generated.
+
 get_or_create()
 ---------------
-Atomically get or create nodes in a single transaction::
+Atomically get or create nodes in a single operation::
 
-    with db.transaction:
-        people = Person.get_or_create(
-            {'name': 'Tim'},
-            {'name': 'Bob'},
-        )
+    people = Person.get_or_create(
+        {'name': 'Tim'},
+        {'name': 'Bob'},
+    )
 
-    with db.transaction:
-        people_with_jill = Person.get_or_create(
-            {'name': 'Tim'},
-            {'name': 'Bob'},
-            {'name': 'Jill'},
-        )
+    people_with_jill = Person.get_or_create(
+        {'name': 'Tim'},
+        {'name': 'Bob'},
+        {'name': 'Jill'},
+    )
     # are same nodes
     assert people[0] == people_with_jill[0]
     assert people[1] == people_with_jill[1]

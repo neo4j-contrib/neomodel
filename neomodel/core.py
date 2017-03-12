@@ -331,7 +331,7 @@ class StructuredNode(NodeBase):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
-        :param props: List of dict arguments to get or create the nodes.
+        :param props: dict of properties to create the nodes.
         :type props: tuple
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :type: bool
@@ -370,9 +370,9 @@ class StructuredNode(NodeBase):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation.
-        Parameters must contain all required properties, any non required properties will be set on created nodes only.
+        Parameters must contain all required properties, any non required properties with defaults will be generated.
 
-        :param props: List of dict arguments to get or create the entities with.
+        :param props: dict of properties to get or create the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.

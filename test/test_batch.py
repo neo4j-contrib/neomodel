@@ -1,5 +1,28 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty)
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty)
 from neomodel.exception import UniqueProperty, DeflateError
+
+
+class UniqueUser(StructuredNode):
+    uid = UniqueIdProperty()
+    name = StringProperty()
+    age = IntegerProperty()
+
+
+def test_unique_id_property_batch():
+    users = UniqueUser.create(
+        {'name': 'bob', 'age': 2},
+        {'name': 'ben', 'age': 3}
+    )
+
+    assert users[0].uid != users[1].uid
+
+    users = UniqueUser.get_or_create(
+        {'uid': users[0].uid},
+        {'name': 'bill', 'age': 4}
+    )
+
+    assert users[0].name == 'bob'
+    assert users[1].uid
 
 
 class Customer(StructuredNode):
@@ -20,6 +43,7 @@ def test_batch_create():
     assert users[1].age == 7
     assert users[1].email == 'jim2@aol.com'
     assert Customer.nodes.get(email='jim1@aol.com')
+
 
 def test_batch_create_or_update():
     users = Customer.create_or_update(
