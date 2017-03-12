@@ -83,6 +83,9 @@ class RelationshipManager(object):
                 rp[p] = '{' + p + '}'
                 params[p] = v
 
+            if hasattr(tmp, 'pre_save'):
+                tmp.pre_save()
+
         new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
@@ -95,6 +98,10 @@ class RelationshipManager(object):
 
         rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), node)
+
+        if hasattr(rel_instance, 'post_save'):
+            rel_instance.post_save()
+
         return rel_instance
 
     @check_source

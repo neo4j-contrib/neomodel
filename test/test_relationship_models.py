@@ -4,12 +4,24 @@ from datetime import datetime
 import pytz
 
 
+HOOKS_CALLED = {
+    'pre_save': 0,
+    'post_save': 0
+}
+
+
 class FriendRel(StructuredRel):
     since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
 
 class HatesRel(FriendRel):
     reason = StringProperty()
+
+    def pre_save(self):
+        HOOKS_CALLED['pre_save'] += 1
+
+    def post_save(self):
+        HOOKS_CALLED['post_save'] += 1
 
 
 class Badger(StructuredNode):
@@ -125,3 +137,18 @@ def test_retrieve_all_rels():
     assert len(rels) == 2
     assert rels[0].id in [rel_a.id, rel_b.id]
     assert rels[1].id in [rel_a.id, rel_b.id]
+
+
+def test_save_hook_on_rel_model():
+    HOOKS_CALLED['pre_save'] = 0
+    HOOKS_CALLED['post_save'] = 0
+
+    paul = Badger(name="PaulB").save()
+    ian = Stoat(name="IanS").save()
+
+    rel = ian.hates.connect(paul, {'reason': "yadda yadda"})
+    rel.save()
+
+    assert HOOKS_CALLED['pre_save'] == 2
+    assert HOOKS_CALLED['post_save'] == 2
+

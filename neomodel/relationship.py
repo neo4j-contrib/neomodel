@@ -1,6 +1,7 @@
 from .properties import Property, PropertyManager
 from .core import db
 from .util import deprecated
+from .hooks import hooks
 
 
 class RelationshipMeta(type):
@@ -29,6 +30,7 @@ class StructuredRel(StructuredRelBase):
     def __init__(self, *args, **kwargs):
         super(StructuredRel, self).__init__(*args, **kwargs)
 
+    @hooks
     def save(self):
         """
         Save the relationship

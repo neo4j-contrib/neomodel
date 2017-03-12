@@ -1,4 +1,5 @@
 Version 3.2.2
+ * Add save hooks to StructuredRel #242
  * Add tests for UniqueIdProperty when used in batch or merge.
  * Update documentation for batch operations
  * Add all_relationships() method to RelationshipManager #239
