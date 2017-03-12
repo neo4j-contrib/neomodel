@@ -1,3 +1,6 @@
+Version 3.2.2
+ * Add all_relationships() method to RelationshipManager #239
+
 Version 3.2.1 2017-02-19
  * Dont install test directory #238
 

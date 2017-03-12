@@ -100,7 +100,7 @@ class RelationshipManager(object):
     @check_source
     def relationship(self, node):
         """
-        Retrieve the StructuredRel object for the relationship between the two nodes.
+        Retrieve the relationship object for this first relationship between self and node.
 
         :param node:
         :return: StructuredRel
@@ -113,12 +113,34 @@ class RelationshipManager(object):
         rel_model = self.definition['model']
 
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} MATCH " \
-            "" + my_rel + " RETURN r"
+        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r LIMIT 1"
         rel = self.source.cypher(q, {'them': node.id})[0][0][0]
         if not rel:
             return
         return self._set_start_end_cls(rel_model.inflate(rel), node)
+
+    @check_source
+    def all_relationships(self, node):
+        """
+        Retrieve all relationship objects between self and node.
+
+        :param node:
+        :return: [StructuredRel]
+        """
+        self._check_node(node)
+        if 'model' not in self.definition:
+            raise NotImplemented("'all_relationships' method only available on relationships"
+                    + " that have a model defined")
+
+        rel_model = self.definition['model']
+
+        my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r "
+        rels = self.source.cypher(q, {'them': node.id})[0]
+        if not rels:
+            return []
+
+        return [self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels]
 
     def _set_start_end_cls(self, rel_instance, obj):
         if self.definition['direction'] == INCOMING:
