@@ -13,13 +13,13 @@ class SupplierRel(StructuredRel):
 class Supplier(StructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipTo('Coffee', 'SUPPLIES')
+    coffees = RelationshipTo('Coffee', 'COFFEE SUPPLIERS')  # Space to check for escaping
 
 
 class Coffee(StructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
-    suppliers = RelationshipFrom(Supplier, 'SUPPLIES', model=SupplierRel)
+    suppliers = RelationshipFrom(Supplier, 'COFFEE SUPPLIERS', model=SupplierRel)
 
 
 def test_filter_exclude_via_labels():
@@ -56,7 +56,7 @@ def test_simple_has_via_label():
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
-    assert 'SUPPLIES' in qb._ast['where'][0]
+    assert 'COFFEE SUPPLIERS' in qb._ast['where'][0]
     assert len(results) == 1
     assert results[0].name == 'Nescafe'
 

@@ -54,7 +54,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[%s:%s%s]' % (ident if ident else '', relation_type, rel_props))
+        stmt = stmt.format('[%s:`%s`%s]' % (ident if ident else '', relation_type, rel_props))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 

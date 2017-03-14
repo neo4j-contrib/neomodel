@@ -295,11 +295,11 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "(n:{} {{{}}})".format(':'.join(cls.inherited_labels()),
+        n_merge = "n:{} {{{}}}".format(':'.join(cls.inherited_labels()),
                                          ", ".join("{0}: params.create.{0}".format(p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND {{merge_params}} as params\n MERGE {}\n ".format(n_merge)
+            query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
@@ -308,10 +308,15 @@ class StructuredNode(NodeBase):
             if not relation_type:
                 raise ValueError('No relation_type is specified on provided relationship')
 
+            from .match import OUTGOING, _rel_helper
+
             query_params["source_id"] = relationship.source.id
             query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
-            query += "MERGE (source)-[:{}]->{} \n ".format(relation_type, n_merge)
+            query += "MERGE "
+            # TODO test this relationship parameter and document
+            query += _rel_helper('source', lhs=n_merge, ident=None,
+                                 relation_type=relation_type, direction=OUTGOING)
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
