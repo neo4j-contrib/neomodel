@@ -175,3 +175,12 @@ def classproperty(f):
         def __get__(self, obj, type=None):
             return self.getter(type)
     return cpf(f)
+
+
+# Just used for error messages
+class _UnsavedNode(object):
+    def __repr__(self):
+        return '<unsaved node>'
+
+    def __str__(self):
+        return self.__repr__()

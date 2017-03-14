@@ -5,7 +5,7 @@ import sys
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
 from .hooks import hooks
-from .util import Database, classproperty
+from .util import Database, classproperty, _UnsavedNode
 from . import config
 
 db = Database()
@@ -353,7 +353,7 @@ class StructuredNode(NodeBase):
             query += " RETURN n"
 
         results = []
-        for item in [cls.deflate(p, skip_empty=True) for p in props]:
+        for item in [cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props]:
             node, _ = db.cypher_query(query, {'create_params': item})
             results.extend(node[0])
 

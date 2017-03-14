@@ -6,7 +6,6 @@ from neomodel.exception import RequiredProperty, UniqueProperty
 class User(StructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
-    aliases = ArrayProperty()
 
     @property
     def email_alias(self):
@@ -15,15 +14,6 @@ class User(StructuredNode):
     @email_alias.setter # noqa
     def email_alias(self, value):
         self.email = value
-
-
-def test_array_properties():
-    user = User(email='foo@bar.com', aliases=['Tim', 'Bob']).save()
-    assert user
-    assert 'Tim' in user.aliases
-    user = User.nodes.get(email='foo@bar.com')
-    assert user
-    assert 'Tim' in user.aliases
 
 
 def test_issue_233():

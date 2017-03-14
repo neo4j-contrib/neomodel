@@ -38,6 +38,18 @@ You can specify a list of valid values for a `StringProperty` using choices::
 
 The value will be checked both when saved and loaded from neo4j.
 
+Array Properties
+================
+Neo4j supports arrays as a property value, these are used with the `ArrayProperty` class.
+You may optionally provide a list element type as the first argument to ArrayProperty with another property instance::
+
+    class Person(StructuredNode):
+        names = ArrayProperty(StringProperty(), required=True)
+
+    bob = Person(names=['bob', 'rob', 'robert']).save()
+
+In this example each element in the list is deflated to a string prior to being persisted.
+
 Unique Identifiers
 ==================
 All nodes in neo4j have an internal id (accessible by the 'id' property in neomodel)

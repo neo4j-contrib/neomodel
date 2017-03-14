@@ -111,12 +111,17 @@ def validator(fn):
         raise Exception("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
-    def validator(self, value, obj=None):
-        try:
+    def _validator(self, value, obj=None, rethrow=True):
+        if rethrow:
+            try:
+                return fn(self, value)
+            except Exception as e:
+                raise exc_class(self.name, self.owner, str(e), obj)
+        else:
+            # For using with ArrayProperty where we don't want an Inflate/Deflate error.
             return fn(self, value)
-        except Exception as e:
-            raise exc_class(self.name, self.owner, str(e), obj)
-    return validator
+
+    return _validator
 
 
 class Property(object):
@@ -306,12 +311,43 @@ class ArrayProperty(Property):
     """
     Stores a list of items
     """
+
+    def __init__(self, base_property=None, **kwargs):
+        """
+        Store a list of values, optionally of a specific type.
+
+        :param base_property: List item type e.g StringProperty for string
+        :type: Property
+        """
+
+        # list item type
+        if base_property is not None:
+            if not isinstance(base_property, Property):
+                raise TypeError('Expecting neomodel Property')
+
+            if isinstance(base_property, ArrayProperty):
+                raise TypeError('Cannot have nested ArrayProperty')
+
+            for ilegal_attr in ['default', 'index', 'unique_index', 'required']:
+                if getattr(base_property, ilegal_attr, None):
+                    raise ValueError('ArrayProperty base_property cannot have "{}" set'.format(ilegal_attr))
+
+        self.base_property = base_property
+
+        super(ArrayProperty, self).__init__(**kwargs)
+
     @validator
     def inflate(self, value):
+        if self.base_property:
+            return [self.base_property.inflate(item, rethrow=False) for item in value]
+
         return list(value)
 
     @validator
     def deflate(self, value):
+        if self.base_property:
+            return [self.base_property.deflate(item, rethrow=False) for item in value]
+
         return list(value)
 
     def default_value(self):

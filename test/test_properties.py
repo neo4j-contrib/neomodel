@@ -1,6 +1,6 @@
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
-    NormalProperty, RegexProperty, EmailProperty,
-    DateProperty, StringProperty, JSONProperty, UniqueIdProperty)
+                                 NormalProperty, RegexProperty, EmailProperty,
+                                 DateProperty, StringProperty, JSONProperty, UniqueIdProperty, ArrayProperty)
 from neomodel.exception import InflateError, DeflateError
 from neomodel import StructuredNode, db
 from pytz import timezone
@@ -285,3 +285,48 @@ def test_uid_property():
 
     cmid = CheckMyId().save()
     assert len(cmid.uid)
+
+
+class ArrayProps(StructuredNode):
+    uid = StringProperty(unique_index=True)
+    untyped_arr = ArrayProperty()
+    typed_arr = ArrayProperty(IntegerProperty())
+
+
+def test_array_properties():
+    # untyped
+    ap1 = ArrayProps(uid='1', untyped_arr=['Tim', 'Bob']).save()
+    assert 'Tim' in ap1.untyped_arr
+    ap1 = ArrayProps.nodes.get(uid='1')
+    assert 'Tim' in ap1.untyped_arr
+
+    # typed
+    try:
+        ArrayProps(uid='2', typed_arr=['a', 'b']).save()
+    except DeflateError as e:
+        assert 'unsaved node' in str(e)
+    else:
+        assert False
+
+    ap2 = ArrayProps(uid='2', typed_arr=[1, 2]).save()
+    assert 1 in ap2.typed_arr
+    ap2 = ArrayProps.nodes.get(uid='2')
+    assert 2 in ap2.typed_arr
+
+
+def test_illegal_array_base_prop_raises():
+    try:
+        ArrayProperty(StringProperty(index=True))
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
+def test_indexed_array():
+    class IndexArray(StructuredNode):
+        ai = ArrayProperty(unique_index=True)
+
+    b = IndexArray(ai=[1, 2]).save()
+    c = IndexArray.nodes.get(ai=[1, 2])
+    assert b.id == c.id

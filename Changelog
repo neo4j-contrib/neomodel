@@ -1,4 +1,6 @@
 Version 3.2.2
+ * Fix bug causing unsaved node not to appear in deflate error msg
+ * Allow typed arrays in ArrayProperty #237
  * Add save hooks to StructuredRel #242
  * Add tests for UniqueIdProperty when used in batch or merge.
  * Update documentation for batch operations
