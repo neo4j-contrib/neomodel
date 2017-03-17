@@ -1,4 +1,5 @@
 Version 3.2.2
+ * Add get_or_none to RelationshipManager #246
  * Make sure relationship types are escaped in queries #188
  * Fix bug causing unsaved node not to appear in deflate error msg
  * Allow typed arrays in ArrayProperty #237
