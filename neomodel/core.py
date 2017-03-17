@@ -377,6 +377,8 @@ class StructuredNode(NodeBase):
         this is an atomic operation.
         Parameters must contain all required properties, any non required properties with defaults will be generated.
 
+        Note that the post_create hook isn't called after get_or_create
+
         :param props: dict of properties to get or create the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
@@ -396,7 +398,6 @@ class StructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = db.cypher_query(query, params)
-        # TODO: check each node if created call post_create()
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
@@ -404,6 +405,8 @@ class StructuredNode(NodeBase):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
+
+        Note that the post_create hook isn't called after get_or_create
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
@@ -428,7 +431,6 @@ class StructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = db.cypher_query(query, params)
-        # TODO: check each node if created call post_create()
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
