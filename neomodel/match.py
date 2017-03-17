@@ -307,25 +307,23 @@ class QueryBuilder(object):
         """
             handle additional matches supplied by 'has()' calls
         """
-        # TODO add support for labels
         source_ident = ident
 
         for key, value in node_set.must_match.items():
-            label = ':' + value['node_class'].__label__
             if isinstance(value, dict):
+                label = ':' + value['node_class'].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
                 self._ast['where'].append(stmt)
-            elif isinstance(value, tuple):
-                rel_manager, ns = value
-                self.add_node_set(ns, key)
+            else:
+                raise ValueError("Expecting dict got: " + repr(value))
 
         for key, val in node_set.dont_match.items():
-            label = ':' + val['node_class'].__label__
             if isinstance(val, dict):
+                label = ':' + val['node_class'].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **val)
                 self._ast['where'].append('NOT ' + stmt)
             else:
-                raise ValueError("WTF? " + repr(val))
+                raise ValueError("Expecting dict got: " + repr(val))
 
     def _register_place_holder(self, key):
         if key in self._place_holder_registry:
