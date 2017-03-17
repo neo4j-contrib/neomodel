@@ -212,11 +212,11 @@ class RelationshipManager(object):
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': node.id})
 
+    @check_source
     def _new_traversal(self):
         return Traversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
-    @check_source
     def get(self, **kwargs):
         """
         Retrieve a related node with the matching node properties.
@@ -226,7 +226,6 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).get(**kwargs)
 
-    @check_source
     def get_or_none(self, **kwargs):
         """
         Retrieve a related node with the matching node properties or return None.
@@ -273,7 +272,6 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).exclude(**kwargs)
 
-    @check_source
     def is_connected(self, node):
         """
         Check if a node is connected with this relationship type
