@@ -26,6 +26,7 @@ def test_unique_id_property_batch():
 
 
 class Customer(StructuredNode):
+    uid = UniqueIdProperty()
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
