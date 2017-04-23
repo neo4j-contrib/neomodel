@@ -1,4 +1,4 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty)
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom)
 from neomodel.exception import UniqueProperty, DeflateError
 
 
@@ -97,3 +97,24 @@ def test_batch_index_violation():
 
     # not found
     assert not Customer.nodes.filter(email='jim7@aol.com')
+
+
+class Dog(StructuredNode):
+    name = StringProperty(required=True)
+    owner = RelationshipTo('Person', 'owner')
+
+
+class Person(StructuredNode):
+    name = StringProperty(unique_index=True)
+    pets = RelationshipFrom('Dog', 'owner')
+
+
+def test_get_or_create_with_rel():
+    bob = Person.get_or_create({"name": "Bob"})[0]
+    bobs_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
+
+    tim = Person.get_or_create({"name": "Tim"})[0]
+    tims_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
+
+    # not the same gizmo
+    assert bobs_gizmo[0] != tims_gizmo[0]

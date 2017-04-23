@@ -314,8 +314,7 @@ class StructuredNode(NodeBase):
             query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
             query += "MERGE "
-            # TODO test this relationship parameter and document
-            query += _rel_helper('source', lhs=n_merge, ident=None,
+            query += _rel_helper(rhs='source', lhs=n_merge, ident=None,
                                  relation_type=relation_type, direction=OUTGOING)
 
         query += "ON CREATE SET n = params.create\n "

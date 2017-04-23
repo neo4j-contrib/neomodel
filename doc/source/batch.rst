@@ -66,22 +66,20 @@ matching is done based on that relationship and not globally::
 
     class Dog(StructuredNode):
         name = StringProperty(required=True)
-
-        owner = RelationshipTo('Person, 'owner')
+        owner = RelationshipTo('Person', 'owner')
 
     class Person(StructuredNode):
         name = StringProperty(unique_index=True)
+        pets = RelationshipFrom('Dog', 'owner')
 
-        pets = RelationshipFrom('Dog, 'owner')
-
-    bob = Person.get_or_create({"name": "Tom"})
+    bob = Person.get_or_create({"name": "Bob"})[0]
     bobs_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
 
-    tim = Person.get_or_create({"name": "Tim"})
+    tim = Person.get_or_create({"name": "Tim"})[0]
     tims_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
 
     # not the same gizmo
-    assert bobs_gizmo[0] != tims_gismo[0]
+    assert bobs_gizmo[0] != tims_gizmo[0]
 
 In case when the only required property is unique, the operation is redundant. However with simple required properties,
 the relationship becomes a part of the unique identifier.

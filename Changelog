@@ -1,3 +1,6 @@
+Version 3.2.3
+ * Fix get_or_create docs and incorrect call to rel_helper #249
+
 Version 3.2.2 2017-03-17
  * Add get_or_none to RelationshipManager #246
  * Make sure relationship types are escaped in queries #188
