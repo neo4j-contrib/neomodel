@@ -1,4 +1,4 @@
-Version 3.2.3
+Version 3.2.3 2017-04-17
  * Return StructuredRel instance as opposed to None when no model supplied #248
  * Fix get_or_create docs and incorrect call to rel_helper #249
 
