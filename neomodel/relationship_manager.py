@@ -4,6 +4,7 @@ from importlib import import_module
 from .exception import NotConnected
 from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
+from .relationship import StructuredRel
 
 
 # basestring python 3.x fallback
@@ -113,18 +114,15 @@ class RelationshipManager(object):
         :return: StructuredRel
         """
         self._check_node(node)
-        if 'model' not in self.definition:
-            raise NotImplemented("'relationship' method only available on relationships"
-                    + " that have a model defined")
-
-        rel_model = self.definition['model']
-
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r LIMIT 1"
-        rel = self.source.cypher(q, {'them': node.id})[0][0][0]
-        if not rel:
+        rels = self.source.cypher(q, {'them': node.id})[0]
+        if not rels:
             return
-        return self._set_start_end_cls(rel_model.inflate(rel), node)
+
+        rel_model = self.definition.get('model') or StructuredRel
+
+        return self._set_start_end_cls(rel_model.inflate(rels[0][0]), node)
 
     @check_source
     def all_relationships(self, node):
@@ -135,11 +133,6 @@ class RelationshipManager(object):
         :return: [StructuredRel]
         """
         self._check_node(node)
-        if 'model' not in self.definition:
-            raise NotImplemented("'all_relationships' method only available on relationships"
-                    + " that have a model defined")
-
-        rel_model = self.definition['model']
 
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r "
@@ -147,6 +140,7 @@ class RelationshipManager(object):
         if not rels:
             return []
 
+        rel_model = self.definition.get('model') or StructuredRel
         return [self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels]
 
     def _set_start_end_cls(self, rel_instance, obj):

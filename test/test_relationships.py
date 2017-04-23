@@ -1,5 +1,5 @@
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
-        Relationship, StringProperty, IntegerProperty, One)
+        Relationship, StringProperty, IntegerProperty, StructuredRel, One)
 
 
 class Person(StructuredNode):
@@ -97,6 +97,12 @@ def test_either_direction_connect():
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
             {'them': rey.id})
     assert int(result[0][0]) == 1
+
+    rel = rey.knows.relationship(sakis)
+    assert isinstance(rel, StructuredRel)
+
+    rels = rey.knows.all_relationships(sakis)
+    assert isinstance(rels[0], StructuredRel)
 
 
 def test_search_and_filter_and_exclude():
