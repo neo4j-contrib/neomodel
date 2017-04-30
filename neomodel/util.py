@@ -59,15 +59,6 @@ class Database(local):
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
                                            max_pool_size=config.MAX_POOL_SIZE)
-
-        self.refresh_connection()
-
-    @ensure_connection
-    def refresh_connection(self):
-        if self._active_transaction:
-            raise SystemError("Can't refresh connection with active transaction")
-
-        self._session = self.driver.session()
         self._pid = os.getpid()
         self._active_transaction = None
 
@@ -80,7 +71,7 @@ class Database(local):
     def begin(self):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self._session.begin_transaction()
+        self._active_transaction = self.driver.session().begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -96,12 +87,12 @@ class Database(local):
     @ensure_connection
     def cypher_query(self, query, params=None, handle_unique=True):
         if self._pid != os.getpid():
-            self.refresh_connection()
+            self.set_connection(self.url)
 
         if self._active_transaction:
             session = self._active_transaction
         else:
-            session = self._session
+            session = self.driver.session()
 
         try:
             start = time.clock()

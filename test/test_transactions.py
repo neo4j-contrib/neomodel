@@ -1,4 +1,5 @@
 from neomodel import db, StructuredNode, StringProperty, UniqueProperty
+from neo4j.addressing import AddressError
 
 
 class Person(StructuredNode):
@@ -83,7 +84,7 @@ def test_set_connection_works():
     try:
         db.set_connection('bolt://user:password@nowhere:7687')
         assert False  # Shouldnt get here
-    except gaierror:
+    except AddressError:
         assert True
         db.set_connection(old_url)
     # set connection back
