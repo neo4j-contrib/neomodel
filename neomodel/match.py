@@ -362,8 +362,17 @@ class QueryBuilder(object):
         query = ''
 
         if 'start' in self._ast:
-            query += 'START '
-            query += ', '.join(self._ast['start'])
+            initial_match = {'match': [], 'where': [], 'with': []}
+
+            for i in self._ast['start']:
+                r = i.split(' = ')
+                initial_match['match'].append('(%s)' % r[0])
+                initial_match['where'].append('id(%s)=%s' % (r[0], r[1].replace('node(','').replace(')','')))
+                initial_match['with'].append(r[0])
+
+            query += 'MATCH %s WHERE %s WITH %s' % (
+                ','.join(initial_match['match']), ' and '.join(initial_match['where']), ','.join(initial_match['with'])
+            )
 
         query += ' MATCH '
         query += ', '.join(['({})'.format(i) for i in self._ast['match']])
