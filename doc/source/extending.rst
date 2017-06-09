@@ -36,7 +36,7 @@ You can use mixins to share the functionality between nodes classes::
             self.balance = self.balance + int(amount)
             self.save()
 
-    class Shopper(StructuredNode, User, CreditMixin):
+    class Shopper(StructuredNode, UserMixin, CreditMixin):
         pass
 
     jim = Shopper(name='jimmy', balance=300).save()
