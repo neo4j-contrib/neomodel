@@ -1,3 +1,6 @@
+Version 3.2.5
+ * Remove use of START in match engine breaking neo4j 3.2
+
 Version 3.2.4 2017-06-17
  * Upgrade neo4j-driver to 1.2.1 #251
 

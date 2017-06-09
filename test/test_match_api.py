@@ -98,7 +98,7 @@ def test_simple_traverse_with_filter():
 
     results = qb.build_ast()._execute()
 
-    assert 'start' in qb._ast
+    assert 'lookup' in qb._ast
     assert 'match' in qb._ast
     assert qb._ast['return'] == 'suppliers'
     assert len(results) == 1

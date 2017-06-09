@@ -9,7 +9,7 @@ python:
 install: "python setup.py install"
 script: nosetests -s
 env:
-  - NEO4J_VERSION="3.1.0"
+  - NEO4J_VERSION="3.2.1"
 before_install:
   - sudo apt-get update && sudo apt-get install oracle-java8-installer
   - export JAVA_HOME=/usr/lib/jvm/java-8-oracle

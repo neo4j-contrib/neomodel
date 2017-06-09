@@ -282,11 +282,12 @@ class QueryBuilder(object):
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
-        if 'start' not in self._ast:
-            self._ast['start'] = []
-
         place_holder = self._register_place_holder(ident)
-        self._ast['start'].append('{} = node({{{}}})'.format(ident, place_holder))
+
+        # Hack to emulate START to lookup a node by id
+        _node_lookup = 'MATCH ({}) WHERE id({})={{{}}} WITH {}'.format(ident, ident, place_holder, ident)
+        self._ast['lookup'] = _node_lookup
+
         self._query_params[place_holder] = node.id
 
         self._ast['return'] = ident
@@ -361,9 +362,8 @@ class QueryBuilder(object):
     def build_query(self):
         query = ''
 
-        if 'start' in self._ast:
-            query += 'START '
-            query += ', '.join(self._ast['start'])
+        if 'lookup' in self._ast:
+            query += self._ast['lookup']
 
         query += ' MATCH '
         query += ', '.join(['({})'.format(i) for i in self._ast['match']])

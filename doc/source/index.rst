@@ -20,7 +20,7 @@ Requirements
 ============
 
 - Python 2.7, 3.3+
-- neo4j 3.0+
+- neo4j 3.0, 3.1, 3.2
 
 Installation
 ============
