@@ -1,7 +1,8 @@
-Version 3.2.5
+Version 3.2.5 2017-06-10
+ * Upgrade pytz
  * Remove use of START in match engine breaking neo4j 3.2
 
-Version 3.2.4 2017-06-17
+Version 3.2.4 2017-06-09
  * Upgrade neo4j-driver to 1.2.1 #251
 
 Version 3.2.3 2017-04-17
