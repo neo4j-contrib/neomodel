@@ -5,7 +5,7 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError
+from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
 from . import config
 from .exception import UniqueProperty, ConstraintValidationFailed
@@ -84,7 +84,7 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=True):
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -110,6 +110,12 @@ class Database(local):
                     raise exc_info[1].with_traceback(exc_info[2])
                 else:
                     raise exc_info[1]
+        except SessionError:
+            if retry_on_session_expire:
+                self.set_connection(self.url)
+                return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                                         retry_on_session_expire=False)
+            raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
