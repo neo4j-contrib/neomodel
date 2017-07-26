@@ -652,7 +652,7 @@ class Traversal(BaseSet):
         :param kwargs: see `NodeSet.filter()` for syntax
         :return: self
         """
-        if 'model' not in self.definition:
+        if 'model' not in self.definition or self.definition['model'] is None:
             raise ValueError("match() only available on relationships with a model")
         if kwargs:
             output = process_filter_args(self.definition['model'], kwargs) 
