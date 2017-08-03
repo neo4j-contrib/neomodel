@@ -1,10 +1,28 @@
+import os
+from codecs import open
+
 from setuptools import setup, find_packages
 
+ENV = os.environ.get('MOE_DEPLOYMENT_ENV') or 'prod'
+
+package_name = 'moe-neomodel' + '-' + ENV
+
+# Get the long description from the README file
+with open('README.rst', encoding='utf-8') as f:
+    long_description = f.read()
+
+with open('VERSION', encoding='utf-8') as f:
+    package_version = f.read()
+
+print "**************************************************"
+print "Installing package: " + package_name + " version: " + package_version
+print "**************************************************"
+
 setup(
-    name='neomodel',
-    version='3.2.4',
+    name=package_name,
+    version=package_version,
     description='An object mapper for the neo4j graph database.',
-    long_description=open('README.rst').read(),
+    long_description=long_description,
     author='Robin Edwards',
     author_email='robin.ge@gmail.com',
     zip_safe=True,
