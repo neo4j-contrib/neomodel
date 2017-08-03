@@ -19,7 +19,7 @@ print "Installing package: " + package_name + " version: " + package_version
 print "**************************************************"
 
 setup(
-    name='neomodel',
+    name=package_name,
     version=package_version,
     description='An object mapper for the neo4j graph database.',
     long_description=long_description,
