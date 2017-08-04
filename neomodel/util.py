@@ -1,21 +1,19 @@
 import logging
 import os
+import sys
 import time
 import warnings
-import sys
 from threading import local
 
-from .exception import UniqueProperty, ConstraintValidationFailed
+from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
+
 from . import config
-
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError
-
+from .exception import UniqueProperty, ConstraintValidationFailed
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
     from urlparse import urlparse  # noqa
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +24,7 @@ def ensure_connection(func):
         if not self.url:
             self.set_connection(config.DATABASE_URL)
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -48,14 +47,14 @@ class Database(local):
         self.url = url
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and u.scheme == 'bolt':
+        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {}".format(url))
 
-        self.driver = GraphDatabase.driver('bolt://' + hostname,
+        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
                                            max_pool_size=config.MAX_POOL_SIZE)
@@ -85,7 +84,7 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=True):
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -111,6 +110,12 @@ class Database(local):
                     raise exc_info[1].with_traceback(exc_info[2])
                 else:
                     raise exc_info[1]
+        except SessionError:
+            if retry_on_session_expire:
+                self.set_connection(self.url)
+                return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                                         retry_on_session_expire=False)
+            raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
@@ -119,7 +124,6 @@ class Database(local):
 
 
 class TransactionProxy(object):
-
     def __init__(self, db):
         self.db = db
 
@@ -151,10 +155,12 @@ def deprecated(message):
         def f_(*args, **kwargs):
             warnings.warn(message, category=DeprecationWarning, stacklevel=2)
             return f(*args, **kwargs)
+
         f_.__name__ = f.__name__
         f_.__doc__ = f.__doc__
         f_.__dict__.update(f.__dict__)
         return f_
+
     return f__
 
 
@@ -165,6 +171,7 @@ def classproperty(f):
 
         def __get__(self, obj, type=None):
             return self.getter(type)
+
     return cpf(f)
 
 
