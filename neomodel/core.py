@@ -1,6 +1,7 @@
 from __future__ import print_function
 import warnings
 import sys
+import re
 
 from .exception import DoesNotExist
 from .properties import Property, PropertyManager
@@ -9,6 +10,60 @@ from .util import Database, classproperty, _UnsavedNode
 from . import config
 
 db = Database()
+
+
+def drop_constraints(quiet=True, stdout=None):
+    """
+    Discover and drop all constraints.
+
+    :type: bool
+    :return: None
+    """
+
+    results, meta = db.cypher_query("CALL db.constraints()")
+    patern = re.compile(':(.*) \).*\.(\w*)')
+    for constraint in results:
+        db.cypher_query('DROP ' + constraint[0])
+        match = patern.search(constraint[0])
+        stdout.write(''' - Droping unique constraint and index on label {} with property {}.\n'''.format(
+            match.group(1), match.group(2)))
+    stdout.write("\n")
+
+
+def drop_indexes(quiet=True, stdout=None):
+    """
+    Discover and drop all indexes.
+
+    :type: bool
+    :return: None
+    """
+
+    results, meta = db.cypher_query("CALL db.indexes()")
+    patern = re.compile(':(.*)\((.*)\)')
+    for index in results:
+        db.cypher_query('DROP ' + index[0])
+        match = patern.search(index[0])
+        stdout.write(' - Droping index on label {} with property {}.\n'.format(
+            match.group(1), match.group(2)))
+    stdout.write("\n")
+
+
+def remove_all_labels(stdout=None):
+    """
+    Calls functions for droping constraints and indexes.
+
+    :param stdout: output stream
+    :return: None
+    """
+
+    if not stdout:
+        stdout = sys.stdout
+
+    stdout.write("Droping constraints...\n")
+    drop_constraints(quiet=False, stdout=stdout)
+
+    stdout.write('Droping indexes...\n')
+    drop_indexes(quiet=False, stdout=stdout)
 
 
 def install_labels(cls, quiet=True, stdout=None):

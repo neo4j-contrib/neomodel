@@ -12,7 +12,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=('tests',)),
     keywords='graph neo4j ORM OGM',
-    scripts=['scripts/neomodel_install_labels'],
+    scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],
     tests_require=['nose==1.3.7'],
     test_suite='nose.collector',
     install_requires=['neo4j-driver==1.2.1', 'pytz>=2016'],
