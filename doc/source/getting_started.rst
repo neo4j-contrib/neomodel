@@ -67,6 +67,14 @@ Neomodel provides a script to automate this::
 
 It is important to execute this after altering the schema. Keep an eye on the number of classes it detects each time.
 
+Remove existing constraints and indexes
+=======================================
+For deleting all existing constraints and indexes from database, neomodel provides a script to automate this::
+
+    $ neomodel_remove_labels --db bolt://neo4j:neo4j@localhost:7687
+
+After executing, it will print all indexes and constraints it has deleted.
+
 Create, Save, Delete
 ====================
 
