@@ -44,7 +44,6 @@ class Database(local):
         self._pid = None
 
     def set_connection(self, url):
-        self.url = url
         u = urlparse(url)
 
         if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
@@ -58,6 +57,7 @@ class Database(local):
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
                                            max_pool_size=config.MAX_POOL_SIZE)
+        self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
 
