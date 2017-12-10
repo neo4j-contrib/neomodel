@@ -9,7 +9,7 @@ class NoConstraintsSetup(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class TestAbstractNode(StructuredNode):
+class AbstractNode(StructuredNode):
     __abstract_node__ = True
     name = StringProperty(unique_index=True)
 
@@ -27,7 +27,7 @@ def test_labels_were_not_installed():
 
 
 def test_install_all():
-    install_labels(TestAbstractNode)
+    install_labels(AbstractNode)
     # run install all labels
     install_all_labels()
     assert True

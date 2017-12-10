@@ -1,6 +1,8 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty,
-        RelationshipTo, AttemptedCardinalityViolation, CardinalityViolation,
-         OneOrMore, ZeroOrMore, ZeroOrOne, One)
+from pytest import raises
+
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, OneOrMore, ZeroOrMore,
+                      RelationshipTo, AttemptedCardinalityViolation, CardinalityViolation,
+                      ZeroOrOne, One)
 
 
 class HairDryer(StructuredNode):
@@ -53,12 +55,8 @@ def test_cardinality_zero_or_one():
     assert m.driver.single().version == 1
 
     j = ScrewDriver(version=2).save()
-    try:
+    with raises(AttemptedCardinalityViolation):
         m.driver.connect(j)
-    except AttemptedCardinalityViolation:
-        assert True
-    else:
-        assert False
 
     m.driver.reconnect(h, j)
     assert m.driver.single().version == 2
@@ -67,64 +65,36 @@ def test_cardinality_zero_or_one():
 def test_cardinality_one_or_more():
     m = Monkey(name='jerry').save()
 
-    try:
+    with raises(CardinalityViolation):
         m.car.all()
-    except CardinalityViolation:
-        assert True
-    else:
-        assert False
 
-    try:
+    with raises(CardinalityViolation):
         m.car.single()
-    except CardinalityViolation:
-        assert True
-    else:
-        assert False
 
     c = Car(version=2).save()
     m.car.connect(c)
     assert m.car.single().version == 2
 
-    try:
+    with raises(AttemptedCardinalityViolation):
         m.car.disconnect(c)
-    except AttemptedCardinalityViolation:
-        assert True
-    else:
-        assert False
 
 
 def test_cardinality_one():
     m = Monkey(name='jerry').save()
 
-    try:
+    with raises(CardinalityViolation):
         m.toothbrush.all()
-    except CardinalityViolation:
-        assert True
-    else:
-        assert False
 
-    try:
+    with raises(CardinalityViolation):
         m.toothbrush.single()
-    except CardinalityViolation:
-        assert True
-    else:
-        assert False
 
     b = ToothBrush(name='Jim').save()
     m.toothbrush.connect(b)
     assert m.toothbrush.single().name == 'Jim'
 
     x = ToothBrush(name='Jim').save
-    try:
+    with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
-    except AttemptedCardinalityViolation:
-        assert True
-    else:
-        assert False
 
-    try:
+    with raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect(b)
-    except AttemptedCardinalityViolation:
-        assert True
-    else:
-        assert False

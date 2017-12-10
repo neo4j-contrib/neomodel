@@ -1,7 +1,10 @@
-from neomodel import (StructuredNode, StructuredRel, Relationship, RelationshipTo,
-        StringProperty, DateTimeProperty, DeflateError)
 from datetime import datetime
+
+from pytest import raises
 import pytz
+
+from neomodel import (StructuredNode, StructuredRel, Relationship, RelationshipTo,
+                      StringProperty, DateTimeProperty, DeflateError)
 
 
 HOOKS_CALLED = {
@@ -83,20 +86,12 @@ def test_direction_connect_with_rel_model():
 
     # test deflate checking
     rel.since = "2:30pm"
-    try:
+    with raises(DeflateError):
         rel.save()
-    except DeflateError:
-        assert True
-    else:
-        assert False
 
     # check deflate check via connect
-    try:
+    with raises(DeflateError):
         paul.hates.connect(ian, {'reason': "thinks paul should bath more often", 'since': '2:30pm'})
-    except DeflateError:
-        assert True
-    else:
-        assert False
 
 
 def test_traversal_where_clause():

@@ -1,4 +1,4 @@
-from neomodel import (StructuredNode, StringProperty)
+from neomodel import StructuredNode, StringProperty
 
 HOOKS_CALLED = {}
 

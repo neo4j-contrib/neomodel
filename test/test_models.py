@@ -1,5 +1,8 @@
 from __future__ import print_function
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, ArrayProperty)
+
+from pytest import raises
+
+from neomodel import StructuredNode, StringProperty, IntegerProperty
 from neomodel.exception import RequiredProperty, UniqueProperty
 
 
@@ -80,17 +83,12 @@ def test_unique():
     except Exception as e:
         assert e.__class__.__name__ == 'UniqueProperty'
     else:
-        assert False
+        assert False, "No exception raised."
 
 
 def test_update_unique():
     u = User(email='jimxx@test.com', age=3).save()
-    try:
-        u.save() # this shouldn't fail
-    except UniqueProperty:
-        assert False
-    else:
-        assert True
+    u.save()  # this shouldn't fail
 
 
 def test_update():
@@ -128,10 +126,8 @@ def test_not_updated_on_unique_error():
     Customer2(email='jim@bob.com', age=7).save()
     test = Customer2(email='jim1@bob.com', age=2).save()
     test.email = 'jim@bob.com'
-    try:
+    with raises(UniqueProperty):
         test.save()
-    except UniqueProperty:
-        pass
     customers = Customer2.nodes.all()
     assert customers[0].email != customers[1].email
     assert Customer2.nodes.get(email='jim@bob.com').age == 7

@@ -1,10 +1,13 @@
+from datetime import datetime, date
+
+from pytest import raises
+from pytz import timezone
+
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
                                  NormalProperty, RegexProperty, EmailProperty,
                                  DateProperty, StringProperty, JSONProperty, UniqueIdProperty, ArrayProperty)
 from neomodel.exception import InflateError, DeflateError
 from neomodel import StructuredNode, db
-from pytz import timezone
-from datetime import datetime, date
 
 
 class FooBar(object):
@@ -19,10 +22,9 @@ def test_string_property_w_choice():
     try:
         TestChoices(sex='Z').save()
     except DeflateError as e:
-        assert True
-        assert str(e).index('choice')
+        assert 'choice' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
     node = TestChoices(sex='M').save()
     assert node.get_sex_display() == 'Male'
@@ -37,17 +39,16 @@ def test_deflate_inflate():
         prop.inflate("six")
     except InflateError as e:
         assert True
-        assert str(e).index('inflate property')
+        assert 'inflate property' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
     try:
         prop.deflate("six")
     except DeflateError as e:
-        assert True
-        assert str(e).index('deflate property')
+        assert 'deflate property' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
 
 def test_datetimes_timezones():
@@ -84,18 +85,16 @@ def test_datetime_exceptions():
     try:
         prop.inflate(faulty)
     except InflateError as e:
-        assert True
-        assert str(e).index('inflate property')
+        assert 'inflate property' in str(e)
     else:
-        assert False
+        assert False, "InflateError not raised."
 
     try:
         prop.deflate(faulty)
     except DeflateError as e:
-        assert True
-        assert str(e).index('deflate property')
+        assert 'deflate property' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
 
 def test_date_exceptions():
@@ -107,18 +106,16 @@ def test_date_exceptions():
     try:
         prop.inflate(faulty)
     except InflateError as e:
-        assert True
-        assert str(e).index('inflate property')
+        assert 'inflate property' in str(e)
     else:
-        assert False
+        assert False, "InflateError not raised."
 
     try:
         prop.deflate(faulty)
     except DeflateError as e:
-        assert True
-        assert str(e).index('deflate property')
+        assert 'deflate property' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
 
 def test_json():
@@ -228,12 +225,8 @@ def test_regex_property():
     class MissingExpression(RegexProperty):
         pass
 
-    try:
+    with raises(ValueError):
         MissingExpression()
-    except ValueError:
-        assert True
-    else:
-        assert False
 
     class TestProperty(RegexProperty):
         name = 'test'
@@ -249,12 +242,8 @@ def test_regex_property():
     assert getattr(prop, '_called', False)
     assert result == 'foo bar'
 
-    try:
+    with raises(DeflateError):
         prop.deflate('qux')
-    except DeflateError:
-        assert True
-    else:
-        assert False
 
 
 def test_email_property():
@@ -265,12 +254,8 @@ def test_email_property():
     result = prop.inflate('foo@example.com')
     assert result == 'foo@example.com'
 
-    try:
+    with raises(DeflateError):
         prop.deflate('foo@example')
-    except DeflateError:
-        assert True
-    else:
-        assert False
 
 
 def test_uid_property():
@@ -306,7 +291,7 @@ def test_array_properties():
     except DeflateError as e:
         assert 'unsaved node' in str(e)
     else:
-        assert False
+        assert False, "DeflateError not raised."
 
     ap2 = ArrayProps(uid='2', typed_arr=[1, 2]).save()
     assert 1 in ap2.typed_arr
@@ -315,12 +300,8 @@ def test_array_properties():
 
 
 def test_illegal_array_base_prop_raises():
-    try:
+    with raises(ValueError):
         ArrayProperty(StringProperty(index=True))
-    except ValueError:
-        assert True
-    else:
-        assert False
 
 
 def test_indexed_array():

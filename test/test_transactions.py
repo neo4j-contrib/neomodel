@@ -1,5 +1,7 @@
-from neomodel import db, StructuredNode, StringProperty, UniqueProperty
 from neo4j.addressing import AddressError
+from pytest import raises
+
+from neomodel import db, StructuredNode, StringProperty, UniqueProperty
 
 
 class Person(StructuredNode):
@@ -40,12 +42,8 @@ def test_transaction_decorator():
     assert True
 
     # should bail but raise correct error
-    try:
+    with raises(UniqueProperty):
         in_a_tx('Jim', 'Roger')
-    except UniqueProperty:
-        assert True
-    else:
-        assert False
 
     assert 'Jim' not in [p.name for p in Person.nodes]
 
@@ -56,13 +54,9 @@ def test_transaction_as_a_context():
 
     assert Person.nodes.filter(name='Tim')
 
-    try:
+    with raises(UniqueProperty):
         with db.transaction:
             Person(name='Tim').save()
-    except UniqueProperty:
-        assert True
-    else:
-        assert False
 
 
 def test_query_inside_transaction():
@@ -81,11 +75,8 @@ def test_set_connection_works():
     from socket import gaierror
 
     old_url = db.url
-    try:
+    with raises(AddressError):
         db.set_connection('bolt://user:password@nowhere:7687')
-        assert False  # Shouldnt get here
-    except AddressError:
-        assert True
-        db.set_connection(old_url)
+    db.set_connection(old_url)
     # set connection back
     assert Person(name='New guy2').save()
