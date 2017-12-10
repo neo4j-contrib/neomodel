@@ -1,4 +1,7 @@
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom)
+from pytest import raises
+
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
+                      RelationshipTo, RelationshipFrom)
 from neomodel.exception import UniqueProperty, DeflateError
 
 
@@ -67,14 +70,10 @@ def test_batch_create_or_update():
 
 def test_batch_validation():
     # test validation in batch create
-    try:
+    with raises(DeflateError):
         Customer.create(
             {'email': 'jim1@aol.com', 'age': 'x'},
         )
-    except DeflateError:
-        assert True
-    else:
-        assert False
 
 
 def test_batch_index_violation():
@@ -85,15 +84,11 @@ def test_batch_index_violation():
         {'email': 'jim6@aol.com', 'age': 3},
     )
     assert users
-    try:
+    with raises(UniqueProperty):
         Customer.create(
             {'email': 'jim6@aol.com', 'age': 3},
             {'email': 'jim7@aol.com', 'age': 5},
         )
-    except UniqueProperty:
-        assert True
-    else:
-        assert False
 
     # not found
     assert not Customer.nodes.filter(email='jim7@aol.com')

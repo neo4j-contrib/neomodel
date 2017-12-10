@@ -1,8 +1,11 @@
+from datetime import datetime
+
+from pytest import raises
+
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
-        RelationshipTo, StructuredRel, DateTimeProperty)
+                      RelationshipTo, StructuredRel, DateTimeProperty)
 from neomodel.match import NodeSet, QueryBuilder
 from neomodel.exception import MultipleNodesReturned
-from datetime import datetime
 
 
 class SupplierRel(StructuredRel):
@@ -72,21 +75,13 @@ def test_get():
     Coffee(name='1', price=3).save()
     assert Coffee.nodes.get(name='1')
 
-    try:
+    with raises(Coffee.DoesNotExist):
         Coffee.nodes.get(name='2')
-    except Coffee.DoesNotExist:
-        assert True
-    else:
-        assert False
 
     Coffee(name='2', price=3).save()
 
-    try:
+    with raises(MultipleNodesReturned):
         Coffee.nodes.get(price=3)
-    except MultipleNodesReturned:
-        assert True
-    else:
-        assert False
 
 
 def test_simple_traverse_with_filter():
@@ -176,20 +171,12 @@ def test_contains():
     assert asda not in Coffee.nodes.filter(price__gt=999)
 
     # bad value raises
-    try:
+    with raises(ValueError):
         2 in Coffee.nodes
-    except ValueError:
-        assert True
-    else:
-        assert False
 
     # unsaved
-    try:
+    with raises(ValueError):
         Coffee() in Coffee.nodes
-    except ValueError:
-        assert True
-    else:
-        assert False
 
 
 def test_order_by():

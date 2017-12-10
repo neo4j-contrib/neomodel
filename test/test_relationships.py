@@ -1,5 +1,7 @@
-from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom,
-        Relationship, StringProperty, IntegerProperty, StructuredRel, One)
+from pytest import raises
+
+from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relationship,
+                      StringProperty, IntegerProperty, StructuredRel, One)
 
 
 class Person(StructuredNode):
@@ -32,26 +34,14 @@ class SuperHero(Person):
 def test_actions_on_deleted_node():
     u = Person(name='Jim2', age=3).save()
     u.delete()
-    try:
+    with raises(ValueError):
         u.is_from.connect(None)
-    except ValueError:
-        assert True
-    else:
-        assert False
 
-    try:
+    with raises(ValueError):
         u.is_from.get()
-    except ValueError:
-        assert True
-    else:
-        assert False
 
-    try:
+    with raises(ValueError):
         u.save()
-    except ValueError:
-        assert True
-    else:
-        assert False
 
 
 def test_bidirectional_relationships():
@@ -163,10 +153,6 @@ def test_props_relationship():
     c2 = Country(code='LA').save()
     assert c2
 
-    try:
+    with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
-    except NotImplementedError:
-        assert True
-    else:
-        assert False
 

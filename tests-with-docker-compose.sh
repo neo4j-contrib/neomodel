@@ -4,7 +4,7 @@
 # interpreters and neo4j versions on a host that has Docker Compose and
 # Docker client installed.
 # The script aborts on the first failure of any combination.
-# It is not
+# It is not intended
 
 
 write_compose_file () {
@@ -18,7 +18,7 @@ services:
       - .:/src
       - pip-cache:/root/.cache/pip
     working_dir: /src
-    command: sh -c "while ! nc neo4j 7687; do  sleep 1; done; python setup.py test"
+    command: sh -c "while ! nc neo4j 7687; do  sleep 1; done; python -B setup.py test"
     links:
       - neo4j
     environment:
@@ -40,6 +40,11 @@ clean () {
     rm -f docker-compose.myl
 }
 
+
+for dir in neomodel test; do
+    rm -f ${dir}/**/*.pyc
+    find ${dir} -name __pycache__ -exec rm -Rf {} \;
+done
 
 for NEO4J_VERSION in 3.0 3.1 3.2 3.3; do
     for PYTHON_VERSION in 2.7 3.4 3.5 3.6; do

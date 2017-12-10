@@ -1,5 +1,6 @@
-from neomodel import StructuredNode, StringProperty, DoesNotExist
 import pickle
+
+from neomodel import StructuredNode, StringProperty, DoesNotExist
 
 
 class Person(StructuredNode):
@@ -14,6 +15,8 @@ def test_object_does_not_exist():
         assert pickle_instance
         assert pickle.loads(pickle_instance)
         assert isinstance(pickle.loads(pickle_instance), DoesNotExist)
+    else:
+        assert False, "Person.DoesNotExist not raised."
 
 
 def test_raise_does_not_exist():
@@ -24,3 +27,5 @@ def test_raise_does_not_exist():
         assert pickle_instance
         assert pickle.loads(pickle_instance)
         assert isinstance(pickle.loads(pickle_instance), DoesNotExist)
+    else:
+        assert False, "DoesNotExist not raised."

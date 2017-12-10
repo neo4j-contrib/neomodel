@@ -30,4 +30,4 @@ def test_cypher_syntax_error():
         assert hasattr(e, 'message')
         assert hasattr(e, 'code')
     else:
-        assert False
+        assert False, "CypherError not raised."

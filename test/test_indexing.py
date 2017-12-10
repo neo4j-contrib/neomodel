@@ -1,3 +1,5 @@
+from pytest import raises
+
 from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueProperty
 
 
@@ -16,7 +18,7 @@ def test_unique_error():
         assert str(e).find('name')
         assert str(e).find('FooBarr')
     else:
-        assert False
+        assert False, "UniqueProperty not raised."
 
 
 def test_optional_properties_dont_get_indexed():
@@ -39,12 +41,8 @@ def test_escaped_chars():
 
 
 def test_does_not_exist():
-    try:
+    with raises(Human.DoesNotExist):
         Human.nodes.get(name='XXXX')
-    except Human.DoesNotExist:
-        assert True
-    else:
-        assert False
 
 
 def test_custom_label_name():
