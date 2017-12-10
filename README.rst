@@ -83,6 +83,13 @@ Setup a virtual environment, install neomodel for development and run the test s
 
 If your running a neo4j database for the first time the test suite will set the password to 'test'.
 
+If you have ``docker-compose`` installed, you can run the test suite against all supported Python
+interpreters and neo4j versions::
+
+    # in the project's root folder:
+    $ ./tests-with-docker-compose.sh
+
+
 .. image:: https://badges.gitter.im/Join%20Chat.svg
    :alt: Join the chat at https://gitter.im/robinedwards/neomodel
    :target: https://gitter.im/robinedwards/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
