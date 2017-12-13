@@ -205,6 +205,11 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
+def all_subclasses(cls):
+    return cls.__subclasses__() + [g for s in cls.__subclasses__()
+                                   for g in all_subclasses(s)]
+
+
 class QueryBuilder(object):
     def __init__(self, node_set):
         self.node_set = node_set
@@ -410,7 +415,24 @@ class QueryBuilder(object):
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params)
         if results:
-            return [self._ast['result_class'].inflate(n[0]) for n in results]
+            result_list = []
+            subclasses = all_subclasses(self._ast['result_class'])
+            for result in results:
+                if subclasses and len(result[0].labels) > 1:
+                    viable_subclasses = []
+                    for label in result[0].labels:
+                        for subclass in subclasses:
+                            if subclass.__name__ == label:
+                                viable_subclasses.append(subclass)
+                    assert len(viable_subclasses) <= 1,\
+                        "Got 2 possible subclasses for label list {}, don't know what to do. Subclasses: {}".format(
+                            result[0].labels,
+                            viable_subclasses
+                        )
+                    result_list.append(viable_subclasses[0].inflate(result[0]))
+                else:
+                    result_list.append(self._ast['result_class'].inflate(result[0]))
+            return result_list
         return []
 
 
