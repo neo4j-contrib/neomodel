@@ -84,11 +84,13 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=True, tx=None):
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
-        if self._active_transaction:
+        if tx is not None:
+            session = tx
+        elif self._active_transaction:
             session = self._active_transaction
         else:
             session = self.driver.session()
