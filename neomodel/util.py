@@ -53,6 +53,7 @@ class Database(local):
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {}".format(url))
 
+        logger.debug("SETTING CONNECTION TIMEOUT TO {}".format(config.MAX_CONNECTION_LIFETIME))
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
