@@ -5,6 +5,7 @@ import time
 import warnings
 from threading import local
 
+from neo4j.exceptions import ServiceUnavailable
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
 from . import config
@@ -119,6 +120,13 @@ class Database(local):
                 return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
                                          retry_on_session_expire=False)
             raise
+        except (TimeoutError,ServiceUnavailable) as err:
+            # If there is a ServiceUnavailable Error or a Timeout, go ahead and retry.
+            logger.error("TimeoutError or ServiceUnavailable: Retrying to set connection")
+            logger.error(str(err))
+            self.set_connection(self.url)
+            return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                                     retry_on_session_expire=False)
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
