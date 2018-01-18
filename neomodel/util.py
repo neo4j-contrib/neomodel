@@ -126,7 +126,11 @@ class Database(local):
             logger.error(str(err))
             logger.error("Retry attempt {}".format(retry_failed_connection))
             if retry_failed_connection <= config.MAX_CONNECTION_RETRY:
-                self.set_connection(self.url)
+                try:
+                    self.set_connection(self.url)
+                except Exception as ignoreme:
+                    logger.error(str(ignoreme))
+
                 return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
                                          retry_on_session_expire=False, retry_failed_connection=retry_failed_connection + 1)
             raise
