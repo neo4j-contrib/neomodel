@@ -88,7 +88,7 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, retry_failed_connection=0):
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -124,9 +124,12 @@ class Database(local):
             # If there is a ServiceUnavailable Error or a Timeout, go ahead and retry.
             logger.error("TimeoutError or ServiceUnavailable: Retrying to set connection")
             logger.error(str(err))
-            self.set_connection(self.url)
-            return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
-                                     retry_on_session_expire=False)
+            logger.error("Retry attempt {}".format(retry_failed_connection))
+            if retry_failed_connection <= config.MAX_CONNECTION_RETRY:
+                self.set_connection(self.url)
+                return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                                         retry_on_session_expire=False, retry_failed_connection=retry_failed_connection + 1)
+            raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
