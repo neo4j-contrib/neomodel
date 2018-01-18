@@ -5,6 +5,7 @@ import time
 import warnings
 from threading import local
 
+from neo4j.exceptions import ServiceUnavailable
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
 from . import config
@@ -53,10 +54,13 @@ class Database(local):
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {}".format(url))
 
+        logger.debug("SETTING CONNECTION TIMEOUT {}".format(config.MAX_CONNECTION_LIFETIME))
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
                                            encrypted=config.ENCRYPTED_CONNECTION,
-                                           max_pool_size=config.MAX_POOL_SIZE)
+                                           max_pool_size=config.MAX_POOL_SIZE,
+                                           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
+                                           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE)
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
@@ -84,7 +88,7 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, retry_failed_connection=0):
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -115,6 +119,16 @@ class Database(local):
                 self.set_connection(self.url)
                 return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
                                          retry_on_session_expire=False)
+            raise
+        except (TimeoutError,ServiceUnavailable) as err:
+            # If there is a ServiceUnavailable Error or a Timeout, go ahead and retry.
+            logger.error("TimeoutError or ServiceUnavailable: Retrying to set connection")
+            logger.error(str(err))
+            logger.error("Retry attempt {}".format(retry_failed_connection))
+            if retry_failed_connection <= config.MAX_CONNECTION_RETRY:
+                self.set_connection(self.url)
+                return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                                         retry_on_session_expire=False, retry_failed_connection=retry_failed_connection + 1)
             raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
