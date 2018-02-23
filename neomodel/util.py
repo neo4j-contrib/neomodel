@@ -48,6 +48,12 @@ class Database(local):
         self.url = None
         self.driver = None
         self._pid = None
+        # Maintains a lookup directory that is used by cypher_objectaware_query
+        # to infer which class to instantiate by examining the labels of the
+        # node in the resultset.
+        # _NODE_CLASS_REGISTRY is populated automatically by the constructor
+        # of the NodeMeta type.
+        self._NODE_CLASS_REGISTRY = {}
 
     def set_connection(self, url):
         u = urlparse(url)
@@ -130,6 +136,15 @@ class Database(local):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
         return results, meta
+        
+    @ensure_connection
+    def cypher_objectaware_query(self, query, params = None, handle_unique = True, retry_on_session_expire = False):
+        """
+        Returns properly instantiated classes from the model hierarchy
+        """
+        results, meta = self.cypher_query(query, params, handle_unique, retry_on_session_expire)
+        return [self._NODE_CLASS_REGISTRY[frozenset(result_item[0].labels)].inflate(result_item[0]) for result_item in results],meta      
+        
 
 
 class TransactionProxy(object):

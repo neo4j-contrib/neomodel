@@ -439,10 +439,8 @@ class QueryBuilder(object):
 
     def _execute(self):
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
-        if results:
-            return [self._ast['result_class'].inflate(n[0]) for n in results]
-        return []
+        results, _ = db.cypher_objectaware_query(query, self._query_params)
+        return results  
 
 
 class BaseSet(object):
