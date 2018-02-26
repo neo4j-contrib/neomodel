@@ -8,7 +8,7 @@ from threading import local
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed
+from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -43,7 +43,13 @@ def clear_neo4j_database(db):
 
 
 class Database(local):
+    """
+    A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
+    """
+    
     def __init__(self):
+        """
+        """
         self._active_transaction = None
         self.url = None
         self.driver = None
@@ -56,6 +62,9 @@ class Database(local):
         self._NODE_CLASS_REGISTRY = {}
 
     def set_connection(self, url):
+        """
+        Sets the connection URL to the address a Neo4j server is set up at
+        """
         u = urlparse(url)
 
         if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
@@ -75,6 +84,9 @@ class Database(local):
 
     @property
     def transaction(self):
+        """
+        Returns the current transaction object
+        """
         return TransactionProxy(self)
 
     @property
@@ -83,23 +95,45 @@ class Database(local):
 
     @ensure_connection
     def begin(self, access_mode=None):
+        """
+        Begins a new transaction, raises SystemError exception if a transaction is in progress
+        """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
         self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
 
     @ensure_connection
     def commit(self):
+        """
+        Commits the current transaction
+        """
         r = self._active_transaction.commit()
         self._active_transaction = None
         return r
 
     @ensure_connection
     def rollback(self):
+        """
+        Rolls back the current transaction
+        """
         self._active_transaction.rollback()
         self._active_transaction = None
 
     @ensure_connection
     def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False):
+        """
+        Runs a query on the database and returns a list of results and their headers
+        
+        :param query: A CYPHER query
+        :type: str
+        :param params: Dictionary of parameters
+        :type: dict
+        :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
+        :type: bool
+        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
+        :type: bool        
+        """
+        
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -140,13 +174,20 @@ class Database(local):
     @ensure_connection
     def cypher_objectaware_query(self, query, params = None, handle_unique = True, retry_on_session_expire = False):
         """
-        Returns properly instantiated classes from the model hierarchy
+        Returns properly instantiated classes from the model hierarchy. Its parameters 
+        are exactly the same as `cypher_query`.
         """
         results, meta = self.cypher_query(query, params, handle_unique, retry_on_session_expire)
-        return [self._NODE_CLASS_REGISTRY[frozenset(result_item[0].labels)].inflate(result_item[0]) for result_item in results],meta      
+        objects_to_return = []
+        for result_item in results:
+            try:
+                objects_to_return.append(self._NODE_CLASS_REGISTRY[frozenset(result_item[0].labels)].inflate(result_item[0]))
+            except KeyError:
+                raise ModelDefinitionMismatch(result_item[0], self._NODE_CLASS_REGISTRY)
+                
+        return objects_to_return, meta       
         
-
-
+        
 class TransactionProxy(object):
     def __init__(self, db, access_mode=None):
         self.db = db

@@ -78,6 +78,111 @@ Relationship Uniqueness
 By default in neomodel there is only one relationship of one type between two nodes
 unless you define different properties when calling connect. neomodel utilises `CREATE UNIQUE` in cypher to achieve this.
 
+Relationships and Inheritance
+=============================
+Neomodel is capable of understanding and resolving inheritance relationships properly.
+
+The following model establishes a BasePerson that can be `friends_with` any class derived 
+from BasePerson. Two concrete classes of BasePerson (TechnicalPerson and PilotPerson) are 
+further defined. ::
+
+
+    class PersonalRelationship(neomodel.StructuredRel):
+        """
+        A very simple relationship between two BasePersons that simply 
+        records the date at which an acquaintance was established.
+        """
+        on_date = neomodel.DateProperty(default_now = True)
+        
+    class BasePerson(neomodel.StructuredNode):
+        """
+        Base class for defining some basic sort of an actor in a system.
+        
+        The base actor is defined by its name and a `friends_with` 
+        relationship
+        """
+        name = neomodel.StringProperty(required = True, unique_index = True)
+        friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH", model = PersonalRelationship)
+        
+    class TechnicalPerson(BasePerson):
+        """
+        A Technical person specialises BasePerson by adding their 
+        expertise
+        """
+        expertise = neomodel.StringProperty(required = True)
+        
+    class PilotPerson(BasePerson):
+        """
+        A pilot person specialises BasePerson by adding the type of 
+        airplane they can operate
+        """
+        airplane = neomodel.StringProperty(required = True)
+        
+This means that either of these concrete objects can appear at the end 
+of a ``friends_with`` relationship and be instantiated to the right object.
+
+Here is a minimal example to demonstrate that::
+
+    # Create some technical persons
+    A = TechnicalPerson(name = "Grumpy", expertise = "Grumpiness").save()
+    B = TechnicalPerson(name = "Happy", expertise = "Unicorns"}).save()
+    C = TechnicalPerson(name = "Sleepy", expertise = "Pillows"}).save()
+    
+    # Create some Pilot Persons
+    D = PilotPerson(name = "Porco Rosso", airplane = "Savoia-Marchetti").save()
+    E = PilotPerson(name = "Jack Dalton", airplane = "Beechcraft Model 18").save()
+    
+    # TechnicalPersons befriend Technical Persons
+    A.friends_with.connect(B)
+    B.friends_with.connect(C)
+    C.friends_with.connect(A)
+    
+    # Pilot Persons befriend Pilot Persons
+    D.friends_with.connect(E)
+    
+    # Technical Persons befriend Pilot Persons
+    A.friends_with.connect(D)
+    E.friends_with.connect(C)
+    
+    for some_friend in A.friends_with:
+        print(some_friend)
+        
+This will show two friends connected with node "Grumpy", one of which is a ``TechnicalPerson`` 
+and the other a ``PilotPerson``.
+
+
+Automatic class resolution
+--------------------------
+
+Neomodel is able to transform nodes to objects, automatically, via a *node-class registry* 
+that is progreessively built up during the definition of the models.
+
+The dictionary provides a mapping from the set of labels associated with a node to the class 
+that is implied by this set of labels. In the example above, the *node-class registry* would contain 
+the following entries:
+
+    * BasePerson                  --> BasePerson
+    * BasePerson, TechnicalPerson --> TechnicalPerson
+    * BasePerson, PilotPerson     --> PilotPerson
+    
+This automatic resolution is effected by ``neomodel.Database.cypher_objectaware_query`` which is 
+invoked automatically where needed but it can also be invoked in exactly the same way as ``neomodel.
+Database.cypher_query``, manually, wherever this functionality may be needed.
+
+Doing so however, requires a bit of caution. As a consequence of the way the *node-class registry* is 
+built up and used, if ``BasePerson``, ``TechnicalPerson``, ``PilotPerson`` were defined 
+in separate files / modules and one of them was not loaded prior to a query to the database, then the 
+*node-class registry* would be unaware of the labels that leads to that particular class and would raise 
+``neomodel.exception.ModelDefinitionMismatch``.
+
+If the exception is not handled, it produces an error message that returns the labels of the node that 
+was retrieved from the database as well as the current *node-class registry*. These two pieces of 
+information can be used to debug the model mismatch further.
+    
+
+
+        
+
 Explicit Traversal
 ==================
 

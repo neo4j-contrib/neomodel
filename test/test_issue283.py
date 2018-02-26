@@ -2,7 +2,7 @@
 Provides a test case for issue 283 - "Inheritance breaks".
 
 The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/283
-More infomration about the same issue at: https://github.com/aanastasiou/neomodelInheritanceTest
+More information about the same issue at: https://github.com/aanastasiou/neomodelInheritanceTest
 
 The following example uses a recursive relationship for economy, but the 
 idea remains the same: "Instantiate the correct type of node at the end of 
@@ -13,22 +13,9 @@ import os
 import neomodel
 import datetime
 import pytest
+import random
 
-def _setup():
-    # Setting up
-    neo4jUsername = os.environ['NEO4J_USERNAME']
-    neo4jPassword = os.environ['NEO4J_PASSWORD']
-    dbConURI = "bolt://{uname}:{pword}@localhost:7687".format(uname=neo4jUsername, pword=neo4jPassword)
-
-    #This must be called before any further calls to neomodel.
-    neomodel.db.set_connection(dbConURI)    
-    
-def _cleanup():
-    neomodel.db.cypher_query("match (a:BasePerson) detach delete a")
-    neomodel.db.cypher_query("match (a:BaseOtherPerson) detach delete a")
-    
-
-
+# Set up a very simple model for the tests
 class PersonalRelationship(neomodel.StructuredRel):
     """
     A very simple relationship between two basePersons that simply records 
@@ -70,34 +57,37 @@ class SomePerson(BaseOtherPerson):
     pass  
 
 
-def test_issue_283_1():
+# Test cases
+def test_automatic_object_resolution():
     """
     Node objects at the end of relationships are instantiated to their 
     corresponding object
     """
         
-    _setup()
     # Create a few entities
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
     B = TechnicalPerson.get_or_create({"name":"Happy", "expertise":"Unicorns"})[0]
     C = TechnicalPerson.get_or_create({"name":"Sleepy", "expertise":"Pillows"})[0]
-    
+
     # Add connections
     A.friends_with.connect(B)
     B.friends_with.connect(C)
     C.friends_with.connect(A)
-    
+
     # If A is friends with B, then A's friends_with objects should be TechnicalPerson (!NOT basePerson!)
     assert type(A.friends_with[0]) is TechnicalPerson    
-    _cleanup()
+    
+    A.delete()
+    B.delete()
+    C.delete()
         
-def test_issue_283_2():    
+            
+def test_validation_with_inheritance_from_db():    
     """
     Objects descending from the specified class of a relationship's end-node are also 
     perfectly valid to appear as end-node values too
     """
     
-    _setup()
     #Create a few entities
     # Technical Persons
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
@@ -115,7 +105,7 @@ def test_issue_283_2():
     B.friends_with.connect(C)
     C.friends_with.connect(A)
     
-    # Pilot Persons befriend Technical Persons
+    # Pilot Persons befriend Pilot Persons
     D.friends_with.connect(E)
     
     # Technical Persons befriend Pilot Persons
@@ -128,15 +118,19 @@ def test_issue_283_2():
     assert (type(A.friends_with[0]) is TechnicalPerson) or (type(A.friends_with[0]) is PilotPerson)
     assert (type(A.friends_with[1]) is TechnicalPerson) or (type(A.friends_with[1]) is PilotPerson)
     assert type(D.friends_with[0]) is PilotPerson
-    _cleanup()
+    
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
+    E.delete()
     
         
-def test_issue_283_3():        
+def test_validation_enforcement_to_db():        
     """
     If a connection between wrong types is attempted, raise an exception
     """
     
-    _setup()
     #Create a few entities
     # Technical Persons
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
@@ -160,6 +154,73 @@ def test_issue_283_3():
     
     # Trying to befriend a Technical Person with Some Person should raise an exception
     with pytest.raises(ValueError):
-        A.friends_with.connect(F)   
+        A.friends_with.connect(F)
     
-    _cleanup()
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
+    E.delete()
+    F.delete()
+        
+
+def test_failed_object_resolution():
+    """
+    A Neo4j driver node FROM the database contains labels that are unaware to
+    neomodel's Database class. This condition raises ClassDefinitionNotFound 
+    exception.
+    """
+    
+    class RandomPerson(BasePerson):
+        randomness = neomodel.FloatProperty(default = random.random)
+    
+    # A Technical Person...
+    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    
+    # A Random Person...
+    B = RandomPerson.get_or_create({"name":"Mad Hatter"})[0]
+    
+    A.friends_with.connect(B)
+    
+    # Simulate the condition where the definition of class RandomPerson is not known 
+    # yet.
+    del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson","BasePerson"])]        
+    
+    # Now try to instantiate a RandomPerson
+    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    with pytest.raises(neomodel.exception.ModelDefinitionMismatch):        
+        for some_friend in A.friends_with:
+            print(some_friend.name)
+            
+    A.delete()
+    B.delete()
+
+
+def test_node_label_mismatch():
+    """
+    A Neo4j driver node FROM the database contains a superset of the known labels
+    """
+    
+    class SuperTechnicalPerson(TechnicalPerson):
+        superness = neomodel.FloatProperty(default=1.0)
+        
+    class UltraTechnicalPerson(SuperTechnicalPerson):
+        ultraness = neomodel.FloatProperty(default=3.1415928)        
+        
+    # Create a TechnicalPerson...
+    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    # ...that is connected to an UltraTechnicalPerson
+    F = UltraTechnicalPerson(name = "Chewbaka", expertise="Aarrr wgh ggwaaah").save()
+    A.friends_with.connect(F)
+    
+    
+    # Forget about the UltraTechnicalPerson
+    del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["UltraTechnicalPerson","SuperTechnicalPerson", "TechnicalPerson", "BasePerson"])]        
+    
+    # Recall a TechnicalPerson and enumerate its friends. 
+    # One of them is UltraTechnicalPerson which would be returned as a valid node to a friends_with query
+    # but is currently unknown to the node class registry.
+    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    with pytest.raises(neomodel.exception.ModelDefinitionMismatch):            
+        for some_friend in A.friends_with:
+            print(some_friend.name)

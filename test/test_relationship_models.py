@@ -6,7 +6,6 @@ import pytz
 from neomodel import (StructuredNode, StructuredRel, Relationship, RelationshipTo,
                       StringProperty, DateTimeProperty, DeflateError)
 
-
 HOOKS_CALLED = {
     'pre_save': 0,
     'post_save': 0

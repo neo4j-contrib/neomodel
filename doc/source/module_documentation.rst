@@ -2,6 +2,13 @@
 Modules documentation
 =====================
 
+Database
+--------
+.. module:: neomodel.util
+.. autoclass:: neomodel.util.Database
+  :members:
+  :undoc-members:
+  
 Core
 ----
 .. automodule:: neomodel.core
