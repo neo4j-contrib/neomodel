@@ -126,42 +126,46 @@ def validator(fn):
 
 class Property(object):
     """
-    Base class for object properties
+    Base class for object properties.
+
+    :param unique_index: Creates a unique index for this property. Defaults to
+                         ``False``.
+    :type unique_index: :class:`bool`
+    :param index: Creates an index for this property. Defaults to ``False``.
+    :type index: :class:`bool`
+    :param required: Marks the property as required. Defaults to ``False``.
+    :type required: :class:`bool`
+    :param default: A default value or callable that returns one to set when a
+                    node is initialized without specifying this property.
+    :param db_property: A name that this property maps to in the database.
+                        Defaults to the model's property name.
+    :type db_property: :class:`str`
+    :param label: Optional, used by ``django_neomodel``.
+    :type label: :class:`str`
+    :param help_text: Optional, used by ``django_neomodel``.
+    :type help_text: :class:`str`
     """
+
     form_field_class = 'CharField'
 
     def __init__(self, unique_index=False, index=False, required=False, default=None,
                  db_property=None, label=None, help_text=None, **kwargs):
-        """
-        Define a new property
 
-        :param unique_index: create unique index for this property
-        :type: bool
-        :param index: False
-        :type: bool
-        :param required: False
-        :type: bool
-        :param default: function or value
-        :param db_property: name of neo4j property it should map to
-        :type: str
-        :param label: Optional, used by Django
-        :type: str
-        :param help_text: Optional, used by Django
-        :type: str
-        :param kwargs:
-        """
         if default is not None and required:
-            raise ValueError("required and default arguments are mutually exclusive")
-
+            raise ValueError(
+                "The arguments `required` and `default` are mutually exclusive."
+            )
         if unique_index and index:
-            raise ValueError("unique_index and index arguments are mutually exclusive")
+            raise ValueError(
+                "The arguments `unique_index` and `index` are mutually exclusive."
+            )
 
         self.required = required
         self.unique_index = unique_index
         self.index = index
         self.default = default
         self.has_default = True if self.default is not None else False
-        self.db_property = db_property  # define the name of the property in the database
+        self.db_property = db_property
         self.label = label
         self.help_text = help_text
 
@@ -409,16 +413,16 @@ class DateProperty(Property):
 
 
 class DateTimeProperty(Property):
+    """ A property representing a :class:`datetime.datetime` object as
+        unix epoch.
+
+        :param default_now: If ``True``, the creation time (UTC) will be used as default.
+                            Defaults to ``False``.
+        :type default_now: :class:`bool`
+    """
     form_field_class = 'DateTimeField'
 
     def __init__(self, default_now=False, **kwargs):
-        """
-        Store a datetime.
-
-        Serialises to unix epoch.
-
-        :param bool default_now: default current date and time
-        """
         if default_now:
             if 'default' in kwargs:
                 raise ValueError('too many defaults')
@@ -431,18 +435,19 @@ class DateTimeProperty(Property):
         try:
             epoch = float(value)
         except ValueError:
-            raise ValueError('float or integer expected, got {0} cant inflate to datetime'.format(value))
+            raise ValueError("Float or integer expected, got {0} can't inflate to "
+                             "datetime.".format(type(value)))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}'.format(value))
+            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
             epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
         elif config.FORCE_TIMEZONE:
-            raise ValueError("Error deflating {} no timezone provided".format(value))
+            raise ValueError("Error deflating {}: No timezone provided.".format(value))
         else:
             # No timezone specified on datetime object.. assuming UTC
             epoch_date = datetime(1970, 1, 1)

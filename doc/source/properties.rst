@@ -2,11 +2,17 @@
 Property types
 ==============
 
-The following properties are available on nodes and relationships::
+The following properties are available on nodes and relationships:
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, ArrayProperty
+==============================================  ==============================================
+:class:`~neomodel.properties.AliasProperty`     :class:`~neomodel.properties.IntegerProperty`
+:class:`~neomodel.properties.ArrayProperty`     :class:`~neomodel.properties.JSONProperty`
+:class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
+:class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
+:class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
+:class:`~neomodel.properties.FloatProperty`
+==============================================  ==============================================
 
-    DateProperty, DateTimeProperty, JSONProperty, AliasProperty, UniqueIdProperty
 
 Defaults
 ========
@@ -101,7 +107,7 @@ This is useful for e.g. hiding graph properties behind a python property::
 
     class Person(StructuredNode):
         name_ = StringProperty(db_property='name')
-        
+
         @property
         def name(self):
             return self.name_.lower() if self.name_ else None

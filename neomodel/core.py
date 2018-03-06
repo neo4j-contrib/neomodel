@@ -21,10 +21,10 @@ def drop_constraints(quiet=True, stdout=None):
     """
 
     results, meta = db.cypher_query("CALL db.constraints()")
-    patern = re.compile(':(.*) \).*\.(\w*)')
+    pattern = re.compile(':(.*) \).*\.(\w*)')
     for constraint in results:
         db.cypher_query('DROP ' + constraint[0])
-        match = patern.search(constraint[0])
+        match = pattern.search(constraint[0])
         stdout.write(''' - Droping unique constraint and index on label {} with property {}.\n'''.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
@@ -39,18 +39,18 @@ def drop_indexes(quiet=True, stdout=None):
     """
 
     results, meta = db.cypher_query("CALL db.indexes()")
-    patern = re.compile(':(.*)\((.*)\)')
+    pattern = re.compile(':(.*)\((.*)\)')
     for index in results:
         db.cypher_query('DROP ' + index[0])
-        match = patern.search(index[0])
-        stdout.write(' - Droping index on label {} with property {}.\n'.format(
+        match = pattern.search(index[0])
+        stdout.write(' - Dropping index on label {} with property {}.\n'.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
 
 
 def remove_all_labels(stdout=None):
     """
-    Calls functions for droping constraints and indexes.
+    Calls functions for dropping constraints and indexes.
 
     :param stdout: output stream
     :return: None

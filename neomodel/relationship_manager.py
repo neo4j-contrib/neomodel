@@ -68,8 +68,10 @@ class RelationshipManager(object):
         self._check_node(node)
 
         if not self.definition['model'] and properties:
-            raise NotImplementedError("Relationship properties without " +
-                    "using a relationship model is no longer supported")
+            raise NotImplementedError(
+                "Relationship properties without using a relationship model "
+                "is no longer supported."
+            )
 
         params = {}
         rel_model = self.definition['model']
