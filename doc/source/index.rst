@@ -48,12 +48,12 @@ Contents
    transactions
    hooks
    batch
-   extending
    configuration
+   extending
    module_documentation
 
 Indices and tables
-================== 
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`

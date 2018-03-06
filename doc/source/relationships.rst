@@ -25,20 +25,27 @@ Remember this needs to be declared on both sides of the definition::
     class Car(StructuredNode):
         owner = RelationshipFrom('Person', cardinality=One)
 
-The following cardinality classes are available::
+The following cardinality classes are available:
 
-    ZeroOrMore (default), OneOrMore, ZeroOrOne, One
+===================================================  ========================================
+:class:`~neomodel.cardinality.ZeroOrOne`             :class:`~neomodel.cardinality.One`
+:class:`~neomodel.cardinality.ZeroOrMore` (default)  :class:`~neomodel.cardinality.OneOrMore`
+===================================================  ========================================
 
-If cardinality is broken by existing data a *CardinalityViolation* exception is raised.
-On attempting to break a cardinality restriction a *AttemptedCardinalityViolation* is raised.
+If cardinality is broken by existing data a :class:`~neomodel.exception.CardinalityViolation`
+exception is raised.
+On attempting to break a cardinality restriction a
+:class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
 
 Properties
 ==========
 
-Neomodel uses relationship models to define the properties stored on relations::
+Neomodel uses :mod:`~neomodel.relationship` models to define the properties stored on relations::
 
     class FriendRel(StructuredRel):
-        since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+        since = DateTimeProperty(
+            default=lambda: datetime.now(pytz.utc)
+        )
         met = StringProperty()
 
     class Person(StructuredNode):
@@ -51,7 +58,8 @@ Neomodel uses relationship models to define the properties stored on relations::
 
 These can be passed in when calling the connect method::
 
-    rel = jim.friends.connect(bob, {'since': yesterday, 'met': 'Paris'})
+    rel = jim.friends.connect(bob,
+                              {'since': yesterday, 'met': 'Paris'})
 
     print(rel.start_node().name) # jim
     print(rel.end_node().name) # bob
@@ -76,8 +84,10 @@ Explicit Traversal
 It is possible to specify a node traversal by creating a Traversal object. This will get all Person entities that are
 directly related to another Person, through all relationships::
 
-    definition = dict(node_class=Person, direction=OUTGOING, relation_type=None, model=None)
-    relations_traversal = Traversal(jim, Person.__label__, definition)
+    definition = dict(node_class=Person, direction=OUTGOING,
+                      relation_type=None, model=None)
+    relations_traversal = Traversal(jim, Person.__label__,
+                                    definition)
     all_jims_relations = relations_traversal.all()
 
 - node class: the type of the relationship target

@@ -654,8 +654,8 @@ class Traversal(BaseSet):
         """
         if kwargs:
             if 'model' not in self.definition or self.definition['model'] is None:
-                raise ValueError("match() with filter only available on relationships with a model")            
-            output = process_filter_args(self.definition['model'], kwargs) 
+                raise ValueError("match() with filter only available on relationships with a model")
+            output = process_filter_args(self.definition['model'], kwargs)
             if output:
                 self.filters.append(output)
         return self
