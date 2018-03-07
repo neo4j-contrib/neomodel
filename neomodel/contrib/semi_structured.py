@@ -1,5 +1,5 @@
 from neomodel.core import StructuredNode
-from neomodel.exception import InflateConflict, DeflateConflict
+from neomodel.exceptions import InflateConflict, DeflateConflict
 
 
 class SemiStructuredNode(StructuredNode):

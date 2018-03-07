@@ -5,7 +5,7 @@ from pytest import raises
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
                       RelationshipTo, StructuredRel, DateTimeProperty)
 from neomodel.match import NodeSet, QueryBuilder
-from neomodel.exception import MultipleNodesReturned
+from neomodel.exceptions import MultipleNodesReturned
 
 
 class SupplierRel(StructuredRel):

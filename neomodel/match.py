@@ -1,6 +1,6 @@
 from .core import StructuredNode, db
 from .properties import AliasProperty
-from .exception import MultipleNodesReturned
+from .exceptions import MultipleNodesReturned
 import inspect
 import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0

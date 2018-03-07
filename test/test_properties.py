@@ -6,7 +6,7 @@ from pytz import timezone
 from neomodel.properties import (IntegerProperty, DateTimeProperty,
                                  NormalProperty, RegexProperty, EmailProperty,
                                  DateProperty, StringProperty, JSONProperty, UniqueIdProperty, ArrayProperty)
-from neomodel.exception import InflateError, DeflateError
+from neomodel.exceptions import InflateError, DeflateError
 from neomodel import StructuredNode, db
 
 
