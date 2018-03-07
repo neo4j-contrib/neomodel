@@ -1,8 +1,13 @@
 import importlib
 
 
+class NeomodelException(Exception):
+    """
+    A base class that identifies all exceptions raised by :mod:`neomodel`.
+    """
 
-class AttemptedCardinalityViolation(Exception):
+
+class AttemptedCardinalityViolation(NeomodelException):
     """
     Attempted to alter the database state against the cardinality definitions.
 
@@ -11,7 +16,7 @@ class AttemptedCardinalityViolation(Exception):
     pass
 
 
-class CardinalityViolation(Exception):
+class CardinalityViolation(NeomodelException):
     """
     The state of database doesn't match the nodes cardinality definition.
 
@@ -26,12 +31,12 @@ class CardinalityViolation(Exception):
             .format(self.rel_manager, self.actual)
 
 
-class ConstraintValidationFailed(ValueError):
+class ConstraintValidationFailed(ValueError, NeomodelException):
     def __init__(self, msg):
         self.message = msg
 
 
-class DeflateError(ValueError):
+class DeflateError(ValueError, NeomodelException):
     def __init__(self, key, cls, msg, obj):
         self.property_name = key
         self.node_class = cls
@@ -44,7 +49,7 @@ class DeflateError(ValueError):
                              self.node_class.__name__, self.msg))
 
 
-class DoesNotExist(Exception):
+class DoesNotExist(NeomodelException):
     def __init__(self, msg):
         self.message = msg
         Exception.__init__(self, msg)
@@ -60,7 +65,7 @@ class DoesNotExist(Exception):
         return neo_object.DoesNotExist(message)
 
 
-class InflateConflict(Exception):
+class InflateConflict(NeomodelException):
     def __init__(self, cls, key, value, nid):
         self.cls_name = cls.__name__
         self.property_name = key
@@ -73,7 +78,7 @@ class InflateConflict(Exception):
             self.nid, self.property_name, self.value, self.cls_name)
 
 
-class InflateError(ValueError):
+class InflateError(ValueError, NeomodelException):
     def __init__(self, key, cls, msg, obj=None):
         self.property_name = key
         self.node_class = cls
@@ -99,12 +104,12 @@ class DeflateConflict(InflateConflict):
             self.nid, self.property_name, self.value, self.cls_name)
 
 
-class MultipleNodesReturned(ValueError):
+class MultipleNodesReturned(ValueError, NeomodelException):
     def __init__(self, msg):
         self.message = msg
 
 
-class NotConnected(Exception):
+class NotConnected(NeomodelException):
     def __init__(self, action, node1, node2):
         self.action = action
         self.node1 = node1
@@ -118,7 +123,7 @@ class NotConnected(Exception):
                         self.node2.__class__.__name__))
 
 
-class RequiredProperty(Exception):
+class RequiredProperty(NeomodelException):
     def __init__(self, key, cls):
         self.property_name = key
         self.node_class = cls
@@ -143,6 +148,7 @@ __all__ = (
     InflateConflict.__name__,
     InflateError.__name__,
     MultipleNodesReturned.__name__,
+    NeomodelException.__name__,
     NotConnected.__name__,
     RequiredProperty.__name__,
     UniqueProperty.__name__
