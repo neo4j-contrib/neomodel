@@ -1,14 +1,46 @@
 import importlib
 
 
+class AttemptedCardinalityViolation(Exception):
+    """
+    Attempted to alter the database state against the cardinality definitions.
+
+    Example: a relationship of type `One` trying to connect a second node.
+    """
+    pass
+
+
+class CardinalityViolation(Exception):
+    """
+    The state of database doesn't match the nodes cardinality definition.
+
+    For example a relationship type `OneOrMore` returns no nodes.
+    """
+    def __init__(self, rel_manager, actual):
+        self.rel_manager = str(rel_manager)
+        self.actual = str(actual)
+
+    def __str__(self):
+        return "CardinalityViolation: Expected: {0}, got: {1}."\
+            .format(self.rel_manager, self.actual)
+
+
 class ConstraintValidationFailed(ValueError):
     def __init__(self, msg):
         self.message = msg
 
 
-class UniqueProperty(ConstraintValidationFailed):
-    def __init__(self, msg):
-        self.message = msg
+class DeflateError(ValueError):
+    def __init__(self, key, cls, msg, obj):
+        self.property_name = key
+        self.node_class = cls
+        self.msg = msg
+        self.obj = repr(obj)
+
+    def __str__(self):
+        return ("Attempting to deflate property '{0}' on {1} of class '{2}': "
+                "{3}".format(self.property_name, self.obj,
+                             self.node_class.__name__, self.msg))
 
 
 class DoesNotExist(Exception):
@@ -17,12 +49,72 @@ class DoesNotExist(Exception):
         Exception.__init__(self, msg)
 
     def __reduce__(self):
-        return _get_correct_dne_obj, (self.__module__, self.message)
+        return self._get_correct_dne_obj, (self.__module__, self.message)
+
+    @staticmethod
+    def _get_correct_dne_obj(cls, message):
+        app_label, class_name = cls.rsplit(".", 1)
+        neo_app = importlib.import_module(app_label)
+        neo_object = getattr(neo_app, class_name)
+        return neo_object.DoesNotExist(message)
+
+
+class InflateConflict(Exception):
+    def __init__(self, cls, key, value, nid):
+        self.cls_name = cls.__name__
+        self.property_name = key
+        self.value = value
+        self.nid = nid
+
+    def __str__(self):
+        return """Found conflict with node {0}, has property '{1}' with value '{2}'
+            although class {3} already has a property '{1}'""".format(
+            self.nid, self.property_name, self.value, self.cls_name)
+
+
+class InflateError(ValueError):
+    def __init__(self, key, cls, msg, obj=None):
+        self.property_name = key
+        self.node_class = cls
+        self.msg = msg
+        self.obj = repr(obj)
+
+    def __str__(self):
+        return ("Attempting to inflate property '{0}' on {1} of class '{2}': "
+                "{3}".format(self.property_name, self.obj,
+                             self.node_class.__name__, self.msg))
+
+
+class DeflateConflict(InflateConflict):
+    def __init__(self, cls, key, value, nid):
+        self.cls_name = cls.__name__
+        self.property_name = key
+        self.value = value
+        self.nid = nid if nid else '(unsaved)'
+
+    def __str__(self):
+        return """Found trying to set property '{1}' with value '{2}' on node {0}
+            although class {3} already has a property '{1}'""".format(
+            self.nid, self.property_name, self.value, self.cls_name)
 
 
 class MultipleNodesReturned(ValueError):
     def __init__(self, msg):
         self.message = msg
+
+
+class NotConnected(Exception):
+    def __init__(self, action, node1, node2):
+        self.action = action
+        self.node1 = node1
+        self.node2 = node2
+
+    def __str__(self):
+        return ("Error performing '{0}' - Node {1} of type '{2}' is not "
+                "connected to {2} of type '{3}'."
+                .format(self.action, self.node1.id,
+                        self.node1.__class__.__name__, self.node2.id,
+                        self.node2.__class__.__name__))
 
 
 class RequiredProperty(Exception):
@@ -35,46 +127,22 @@ class RequiredProperty(Exception):
             self.property_name, self.node_class.__name__)
 
 
-class InflateError(ValueError):
-    def __init__(self, key, cls, msg, obj=None):
-        self.property_name = key
-        self.node_class = cls
-        self.msg = msg
-        self.obj = repr(obj)
-
-    def __str__(self):
-        return "Attempting to inflate property '{0}' on {1} of class '{2}': {3}".format(
-            self.property_name, self.obj, self.node_class.__name__, self.msg)
+class UniqueProperty(ConstraintValidationFailed):
+    def __init__(self, msg):
+        self.message = msg
 
 
-class DeflateError(ValueError):
-    def __init__(self, key, cls, msg, obj):
-        self.property_name = key
-        self.node_class = cls
-        self.msg = msg
-        self.obj = repr(obj)
-
-    def __str__(self):
-        return "Attempting to deflate property '{0}' on {1} of class '{2}': {3}".format(
-            self.property_name, self.obj, self.node_class.__name__, self.msg)
-
-
-class NotConnected(Exception):
-    def __init__(self, action, node1, node2):
-        self.action = action
-        self.node1 = node1
-        self.node2 = node2
-
-    def __str__(self):
-        msg = "Error performing '{0}' - ".format(self.action)
-        msg += "Node {0} of type '{1}' is not connected to {2} of type '{3}'".format(
-            self.node1.id, self.node1.__class__.__name__,
-            self.node2.id, self.node2.__class__.__name__)
-        return msg
-
-
-def _get_correct_dne_obj(cls, message):
-    app_label, class_name = cls.rsplit(".", 1)
-    neo_app = importlib.import_module(app_label)
-    neo_object = getattr(neo_app, class_name)
-    return neo_object.DoesNotExist(message)
+__all__ = (
+    AttemptedCardinalityViolation.__name__,
+    CardinalityViolation.__name__,
+    ConstraintValidationFailed.__name__,
+    DeflateConflict.__name__,
+    DeflateError.__name__,
+    DoesNotExist.__name__,
+    InflateConflict.__name__,
+    InflateError.__name__,
+    MultipleNodesReturned.__name__,
+    NotConnected.__name__,
+    RequiredProperty.__name__,
+    UniqueProperty.__name__
+)

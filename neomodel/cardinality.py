@@ -1,4 +1,9 @@
-from .relationship_manager import RelationshipManager, ZeroOrMore  # noqa: F401
+from neomodel.exceptions import (
+    AttemptedCardinalityViolation, CardinalityViolation
+)
+from neomodel.relationship_manager import (
+    RelationshipManager, ZeroOrMore
+)  #noqa: F401
 
 
 class ZeroOrOne(RelationshipManager):
@@ -121,31 +126,7 @@ class One(RelationshipManager):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation(
-                "Node already has one relationship."
+                "Node already has one relationship"
             )
         else:
             return super(One, self).connect(node, properties)
-
-
-class AttemptedCardinalityViolation(Exception):
-    """
-    Attempted to alter the database state against the cardinality definitions.
-
-    Example: a relationship of type `One` trying to connect a second node.
-    """
-    pass
-
-
-class CardinalityViolation(Exception):
-    """
-    The state of database doesn't match the nodes cardinality definition.
-
-    For example a relationship type `OneOrMore` returns no nodes.
-    """
-    def __init__(self, rel_manager, actual):
-        self.rel_manager = str(rel_manager)
-        self.actual = str(actual)
-
-    def __str__(self):
-        return "CardinalityViolation: Expected {0} got {1}" \
-               .format(self.rel_manager, self.actual)
