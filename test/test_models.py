@@ -3,7 +3,7 @@ from __future__ import print_function
 from pytest import raises
 
 from neomodel import StructuredNode, StringProperty, IntegerProperty
-from neomodel.exception import RequiredProperty, UniqueProperty
+from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
 class User(StructuredNode):

@@ -44,7 +44,7 @@ Match
 Exceptions
 ----------
 
-.. automodule:: neomodel.exception
+.. automodule:: neomodel.exceptions
    :members:
    :undoc-members:
    :show-inheritance:

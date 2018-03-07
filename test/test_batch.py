@@ -2,7 +2,7 @@ from pytest import raises
 
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
                       RelationshipTo, RelationshipFrom)
-from neomodel.exception import UniqueProperty, DeflateError
+from neomodel.exceptions import UniqueProperty, DeflateError
 
 
 class UniqueUser(StructuredNode):

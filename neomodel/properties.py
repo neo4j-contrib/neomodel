@@ -1,4 +1,4 @@
-from .exception import InflateError, DeflateError, RequiredProperty
+from .exceptions import InflateError, DeflateError, RequiredProperty
 from . import config
 
 from datetime import datetime, date

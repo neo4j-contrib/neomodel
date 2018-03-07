@@ -1,7 +1,7 @@
 import sys
 import functools
 from importlib import import_module
-from .exception import NotConnected
+from .exceptions import NotConnected
 from .util import deprecated
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel

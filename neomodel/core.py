@@ -3,7 +3,7 @@ import warnings
 import sys
 import re
 
-from .exception import DoesNotExist
+from .exceptions import DoesNotExist
 from .properties import Property, PropertyManager
 from .hooks import hooks
 from .util import Database, classproperty, _UnsavedNode
