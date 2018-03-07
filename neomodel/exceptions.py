@@ -50,19 +50,24 @@ class DeflateError(ValueError, NeomodelException):
 
 
 class DoesNotExist(NeomodelException):
+    _model_class = None
+    """
+    This class property refers the model class that a subclass of this class
+    belongs to. It is set by :class:`~neomodel.core.NodeMeta`.
+    """
+
     def __init__(self, msg):
+        if self._model_class is None:
+            raise RuntimeError("This class hasn't been setup properly.")
         self.message = msg
-        Exception.__init__(self, msg)
+        super(DoesNotExist, self).__init__(self, msg)
 
     def __reduce__(self):
-        return self._get_correct_dne_obj, (self.__module__, self.message)
+        return _unpicke_does_not_exist, (self._model_class, self.message)
 
-    @staticmethod
-    def _get_correct_dne_obj(cls, message):
-        app_label, class_name = cls.rsplit(".", 1)
-        neo_app = importlib.import_module(app_label)
-        neo_object = getattr(neo_app, class_name)
-        return neo_object.DoesNotExist(message)
+
+def _unpicke_does_not_exist(_model_class, message):
+    return _model_class.DoesNotExist(message)
 
 
 class InflateConflict(NeomodelException):

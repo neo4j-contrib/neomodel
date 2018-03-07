@@ -135,6 +135,8 @@ class NodeMeta(type):
     def __new__(mcs, name, bases, dct):
         dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), {})})
         inst = super(NodeMeta, mcs).__new__(mcs, name, bases, dct)
+        # needed by Python < 3.5 for unpickling DoesNotExist objects:
+        inst.DoesNotExist._model_class = inst
 
         if hasattr(inst, '__abstract_node__'):
             delattr(inst, '__abstract_node__')
