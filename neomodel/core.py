@@ -186,31 +186,11 @@ class StructuredNode(NodeBase):
         __abstract_node__ = True
     """
 
+    # static properties
+
     __abstract_node__ = True
-    __required_properties__ = ()
-    __all_properties__ = ()
-    __all_aliases__ = ()
-    __all_relationships__ = ()
 
-    @classproperty
-    def nodes(cls):
-        """
-        Returns a NodeSet object representing all nodes of the classes label
-        :return: NodeSet
-        :rtype: NodeSet
-        """
-        from .match import NodeSet
-
-        return NodeSet(cls)
-
-    @property
-    def _id(self, val):
-        warnings.warn('the _id property is deprecated please use .id',
-                      category=DeprecationWarning, stacklevel=1)
-        if val:
-            self.id = val
-
-        return self.id
+    # magic methods
 
     def __init__(self, *args, **kwargs):
         if 'deleted' in kwargs:
@@ -220,12 +200,6 @@ class StructuredNode(NodeBase):
             self.__dict__[key] = val.build_manager(self, key)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
-
-    def __str__(self):
-        return repr(self.__properties__)
-
-    def __repr__(self):
-        return '<{}: {}>'.format(self.__class__.__name__, self)
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
@@ -237,109 +211,34 @@ class StructuredNode(NodeBase):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def labels(self):
+    def __repr__(self):
+        return '<{}: {}>'.format(self.__class__.__name__, self)
+
+    def __str__(self):
+        return repr(self.__properties__)
+
+    # dynamic properties
+
+    @classproperty
+    def nodes(cls):
         """
-        Returns list of labels tied to the node from neo4j.
-
-        :return: list of labels
-        :rtype: list
+        Returns a NodeSet object representing all nodes of the classes label
+        :return: NodeSet
+        :rtype: NodeSet
         """
-        self._pre_action_check('labels')
-        return self.cypher("MATCH (n) WHERE id(n)={self} "
-                           "RETURN labels(n)")[0][0][0]
+        from .match import NodeSet
+        return NodeSet(cls)
 
-    def cypher(self, query, params=None):
-        """
-        Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
+    @property
+    def _id(self, val):
+        warnings.warn('the _id property is deprecated please use .id',
+                      category=DeprecationWarning, stacklevel=1)
+        if val:
+            self.id = val
 
-        :param query: cypher query string
-        :type: string
-        :param params: query parameters
-        :type: dict
-        :return: list containing query results
-        :rtype: list
-        """
-        self._pre_action_check('cypher')
-        params = params or {}
-        params.update({'self': self.id})
-        return db.cypher_query(query, params)
+        return self.id
 
-    @classmethod
-    def inherited_labels(cls):
-        """
-        Return list of labels from nodes class hierarchy.
-
-        :return: list
-        """
-        return [scls.__label__ for scls in cls.mro()
-                if hasattr(scls, '__label__') and not hasattr(
-                scls, '__abstract_node__')]
-
-    @classmethod
-    def category(cls):
-        raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
-
-    @hooks
-    def save(self):
-        """
-        Save the node to neo4j or raise an exception
-
-        :return: the node instance
-        """
-
-        # create or update instance node
-        if hasattr(self, 'id'):
-            # update
-            params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)={self} \n"
-            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
-                                for key in params.keys()])
-            for label in self.inherited_labels():
-                query += "SET n:`{}`\n".format(label)
-            self.cypher(query, params)
-        elif hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.save() attempted on deleted node".format(
-                self.__class__.__name__))
-        else:  # create
-            self.id = self.create(self.__properties__)[0].id
-        return self
-
-    def _pre_action_check(self, action):
-        if hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.{}() attempted on deleted node".format(
-                self.__class__.__name__, action))
-        if not hasattr(self, 'id'):
-            raise ValueError("{}.{}() attempted on unsaved node".format(
-                self.__class__.__name__, action))
-
-    @hooks
-    def delete(self):
-        """
-        Delete a node and it's relationships
-
-        :return: True
-        """
-        self._pre_action_check('delete')
-        self.cypher("MATCH (self) WHERE id(self)={self} "
-                    "OPTIONAL MATCH (self)-[r]-()"
-                    " DELETE r, self")
-        self.deleted = True
-        delattr(self, 'id')
-        return True
-
-    def refresh(self):
-        """
-        Reload the node from neo4j
-        """
-        self._pre_action_check('refresh')
-        if hasattr(self, 'id'):
-            node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0][0][0])
-            for key, val in node.__properties__.items():
-                setattr(self, key, val)
-        else:
-            raise ValueError("Can't refresh unsaved node")
+    # methods
 
     @classmethod
     def _build_merge_query(cls, merge_params, update_existing=False, lazy=False, relationship=None):
@@ -389,6 +288,11 @@ class StructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
+    def category(cls):
+        raise NotImplementedError("Category was deprecated and has now been removed, "
+            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
+
+    @classmethod
     def create(cls, *props, **kwargs):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
@@ -428,36 +332,6 @@ class StructuredNode(NodeBase):
         return nodes
 
     @classmethod
-    def get_or_create(cls, *props, **kwargs):
-        """
-        Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
-        this is an atomic operation.
-        Parameters must contain all required properties, any non required properties with defaults will be generated.
-
-        Note that the post_create hook isn't called after get_or_create
-
-        :param props: dict of properties to get or create the entities with.
-        :type props: tuple
-        :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :rtype: list
-        """
-        lazy = kwargs.get('lazy', False)
-        relationship = kwargs.get('relationship')
-
-        # build merge query
-        get_or_create_params = [{"create": cls.deflate(p, skip_empty=True)} for p in props]
-        query, params = cls._build_merge_query(get_or_create_params, relationship=relationship, lazy=lazy)
-
-        if 'streaming' in kwargs:
-            warnings.warn('streaming is not supported by bolt, please remove the kwarg',
-                          category=DeprecationWarning, stacklevel=1)
-
-        # fetch and build instance for each result
-        results = db.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
-
-    @classmethod
     def create_or_update(cls, *props, **kwargs):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
@@ -481,6 +355,67 @@ class StructuredNode(NodeBase):
                                             "update": dict((k, v) for k, v in deflated.items() if k in specified)})
         query, params = cls._build_merge_query(create_or_update_params, update_existing=True, relationship=relationship,
                                                lazy=lazy)
+
+        if 'streaming' in kwargs:
+            warnings.warn('streaming is not supported by bolt, please remove the kwarg',
+                          category=DeprecationWarning, stacklevel=1)
+
+        # fetch and build instance for each result
+        results = db.cypher_query(query, params)
+        return [cls.inflate(r[0]) for r in results[0]]
+
+    def cypher(self, query, params=None):
+        """
+        Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
+
+        :param query: cypher query string
+        :type: string
+        :param params: query parameters
+        :type: dict
+        :return: list containing query results
+        :rtype: list
+        """
+        self._pre_action_check('cypher')
+        params = params or {}
+        params.update({'self': self.id})
+        return db.cypher_query(query, params)
+
+    @hooks
+    def delete(self):
+        """
+        Delete a node and it's relationships
+
+        :return: True
+        """
+        self._pre_action_check('delete')
+        self.cypher("MATCH (self) WHERE id(self)={self} "
+                    "OPTIONAL MATCH (self)-[r]-()"
+                    " DELETE r, self")
+        delattr(self, 'id')
+        self.deleted = True
+        return True
+
+    @classmethod
+    def get_or_create(cls, *props, **kwargs):
+        """
+        Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
+        this is an atomic operation.
+        Parameters must contain all required properties, any non required properties with defaults will be generated.
+
+        Note that the post_create hook isn't called after get_or_create
+
+        :param props: dict of properties to get or create the entities with.
+        :type props: tuple
+        :param relationship: Optional, relationship to get/create on when new entity is created.
+        :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :rtype: list
+        """
+        lazy = kwargs.get('lazy', False)
+        relationship = kwargs.get('relationship')
+
+        # build merge query
+        get_or_create_params = [{"create": cls.deflate(p, skip_empty=True)} for p in props]
+        query, params = cls._build_merge_query(get_or_create_params, relationship=relationship, lazy=lazy)
 
         if 'streaming' in kwargs:
             warnings.warn('streaming is not supported by bolt, please remove the kwarg',
@@ -518,3 +453,71 @@ class StructuredNode(NodeBase):
             snode.id = node.id
 
         return snode
+
+    @classmethod
+    def inherited_labels(cls):
+        """
+        Return list of labels from nodes class hierarchy.
+
+        :return: list
+        """
+        return [scls.__label__ for scls in cls.mro()
+                if hasattr(scls, '__label__') and not hasattr(
+                scls, '__abstract_node__')]
+
+    def labels(self):
+        """
+        Returns list of labels tied to the node from neo4j.
+
+        :return: list of labels
+        :rtype: list
+        """
+        self._pre_action_check('labels')
+        return self.cypher("MATCH (n) WHERE id(n)={self} "
+                           "RETURN labels(n)")[0][0][0]
+
+    def _pre_action_check(self, action):
+        if hasattr(self, 'deleted') and self.deleted:
+            raise ValueError("{}.{}() attempted on deleted node".format(
+                self.__class__.__name__, action))
+        if not hasattr(self, 'id'):
+            raise ValueError("{}.{}() attempted on unsaved node".format(
+                self.__class__.__name__, action))
+
+    def refresh(self):
+        """
+        Reload the node from neo4j
+        """
+        self._pre_action_check('refresh')
+        if hasattr(self, 'id'):
+            node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
+                                            " RETURN n")[0][0][0])
+            for key, val in node.__properties__.items():
+                setattr(self, key, val)
+        else:
+            raise ValueError("Can't refresh unsaved node")
+
+    @hooks
+    def save(self):
+        """
+        Save the node to neo4j or raise an exception
+
+        :return: the node instance
+        """
+
+        # create or update instance node
+        if hasattr(self, 'id'):
+            # update
+            params = self.deflate(self.__properties__, self)
+            query = "MATCH (n) WHERE id(n)={self} \n"
+            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
+                                for key in params.keys()])
+            for label in self.inherited_labels():
+                query += "SET n:`{}`\n".format(label)
+            self.cypher(query, params)
+        elif hasattr(self, 'deleted') and self.deleted:
+            raise ValueError("{}.save() attempted on deleted node".format(
+                self.__class__.__name__))
+        else:  # create
+            self.id = self.create(self.__properties__)[0].id
+        return self
