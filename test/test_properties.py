@@ -16,7 +16,7 @@ class FooBar(object):
 
 def test_string_property_w_choice():
     class TestChoices(StructuredNode):
-        SEXES = (('M', 'Male'), ('F', 'Female'))
+        SEXES = {'F': 'Female', 'M': 'Male', 'O': 'Other'}
         sex = StringProperty(required=True, choices=SEXES)
 
     try:

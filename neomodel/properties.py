@@ -12,12 +12,12 @@ import functools
 
 
 if sys.version_info >= (3, 0):
-    unicode = lambda x: str(x)
+    unicode = str
 
 
 def display_for(key):
     def display_choice(self):
-        return getattr(self.__class__, key).choice_map[getattr(self, key)]
+        return getattr(self.__class__, key).choices[getattr(self, key)]
     return display_choice
 
 
@@ -255,42 +255,39 @@ class EmailProperty(RegexProperty):
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
-class StringProperty(Property):
+class StringProperty(NormalProperty):
     """
-    Store strings
+    Stores a unicode string
+
+    :param choices: A mapping of valid strings to label strings that are used
+                    to display information in an application. If the default
+                    value ``None`` is used, any string is valid.
+    :type choices: Any type that can be used to initiate a :class:`dict`.
     """
     def __init__(self, choices=None, **kwargs):
-        """
-        :param choices: tuple of tuple pairs.
-        :type: tuple
-        :param kwargs:
-        """
         super(StringProperty, self).__init__(**kwargs)
-        self.choices = choices
 
-        if self.choices:
-            if not isinstance(self.choices, tuple):
-                raise ValueError("Choices must be a tuple of tuples")
-
-            self.choice_map = dict(self.choices)
+        if choices is None:
+            self.choices = None
+        else:
+            try:
+                self.choices = dict(choices)
+            except Exception:
+                raise ValueError("The choices argument must be convertable to "
+                                 "a dictionary.")
+            # Python 3:
+            # except Exception as e:
+            #     raise ValueError("The choices argument must be convertable to "
+            #                      "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
-    @validator
-    def inflate(self, value):
-        if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {}".format(value))
-
-        return unicode(value)
-
-    @validator
-    def deflate(self, value):
-        if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {}".format(value))
-
+    def normalize(self, value):
+        if self.choices is not None and value not in self.choices:
+            raise ValueError("Invalid choice: {}".format(value))
         return unicode(value)
 
     def default_value(self):
-        return unicode(super(StringProperty, self).default_value())
+        return self.normalize(super(StringProperty, self).default_value())
 
 
 class IntegerProperty(Property):
