@@ -63,10 +63,10 @@ class DoesNotExist(NeomodelException):
         super(DoesNotExist, self).__init__(self, msg)
 
     def __reduce__(self):
-        return _unpicke_does_not_exist, (self._model_class, self.message)
+        return _unpickle_does_not_exist, (self._model_class, self.message)
 
 
-def _unpicke_does_not_exist(_model_class, message):
+def _unpickle_does_not_exist(_model_class, message):
     return _model_class.DoesNotExist(message)
 
 
