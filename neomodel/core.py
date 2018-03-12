@@ -1,13 +1,12 @@
-from __future__ import print_function
-import warnings
-import sys
 import re
+import sys
+import warnings
 
-from .exceptions import DoesNotExist
-from .properties import Property, PropertyManager
-from .hooks import hooks
-from .util import Database, classproperty, _UnsavedNode
-from . import config
+from neomodel import config
+from neomodel.exceptions import DoesNotExist
+from neomodel.hooks import hooks
+from neomodel.properties import Property, PropertyManager
+from neomodel.util import Database, classproperty, _UnsavedNode
 
 db = Database()
 
