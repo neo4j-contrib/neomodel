@@ -83,23 +83,23 @@ def install_labels(cls, quiet=True, stdout=None):
             stdout.write(' ! Skipping class {}.{} is abstract\n'.format(cls.__module__, cls.__name__))
         return
 
-    for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-        if prop.index:
+    for name, property in cls.defined_properties(aliases=False, rels=False).items():
+        if property.index:
             if not quiet:
                 stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
-                    key, cls.__label__, cls.__module__, cls.__name__))
+                    name, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                cls.__label__, key))
+                cls.__label__, name))
 
-        elif prop.unique_index:
+        elif property.unique_index:
             if not quiet:
                 stdout.write(' + Creating unique constraint for {} on label {} for class {}.{}\n'.format(
-                    key, cls.__label__, cls.__module__, cls.__name__))
+                    name, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE CONSTRAINT "
                             "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                cls.__label__, key))
+                cls.__label__, name))
 
 
 def install_all_labels(stdout=None):
@@ -132,46 +132,47 @@ def install_all_labels(stdout=None):
 
 
 class NodeMeta(type):
-    def __new__(mcs, name, bases, dct):
-        dct.update({'DoesNotExist': type('DoesNotExist', (DoesNotExist,), {})})
-        inst = super(NodeMeta, mcs).__new__(mcs, name, bases, dct)
+    def __new__(mcs, name, bases, namespace):
+        namespace['DoesNotExist'] = \
+            type(name + 'DoesNotExist', (DoesNotExist,), {})
+        cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
-        inst.DoesNotExist._model_class = inst
+        cls.DoesNotExist._model_class = cls
 
-        if hasattr(inst, '__abstract_node__'):
-            delattr(inst, '__abstract_node__')
+        if hasattr(cls, '__abstract_node__'):
+            delattr(cls, '__abstract_node__')
         else:
-            for key, value in dct.items():
-                if key == 'deleted':
-                    raise ValueError("Class property called 'deleted' conflicts with neomodel internals")
+            if 'deleted' in namespace:
+                raise ValueError("Class property called 'deleted' conflicts "
+                                 "with neomodel internals.")
+            for key, value in ((x, y) for x, y in namespace.items()
+                               if isinstance(y, Property)):
+                value.name, value.owner = key, cls
+                if hasattr(value, 'setup') and callable(value.setup):
+                    value.setup()
 
-                # If not a class (django-neomodel Meta)
-                if hasattr(value, '__class__') and issubclass(value.__class__, Property):
-                    value.name = key
-                    value.owner = inst
-                    # support for 'magic' properties
-                    if hasattr(value, 'setup') and hasattr(
-                            value.setup, '__call__'):
-                        value.setup()
+            # cache various groups of properies
+            cls.__required_properties__ = tuple(
+                name for name, property
+                in cls.defined_properties(aliases=False, rels=False).items()
+                if property.required or property.unique_index
+            )
+            cls.__all_properties__ = tuple(
+                cls.defined_properties(aliases=False, rels=False).items()
+            )
+            cls.__all_aliases__ = tuple(
+                cls.defined_properties(properties=False, rels=False).items()
+            )
+            cls.__all_relationships__ = tuple(
+                cls.defined_properties(aliases=False, properties=False).items()
+            )
 
-            # cache the names of all required and unique_index properties
-            all_required = set(name for name, p in inst.defined_properties(aliases=False, rels=False).items()
-                               if p.required or p.unique_index)
-            inst.__required_properties__ = tuple(all_required)
-            # cache all definitions
-            inst.__all_properties__ = tuple(inst.defined_properties(aliases=False, rels=False).items())
-            inst.__all_aliases__ = tuple(inst.defined_properties(properties=False, rels=False).items())
-            inst.__all_relationships__ = tuple(inst.defined_properties(aliases=False, properties=False).items())
-
-            if '__label__' in dct:
-                inst.__label__ = dct['__label__']
-            else:
-                inst.__label__ = inst.__name__
+            cls.__label__ = namespace.get('__label__', name)
 
             if config.AUTO_INSTALL_LABELS:
-                install_labels(inst)
+                install_labels(cls)
 
-        return inst
+        return cls
 
 
 NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
@@ -323,8 +324,8 @@ class StructuredNode(NodeBase):
         self.cypher("MATCH (self) WHERE id(self)={self} "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
-        del self.__dict__['id']
         self.deleted = True
+        delattr(self, 'id')
         return True
 
     def refresh(self):
