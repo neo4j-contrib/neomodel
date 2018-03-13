@@ -1,13 +1,17 @@
 from datetime import datetime, date
 
-from pytest import raises
+from pytest import mark, raises
 from pytz import timezone
 
-from neomodel.properties import (IntegerProperty, DateTimeProperty,
-                                 NormalProperty, RegexProperty, EmailProperty,
-                                 DateProperty, StringProperty, JSONProperty, UniqueIdProperty, ArrayProperty)
-from neomodel.exceptions import InflateError, DeflateError
 from neomodel import StructuredNode, db
+from neomodel.exceptions import InflateError, DeflateError
+from neomodel.properties import (
+    ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
+    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
+    RegexProperty, StringProperty, UniqueIdProperty
+)
+
+
 
 
 class FooBar(object):
@@ -191,12 +195,12 @@ def test_independent_property_name():
     assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
     assert TestNode.nodes.get(name_="jim").name_ == x.name_
 
-    # delete node afterwards
     x.delete()
 
 
-def test_normal_property():
-    class TestProperty(NormalProperty):
+@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
+def test_normalized_property(normalized_class):
+    class TestProperty(normalized_class):
         def normalize(self, value):
             self._called_with = value
             self._called = True

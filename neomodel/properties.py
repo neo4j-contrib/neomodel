@@ -1,14 +1,16 @@
-from .exceptions import InflateError, DeflateError, RequiredProperty
-from . import config
-
-from datetime import datetime, date
-from uuid import uuid4
-import re
-import types
-import pytz
+import functools
 import json
 import sys
-import functools
+import types
+import re
+import uuid
+import warnings
+from datetime import date, datetime
+
+import pytz
+
+from neomodel import config
+from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
 
 
 if sys.version_info >= (3, 0):
@@ -188,11 +190,10 @@ class Property(object):
         return self.unique_index or self.index
 
 
-class NormalProperty(Property):
+class NormalizedProperty(Property):
     """
-    Base class for Normalized properties
-
-    Those that use the same normalization method to inflate or deflate.
+    Base class for normalized properties. These use the same normalization
+    method to in- or deflating.
     """
 
     @validator
@@ -204,14 +205,34 @@ class NormalProperty(Property):
         return self.normalize(value)
 
     def default_value(self):
-        default = super(NormalProperty, self).default_value()
+        default = super(NormalizedProperty, self).default_value()
         return self.normalize(default)
 
     def normalize(self, value):
         raise NotImplementedError('Specialize normalize method')
 
 
-class RegexProperty(NormalProperty):
+## TODO remove this with the next major release
+def _warn_NormalProperty_renamed():
+    warnings.warn(
+        'The class NormalProperty was renamed to NormalizedProperty. '
+        'Use that one as base class. The former will be removed in the next '
+        'major release.', DeprecationWarning)
+
+
+if sys.version_info >= (3, 6):
+    class NormalProperty(NormalizedProperty):
+        def __init_subclass__(cls, **kwargs):
+            _warn_NormalProperty_renamed()
+else:
+    class NormalProperty(NormalizedProperty):
+        def __init__(self, *args, **kwargs):
+            _warn_NormalProperty_renamed()
+            super(NormalProperty, self).__init__(*args, **kwargs)
+##
+
+
+class RegexProperty(NormalizedProperty):
     """
     Validates a property against a regular expression.
 
@@ -255,7 +276,7 @@ class EmailProperty(RegexProperty):
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
-class StringProperty(NormalProperty):
+class StringProperty(NormalizedProperty):
     """
     Stores a unicode string
 
@@ -512,7 +533,7 @@ class UniqueIdProperty(Property):
                 raise ValueError('{} argument ignored by {}'.format(item, self.__class__.__name__))
 
         kwargs['unique_index'] = True
-        kwargs['default'] = lambda: uuid4().hex
+        kwargs['default'] = lambda: uuid.uuid4().hex
         super(UniqueIdProperty, self).__init__(**kwargs)
 
     @validator

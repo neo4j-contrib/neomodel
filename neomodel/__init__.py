@@ -7,9 +7,9 @@ from .relationship_manager import (NotConnected, OUTGOING, INCOMING, EITHER,
 from .relationship import StructuredRel
 from .cardinality import (ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
-        FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
-        NormalProperty, RegexProperty, EmailProperty,
-        JSONProperty, ArrayProperty, UniqueIdProperty)
+                         FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
+                         NormalizedProperty, RegexProperty, EmailProperty,
+                         JSONProperty, ArrayProperty, UniqueIdProperty)
 
 __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
