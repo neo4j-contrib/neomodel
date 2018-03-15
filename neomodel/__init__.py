@@ -2,8 +2,11 @@
 from .core import *
 from neomodel.exceptions import *
 from .util import clear_neo4j_database, change_neo4j_password
-from .relationship_manager import (NotConnected, OUTGOING, INCOMING, EITHER,
-        RelationshipTo, RelationshipFrom, Relationship, RelationshipManager, RelationshipDefinition)
+from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal
+from neomodel.relationship_manager import (
+    NotConnected, RelationshipTo, RelationshipFrom, Relationship,
+    RelationshipManager, RelationshipDefinition
+)
 from .relationship import StructuredRel
 from .cardinality import (ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
