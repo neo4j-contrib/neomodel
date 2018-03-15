@@ -131,6 +131,9 @@ def validator(fn):
     return _validator
 
 
+# abstract property base classes
+
+
 class Property(object):
     """
     Base class for object properties.
@@ -250,6 +253,8 @@ else:
             super(NormalProperty, self).__init__(*args, **kwargs)
 ##
 
+# property types
+
 
 class RegexProperty(NormalizedProperty):
     """
@@ -287,65 +292,37 @@ class RegexProperty(NormalizedProperty):
         return normal
 
 
-class EmailProperty(RegexProperty):
+class AliasProperty(property, Property):
     """
-    Store email addresses
+    Alias another existing property
     """
-    form_field_class = 'EmailField'
-    expression = r'[^@]+@[^@]+\.[^@]+'
+    def __init__(self, to=None):
+        """
+        Create new alias
 
+        :param to: name of property aliasing
+        :type: str
+        """
+        self.target = to
+        self.required = False
+        self.has_default = False
 
-class StringProperty(NormalizedProperty):
-    """
-    Stores a unicode string
+    def aliased_to(self):
+        return self.target
 
-    :param choices: A mapping of valid strings to label strings that are used
-                    to display information in an application. If the default
-                    value ``None`` is used, any string is valid.
-    :type choices: Any type that can be used to initiate a :class:`dict`.
-    """
-    def __init__(self, choices=None, **kwargs):
-        super(StringProperty, self).__init__(**kwargs)
+    def __get__(self, obj, cls):
+        return getattr(obj, self.aliased_to()) if obj else self
 
-        if choices is None:
-            self.choices = None
-        else:
-            try:
-                self.choices = dict(choices)
-            except Exception:
-                raise ValueError("The choices argument must be convertable to "
-                                 "a dictionary.")
-            # Python 3:
-            # except Exception as e:
-            #     raise ValueError("The choices argument must be convertable to "
-            #                      "a dictionary.") from e
-            self.form_field_class = 'TypedChoiceField'
+    def __set__(self, obj, value):
+        setattr(obj, self.aliased_to(), value)
 
-    def normalize(self, value):
-        if self.choices is not None and value not in self.choices:
-            raise ValueError("Invalid choice: {}".format(value))
-        return unicode(value)
+    @property
+    def index(self):
+        return getattr(self.owner, self.aliased_to()).index
 
-    def default_value(self):
-        return self.normalize(super(StringProperty, self).default_value())
-
-
-class IntegerProperty(Property):
-    """
-    Stores an Integer value
-    """
-    form_field_class = 'IntegerField'
-
-    @validator
-    def inflate(self, value):
-        return int(value)
-
-    @validator
-    def deflate(self, value):
-        return int(value)
-
-    def default_value(self):
-        return int(super(IntegerProperty, self).default_value())
+    @property
+    def unique_index(self):
+        return getattr(self.owner, self.aliased_to()).unique_index
 
 
 class ArrayProperty(Property):
@@ -393,24 +370,6 @@ class ArrayProperty(Property):
 
     def default_value(self):
         return list(super(ArrayProperty, self).default_value())
-
-
-class FloatProperty(Property):
-    """
-    Store a floating point value
-    """
-    form_field_class = 'FloatField'
-
-    @validator
-    def inflate(self, value):
-        return float(value)
-
-    @validator
-    def deflate(self, value):
-        return float(value)
-
-    def default_value(self):
-        return float(super(FloatProperty, self).default_value())
 
 
 class BooleanProperty(Property):
@@ -491,6 +450,50 @@ class DateTimeProperty(Property):
         return float((value - epoch_date).total_seconds())
 
 
+class EmailProperty(RegexProperty):
+    """
+    Store email addresses
+    """
+    form_field_class = 'EmailField'
+    expression = r'[^@]+@[^@]+\.[^@]+'
+
+
+class FloatProperty(Property):
+    """
+    Store a floating point value
+    """
+    form_field_class = 'FloatField'
+
+    @validator
+    def inflate(self, value):
+        return float(value)
+
+    @validator
+    def deflate(self, value):
+        return float(value)
+
+    def default_value(self):
+        return float(super(FloatProperty, self).default_value())
+
+
+class IntegerProperty(Property):
+    """
+    Stores an Integer value
+    """
+    form_field_class = 'IntegerField'
+
+    @validator
+    def inflate(self, value):
+        return int(value)
+
+    @validator
+    def deflate(self, value):
+        return int(value)
+
+    def default_value(self):
+        return int(super(IntegerProperty, self).default_value())
+
+
 class JSONProperty(Property):
     """
     Store a data structure as a JSON string.
@@ -509,37 +512,39 @@ class JSONProperty(Property):
         return json.dumps(value)
 
 
-class AliasProperty(property, Property):
+class StringProperty(NormalizedProperty):
     """
-    Alias another existing property
+    Stores a unicode string
+
+    :param choices: A mapping of valid strings to label strings that are used
+                    to display information in an application. If the default
+                    value ``None`` is used, any string is valid.
+    :type choices: Any type that can be used to initiate a :class:`dict`.
     """
-    def __init__(self, to=None):
-        """
-        Create new alias
+    def __init__(self, choices=None, **kwargs):
+        super(StringProperty, self).__init__(**kwargs)
 
-        :param to: name of property aliasing
-        :type: str
-        """
-        self.target = to
-        self.required = False
-        self.has_default = False
+        if choices is None:
+            self.choices = None
+        else:
+            try:
+                self.choices = dict(choices)
+            except Exception:
+                raise ValueError("The choices argument must be convertable to "
+                                 "a dictionary.")
+            # Python 3:
+            # except Exception as e:
+            #     raise ValueError("The choices argument must be convertable to "
+            #                      "a dictionary.") from e
+            self.form_field_class = 'TypedChoiceField'
 
-    def aliased_to(self):
-        return self.target
+    def normalize(self, value):
+        if self.choices is not None and value not in self.choices:
+            raise ValueError("Invalid choice: {}".format(value))
+        return unicode(value)
 
-    def __get__(self, obj, cls):
-        return getattr(obj, self.aliased_to()) if obj else self
-
-    def __set__(self, obj, value):
-        setattr(obj, self.aliased_to(), value)
-
-    @property
-    def index(self):
-        return getattr(self.owner, self.aliased_to()).index
-
-    @property
-    def unique_index(self):
-        return getattr(self.owner, self.aliased_to()).unique_index
+    def default_value(self):
+        return self.normalize(super(StringProperty, self).default_value())
 
 
 class UniqueIdProperty(Property):
