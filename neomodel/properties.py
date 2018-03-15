@@ -5,6 +5,7 @@ import types
 import re
 import uuid
 import warnings
+from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
 
 import pytz
@@ -189,9 +190,22 @@ class Property(object):
         else:
             raise Exception("No default value specified")
 
+    @abstractmethod
+    @validator
+    def deflate(self, value):
+        pass
+
+    @abstractmethod
+    @validator
+    def inflate(self, value):
+        pass
+
     @property
     def is_indexed(self):
         return self.unique_index or self.index
+
+
+Property = ABCMeta('Property', (Property,), {})
 
 
 class NormalizedProperty(Property):
@@ -212,8 +226,9 @@ class NormalizedProperty(Property):
         default = super(NormalizedProperty, self).default_value()
         return self.normalize(default)
 
+    @abstractmethod
     def normalize(self, value):
-        raise NotImplementedError('Specialize normalize method')
+        pass
 
 
 ## TODO remove this with the next major release
