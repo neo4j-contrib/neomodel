@@ -253,6 +253,20 @@ else:
             super(NormalProperty, self).__init__(*args, **kwargs)
 ##
 
+
+class _TypedProperty(NormalizedProperty):
+    type = None
+
+    def normalize(self, value):
+        return self.type(value)
+
+    def default_value(self):
+        return self.type(super(_TypedProperty, self).default_value())
+
+
+TypedProperty = ABCMeta('TypedProperty', (_TypedProperty,), {})
+
+
 # property types
 
 
@@ -372,22 +386,12 @@ class ArrayProperty(Property):
         return list(super(ArrayProperty, self).default_value())
 
 
-class BooleanProperty(Property):
+class BooleanProperty(TypedProperty):
     """
     Stores a boolean value
     """
     form_field_class = 'BooleanField'
-
-    @validator
-    def inflate(self, value):
-        return bool(value)
-
-    @validator
-    def deflate(self, value):
-        return bool(value)
-
-    def default_value(self):
-        return bool(super(BooleanProperty, self).default_value())
+    type = bool
 
 
 class DateProperty(Property):
@@ -458,40 +462,20 @@ class EmailProperty(RegexProperty):
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
-class FloatProperty(Property):
+class FloatProperty(TypedProperty):
     """
     Store a floating point value
     """
     form_field_class = 'FloatField'
-
-    @validator
-    def inflate(self, value):
-        return float(value)
-
-    @validator
-    def deflate(self, value):
-        return float(value)
-
-    def default_value(self):
-        return float(super(FloatProperty, self).default_value())
+    type = float
 
 
-class IntegerProperty(Property):
+class IntegerProperty(TypedProperty):
     """
     Stores an Integer value
     """
     form_field_class = 'IntegerField'
-
-    @validator
-    def inflate(self, value):
-        return int(value)
-
-    @validator
-    def deflate(self, value):
-        return int(value)
-
-    def default_value(self):
-        return int(super(IntegerProperty, self).default_value())
+    type = int
 
 
 class JSONProperty(Property):
@@ -547,10 +531,13 @@ class StringProperty(NormalizedProperty):
         return self.normalize(super(StringProperty, self).default_value())
 
 
-class UniqueIdProperty(Property):
+class UniqueIdProperty(TypedProperty):
     """
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
+
+    type = unicode
+
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:
@@ -560,10 +547,4 @@ class UniqueIdProperty(Property):
         kwargs['default'] = lambda: uuid.uuid4().hex
         super(UniqueIdProperty, self).__init__(**kwargs)
 
-    @validator
-    def inflate(self, value):
-        return unicode(value)
 
-    @validator
-    def deflate(self, value):
-        return unicode(value)
