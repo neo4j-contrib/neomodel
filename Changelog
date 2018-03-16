@@ -1,3 +1,6 @@
+Version 4.x (unreleased)
+ * Drops support for Python 2
+
 Version 3.2.6
  * neomodel.properties.NormalClass is renamed to NormalizedClass
 

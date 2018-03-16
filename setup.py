@@ -2,9 +2,14 @@ import sys
 
 from setuptools import setup, find_packages
 
+
+if sys.version_info < (3, 4):
+    raise RuntimeError('Requires Python 3.4 or later.')
+
+
 setup(
     name='neomodel',
-    version='3.2.5',
+    version='4.0.dev1',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
     author='Robin Edwards',
@@ -25,7 +30,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',
-        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",

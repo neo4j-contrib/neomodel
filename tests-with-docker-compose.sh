@@ -47,7 +47,7 @@ for dir in neomodel test; do
 done
 
 for NEO4J_VERSION in 3.0 3.1 3.2 3.3; do
-    for PYTHON_VERSION in 2.7 3.4 3.5 3.6; do
+    for PYTHON_VERSION in 3.4 3.5 3.6; do
         write_compose_file
         docker-compose up -d neo4j
         docker-compose up tests
