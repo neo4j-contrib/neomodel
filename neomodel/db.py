@@ -4,13 +4,14 @@ import sys
 import time
 from functools import wraps
 from _threading_local import local
+from urllib.parse import urlparse
 
 from neo4j.exceptions import CypherError
 from neo4j.v1 import GraphDatabase, basic_auth, SessionError
 
 from neomodel import config
 from neomodel.exceptions import UniqueProperty, ConstraintValidationFailed
-from neomodel.util import logger, urlparse
+from neomodel.util import logger
 
 
 # database client
@@ -105,11 +106,7 @@ class Database(local):
 
                 raise ConstraintValidationFailed(ce.message)
             else:
-                exc_info = sys.exc_info()
-                if sys.version_info >= (3, 0):
-                    raise exc_info[1].with_traceback(exc_info[2])
-                else:
-                    raise exc_info[1]
+                raise
         except SessionError:
             if retry_on_session_expire:
                 self.set_connection(self.url)

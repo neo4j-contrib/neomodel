@@ -1,17 +1,9 @@
 import logging
-import sys
 import warnings
 from functools import wraps
 
+
 logger = logging.getLogger(__name__)
-
-
-if sys.version_info < (3,):
-    from urlparse import urlparse  # noqa: F401
-    STRING_TYPE = basestring  # noqa: F821
-else:
-    from urllib.parse import urlparse  # noqa: F401
-    STRING_TYPE = str
 
 
 def classproperty(f):

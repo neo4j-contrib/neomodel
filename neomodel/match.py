@@ -5,7 +5,6 @@ from neomodel.core import StructuredNode
 from neomodel.db import client
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.properties import AliasProperty
-from neomodel.util import STRING_TYPE
 
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
@@ -159,7 +158,7 @@ def process_filter_args(cls, kwargs):
                 deflated_value = None
             elif operator in _REGEX_OPERATOR_TABLE.values():
                 deflated_value = property_obj.deflate(value)
-                if not isinstance(deflated_value, STRING_TYPE):
+                if not isinstance(deflated_value, str):
                     raise ValueError('Must be a string value for {}'.format(key))
                 if operator in _STRING_REGEX_OPERATOR_TABLE.values():
                     deflated_value = re.escape(deflated_value)

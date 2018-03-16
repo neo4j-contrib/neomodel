@@ -13,10 +13,6 @@ from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError
 
 
-if sys.version_info >= (3, 0):
-    unicode = str
-
-
 def validator(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
     if fn_name == 'inflate':
@@ -204,15 +200,12 @@ class RegexProperty(NormalizedProperty):
         self.expression = actual_re
 
     def normalize(self, value):
-        normal = unicode(value)
-        if not re.match(self.expression, normal):
+        if not re.match(self.expression, value):
             raise ValueError(
-                '{0!r} does not matches {1!r}'.format(
-                    value,
-                    self.expression,
-                )
+                "'{value}' doesn't match '{pattern}'."
+                .format(value=value, pattern=self.expression)
             )
-        return normal
+        return value
 
 
 class AliasProperty(property, Property):
@@ -311,7 +304,7 @@ class DateProperty(Property):
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(unicode(value), "%Y-%m-%d").date()
+        return datetime.strptime(value, "%Y-%m-%d").date()
 
     @validator
     def deflate(self, value):
@@ -422,19 +415,16 @@ class StringProperty(NormalizedProperty):
         else:
             try:
                 self.choices = dict(choices)
-            except Exception:
+            except Exception as e:
                 raise ValueError("The choices argument must be convertable to "
-                                 "a dictionary.")
-            # Python 3:
-            # except Exception as e:
-            #     raise ValueError("The choices argument must be convertable to "
-            #                      "a dictionary.") from e
+                                 "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
+        value = str(value)
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {}".format(value))
-        return unicode(value)
+        return value
 
     def default_value(self):
         return self.normalize(super(StringProperty, self).default_value())
@@ -445,7 +435,7 @@ class UniqueIdProperty(TypedProperty):
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
 
-    type = unicode
+    type = str
 
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
