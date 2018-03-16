@@ -1,10 +1,7 @@
-import sys
 import functools
+import sys
 from importlib import import_module
-from .exceptions import NotConnected
 from .util import deprecated
-from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
-from .relationship import StructuredRel
 
 
 # basestring python 3.x fallback
@@ -12,6 +9,10 @@ try:
     basestring
 except NameError:
     basestring = str
+from neomodel.bases import _RelationshipDefinition
+from neomodel.exceptions import NotConnected
+from neomodel.match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
+from neomodel.relationship import StructuredRel
 
 
 # check source node is saved and not deleted
@@ -323,7 +324,7 @@ class RelationshipManager(object):
         return self._new_traversal().__getitem__(key)
 
 
-class RelationshipDefinition(object):
+class RelationshipDefinition(_RelationshipDefinition):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
         self.module_name = sys._getframe(4).f_globals['__name__']
         if '__file__' in sys._getframe(4).f_globals:

@@ -1,26 +1,17 @@
-from .properties import Property, PropertyManager
-from .core import db
-from .util import deprecated
-from .hooks import hooks
+from neomodel.bases import PropertyManagerMeta
+from neomodel.db import client
+from neomodel.hooks import hooks
+from neomodel.util import deprecated
 
 
-class RelationshipMeta(type):
-    def __new__(mcs, name, bases, dct):
-        inst = super(RelationshipMeta, mcs).__new__(mcs, name, bases, dct)
-        for key, value in dct.items():
-            if issubclass(value.__class__, Property):
-                value.name = key
-                value.owner = inst
-                if value.is_indexed:
-                    raise NotImplemented("Indexed relationship properties not supported yet")
-
-                # support for 'magic' properties
-                if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
-                    value.setup()
-        return inst
+class RelationshipMeta(PropertyManagerMeta):
+    def _setup_property(mcs, cls, name, instance):
+        if instance.is_indexed:
+            raise NotImplemented("Indexed relationship properties not supported yet")
+        super(RelationshipMeta, mcs)._setup_property(mcs, cls, name, instance)
 
 
-StructuredRelBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
+StructuredRelBase = RelationshipMeta('RelationshipBase', (), {})
 
 
 class StructuredRel(StructuredRelBase):
@@ -43,7 +34,7 @@ class StructuredRel(StructuredRelBase):
             query += " SET r.{} = {{{}}}".format(key, key)
         props['self'] = self.id
 
-        db.cypher_query(query, props)
+        client.cypher_query(query, props)
 
         return self
 

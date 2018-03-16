@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, db
+from neomodel import StructuredNode, StringProperty
 from multiprocessing import Pool
 
 

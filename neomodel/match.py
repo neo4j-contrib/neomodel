@@ -1,9 +1,10 @@
-from .core import StructuredNode, db
-from .properties import AliasProperty
-from .exceptions import MultipleNodesReturned
 import inspect
 import re
-OUTGOING, INCOMING, EITHER = 1, -1, 0
+
+from neomodel.core import StructuredNode
+from neomodel.db import client
+from neomodel.exceptions import MultipleNodesReturned
+from neomodel.properties import AliasProperty
 
 
 # basestring python 3.x fallback
@@ -11,6 +12,7 @@ try:
     basestring
 except NameError:
     basestring = str
+OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
 def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
@@ -396,7 +398,7 @@ class QueryBuilder(object):
         # drop order_by, results in an invalid query
         self._ast.pop('order_by', None)
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
+        results, _ = client.cypher_query(query, self._query_params)
         return int(results[0][0])
 
     def _contains(self, node_id):
@@ -409,7 +411,7 @@ class QueryBuilder(object):
 
     def _execute(self):
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
+        results, _ = client.cypher_query(query, self._query_params)
         if results:
             return [self._ast['result_class'].inflate(n[0]) for n in results]
         return []

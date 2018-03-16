@@ -1,7 +1,7 @@
 from neo4j.addressing import AddressError
 from pytest import raises
 
-from neomodel import db, StructuredNode, StringProperty, UniqueProperty
+from neomodel import client, StructuredNode, StringProperty, UniqueProperty
 
 
 class Person(StructuredNode):
@@ -14,20 +14,20 @@ def test_rollback_and_commit_transaction():
 
     Person(name='Roger').save()
 
-    db.begin()
+    client.begin()
     Person(name='Terry S').save()
-    db.rollback()
+    client.rollback()
 
     assert len(Person.nodes) == 1
 
-    db.begin()
+    client.begin()
     Person(name='Terry S').save()
-    db.commit()
+    client.commit()
 
     assert len(Person.nodes) == 2
 
 
-@db.transaction
+@client.transaction
 def in_a_tx(*names):
     for n in names:
         Person(name=n).save()
@@ -49,13 +49,13 @@ def test_transaction_decorator():
 
 
 def test_transaction_as_a_context():
-    with db.transaction:
+    with client.transaction:
         Person(name='Tim').save()
 
     assert Person.nodes.filter(name='Tim')
 
     with raises(UniqueProperty):
-        with db.transaction:
+        with client.transaction:
             Person(name='Tim').save()
 
 
@@ -63,7 +63,7 @@ def test_query_inside_transaction():
     for p in Person.nodes:
         p.delete()
 
-    with db.transaction:
+    with client.transaction:
         Person(name='Alice').save()
         Person(name='Bob').save()
 
@@ -74,9 +74,9 @@ def test_set_connection_works():
     assert Person(name='New guy').save()
     from socket import gaierror
 
-    old_url = db.url
+    old_url = client.url
     with raises(AddressError):
-        db.set_connection('bolt://user:password@nowhere:7687')
-    db.set_connection(old_url)
+        client.set_connection('bolt://user:password@nowhere:7687')
+    client.set_connection(old_url)
     # set connection back
     assert Person(name='New guy2').save()

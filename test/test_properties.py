@@ -3,7 +3,8 @@ from datetime import datetime, date
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode, db
+from neomodel.core import StructuredNode
+from neomodel.db import client
 from neomodel.exceptions import InflateError, DeflateError
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
@@ -186,7 +187,7 @@ def test_independent_property_name():
     x.save()
 
     # check database property name on low level
-    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
+    results, meta = client.cypher_query("MATCH (n:TestNode) RETURN n")
     assert results[0][0].properties['name'] == "jim"
 
     assert not 'name_' in results[0][0].properties

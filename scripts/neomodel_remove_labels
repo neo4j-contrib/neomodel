@@ -3,7 +3,7 @@ from __future__ import print_function
 from os import environ
 from argparse import ArgumentParser
 
-from neomodel import db, remove_all_labels
+from neomodel.db import client, remove_all_labels
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print('Connecting to {}\n'.format(bolt_url))
-    db.set_connection(bolt_url)
+    client.set_connection(bolt_url)
 
     remove_all_labels()
 

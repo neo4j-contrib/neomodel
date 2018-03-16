@@ -182,3 +182,9 @@ class _UnsavedNode(object):
 
     def __str__(self):
         return self.__repr__()
+
+
+def display_for(key):
+    def display_choice(self):
+        return getattr(self.__class__, key).choices[getattr(self, key)]
+    return display_choice

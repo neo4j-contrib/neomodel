@@ -1,6 +1,5 @@
-from neomodel import config, StructuredNode, StringProperty, install_all_labels, install_labels
-from neomodel.core import db
-
+from neomodel import config, StructuredNode, StringProperty
+from neomodel.db import client, install_labels, install_all_labels
 
 config.AUTO_INSTALL_LABELS = False
 
@@ -30,6 +29,5 @@ def test_install_all():
     install_labels(AbstractNode)
     # run install all labels
     install_all_labels()
-    assert True
     # remove constraint for above test
-    db.cypher_query("DROP CONSTRAINT on (n:NoConstraintsSetup) ASSERT n.name IS UNIQUE")
+    client.cypher_query("DROP CONSTRAINT on (n:NoConstraintsSetup) ASSERT n.name IS UNIQUE")

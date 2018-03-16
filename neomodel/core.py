@@ -1,180 +1,23 @@
-import re
-import sys
 import warnings
 
-from neomodel import config
+from neomodel.bases import PropertyManagerMeta
+from neomodel.db import client
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
-from neomodel.properties import Property, PropertyManager
-from neomodel.util import Database, classproperty, _UnsavedNode
-
-db = Database()
+from neomodel.util import classproperty, _UnsavedNode
 
 
-def drop_constraints(quiet=True, stdout=None):
-    """
-    Discover and drop all constraints.
-
-    :type: bool
-    :return: None
-    """
-
-    results, meta = db.cypher_query("CALL db.constraints()")
-    pattern = re.compile(':(.*) \).*\.(\w*)')
-    for constraint in results:
-        db.cypher_query('DROP ' + constraint[0])
-        match = pattern.search(constraint[0])
-        stdout.write(''' - Droping unique constraint and index on label {} with property {}.\n'''.format(
-            match.group(1), match.group(2)))
-    stdout.write("\n")
-
-
-def drop_indexes(quiet=True, stdout=None):
-    """
-    Discover and drop all indexes.
-
-    :type: bool
-    :return: None
-    """
-
-    results, meta = db.cypher_query("CALL db.indexes()")
-    pattern = re.compile(':(.*)\((.*)\)')
-    for index in results:
-        db.cypher_query('DROP ' + index[0])
-        match = pattern.search(index[0])
-        stdout.write(' - Dropping index on label {} with property {}.\n'.format(
-            match.group(1), match.group(2)))
-    stdout.write("\n")
-
-
-def remove_all_labels(stdout=None):
-    """
-    Calls functions for dropping constraints and indexes.
-
-    :param stdout: output stream
-    :return: None
-    """
-
-    if not stdout:
-        stdout = sys.stdout
-
-    stdout.write("Droping constraints...\n")
-    drop_constraints(quiet=False, stdout=stdout)
-
-    stdout.write('Droping indexes...\n')
-    drop_indexes(quiet=False, stdout=stdout)
-
-
-def install_labels(cls, quiet=True, stdout=None):
-    """
-    Setup labels with indexes and constraints for a given class
-
-    :param cls: StructuredNode class
-    :type: class
-    :param quiet: (default true) enable standard output
-    :param stdout: stdout stream
-    :type: bool
-    :return: None
-    """
-
-    if not hasattr(cls, '__label__'):
-        if not quiet:
-            stdout.write(' ! Skipping class {}.{} is abstract\n'.format(cls.__module__, cls.__name__))
-        return
-
-    for name, property in cls.defined_properties(aliases=False, rels=False).items():
-        if property.index:
-            if not quiet:
-                stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                cls.__label__, name))
-
-        elif property.unique_index:
-            if not quiet:
-                stdout.write(' + Creating unique constraint for {} on label {} for class {}.{}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE CONSTRAINT "
-                            "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                cls.__label__, name))
-
-
-def install_all_labels(stdout=None):
-    """
-    Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-    Note: code most be loaded (imported) in order for a class to be discovered.
-
-    :param stdout: output stream
-    :return: None
-    """
-
-    if not stdout:
-        stdout = sys.stdout
-
-    def subsub(kls):  # recursively return all subclasses
-        return kls.__subclasses__() + [g for s in kls.__subclasses__() for g in subsub(s)]
-
-    stdout.write("Setting up indexes and constraints...\n\n")
-
-    i = 0
-    for cls in subsub(StructuredNode):
-        stdout.write('Found {}.{}\n'.format(cls.__module__, cls.__name__))
-        install_labels(cls, quiet=False, stdout=stdout)
-        i += 1
-
-    if i:
-        stdout.write('\n')
-
-    stdout.write('Finished {} classes.\n'.format(i))
-
-
-class NodeMeta(type):
+class NodeMeta(PropertyManagerMeta):
     def __new__(mcs, name, bases, namespace):
         namespace['DoesNotExist'] = \
             type(name + 'DoesNotExist', (DoesNotExist,), {})
         cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
-
-        if hasattr(cls, '__abstract_node__'):
-            delattr(cls, '__abstract_node__')
-        else:
-            if 'deleted' in namespace:
-                raise ValueError("Class property called 'deleted' conflicts "
-                                 "with neomodel internals.")
-            for key, value in ((x, y) for x, y in namespace.items()
-                               if isinstance(y, Property)):
-                value.name, value.owner = key, cls
-                if hasattr(value, 'setup') and callable(value.setup):
-                    value.setup()
-
-            # cache various groups of properies
-            cls.__required_properties__ = tuple(
-                name for name, property
-                in cls.defined_properties(aliases=False, rels=False).items()
-                if property.required or property.unique_index
-            )
-            cls.__all_properties__ = tuple(
-                cls.defined_properties(aliases=False, rels=False).items()
-            )
-            cls.__all_aliases__ = tuple(
-                cls.defined_properties(properties=False, rels=False).items()
-            )
-            cls.__all_relationships__ = tuple(
-                cls.defined_properties(aliases=False, properties=False).items()
-            )
-
-            cls.__label__ = namespace.get('__label__', name)
-
-            if config.AUTO_INSTALL_LABELS:
-                install_labels(cls)
-
         return cls
 
 
-NodeBase = NodeMeta('NodeBase', (PropertyManager,), {'__abstract_node__': True})
+NodeBase = NodeMeta('NodeBase', (), {'__abstract_node__': True})
 
 
 class StructuredNode(NodeBase):
@@ -319,7 +162,7 @@ class StructuredNode(NodeBase):
 
         results = []
         for item in [cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props]:
-            node, _ = db.cypher_query(query, {'create_params': item})
+            node, _ = client.cypher_query(query, {'create_params': item})
             results.extend(node[0])
 
         nodes = [cls.inflate(node) for node in results]
@@ -360,7 +203,7 @@ class StructuredNode(NodeBase):
                           category=DeprecationWarning, stacklevel=1)
 
         # fetch and build instance for each result
-        results = db.cypher_query(query, params)
+        results = client.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
     def cypher(self, query, params=None):
@@ -377,7 +220,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check('cypher')
         params = params or {}
         params.update({'self': self.id})
-        return db.cypher_query(query, params)
+        return client.cypher_query(query, params)
 
     @hooks
     def delete(self):
@@ -421,7 +264,7 @@ class StructuredNode(NodeBase):
                           category=DeprecationWarning, stacklevel=1)
 
         # fetch and build instance for each result
-        results = db.cypher_query(query, params)
+        results = client.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
