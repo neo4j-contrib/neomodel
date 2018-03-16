@@ -1,7 +1,7 @@
 # pep8: noqa
 from .core import *
+from neomodel.db import change_neo4j_password, clear_neo4j_database
 from neomodel.exceptions import *
-from .util import clear_neo4j_database, change_neo4j_password
 from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal
 from neomodel.relationship_manager import (
     NotConnected, RelationshipTo, RelationshipFrom, Relationship,
