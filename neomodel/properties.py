@@ -375,7 +375,7 @@ class JSONProperty(Property):
         return json.dumps(value)
 
 
-class StringProperty(NormalizedProperty):
+class StringProperty(_TypedProperty):
     """
     Stores a unicode string
 
@@ -384,6 +384,9 @@ class StringProperty(NormalizedProperty):
                     value ``None`` is used, any string is valid.
     :type choices: Any type that can be used to initiate a :class:`dict`.
     """
+    form_field_class = 'TypedChoiceField'
+    type = str
+
     def __init__(self, choices=None, **kwargs):
         super().__init__(**kwargs)
 
@@ -395,10 +398,9 @@ class StringProperty(NormalizedProperty):
             except Exception as e:
                 raise ValueError("The choices argument must be convertable to "
                                  "a dictionary.") from e
-            self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
-        value = str(value)
+        value = super().normalize(value)
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {}".format(value))
         return value
