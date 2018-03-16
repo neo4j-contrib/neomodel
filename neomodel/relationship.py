@@ -1,7 +1,6 @@
 from neomodel.bases import PropertyManagerMeta
 from neomodel.db import client
 from neomodel.hooks import hooks
-from neomodel.util import deprecated
 
 
 class RelationshipMeta(PropertyManagerMeta):
@@ -37,11 +36,6 @@ class StructuredRel(StructuredRelBase):
         client.cypher_query(query, props)
 
         return self
-
-    @deprecated('This method will be removed in neomodel 4')
-    def delete(self):
-        raise NotImplemented("Can not delete relationships please use"
-                             " 'disconnect'")
 
     def start_node(self):
         """

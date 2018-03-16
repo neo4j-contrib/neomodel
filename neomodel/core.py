@@ -71,15 +71,6 @@ class StructuredNode(NodeBase):
         from .match import NodeSet
         return NodeSet(cls)
 
-    @property
-    def _id(self, val):
-        warnings.warn('the _id property is deprecated please use .id',
-                      category=DeprecationWarning, stacklevel=1)
-        if val:
-            self.id = val
-
-        return self.id
-
     # methods
 
     @classmethod
@@ -130,11 +121,6 @@ class StructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
-    def category(cls):
-        raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
-
-    @classmethod
     def create(cls, *props, **kwargs):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
@@ -148,7 +134,7 @@ class StructuredNode(NodeBase):
 
         if 'streaming' in kwargs:
             warnings.warn('streaming is not supported by bolt, please remove the kwarg',
-                          category=DeprecationWarning, stacklevel=1)
+                          category=UserWarning, stacklevel=1)
 
         lazy = kwargs.get('lazy', False)
         # create mapped query
@@ -200,7 +186,7 @@ class StructuredNode(NodeBase):
 
         if 'streaming' in kwargs:
             warnings.warn('streaming is not supported by bolt, please remove the kwarg',
-                          category=DeprecationWarning, stacklevel=1)
+                          category=UserWarning, stacklevel=1)
 
         # fetch and build instance for each result
         results = client.cypher_query(query, params)
@@ -261,7 +247,7 @@ class StructuredNode(NodeBase):
 
         if 'streaming' in kwargs:
             warnings.warn('streaming is not supported by bolt, please remove the kwarg',
-                          category=DeprecationWarning, stacklevel=1)
+                          category=UserWarning, stacklevel=1)
 
         # fetch and build instance for each result
         results = client.cypher_query(query, params)

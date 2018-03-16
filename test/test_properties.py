@@ -8,7 +8,7 @@ from neomodel.db import client
 from neomodel.exceptions import InflateError, DeflateError
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
-    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
+    EmailProperty, JSONProperty, NormalizedProperty,
     RegexProperty, StringProperty, UniqueIdProperty
 )
 
@@ -160,16 +160,16 @@ def test_default_value_callable():
     assert a.uid == 'xx'
 
 
-def test_default_valude_callable_type():
+def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
-    def factory():
+    def default_factory():
         class Foo(object):
             def __str__(self):
                 return "123"
         return Foo()
 
     class DefaultTestValueThree(StructuredNode):
-        uid = StringProperty(default=factory, index=True)
+        uid = StringProperty(default=default_factory, index=True)
 
     x = DefaultTestValueThree()
     assert x.uid == '123'
@@ -199,9 +199,8 @@ def test_independent_property_name():
     x.delete()
 
 
-@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
-def test_normalized_property(normalized_class):
-    class TestProperty(normalized_class):
+def test_normalized_property():
+    class TestProperty(NormalizedProperty):
         def normalize(self, value):
             self._called_with = value
             self._called = True

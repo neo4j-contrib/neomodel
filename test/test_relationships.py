@@ -103,8 +103,6 @@ def test_search_and_filter_and_exclude():
     fred.is_from.connect(zz)
     fred.is_from.connect(zx)
     fred.is_from.connect(zt)
-    result = fred.is_from.search(code='ZX')
-    assert result[0].code == 'ZX'
 
     result = fred.is_from.filter(code='ZX')
     assert result[0].code == 'ZX'

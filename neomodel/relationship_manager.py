@@ -6,7 +6,6 @@ from neomodel.bases import _RelationshipDefinition
 from neomodel.exceptions import NotConnected
 from neomodel.match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from neomodel.relationship import StructuredRel
-from neomodel.util import deprecated
 
 
 # check source node is saved and not deleted
@@ -225,16 +224,6 @@ class RelationshipManager(object):
         :return: node
         """
         return NodeSet(self._new_traversal()).get_or_none(**kwargs)
-
-    @deprecated("search() is now deprecated please use filter() and exclude()")
-    def search(self, **kwargs):
-        """
-        Retrieve related nodes matching the provided properties.
-
-        :param kwargs: same syntax as `NodeSet.filter()`
-        :return: NodeSet
-        """
-        return self.filter(**kwargs).all()
 
     def filter(self, **kwargs):
         """
