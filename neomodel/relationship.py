@@ -1,4 +1,4 @@
-from neomodel.bases import PropertyManagerMeta
+from neomodel.bases import PropertyManager, PropertyManagerMeta
 from neomodel.db import client
 from neomodel.hooks import hooks
 
@@ -10,10 +10,7 @@ class RelationshipMeta(PropertyManagerMeta):
         super()._setup_property(mcs, cls, name, instance)
 
 
-StructuredRelBase = RelationshipMeta('RelationshipBase', (), {})
-
-
-class StructuredRel(StructuredRelBase):
+class StructuredRel(PropertyManager, metaclass=RelationshipMeta):
     """
     Base class for relationship objects
     """

@@ -203,7 +203,7 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
-class QueryBuilder(object):
+class QueryBuilder:
     def __init__(self, node_set):
         self.node_set = node_set
         self._ast = {'match': [], 'where': []}
@@ -412,7 +412,7 @@ class QueryBuilder(object):
         return []
 
 
-class BaseSet(object):
+class BaseSet:
     """
     Base class for all node sets.
 

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def classproperty(f):
-    class cpf(object):
+    class cpf:
         def __init__(self, getter):
             self.getter = getter
 
@@ -39,7 +39,7 @@ def display_for(key):
 
 
 # Just used for error messages
-class _UnsavedNode(object):
+class _UnsavedNode:
     def __repr__(self):
         return '<unsaved node>'
 

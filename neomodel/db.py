@@ -129,7 +129,7 @@ client = Database()
 # context manager
 
 
-class TransactionProxy(object):
+class TransactionProxy:
     def __init__(self, db):
         self.db = db
 

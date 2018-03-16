@@ -1,10 +1,8 @@
 import functools
 import json
-import sys
 import re
 import uuid
-import warnings
-from abc import ABCMeta, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from datetime import date, datetime
 
 import pytz
@@ -39,7 +37,7 @@ def validator(fn):
 # abstract property base classes
 
 
-class Property(object):
+class Property(ABC):
     """
     Base class for object properties.
 
@@ -113,9 +111,6 @@ class Property(object):
         return self.unique_index or self.index
 
 
-Property = ABCMeta('Property', (Property,), {})
-
-
 class NormalizedProperty(Property):
     """
     Base class for normalized properties. These use the same normalization
@@ -139,7 +134,25 @@ class NormalizedProperty(Property):
         pass
 
 
-class _TypedProperty(NormalizedProperty):
+class TypedPropertyMeta(ABCMeta):
+    def __new__(mcls, name, bases, namespace):
+        cls = super().__new__(mcls, name, bases, namespace)
+
+        # don't check the first base TypedProperty
+        # TODO see note in PropertyManagerMeta for another approach
+        if len(cls.__mro__) == len(NormalizedProperty.__mro__) + 1:
+            return cls
+
+        if hasattr(cls, 'type') and callable(cls.type):
+            return cls
+
+        raise RuntimeError(
+            'The type property must be a callable that returns the desired '
+            'Python type when called with a string as a single argument.'
+        )
+
+
+class TypedProperty(NormalizedProperty, metaclass=TypedPropertyMeta):
     type = None
 
     def normalize(self, value):
@@ -147,9 +160,6 @@ class _TypedProperty(NormalizedProperty):
 
     def default_value(self):
         return self.type(super().default_value())
-
-
-TypedProperty = ABCMeta('TypedProperty', (_TypedProperty,), {})
 
 
 # property types
@@ -375,7 +385,7 @@ class JSONProperty(Property):
         return json.dumps(value)
 
 
-class StringProperty(_TypedProperty):
+class StringProperty(TypedProperty):
     """
     Stores a unicode string
 

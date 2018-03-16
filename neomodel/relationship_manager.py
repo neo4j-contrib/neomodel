@@ -19,7 +19,7 @@ def check_source(fn):
     return checker
 
 
-class RelationshipManager(object):
+class RelationshipManager:
     """
     Base class for all relationships managed through neomodel.
 

@@ -1,6 +1,6 @@
 import warnings
 
-from neomodel.bases import PropertyManagerMeta
+from neomodel.bases import PropertyManager, PropertyManagerMeta
 from neomodel.db import client
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
@@ -17,10 +17,7 @@ class NodeMeta(PropertyManagerMeta):
         return cls
 
 
-NodeBase = NodeMeta('NodeBase', (), {'__abstract_node__': True})
-
-
-class StructuredNode(NodeBase):
+class StructuredNode(PropertyManager, metaclass=NodeMeta):
     """
     Base class for all node definitions to inherit from.
 

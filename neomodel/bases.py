@@ -6,17 +6,68 @@ from neomodel.properties import AliasProperty, Property
 from neomodel.util import display_for
 
 
-class _RelationshipDefinition(object):
+class _RelationshipDefinition:
     # This class is solely intended to be used as base class for
     # relationship_manager.RelationshipDefinition in order to avoid
     # unresolvable import dependencies.
     pass
 
 
-class PropertyManager(object):
+class PropertyManagerMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        if hasattr(cls, '__abstract_node__'):
+            # TODO rather use a 'Meta' class à la Django?
+            # or use an Abstract class that serves as marker
+            # (also usable for property classes)
+            delattr(cls, '__abstract_node__')
+        else:
+            if 'deleted' in namespace:
+                raise ValueError("Class property called 'deleted' conflicts "
+                                 "with neomodel internals.")
+            for property_name, property_instance in \
+                    ((x, y) for x, y in namespace.items()
+                     if isinstance(y, Property)):
+                mcs._setup_property(mcs, cls, property_name, property_instance)
+
+            # cache various groups of properties
+            # FIXME some of these should really be dicts
+            cls.__required_properties__ = tuple(
+                name for name, property
+                in cls.defined_properties(aliases=False, rels=False).items()
+                if property.required or property.unique_index
+            )
+            cls.__all_properties__ = tuple(
+                cls.defined_properties(aliases=False, rels=False).items()
+            )
+            cls.__all_aliases__ = tuple(
+                cls.defined_properties(properties=False, rels=False).items()
+            )
+            # FIXME node specific
+            cls.__all_relationships__ = tuple(
+                cls.defined_properties(aliases=False, properties=False).items()
+            )
+
+            cls.__label__ = namespace.get('__label__', name)
+
+            if config.AUTO_INSTALL_LABELS:
+                db.install_labels(cls)
+
+        return cls
+
+    def _setup_property(mcs, cls, name, instance):
+        instance.name, instance.owner = name, cls
+        # TODO document this feature
+        if hasattr(instance, 'setup') and callable(instance.setup):
+            instance.setup()
+
+
+class PropertyManager(metaclass=PropertyManagerMeta):
     """
     Common methods for handling properties on node and relationship objects.
     """
+
+    __abstract_node__ = True
 
     def __init__(self, **kwargs):
         properties = getattr(self, "__all_properties__", None)
@@ -97,49 +148,3 @@ class PropertyManager(object):
             ))
         return props
 
-
-class PropertyManagerMeta(type):
-    def __new__(mcs, name, bases, namespace):
-        bases += (PropertyManager,)
-        cls = super().__new__(mcs, name, bases, namespace)
-        if hasattr(cls, '__abstract_node__'):
-            delattr(cls, '__abstract_node__')
-        else:
-            if 'deleted' in namespace:
-                raise ValueError("Class property called 'deleted' conflicts "
-                                 "with neomodel internals.")
-            for property_name, property_instance in \
-                    ((x, y) for x, y in namespace.items()
-                     if isinstance(y, Property)):
-                mcs._setup_property(mcs, cls, property_name, property_instance)
-
-            # cache various groups of properties
-            # FIXME some of these should really be dicts
-            cls.__required_properties__ = tuple(
-                name for name, property
-                in cls.defined_properties(aliases=False, rels=False).items()
-                if property.required or property.unique_index
-            )
-            cls.__all_properties__ = tuple(
-                cls.defined_properties(aliases=False, rels=False).items()
-            )
-            cls.__all_aliases__ = tuple(
-                cls.defined_properties(properties=False, rels=False).items()
-            )
-            # FIXME node specific
-            cls.__all_relationships__ = tuple(
-                cls.defined_properties(aliases=False, properties=False).items()
-            )
-
-            cls.__label__ = namespace.get('__label__', name)
-
-            if config.AUTO_INSTALL_LABELS:
-                db.install_labels(cls)
-
-        return cls
-
-    def _setup_property(mcs, cls, name, instance):
-        instance.name, instance.owner = name, cls
-        # TODO document this feature
-        if hasattr(instance, 'setup') and callable(instance.setup):
-            instance.setup()
