@@ -7,15 +7,19 @@ from threading import local
 
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
-from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed
+from neomodel import config
+from neomodel.exceptions import UniqueProperty, ConstraintValidationFailed
 
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
-else:
-    from urlparse import urlparse  # noqa
 
 logger = logging.getLogger(__name__)
+
+
+if sys.version_info < (3,):
+    from urlparse import urlparse
+    STRING_TYPE = basestring  # noqa: F821
+else:
+    from urllib.parse import urlparse
+    STRING_TYPE = str
 
 
 # make sure the connection url has been set prior to executing the wrapped function
