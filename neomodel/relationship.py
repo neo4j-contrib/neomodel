@@ -7,7 +7,7 @@ class RelationshipMeta(PropertyManagerMeta):
     def _setup_property(mcs, cls, name, instance):
         if instance.is_indexed:
             raise NotImplemented("Indexed relationship properties not supported yet")
-        super(RelationshipMeta, mcs)._setup_property(mcs, cls, name, instance)
+        super()._setup_property(mcs, cls, name, instance)
 
 
 StructuredRelBase = RelationshipMeta('RelationshipBase', (), {})
@@ -18,7 +18,7 @@ class StructuredRel(StructuredRelBase):
     Base class for relationship objects
     """
     def __init__(self, *args, **kwargs):
-        super(StructuredRel, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @hooks
     def save(self):

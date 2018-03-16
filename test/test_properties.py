@@ -239,7 +239,7 @@ def test_regex_property():
 
         def normalize(self, value):
             self._called = True
-            return super(TestProperty, self).normalize(value)
+            return super().normalize(value)
 
     prop = TestProperty()
     result = prop.inflate('foo bar')

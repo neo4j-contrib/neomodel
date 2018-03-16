@@ -16,7 +16,7 @@ class ZeroOrOne(RelationshipManager):
 
         :return: node
         """
-        nodes = super(ZeroOrOne, self).all()
+        nodes = super().all()
         if len(nodes) == 1:
             return nodes[0]
         if len(nodes) > 1:
@@ -40,7 +40,7 @@ class ZeroOrOne(RelationshipManager):
             raise AttemptedCardinalityViolation(
                     "Node already has {0} can't connect more".format(self))
         else:
-            return super(ZeroOrOne, self).connect(node, properties)
+            return super().connect(node, properties)
 
 
 class OneOrMore(RelationshipManager):
@@ -53,7 +53,7 @@ class OneOrMore(RelationshipManager):
 
         :return: Node
         """
-        nodes = super(OneOrMore, self).all()
+        nodes = super().all()
         if nodes:
             return nodes[0]
         raise CardinalityViolation(self, 'none')
@@ -64,7 +64,7 @@ class OneOrMore(RelationshipManager):
 
         :return: [node1, node2...]
         """
-        nodes = super(OneOrMore, self).all()
+        nodes = super().all()
         if nodes:
             return nodes
         raise CardinalityViolation(self, 'none')
@@ -75,9 +75,9 @@ class OneOrMore(RelationshipManager):
         :param node:
         :return:
         """
-        if super(OneOrMore, self).__len__() < 2:
+        if len(self) < 2:
             raise AttemptedCardinalityViolation("One or more expected")
-        return super(OneOrMore, self).disconnect(node)
+        return super().disconnect(node)
 
 
 class One(RelationshipManager):
@@ -92,14 +92,11 @@ class One(RelationshipManager):
 
         :return: node
         """
-        nodes = super(One, self).all()
-        if nodes:
-            if len(nodes) == 1:
-                return nodes[0]
-            else:
-                raise CardinalityViolation(self, len(nodes))
+        nodes = super().all()
+        if len(nodes) == 1:
+            return nodes[0]
         else:
-            raise CardinalityViolation(self, 'none')
+            raise CardinalityViolation(self, len(nodes) or 'none')
 
     def all(self):
         """
@@ -129,4 +126,4 @@ class One(RelationshipManager):
                 "Node already has one relationship"
             )
         else:
-            return super(One, self).connect(node, properties)
+            return super().connect(node, properties)

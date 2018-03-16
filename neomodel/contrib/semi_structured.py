@@ -21,9 +21,6 @@ class SemiStructuredNode(StructuredNode):
     """
     __abstract_node__ = True
 
-    def __init__(self, *args, **kwargs):
-        super(SemiStructuredNode, self).__init__(*args, **kwargs)
-
     @classmethod
     def inflate(cls, node):
         # support lazy loading
@@ -53,8 +50,7 @@ class SemiStructuredNode(StructuredNode):
 
     @classmethod
     def deflate(cls, node_props, obj=None, skip_empty=False):
-        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj,
-                                                          skip_empty=skip_empty)
+        deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
                 raise DeflateConflict(cls, key, deflated[key], obj.id)

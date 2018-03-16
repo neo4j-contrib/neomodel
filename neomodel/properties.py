@@ -131,7 +131,7 @@ class NormalizedProperty(Property):
         return self.normalize(value)
 
     def default_value(self):
-        default = super(NormalizedProperty, self).default_value()
+        default = super().default_value()
         return self.normalize(default)
 
     @abstractmethod
@@ -146,7 +146,7 @@ class _TypedProperty(NormalizedProperty):
         return self.type(value)
 
     def default_value(self):
-        return self.type(super(_TypedProperty, self).default_value())
+        return self.type(super().default_value())
 
 
 TypedProperty = ABCMeta('TypedProperty', (_TypedProperty,), {})
@@ -173,7 +173,7 @@ class RegexProperty(NormalizedProperty):
 
         :param str expression: regular expression validating this property
         """
-        super(RegexProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         actual_re = expression or self.expression
         if actual_re is None:
             raise ValueError('expression is undefined')
@@ -248,7 +248,7 @@ class ArrayProperty(Property):
 
         self.base_property = base_property
 
-        super(ArrayProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
@@ -265,7 +265,7 @@ class ArrayProperty(Property):
         return list(value)
 
     def default_value(self):
-        return list(super(ArrayProperty, self).default_value())
+        return list(super().default_value())
 
 
 class BooleanProperty(TypedProperty):
@@ -310,7 +310,7 @@ class DateTimeProperty(Property):
                 raise ValueError('too many defaults')
             kwargs['default'] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
 
-        super(DateTimeProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
@@ -366,9 +366,6 @@ class JSONProperty(Property):
 
     The structure will be inflated when a node is retrieved.
     """
-    def __init__(self, *args, **kwargs):
-        super(JSONProperty, self).__init__(*args, **kwargs)
-
     @validator
     def inflate(self, value):
         return json.loads(value)
@@ -388,7 +385,7 @@ class StringProperty(NormalizedProperty):
     :type choices: Any type that can be used to initiate a :class:`dict`.
     """
     def __init__(self, choices=None, **kwargs):
-        super(StringProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if choices is None:
             self.choices = None
@@ -407,7 +404,7 @@ class StringProperty(NormalizedProperty):
         return value
 
     def default_value(self):
-        return self.normalize(super(StringProperty, self).default_value())
+        return self.normalize(super().default_value())
 
 
 class UniqueIdProperty(TypedProperty):
@@ -424,6 +421,6 @@ class UniqueIdProperty(TypedProperty):
 
         kwargs['unique_index'] = True
         kwargs['default'] = lambda: uuid.uuid4().hex
-        super(UniqueIdProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
 

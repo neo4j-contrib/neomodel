@@ -101,7 +101,7 @@ class PropertyManager(object):
 class PropertyManagerMeta(type):
     def __new__(mcs, name, bases, namespace):
         bases += (PropertyManager,)
-        cls = super(PropertyManagerMeta, mcs).__new__(mcs, name, bases, namespace)
+        cls = super().__new__(mcs, name, bases, namespace)
         if hasattr(cls, '__abstract_node__'):
             delattr(cls, '__abstract_node__')
         else:

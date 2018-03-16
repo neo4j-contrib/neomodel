@@ -60,7 +60,7 @@ class DoesNotExist(NeomodelException):
         if self._model_class is None:
             raise RuntimeError("This class hasn't been setup properly.")
         self.message = msg
-        super(DoesNotExist, self).__init__(self, msg)
+        super().__init__(self, msg)
 
     def __reduce__(self):
         return _unpickle_does_not_exist, (self._model_class, self.message)

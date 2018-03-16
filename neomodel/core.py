@@ -11,7 +11,7 @@ class NodeMeta(PropertyManagerMeta):
     def __new__(mcs, name, bases, namespace):
         namespace['DoesNotExist'] = \
             type(name + 'DoesNotExist', (DoesNotExist,), {})
-        cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
+        cls = super().__new__(mcs, name, bases, namespace)
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
         return cls
@@ -41,7 +41,7 @@ class StructuredNode(NodeBase):
         for key, val in self.__all_relationships__:
             self.__dict__[key] = val.build_manager(self, key)
 
-        super(StructuredNode, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
