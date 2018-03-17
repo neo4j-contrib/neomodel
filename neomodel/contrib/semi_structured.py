@@ -29,13 +29,13 @@ class SemiStructuredNode(StructuredNode):
             snode.id = node
         else:
             props = {}
-            for key, prop in cls.__all_properties__:
-                if key in node.properties:
-                    props[key] = prop.inflate(node.properties[key], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
+            for name, definition in cls.__property_definitions__.items():
+                if name in node.properties:
+                    props[name] = definition.inflate(node.properties[name], node)
+                elif definition.has_default:
+                    props[name] = definition.default_value()
                 else:
-                    props[key] = None
+                    props[name] = None
             # handle properties not defined on the class
             for free_key in (x for x in node.properties if x not in props):
                 if hasattr(cls, free_key):

@@ -250,9 +250,8 @@ def install_labels(cls, quiet=True, stdout=None):
             )
         return
 
-    for name, property \
-            in cls.defined_properties(aliases=False, rels=False).items():
-        if property.index:
+    for name, definition in cls.__property_definitions__.items():
+        if definition.index:
             if not quiet:
                 stdout.write(
                     ' + Creating index {} on label {} for class {}.{}\n'
@@ -264,7 +263,7 @@ def install_labels(cls, quiet=True, stdout=None):
                 .format(label=cls.__label__, name=name)
             )
 
-        elif property.unique_index:
+        elif definition.unique_index:
             if not quiet:
                 stdout.write(
                     ' + Creating unique constraint for {} on label {} for '

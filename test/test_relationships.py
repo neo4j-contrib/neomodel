@@ -1,14 +1,16 @@
-from pytest import raises
+from pytest import raises, mark
 
-from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relationship,
-                      StringProperty, IntegerProperty, StructuredRel, One)
+from neomodel import (
+    One, IntegerProperty, StructuredNode, StringProperty, StructuredRel,
+    Relationship, RelationshipDefinition, RelationshipFrom, RelationshipTo
+)
 
 
 class Person(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
-    knows = Relationship(u'Person', 'KNOWS')  # use unicode to check issue
+    knows = Relationship('Person', 'KNOWS')
 
     @property
     def special_name(self):
@@ -154,3 +156,12 @@ def test_props_relationship():
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
 
+
+@mark.parametrize('node_class', (Person, SuperHero))
+def test_introspective_properties(node_class):
+    assert 'is_from' in node_class.__relationship_definitions__
+    assert isinstance(node_class.__relationship_definitions__['is_from'],
+                      RelationshipDefinition)
+    assert 'knows' in node_class.__relationship_definitions__
+    assert isinstance(node_class.__relationship_definitions__['knows'],
+                      RelationshipDefinition)

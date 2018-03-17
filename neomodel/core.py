@@ -1,29 +1,40 @@
 import warnings
 
+from neomodel import config
 from neomodel.bases import PropertyManager, PropertyManagerMeta
-from neomodel.db import client
+from neomodel.db import client, install_labels
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
 from neomodel.match import OUTGOING, NodeSet, _rel_helper
-from neomodel.types import NodeType
-from neomodel.util import classproperty, is_abstract_node_model, registries, _UnsavedNode
+from neomodel.types import NodeType, RelationshipDefinitionType
+from neomodel.util import (
+    classproperty, is_abstract_node_model, get_members_of_type, registries,
+    _UnsavedNode
+)
 
 
 class NodeMeta(PropertyManagerMeta):
     def __new__(mcs, name, bases, namespace):
-        namespace['DoesNotExist'] = \
-            type(name + 'DoesNotExist', (DoesNotExist,), {})
+        namespace.update({
+            '__label__': namespace.get('__label__', name),
+            'DoesNotExist': type(name + 'DoesNotExist', (DoesNotExist,), {}),
+        })
 
         cls = super().__new__(mcs, name, bases, namespace)
 
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
 
-        # TODO? for relationships as well
         if len(cls.__mro__) <= 5:  # ignore all bases up to StructuredNode
             pass
         elif not is_abstract_node_model(cls):
             registries.concrete_node_models.add(cls)
+
+        cls.__relationship_definitions__ = \
+            get_members_of_type(cls, RelationshipDefinitionType)
+
+        if config.AUTO_INSTALL_LABELS:
+            install_labels(cls)
 
         return cls
 
@@ -46,8 +57,8 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         if 'deleted' in kwargs:
             raise ValueError("deleted property is reserved for neomodel")
 
-        for key, val in self.__all_relationships__:
-            self.__dict__[key] = val.build_manager(self, key)
+        for name, definition in self.__relationship_definitions__.items():
+            setattr(self, name, definition.build_manager(self, name))
 
         super().__init__(*args, **kwargs)
 
@@ -184,8 +195,10 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         # build merge query, make sure to update only explicitly specified properties
         create_or_update_params = []
         for specified, deflated in [(p, cls.deflate(p, skip_empty=True)) for p in props]:
-            create_or_update_params.append({"create": deflated,
-                                            "update": dict((k, v) for k, v in deflated.items() if k in specified)})
+            create_or_update_params.append({
+                "create": deflated,
+                "update": {k: v for k, v in deflated.items() if k in specified}
+            })
         query, params = cls._build_merge_query(create_or_update_params, update_existing=True, relationship=relationship,
                                                lazy=lazy)
 
@@ -271,16 +284,16 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
             snode.id = node
         else:
             props = {}
-            for key, prop in cls.__all_properties__:
+            for name, definition in cls.__property_definitions__.items():
                 # map property name from database to object property
-                db_property = prop.db_property or key
+                db_property = definition.db_property or name
 
                 if db_property in node.properties:
-                    props[key] = prop.inflate(node.properties[db_property], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
+                    props[name] = definition.inflate(node.properties[db_property], node)
+                elif definition.has_default:
+                    props[name] = definition.default_value()
                 else:
-                    props[key] = None
+                    props[name] = None
 
             snode = cls(**props)
             snode.id = node.id

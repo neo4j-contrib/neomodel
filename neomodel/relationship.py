@@ -15,9 +15,6 @@ class StructuredRel(PropertyManager, RelationshipType, metaclass=RelationshipMet
     """
     Base class for relationship objects
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     @hooks
     def save(self):
         """
@@ -65,13 +62,13 @@ class StructuredRel(PropertyManager, RelationshipType, metaclass=RelationshipMet
         :return: StructuredRel
         """
         props = {}
-        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            if key in rel:
-                props[key] = prop.inflate(rel[key], obj=rel)
-            elif prop.has_default:
-                props[key] = prop.default_value()
+        for name, definition in cls.__property_definitions__.items():
+            if name in rel:
+                props[name] = definition.inflate(rel[name], obj=rel)
+            elif definition.has_default:
+                props[name] = definition.default_value()
             else:
-                props[key] = None
+                props[name] = None
         srel = cls(**props)
         srel._start_node_id = rel.start
         srel._end_node_id = rel.end

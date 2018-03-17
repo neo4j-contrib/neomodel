@@ -1,7 +1,9 @@
 from pytest import raises
 
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
-                      RelationshipTo, RelationshipFrom)
+from neomodel import (
+    IntegerProperty, StringProperty, StructuredNode,
+    RelationshipFrom, RelationshipTo, UniqueIdProperty
+)
 from neomodel.exceptions import UniqueProperty, DeflateError
 
 

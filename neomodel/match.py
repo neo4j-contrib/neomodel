@@ -109,17 +109,16 @@ def install_traversals(cls, node_set):
     For a StructuredNode class install Traversal objects for each
     relationship definition on a NodeSet instance
     """
-    rels = cls.defined_properties(rels=True, aliases=False, properties=False)
 
-    for key, value in rels.items():
-        if hasattr(node_set, key):
-            raise ValueError("Can't install traversal '{}' exists on NodeSet".format(key))
+    for name in cls.__relationship_definitions__:
+        if hasattr(node_set, name):
+            raise ValueError("Can't install traversal, '{}' exists on NodeSet".format(name))
 
-        rel = getattr(cls, key)
-        rel._lookup_node_class()
+        rel = getattr(cls, name)
+        rel._lookup_node_class()  # TODO? isn't this static?
 
-        traversal = Traversal(source=node_set, name=key, definition=rel.definition)
-        setattr(node_set, key, traversal)
+        traversal = Traversal(source=node_set, name=name, definition=rel.definition)
+        setattr(node_set, name, traversal)
 
 
 def process_filter_args(cls, kwargs):
@@ -138,7 +137,7 @@ def process_filter_args(cls, kwargs):
             prop = key
             operator = '='
 
-        if prop not in cls.defined_properties(rels=False):
+        if prop not in cls.__property_and_alias_definitions__:
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
 
         property_obj = getattr(cls, prop)
@@ -168,7 +167,7 @@ def process_filter_args(cls, kwargs):
                 deflated_value = property_obj.deflate(value)
 
         # map property to correct property name in the database
-        db_property = cls.defined_properties(rels=False)[prop].db_property or prop
+        db_property = cls.__property_and_alias_definitions__[prop].db_property or prop
 
         output[db_property] = (operator, deflated_value)
 
@@ -179,26 +178,26 @@ def process_has_args(cls, kwargs):
     """
     loop through has parameters check they correspond to class rels defined
     """
-    rel_definitions = cls.defined_properties(properties=False, rels=True, aliases=False)
+    relationship_definitions = cls.__relationship_definitions__
 
     match, dont_match = {}, {}
 
-    for key, value in kwargs.items():
-        if key not in rel_definitions:
-            raise ValueError("No such relation {} defined on a {}".format(key, cls.__name__))
+    for name, constraint in kwargs.items():
+        if name not in relationship_definitions:
+            raise ValueError("No such relation {} defined on a {}".format(name, cls.__name__))
 
-        rhs_ident = key
+        rhs_ident = name
 
-        rel_definitions[key]._lookup_node_class()
+        relationship_definitions[name]._lookup_node_class()
 
-        if value is True:
-            match[rhs_ident] = rel_definitions[key].definition
-        elif value is False:
-            dont_match[rhs_ident] = rel_definitions[key].definition
-        elif isinstance(value, NodeSetType):
+        if constraint is True:
+            match[rhs_ident] = relationship_definitions[name].definition
+        elif constraint is False:
+            dont_match[rhs_ident] = relationship_definitions[name].definition
+        elif isinstance(constraint, NodeSetType):
             raise NotImplementedError("Not implemented yet")
         else:
-            raise ValueError("Expecting True / False / NodeSet got: " + repr(value))
+            raise ValueError("Expecting True / False / NodeSet got: " + repr(constraint))
 
     return match, dont_match
 
@@ -598,7 +597,7 @@ class NodeSet(NodeSetBase):
                 else:
                     desc = False
 
-                if prop not in self.source_class.defined_properties(rels=False):
+                if prop not in self.source_class.__property_and_alias_definitions__:
                     raise ValueError("No such property {} on {}".format(
                         prop, self.source_class.__name__))
 

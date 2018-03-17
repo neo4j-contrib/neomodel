@@ -39,10 +39,19 @@ def deprecated(message):
     return messaging_decorator
 
 
-def display_for(key):
+def display_for(property_name):
     def display_choice(self):
-        return getattr(self.__class__, key).choices[getattr(self, key)]
+        return getattr(self.__class__, property_name).choices[getattr(self, property_name)]
     return display_choice
+
+
+def get_members_of_type(cls, wanted_type, unwanted_type=()):
+    result = {}
+    for baseclass in reversed(cls.__mro__):
+        result.update({k: v for k, v in vars(baseclass).items()
+                       if isinstance(v, wanted_type)
+                       and not isinstance(v, unwanted_type)})
+    return result
 
 
 def is_abstract_node_model(cls):
