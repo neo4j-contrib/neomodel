@@ -3,12 +3,11 @@ from .core import *
 from neomodel.db import change_neo4j_password, clear_neo4j_database
 from neomodel.exceptions import *
 from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal
-from neomodel.relationship_manager import (
-    NotConnected, RelationshipTo, RelationshipFrom, Relationship,
-    RelationshipManager, RelationshipDefinition
+from neomodel.relationship import (
+    One, OneOrMore, ZeroOrMore, ZeroOrOne,
+    StructuredRel,
+    Relationship, RelationshipFrom, RelationshipTo,
 )
-from .relationship import StructuredRel
-from .cardinality import (ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
                          FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
                          NormalizedProperty, RegexProperty, EmailProperty,

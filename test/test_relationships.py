@@ -2,9 +2,10 @@ from pytest import raises, mark
 
 from neomodel import (
     One, IntegerProperty, StructuredNode, StringProperty, StructuredRel,
-    Relationship, RelationshipDefinition, RelationshipFrom, RelationshipTo
+    Relationship, RelationshipFrom, RelationshipTo
 )
 from neomodel.exceptions import NodeIsDeletedError
+from neomodel.relationship import RelationshipDefinition
 
 
 class Person(StructuredNode):
