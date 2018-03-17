@@ -9,6 +9,7 @@ import pytz
 
 from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError
+from neomodel.types import AliasPropertyType, PropertyType
 
 
 def validator(fn):
@@ -37,7 +38,7 @@ def validator(fn):
 # abstract property base classes
 
 
-class Property(ABC):
+class Property(ABC, PropertyType):
     """
     Base class for object properties.
 
@@ -198,7 +199,7 @@ class RegexProperty(NormalizedProperty):
         return value
 
 
-class AliasProperty(property, Property):
+class AliasProperty(property, Property, AliasPropertyType):
     """
     Alias another existing property
     """
@@ -246,7 +247,7 @@ class ArrayProperty(Property):
 
         # list item type
         if base_property is not None:
-            if not isinstance(base_property, Property):
+            if not isinstance(base_property, PropertyType):
                 raise TypeError('Expecting neomodel Property')
 
             if isinstance(base_property, ArrayProperty):

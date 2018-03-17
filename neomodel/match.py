@@ -1,10 +1,10 @@
 import inspect
 import re
+from collections.abc import Mapping, Sequence
 
-from neomodel.core import StructuredNode
 from neomodel.db import client
 from neomodel.exceptions import MultipleNodesReturned
-from neomodel.properties import AliasProperty
+from neomodel.types import AliasPropertyType, NodeSetType, NodeType
 
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
@@ -142,13 +142,13 @@ def process_filter_args(cls, kwargs):
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
 
         property_obj = getattr(cls, prop)
-        if isinstance(property_obj, AliasProperty):
+        if isinstance(property_obj, AliasPropertyType):
             prop = property_obj.aliased_to()
             deflated_value = getattr(cls, prop).deflate(value)
         else:
             # handle special operators
             if operator == _SPECIAL_OPERATOR_IN:
-                if not isinstance(value, tuple) and not isinstance(value, list):
+                if not isinstance(value, Sequence):
                     raise ValueError('Value must be a tuple or list for IN operation {}={}'.format(key, value))
                 deflated_value = [property_obj.deflate(v) for v in value]
             elif operator == _SPECIAL_OPERATOR_ISNULL:
@@ -195,7 +195,7 @@ def process_has_args(cls, kwargs):
             match[rhs_ident] = rel_definitions[key].definition
         elif value is False:
             dont_match[rhs_ident] = rel_definitions[key].definition
-        elif isinstance(value, NodeSet):
+        elif isinstance(value, NodeSetType):
             raise NotImplementedError("Not implemented yet")
         else:
             raise ValueError("Expecting True / False / NodeSet got: " + repr(value))
@@ -224,8 +224,8 @@ class QueryBuilder:
     def build_source(self, source):
         if isinstance(source, Traversal):
             return self.build_traversal(source)
-        elif isinstance(source, NodeSet):
-            if inspect.isclass(source.source) and issubclass(source.source, StructuredNode):
+        elif isinstance(source, NodeSetType):
+            if inspect.isclass(source.source) and issubclass(source.source, NodeType):
                 ident = self.build_label(source.source.__label__.lower(), source.source)
             else:
                 ident = self.build_source(source.source)
@@ -239,7 +239,7 @@ class QueryBuilder:
                 self.build_where_stmt(ident, source.filters)
 
             return ident
-        elif isinstance(source, StructuredNode):
+        elif isinstance(source, NodeType):
             return self.build_node(source)
         else:
             raise ValueError("Unknown source type " + repr(source))
@@ -309,7 +309,7 @@ class QueryBuilder:
         source_ident = ident
 
         for key, value in node_set.must_match.items():
-            if isinstance(value, dict):
+            if isinstance(value, Mapping):
                 label = ':' + value['node_class'].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
                 self._ast['where'].append(stmt)
@@ -317,7 +317,7 @@ class QueryBuilder:
                 raise ValueError("Expecting dict got: " + repr(value))
 
         for key, val in node_set.dont_match.items():
-            if isinstance(val, dict):
+            if isinstance(val, Mapping):
                 label = ':' + val['node_class'].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **val)
                 self._ast['where'].append('NOT ' + stmt)
@@ -412,7 +412,7 @@ class QueryBuilder:
         return []
 
 
-class BaseSet:
+class NodeSetBase(NodeSetType):
     """
     Base class for all node sets.
 
@@ -441,7 +441,7 @@ class BaseSet:
         return self.query_cls(self).build_ast()._count() > 0
 
     def __contains__(self, obj):
-        if isinstance(obj, StructuredNode):
+        if isinstance(obj, NodeType):
             if hasattr(obj, 'id'):
                 return self.query_cls(self).build_ast()._contains(int(obj.id))
             raise ValueError("Unsaved node: " + repr(obj))
@@ -467,7 +467,7 @@ class BaseSet:
             return self.query_cls(self).build_ast()._execute()[0]
 
 
-class NodeSet(BaseSet):
+class NodeSet(NodeSetBase):
     """
     A class representing as set of nodes matching common query parameters
     """
@@ -475,9 +475,9 @@ class NodeSet(BaseSet):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+        elif inspect.isclass(source) and issubclass(source, NodeType):
             self.source_class = source
-        elif isinstance(source, StructuredNode):
+        elif isinstance(source, NodeType):
             self.source_class = source.__class__
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
@@ -603,7 +603,7 @@ class NodeSet(BaseSet):
                         prop, self.source_class.__name__))
 
                 property_obj = getattr(self.source_class, prop)
-                if isinstance(property_obj, AliasProperty):
+                if isinstance(property_obj, AliasPropertyType):
                     prop = property_obj.aliased_to()
 
                 self._order_by.append(prop + (' DESC' if desc else ''))
@@ -611,7 +611,7 @@ class NodeSet(BaseSet):
         return self
 
 
-class Traversal(BaseSet):
+class Traversal(NodeSetBase):
     """
     Models a traversal from a node to another.
 
@@ -635,11 +635,11 @@ class Traversal(BaseSet):
 
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+        elif inspect.isclass(source) and issubclass(source, NodeType):
             self.source_class = source
-        elif isinstance(source, StructuredNode):
+        elif isinstance(source, NodeType):
             self.source_class = source.__class__
-        elif isinstance(source, NodeSet):
+        elif isinstance(source, NodeSetType):
             self.source_class = source.source_class
         else:
             raise TypeError("Bad source for traversal: "

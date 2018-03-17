@@ -11,7 +11,7 @@ from neo4j.v1 import GraphDatabase, basic_auth, SessionError
 
 from neomodel import config
 from neomodel.exceptions import UniqueProperty, ConstraintValidationFailed
-from neomodel.util import logger
+from neomodel.util import logger, registries
 
 
 # database client
@@ -210,27 +210,17 @@ def drop_indexes(quiet=True, stdout=None):
 
 def install_all_labels(stdout=None):
     """
-    Discover all subclasses of StructuredNode in the running application and
-    execute :func:`install_labels` on each.
-    All model classes must have been imported to be discovered.
+    Execute :func:`install_labels` on each registered non-abstract node model.
+    All model classes must have been imported to be registered.
 
     :param stdout: output stream
     """
-    if 'StructuredNode' not in globals():
-        from neomodel.core import StructuredNode
-        globals()['StructuredNode'] = StructuredNode
-
     if not stdout:
         stdout = sys.stdout
 
-    # TODO make that a util function
-    def subsub(kls):  # recursively return all subclasses
-        return (kls.__subclasses__()
-                + [g for s in kls.__subclasses__() for g in subsub(s)])
-
     stdout.write("Setting up indexes and constraints...\n\n")
 
-    for i, cls in enumerate(subsub(StructuredNode)):
+    for i, cls in enumerate(registries.concrete_node_models, start=1):
         stdout.write('Found {}.{}\n'.format(cls.__module__, cls.__name__))
         install_labels(cls, quiet=False, stdout=stdout)
 

@@ -2,10 +2,12 @@ import functools
 import sys
 from importlib import import_module
 
-from neomodel.bases import _RelationshipDefinition
 from neomodel.exceptions import NotConnected
 from neomodel.match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from neomodel.relationship import StructuredRel
+from neomodel.types import (
+    RelationshipDefinitionType, RelationshipManagerType, RelationshipType
+)
 
 
 # check source node is saved and not deleted
@@ -19,7 +21,7 @@ def check_source(fn):
     return checker
 
 
-class RelationshipManager:
+class RelationshipManager(RelationshipManagerType):
     """
     Base class for all relationships managed through neomodel.
 
@@ -307,7 +309,7 @@ class RelationshipManager:
         return self._new_traversal().__getitem__(key)
 
 
-class RelationshipDefinition(_RelationshipDefinition):
+class RelationshipDefinition(RelationshipDefinitionType):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
         self.module_name = sys._getframe(4).f_globals['__name__']
         if '__file__' in sys._getframe(4).f_globals:
@@ -371,9 +373,8 @@ class ZeroOrMore(RelationshipManager):
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
     if not isinstance(cls_name, (str, type)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
-    from .relationship import StructuredRel  # TODO move, there's more of this
 
-    if model and not issubclass(model, (StructuredRel,)):
+    if model and not issubclass(model, RelationshipType):
         raise ValueError('model must be a StructuredRel')
     return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
 

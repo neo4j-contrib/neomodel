@@ -4,20 +4,31 @@ from neomodel.bases import PropertyManager, PropertyManagerMeta
 from neomodel.db import client
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
-from neomodel.util import classproperty, _UnsavedNode
+from neomodel.match import OUTGOING, NodeSet, _rel_helper
+from neomodel.types import NodeType
+from neomodel.util import classproperty, is_abstract_node_model, registries, _UnsavedNode
 
 
 class NodeMeta(PropertyManagerMeta):
     def __new__(mcs, name, bases, namespace):
         namespace['DoesNotExist'] = \
             type(name + 'DoesNotExist', (DoesNotExist,), {})
+
         cls = super().__new__(mcs, name, bases, namespace)
+
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
+
+        # TODO? for relationships as well
+        if len(cls.__mro__) <= 5:  # ignore all bases up to StructuredNode
+            pass
+        elif not is_abstract_node_model(cls):
+            registries.concrete_node_models.add(cls)
+
         return cls
 
 
-class StructuredNode(PropertyManager, metaclass=NodeMeta):
+class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
     """
     Base class for all node definitions to inherit from.
 
@@ -41,7 +52,7 @@ class StructuredNode(PropertyManager, metaclass=NodeMeta):
         super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, (StructuredNode,)):
+        if not isinstance(other, NodeType):
             return False
         if hasattr(self, 'id') and hasattr(other, 'id'):
             return self.id == other.id
@@ -65,7 +76,6 @@ class StructuredNode(PropertyManager, metaclass=NodeMeta):
         :return: NodeSet
         :rtype: NodeSet
         """
-        from .match import NodeSet
         return NodeSet(cls)
 
     # methods
@@ -89,13 +99,11 @@ class StructuredNode(PropertyManager, metaclass=NodeMeta):
             query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
         else:
             # validate relationship
-            if not isinstance(relationship.source, StructuredNode):
-                raise ValueError("relationship source [%s] is not a StructuredNode" % repr(relationship.source))
+            if not isinstance(relationship.source, NodeType):
+                raise TypeError("relationship source [%s] is not a NodeType" % repr(relationship.source))
             relation_type = relationship.definition.get('relation_type')
             if not relation_type:
                 raise ValueError('No relation_type is specified on provided relationship')
-
-            from .match import OUTGOING, _rel_helper
 
             query_params["source_id"] = relationship.source.id
             query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
@@ -286,9 +294,12 @@ class StructuredNode(PropertyManager, metaclass=NodeMeta):
 
         :return: list
         """
-        return [scls.__label__ for scls in cls.mro()
-                if hasattr(scls, '__label__') and not hasattr(
-                scls, '__abstract_node__')]
+        # FIXME isn't this static?
+        return tuple(
+            baseclass.__label__ for baseclass in cls.__mro__
+            if hasattr(baseclass, '__label__')
+            and not is_abstract_node_model(baseclass)
+        )
 
     def labels(self):
         """

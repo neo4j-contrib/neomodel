@@ -1,9 +1,16 @@
 import logging
 import warnings
 from functools import wraps
+from types import SimpleNamespace
+from weakref import WeakSet
 
 
 logger = logging.getLogger(__name__)
+
+
+registries = SimpleNamespace(
+    concrete_node_models=WeakSet()
+)
 
 
 def classproperty(f):
@@ -36,6 +43,18 @@ def display_for(key):
     def display_choice(self):
         return getattr(self.__class__, key).choices[getattr(self, key)]
     return display_choice
+
+
+def is_abstract_node_model(cls):
+    """
+    Tests whether the provided class has the attribute ``__abstract_node__``
+    and if it evaluates as ``True``.
+
+    :rtype: :class:`bool`
+    """
+    if not '__abstract_node__' in cls.__dict__:
+        return False
+    return bool(cls.__abstract_node__)
 
 
 # Just used for error messages

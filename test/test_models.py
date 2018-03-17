@@ -4,6 +4,8 @@ from pytest import raises
 
 from neomodel import StructuredNode, StringProperty, IntegerProperty
 from neomodel.exceptions import RequiredProperty, UniqueProperty
+from neomodel.types import AttributedType, NodeType
+from neomodel.util import is_abstract_node_model, registries
 
 
 class User(StructuredNode):
@@ -219,3 +221,26 @@ def test_mixins():
     assert len(jim.inherited_labels()) == 1
     assert len(jim.labels()) == 1
     assert jim.labels()[0] == 'Shopper2'
+
+
+class Bar(StructuredNode):
+    __abstract_node__ = True
+
+class Foo(Bar):
+    pass
+
+
+def test_node_models_registry():
+    concrete_node_models = registries.concrete_node_models
+
+    assert AttributedType not in concrete_node_models
+    assert NodeType not in concrete_node_models
+    assert StructuredNode not in concrete_node_models
+    assert Bar not in concrete_node_models
+    assert Foo in concrete_node_models
+
+
+def test_is_abstract_node_model():
+    assert is_abstract_node_model(StructuredNode)
+    assert is_abstract_node_model(Bar)
+    assert not is_abstract_node_model(Foo)

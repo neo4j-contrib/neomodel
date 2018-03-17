@@ -2,32 +2,23 @@ import types
 
 from neomodel import config, db
 from neomodel.exceptions import RequiredProperty
-from neomodel.properties import AliasProperty, Property
-from neomodel.util import display_for
-
-
-class _RelationshipDefinition:
-    # This class is solely intended to be used as base class for
-    # relationship_manager.RelationshipDefinition in order to avoid
-    # unresolvable import dependencies.
-    pass
+from neomodel.util import display_for, is_abstract_node_model
+from neomodel.types import (
+    AliasPropertyType, AttributedType, PropertyType,
+    RelationshipDefinitionType, RelationshipManagerType
+)
 
 
 class PropertyManagerMeta(type):
     def __new__(mcs, name, bases, namespace):
         cls = super().__new__(mcs, name, bases, namespace)
-        if hasattr(cls, '__abstract_node__'):
-            # TODO rather use a 'Meta' class à la Django?
-            # or use an Abstract class that serves as marker
-            # (also usable for property classes)
-            delattr(cls, '__abstract_node__')
-        else:
+        if not is_abstract_node_model(cls):
             if 'deleted' in namespace:
                 raise ValueError("Class property called 'deleted' conflicts "
                                  "with neomodel internals.")
             for property_name, property_instance in \
                     ((x, y) for x, y in namespace.items()
-                     if isinstance(y, Property)):
+                     if isinstance(y, PropertyType)):
                 mcs._setup_property(mcs, cls, property_name, property_instance)
 
             # cache various groups of properties
@@ -62,7 +53,7 @@ class PropertyManagerMeta(type):
             instance.setup()
 
 
-class PropertyManager(metaclass=PropertyManagerMeta):
+class PropertyManager(AttributedType, metaclass=PropertyManagerMeta):
     """
     Common methods for handling properties on node and relationship objects.
     """
@@ -107,14 +98,13 @@ class PropertyManager(metaclass=PropertyManagerMeta):
 
     @property
     def __properties__(self):  # TODO isn't this the same as __all_properties__ ?
-        from .relationship_manager import RelationshipManager
-
-        return dict((name, value) for name, value in vars(self).items()
-                    if not name.startswith('_')
-                    and not callable(value)
-                    and not isinstance(value,
-                                       (RelationshipManager, AliasProperty,))
-                    )
+        return {name: value for name, value in vars(self).items()
+                if not name.startswith('_')
+                and not callable(value)
+                and not isinstance(value,
+                                   (AliasPropertyType, RelationshipManagerType)
+                                   )
+                }
 
     @classmethod
     def deflate(cls, properties, obj=None, skip_empty=False):
@@ -141,10 +131,10 @@ class PropertyManager(metaclass=PropertyManagerMeta):
         for baseclass in reversed(cls.__mro__):
             props.update(dict(
                 (name, property) for name, property in vars(baseclass).items()
-                if (aliases and isinstance(property, AliasProperty))
-                or (properties and isinstance(property, Property)
-                    and not isinstance(property, AliasProperty))
-                or (rels and isinstance(property, _RelationshipDefinition))
+                if (aliases and isinstance(property, AliasPropertyType))
+                or (properties and isinstance(property, PropertyType)
+                    and not isinstance(property, AliasPropertyType))
+                or (rels and isinstance(property, RelationshipDefinitionType))
             ))
         return props
 
