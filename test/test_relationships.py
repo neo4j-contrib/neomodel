@@ -4,6 +4,7 @@ from neomodel import (
     One, IntegerProperty, StructuredNode, StringProperty, StructuredRel,
     Relationship, RelationshipDefinition, RelationshipFrom, RelationshipTo
 )
+from neomodel.exceptions import NodeIsDeletedError
 
 
 class Person(StructuredNode):
@@ -36,13 +37,13 @@ class SuperHero(Person):
 def test_actions_on_deleted_node():
     u = Person(name='Jim2', age=3).save()
     u.delete()
-    with raises(ValueError):
+    with raises(NodeIsDeletedError):
         u.is_from.connect(None)
 
-    with raises(ValueError):
+    with raises(NodeIsDeletedError):
         u.is_from.get()
 
-    with raises(ValueError):
+    with raises(NodeIsDeletedError):
         u.save()
 
 

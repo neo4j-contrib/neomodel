@@ -1,24 +1,35 @@
-import functools
 import sys
+from functools import wraps
 from importlib import import_module
 
-from neomodel.exceptions import NotConnected
-from neomodel.match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
+from neomodel.exceptions import (
+    NodeIsDeletedError, NotConnected, UnsavedNodeError
+)
+from neomodel.match import (
+    EITHER, INCOMING, OUTGOING, NodeSet, Traversal, _rel_helper
+)
 from neomodel.relationship import StructuredRel
 from neomodel.types import (
     RelationshipDefinitionType, RelationshipManagerType, RelationshipType
 )
 
 
-# check source node is saved and not deleted
-def check_source(fn):
-    fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
+def ensure_node_exists_in_db(method):
+    """
+    Decorates relationship methods that require the related node's record in
+    the database.
+    """
+    deleted_msg = method.__qualname__ + '{}() attempted on deleted node.'
+    unsaved_msg = method.__qualname__ + '{}() attempted on unsaved node.'
 
-    @functools.wraps(fn)
-    def checker(self, *args, **kwargs):
-        self.source._pre_action_check(self.name + '.' + fn_name)
-        return fn(self, *args, **kwargs)
-    return checker
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if getattr(self.source, '__deleted__', False):
+            raise NodeIsDeletedError(deleted_msg)
+        if not hasattr(self.source, 'id'):
+            raise UnsavedNodeError(unsaved_msg)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class RelationshipManager(RelationshipManagerType):
@@ -51,7 +62,7 @@ class RelationshipManager(RelationshipManagerType):
         if not hasattr(obj, 'id'):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
-    @check_source
+    @ensure_node_exists_in_db
     def connect(self, node, properties=None):
         """
         Connect a node
@@ -103,7 +114,7 @@ class RelationshipManager(RelationshipManagerType):
 
         return rel_instance
 
-    @check_source
+    @ensure_node_exists_in_db
     def relationship(self, node):
         """
         Retrieve the relationship object for this first relationship between self and node.
@@ -122,7 +133,7 @@ class RelationshipManager(RelationshipManagerType):
 
         return self._set_start_end_cls(rel_model.inflate(rels[0][0]), node)
 
-    @check_source
+    @ensure_node_exists_in_db
     def all_relationships(self, node):
         """
         Retrieve all relationship objects between self and node.
@@ -150,7 +161,7 @@ class RelationshipManager(RelationshipManagerType):
             rel_instance._end_node_class = obj.__class__
         return rel_instance
 
-    @check_source
+    @ensure_node_exists_in_db
     def reconnect(self, old_node, new_node):
         """
         Disconnect old_node and connect new_node copying over any properties on the original relationship.
@@ -191,7 +202,7 @@ class RelationshipManager(RelationshipManagerType):
 
         self.source.cypher(q, {'old': old_node.id, 'new': new_node.id})
 
-    @check_source
+    @ensure_node_exists_in_db
     def disconnect(self, node):
         """
         Disconnect a node
@@ -204,7 +215,7 @@ class RelationshipManager(RelationshipManagerType):
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': node.id})
 
-    @check_source
+    @ensure_node_exists_in_db
     def _new_traversal(self):
         return Traversal(self.source, self.name, self.definition)
 

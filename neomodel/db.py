@@ -11,7 +11,7 @@ from neo4j.v1 import GraphDatabase, basic_auth, SessionError
 
 from neomodel import config
 from neomodel.exceptions import UniqueProperty, ConstraintValidationFailed
-from neomodel.util import logger, registries
+from neomodel.util import is_abstract_node_model, logger, registries
 
 
 # database client
@@ -242,7 +242,7 @@ def install_labels(cls, quiet=True, stdout=None):
     :return: None
     """
 
-    if not hasattr(cls, '__label__'):
+    if is_abstract_node_model(cls):
         if not quiet:
             stdout.write(
                 ' ! Skipping class {}.{} is abstract\n'

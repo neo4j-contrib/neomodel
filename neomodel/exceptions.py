@@ -1,6 +1,3 @@
-import importlib
-
-
 class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
@@ -114,6 +111,13 @@ class MultipleNodesReturned(ValueError, NeomodelException):
         self.message = msg
 
 
+class NodeIsDeletedError(NeomodelException):
+    """
+    Raised when a database transaction is attempted
+    on an deleted node model instance.
+    """
+
+
 class NotConnected(NeomodelException):
     def __init__(self, action, node1, node2):
         self.action = action
@@ -143,6 +147,13 @@ class UniqueProperty(ConstraintValidationFailed):
         self.message = msg
 
 
+class UnsavedNodeError(NeomodelException):
+    """
+    Raised when a database transaction is attempted
+    on a yet unsaved node model instance.
+    """
+
+
 __all__ = (
     AttemptedCardinalityViolation.__name__,
     CardinalityViolation.__name__,
@@ -154,7 +165,9 @@ __all__ = (
     InflateError.__name__,
     MultipleNodesReturned.__name__,
     NeomodelException.__name__,
+    NodeIsDeletedError.__name__,
     NotConnected.__name__,
     RequiredProperty.__name__,
-    UniqueProperty.__name__
+    UniqueProperty.__name__,
+    UnsavedNodeError.__name__,
 )

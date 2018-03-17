@@ -1,15 +1,18 @@
 import warnings
+from functools import wraps
 
 from neomodel import config
 from neomodel.bases import PropertyManager, PropertyManagerMeta
 from neomodel.db import client, install_labels
-from neomodel.exceptions import DoesNotExist
+from neomodel.exceptions import (
+    DoesNotExist, NodeIsDeletedError, UnsavedNodeError
+)
 from neomodel.hooks import hooks
 from neomodel.match import OUTGOING, NodeSet, _rel_helper
 from neomodel.types import NodeType, RelationshipDefinitionType
 from neomodel.util import (
-    classproperty, is_abstract_node_model, get_members_of_type, registries,
-    _UnsavedNode
+    classproperty, is_abstract_node_model,
+    get_members_of_type, registries, _UnsavedNode,
 )
 
 
@@ -33,10 +36,29 @@ class NodeMeta(PropertyManagerMeta):
         cls.__relationship_definitions__ = \
             get_members_of_type(cls, RelationshipDefinitionType)
 
+        if any(x.startswith('__') for x
+               in cls.__relationship_definitions__):
+            raise ValueError("Relationships' names must not start with '__'.")
+
         if config.AUTO_INSTALL_LABELS:
             install_labels(cls)
 
         return cls
+
+
+def ensure_node_exists_in_db(method):
+    """ Decorates node methods that require a node record in the database.  """
+    deleted_msg = method.__qualname__ + '{}() attempted on deleted node.'
+    unsaved_msg = method.__qualname__ + '{}() attempted on unsaved node.'
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if getattr(self, '__deleted__', False):
+            raise NodeIsDeletedError(deleted_msg)
+        if not hasattr(self, 'id'):
+            raise UnsavedNodeError(unsaved_msg)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
@@ -54,9 +76,6 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
     # magic methods
 
     def __init__(self, *args, **kwargs):
-        if 'deleted' in kwargs:
-            raise ValueError("deleted property is reserved for neomodel")
-
         for name, definition in self.__relationship_definitions__.items():
             setattr(self, name, definition.build_manager(self, name))
 
@@ -210,6 +229,7 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         results = client.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
+    @ensure_node_exists_in_db
     def cypher(self, query, params=None):
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
@@ -221,24 +241,23 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         :return: list containing query results
         :rtype: list
         """
-        self._pre_action_check('cypher')
         params = params or {}
         params.update({'self': self.id})
         return client.cypher_query(query, params)
 
     @hooks
+    @ensure_node_exists_in_db
     def delete(self):
         """
         Delete a node and it's relationships
 
         :return: True
         """
-        self._pre_action_check('delete')
         self.cypher("MATCH (self) WHERE id(self)={self} "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
         delattr(self, 'id')
-        self.deleted = True
+        self.__deleted__ = True
         return True
 
     @classmethod
@@ -314,6 +333,7 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
             and not is_abstract_node_model(baseclass)
         )
 
+    @ensure_node_exists_in_db
     def labels(self):
         """
         Returns list of labels tied to the node from neo4j.
@@ -321,23 +341,18 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         :return: list of labels
         :rtype: list
         """
-        self._pre_action_check('labels')
         return self.cypher("MATCH (n) WHERE id(n)={self} "
                            "RETURN labels(n)")[0][0][0]
 
-    def _pre_action_check(self, action):
-        if hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.{}() attempted on deleted node".format(
-                self.__class__.__name__, action))
-        if not hasattr(self, 'id'):
-            raise ValueError("{}.{}() attempted on unsaved node".format(
-                self.__class__.__name__, action))
+    @ensure_node_exists_in_db
+    def _noop(self):
+        pass
 
+    @ensure_node_exists_in_db
     def refresh(self):
         """
         Reload the node from neo4j
         """
-        self._pre_action_check('refresh')
         if hasattr(self, 'id'):
             node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
                                             " RETURN n")[0][0][0])
@@ -364,8 +379,8 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
             for label in self.inherited_labels():
                 query += "SET n:`{}`\n".format(label)
             self.cypher(query, params)
-        elif hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.save() attempted on deleted node".format(
+        elif getattr(self, '__deleted__', False):
+            raise NodeIsDeletedError("{}.save() attempted on deleted node".format(
                 self.__class__.__name__))
         else:  # create
             self.id = self.create(self.__properties__)[0].id

@@ -14,9 +14,6 @@ class PropertyManagerMeta(type):
     def __new__(mcs, name, bases, namespace):
         cls = super().__new__(mcs, name, bases, namespace)
         if not is_abstract_node_model(cls):
-            if 'deleted' in namespace:
-                raise ValueError("Class property called 'deleted' conflicts "
-                                 "with neomodel internals.")
             for property_name, property_instance in \
                     ((x, y) for x, y in namespace.items()
                      if isinstance(y, PropertyType)):
@@ -35,6 +32,10 @@ class PropertyManagerMeta(type):
                 cls.__property_definitions__,
                 cls.__alias_definitions__
             )
+            if any(x.startswith('__') for x
+                   in cls.__property_and_alias_definitions__):
+                raise ValueError("Properties' and aliases' names "
+                                 "must not start with '__'.")
 
         return cls
 

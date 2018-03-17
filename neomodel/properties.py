@@ -8,29 +8,26 @@ from datetime import date, datetime
 import pytz
 
 from neomodel import config
-from neomodel.exceptions import InflateError, DeflateError
+from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 from neomodel.types import AliasPropertyType, PropertyType
 
 
-def validator(fn):
-    fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
-    if fn_name == 'inflate':
-        exc_class = InflateError
-    elif fn_name == 'deflate':
-        exc_class = DeflateError
-    else:
-        raise Exception("Unknown Property method " + fn_name)
+def validator(method):
+    exc_class = {'deflate': DeflateError,
+                 'inflate': InflateError}.get(method.__name__)
+    if exc_class is None:
+        raise NeomodelException("Method can't be handled: " + method.__qualname__)
 
-    @functools.wraps(fn)
+    @functools.wraps(method)
     def _validator(self, value, obj=None, rethrow=True):
         if rethrow:
             try:
-                return fn(self, value)
+                return method(self, value)
             except Exception as e:
                 raise exc_class(self.name, self.owner, str(e), obj)
         else:
             # For using with ArrayProperty where we don't want an Inflate/Deflate error.
-            return fn(self, value)
+            return method(self, value)
 
     return _validator
 
