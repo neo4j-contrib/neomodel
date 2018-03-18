@@ -104,23 +104,6 @@ OPERATOR_TABLE = {
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
 
-def install_traversals(cls, node_set):
-    """
-    For a StructuredNode class install Traversal objects for each
-    relationship definition on a NodeSet instance
-    """
-
-    for name in cls.__relationship_definitions__:
-        if hasattr(node_set, name):
-            raise ValueError("Can't install traversal, '{}' exists on NodeSet".format(name))
-
-        rel = getattr(cls, name)
-        rel._lookup_node_class()  # TODO? isn't this static?
-
-        traversal = Traversal(source=node_set, name=name, definition=rel.definition)
-        setattr(node_set, name, traversal)
-
-
 def process_filter_args(cls, kwargs):
     """
     loop through properties in filter parameters check they match class definition
@@ -481,14 +464,29 @@ class NodeSet(NodeSetBase):
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
 
-        # setup Traversal objects using relationship definitions
-        install_traversals(self.source_class, self)
-
+        self._setup_traversals()
         self.filters = []
 
-        # used by has()
+        # used by :attr:`has`
         self.must_match = {}
         self.dont_match = {}
+
+    def _setup_traversals(self):
+        """
+        For a StructuredNode class install Traversal objects for each
+        relationship definition on a NodeSet instance
+        """
+        for name in self.source_class.__relationship_definitions__:
+            if hasattr(self, name):
+                raise AttributeError(
+                    "Can't install traversal, '{}' exists on NodeSet."
+                    .format(name)
+                )
+            rel = getattr(self.source_class, name)
+            rel._lookup_node_class()  # TODO? isn't this static?
+
+            traversal = Traversal(source=self, name=name, definition=rel.definition)
+            setattr(self, name, traversal)
 
     def get(self, **kwargs):
         """
