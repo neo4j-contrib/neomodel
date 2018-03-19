@@ -179,7 +179,7 @@ def test_inheritance():
 
     assert Shopper.__label__ == 'Shopper'
     assert jim.balance == 350
-    assert len(jim.inherited_labels()) == 1
+    assert len(jim.__all_labels__) == 1
     assert len(jim.labels()) == 1
     assert jim.labels()[0] == 'Shopper'
 
@@ -204,7 +204,7 @@ def test_mixins():
 
     assert Shopper2.__label__ == 'Shopper2'
     assert jim.balance == 350
-    assert len(jim.inherited_labels()) == 1
+    assert len(jim.__all_labels__) == 1
     assert len(jim.labels()) == 1
     assert jim.labels()[0] == 'Shopper2'
 

@@ -548,7 +548,14 @@ class RelationshipDefinition(RelationshipDefinitionType):
         self.definition = {'direction': direction, 'model': model,
                            'relation_type': relation_type}
 
+    # TODO this should at best be called only once
+    # this should happen after all node models have been imported :-/
+    # it may also be simplified with newer importlib capabilities
+    # and introspective class properties
     def _lookup_node_class(self):
+        if 'node_class' in self.definition:
+            return
+
         if not isinstance(self._raw_class, str):
             self.definition['node_class'] = self._raw_class
         else:
@@ -559,7 +566,6 @@ class RelationshipDefinition(RelationshipDefinitionType):
                 module, _, name = name.rpartition('.')
 
             if module not in sys.modules:
-                # FIXME __module__
                 # yet another hack to get around python semantics
                 # __name__ is the namespace of the parent module for __init__.py files,
                 # and the namespace of the current module for other .py files,

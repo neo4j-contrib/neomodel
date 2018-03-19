@@ -66,6 +66,15 @@ def is_abstract_node_model(cls):
     return bool(cls.__abstract_node__)
 
 
+def lazy_property(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        result = method(self, *args, **kwargs)
+        setattr(self, method.__name__, result)
+        return result
+    return wrapper
+
+
 # Just used for error messages
 class _UnsavedNode:
     def __repr__(self):

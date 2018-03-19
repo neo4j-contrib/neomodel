@@ -18,8 +18,15 @@ from neomodel.util import (
 
 class NodeMeta(PropertyManagerMeta):
     def __new__(mcs, name, bases, namespace):
+        all_labels = (namespace.get('__label__', name),)
+        for baseclass in (x for x in bases
+                          if not is_abstract_node_model(x)
+                          and hasattr(x, '__label__')):
+            all_labels += (baseclass.__label__,)
+
         namespace.update({
-            '__label__': namespace.get('__label__', name),
+            '__label__': all_labels[0],
+            '__all_labels__': all_labels,
             'DoesNotExist': type(name + 'DoesNotExist', (DoesNotExist,), {}),
         })
 
@@ -122,8 +129,13 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{} {{{}}}".format(':'.join(cls.inherited_labels()),
-                                         ", ".join("{0}: params.create.{0}".format(p) for p in cls.__required_properties__))
+        n_merge = "n:{labels} {{{required_properties}}}".format(
+            labels=':'.join(cls.__all_labels__),
+            required_properties=", ".join(
+                "{p}: params.create.{p}".format(p=required_property)
+                for required_property in cls.__required_properties__
+            )
+        )
         if relationship is None:
             # create "simple" unwind query
             query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
@@ -178,7 +190,7 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         lazy = kwargs.get('lazy', False)
         # create mapped query
         query = "CREATE (n:{} {{create_params}})"\
-            .format(':'.join(cls.inherited_labels()))
+            .format(':'.join(cls.__all_labels__))
 
         # close query
         if lazy:
@@ -325,20 +337,6 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
 
         return snode
 
-    @classmethod
-    def inherited_labels(cls):
-        """
-        Return list of labels from nodes class hierarchy.
-
-        :return: list
-        """
-        # FIXME isn't this static?
-        return tuple(
-            baseclass.__label__ for baseclass in cls.__mro__
-            if hasattr(baseclass, '__label__')
-            and not is_abstract_node_model(baseclass)
-        )
-
     @ensure_node_exists_in_db
     def labels(self):
         """
@@ -387,7 +385,7 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
                          for key in params)) + \
                     "".join(
                         ("SET n:`{label}`\n".format(label=label)
-                         for label in self.inherited_labels()))
+                         for label in self.__all_labels__))
             self.cypher(query, self.deflate(properties, self))
         elif getattr(self, '__deleted__', False):
             raise NodeIsDeletedError("{}.save() attempted on deleted node".format(

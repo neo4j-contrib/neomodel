@@ -124,7 +124,7 @@ def process_filter_args(cls, kwargs):
 
         property_definition = cls.__property_and_alias_definitions__[prop]
         if isinstance(property_definition, AliasPropertyType):
-            prop = property_definition.aliased_to()
+            prop = property_definition.target
             deflated_value = cls.__property_definitions__[prop].deflate(value)
         else:
             # handle special operators
@@ -482,7 +482,7 @@ class NodeSet(NodeSetBase):
                     .format(name)
                 )
             rel = getattr(self.source_class, name)
-            rel._lookup_node_class()  # TODO? isn't this static?
+            rel._lookup_node_class()
 
             traversal = Traversal(source=self, name=name, definition=rel.definition)
             setattr(self, name, traversal)

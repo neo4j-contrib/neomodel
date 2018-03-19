@@ -18,16 +18,19 @@ class PropertyManagerMeta(type):
         cls = super().__new__(mcs, name, bases, namespace)
 
         cls.__property_definitions__ = cls.__property_definitions__.copy()
-
-        # cache various groups of properties
         for name, definition in property_definitions.items():
             cls.__property_definitions__[name] = definition
+
         cls.__alias_definitions__ = get_members_of_type(cls, AliasPropertyType)
+        for name, definition in cls.__alias_definitions__.items():
+            if definition.target not in cls.__property_definitions__:
+                raise ValueError("The alias '{}' must point to a property."
+                                 .format(name))
+
         cls.__required_properties__ = tuple(
             x for x, y in cls.__property_definitions__.items()
             if y.required or y.unique_index
         )
-        # FIXME? is this needed?
         cls.__property_and_alias_definitions__ = ChainMap(
             cls.__property_definitions__,
             cls.__alias_definitions__

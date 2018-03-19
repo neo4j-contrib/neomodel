@@ -19,7 +19,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=('tests',)),
     keywords='graph neo4j ORM OGM',
-    scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],
+    scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],  # TODO entrypoint scripts, after logging
     setup_requires=['pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
     tests_require=['pytest'],
     install_requires=['neo4j-driver==1.5.2', 'pytz>=2016'],

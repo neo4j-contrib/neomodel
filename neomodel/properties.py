@@ -10,6 +10,7 @@ import pytz
 from neomodel import config
 from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 from neomodel.types import AliasPropertyType, PropertyType
+from neomodel.util import lazy_property
 
 
 def validator(method):
@@ -137,7 +138,6 @@ class TypedPropertyMeta(ABCMeta):
         cls = super().__new__(mcls, name, bases, namespace)
 
         # don't check the first base TypedProperty
-        # TODO see note in PropertyManagerMeta for another approach
         if len(cls.__mro__) == len(NormalizedProperty.__mro__) + 1:
             return cls
 
@@ -196,37 +196,31 @@ class RegexProperty(NormalizedProperty):
         return value
 
 
-class AliasProperty(property, Property, AliasPropertyType):
+class AliasProperty(AliasPropertyType):
     """
-    Alias another existing property
+    Alias of another existing property.
+
+    :param target: Name of property to alias.
+    :type: :class:`str`
     """
+    required = has_default = False
+
     def __init__(self, to=None):
-        """
-        Create new alias
-
-        :param to: name of property aliasing
-        :type: str
-        """
         self.target = to
-        self.required = False
-        self.has_default = False
-
-    def aliased_to(self):
-        return self.target
 
     def __get__(self, obj, cls):
-        return getattr(obj, self.aliased_to()) if obj else self
+        return getattr(obj, self.target) if obj else self
 
     def __set__(self, obj, value):
-        setattr(obj, self.aliased_to(), value)
+        setattr(obj, self.target, value)
 
-    @property
+    @lazy_property
     def index(self):
-        return getattr(self.owner, self.aliased_to()).index
+        return getattr(self.owner, self.target).index
 
-    @property
+    @lazy_property
     def unique_index(self):
-        return getattr(self.owner, self.aliased_to()).unique_index
+        return getattr(self.owner, self.target).unique_index
 
 
 class ArrayProperty(Property):
@@ -434,3 +428,4 @@ class UniqueIdProperty(TypedProperty):
         super().__init__(**kwargs)
 
 
+# TODO __all__
