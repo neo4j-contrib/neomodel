@@ -9,20 +9,23 @@ from neomodel.exceptions import (
     NodeIsDeletedError, NotConnected, UnsavedNodeError
 )
 from neomodel.hooks import hooks
-from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal, _rel_helper
-from neomodel.types import (
-    RelationshipType, RelationshipDefinitionType, RelationshipManagerType
+from neomodel.match import (
+    EITHER, INCOMING, OUTGOING, NodeSet, Traversal, _rel_helper
 )
+from neomodel.types import RelationshipType, RelationshipDefinitionType
 
 
 # relationship models
 
 
 class RelationshipMeta(PropertyManagerMeta):
-    def _setup_property(mcs, cls, name, instance):
-        if instance.is_indexed:
-            raise NotImplemented("Indexed relationship properties not supported yet")
-        super()._setup_property(mcs, cls, name, instance)
+    @staticmethod
+    def _setup_property(cls, name, definition):
+        if definition.is_indexed:
+            raise NotImplementedError(
+                "Indexed relationship properties not supported yet."
+            )
+        super()._setup_property(cls, name, definition)
 
 
 class StructuredRel(PropertyManager, RelationshipType, metaclass=RelationshipMeta):
@@ -111,7 +114,7 @@ def ensure_node_exists_in_db(method):
     return wrapper
 
 
-class RelationshipManager(RelationshipManagerType):
+class RelationshipManager:
     """
     Base class for all relationships managed through neomodel.
 

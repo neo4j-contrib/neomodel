@@ -25,10 +25,6 @@ class RelationshipDefinitionType:
     """ Type for relationship definitions. """
 
 
-class RelationshipManagerType:
-    """ Type for relationship managers. """
-
-
 #
 
 

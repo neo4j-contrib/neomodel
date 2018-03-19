@@ -49,10 +49,17 @@ class SemiStructuredNode(StructuredNode):
         return snode
 
     @classmethod
-    def deflate(cls, node_props, obj=None, skip_empty=False):
-        deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
-        for key in [k for k in node_props if k not in deflated]:
+    def deflate(cls, properties, obj=None, skip_empty=False):
+        deflated = super().deflate(properties, obj, skip_empty=skip_empty)
+        for key in (k for k in properties if k not in deflated):
             if hasattr(cls, key):
                 raise DeflateConflict(cls, key, deflated[key], obj.id)
-        node_props.update(deflated)
-        return node_props
+        properties.update(deflated)
+        return properties
+
+    def save(self):
+        properties = {name: value for name, value in vars(self).items()
+                      if not name.startswith('__')
+                      and not callable(value)}
+        properties.update(self.__properties__)
+        return self._save(properties)

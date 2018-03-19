@@ -156,15 +156,19 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         return query, query_params
 
     @classmethod
-    def create(cls, *props, **kwargs):
+    def create(cls, *properties, **kwargs):
         """
-        Call to CREATE with parameters map. A new instance will be created and saved.
+        Call to CREATE new nodes in the database.
 
-        :param props: dict of properties to create the nodes.
-        :type props: tuple
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :type: bool
-        :rtype: list
+        :param properties: A record with the properties to set. Multiple
+                           positional arguments - one per node - can be
+                           provided.
+        :type properties: :class:`dict`
+        :param lazy: Returns only the ids of the created nodes.
+                     ``False`` by default.
+        :type: :class:`bool`
+        :returns: The newly created nodes, respectively their id.
+        :rtype: :class:`list`
         """
 
         if 'streaming' in kwargs:
@@ -173,7 +177,8 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
 
         lazy = kwargs.get('lazy', False)
         # create mapped query
-        query = "CREATE (n:{} {{create_params}})".format(':'.join(cls.inherited_labels()))
+        query = "CREATE (n:{} {{create_params}})"\
+            .format(':'.join(cls.inherited_labels()))
 
         # close query
         if lazy:
@@ -182,17 +187,18 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
             query += " RETURN n"
 
         results = []
-        for item in [cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props]:
-            node, _ = client.cypher_query(query, {'create_params': item})
-            results.extend(node[0])
+        for item in (cls.deflate(p, obj=_UnsavedNode(), skip_empty=True)
+                     for p in properties):
+            nodes, _ = client.cypher_query(query, {'create_params': item})
+            results.extend(nodes[0])
 
-        nodes = [cls.inflate(node) for node in results]
+        results = [cls.inflate(node) for node in results]
 
         if not lazy and hasattr(cls, 'post_create'):
-            for node in nodes:
+            for node in results:
                 node.post_create()
 
-        return nodes
+        return results
 
     @classmethod
     def create_or_update(cls, *props, **kwargs):
@@ -368,20 +374,24 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
 
         :return: the node instance
         """
+        return self._save(self.__properties__)
 
+    def _save(self, properties):
         # create or update instance node
         if hasattr(self, 'id'):
             # update
-            params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)={self} \n"
-            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
-                                for key in params.keys()])
-            for label in self.inherited_labels():
-                query += "SET n:`{}`\n".format(label)
-            self.cypher(query, params)
+            params = self.deflate(properties, self)
+            query = "MATCH (n) WHERE id(n)={self}\n" + \
+                    "".join(
+                        ("SET n.{key} = {{{key}}}\n".format(key=key)
+                         for key in params)) + \
+                    "".join(
+                        ("SET n:`{label}`\n".format(label=label)
+                         for label in self.inherited_labels()))
+            self.cypher(query, self.deflate(properties, self))
         elif getattr(self, '__deleted__', False):
             raise NodeIsDeletedError("{}.save() attempted on deleted node".format(
-                self.__class__.__name__))
+                self.__class__.__qualname__))
         else:  # create
-            self.id = self.create(self.__properties__)[0].id
+            self.id = self.create(properties)[0].id
         return self

@@ -21,20 +21,6 @@ class User(StructuredNode):
         self.email = value
 
 
-def test_issue_233():
-    class BaseIssue233(StructuredNode):
-        __abstract_node__ = True
-
-        def __getitem__(self, item):
-            return self.__dict__[item]
-
-    class Issue233(BaseIssue233):
-        uid = StringProperty(unique_index=True, required=True)
-
-    i = Issue233(uid='testgetitem').save()
-    assert i['uid'] == 'testgetitem'
-
-
 def test_issue_72():
     user = User(email='foo@bar.com')
     assert user.age is None
@@ -226,8 +212,15 @@ def test_mixins():
 class Bar(StructuredNode):
     __abstract_node__ = True
 
+
 class Foo(Bar):
-    pass
+    name = StringProperty()
+
+
+def test_model_class_name():
+    assert Bar.__name__ == 'Bar'
+    assert Foo.__name__ == 'Foo'
+    assert Foo(name='foo').__class__.__name__ == 'Foo'
 
 
 def test_node_models_registry():

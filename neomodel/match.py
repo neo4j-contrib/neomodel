@@ -117,29 +117,28 @@ def process_filter_args(cls, kwargs):
             prop, operator = key.split('__')
             operator = OPERATOR_TABLE[operator]
         else:
-            prop = key
-            operator = '='
+            prop, operator = key, '='
 
         if prop not in cls.__property_and_alias_definitions__:
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
 
-        property_obj = getattr(cls, prop)
-        if isinstance(property_obj, AliasPropertyType):
-            prop = property_obj.aliased_to()
-            deflated_value = getattr(cls, prop).deflate(value)
+        property_definition = cls.__property_and_alias_definitions__[prop]
+        if isinstance(property_definition, AliasPropertyType):
+            prop = property_definition.aliased_to()
+            deflated_value = cls.__property_definitions__[prop].deflate(value)
         else:
             # handle special operators
             if operator == _SPECIAL_OPERATOR_IN:
                 if not isinstance(value, Sequence):
                     raise ValueError('Value must be a tuple or list for IN operation {}={}'.format(key, value))
-                deflated_value = [property_obj.deflate(v) for v in value]
+                deflated_value = [property_definition.deflate(v) for v in value]
             elif operator == _SPECIAL_OPERATOR_ISNULL:
                 if not isinstance(value, bool):
                     raise ValueError('Value must be a bool for isnull operation on {}'.format(key))
                 operator = 'IS NULL' if value else 'IS NOT NULL'
                 deflated_value = None
             elif operator in _REGEX_OPERATOR_TABLE.values():
-                deflated_value = property_obj.deflate(value)
+                deflated_value = property_definition.deflate(value)
                 if not isinstance(deflated_value, str):
                     raise ValueError('Must be a string value for {}'.format(key))
                 if operator in _STRING_REGEX_OPERATOR_TABLE.values():
@@ -147,7 +146,7 @@ def process_filter_args(cls, kwargs):
                 deflated_value = operator.format(deflated_value)
                 operator = _SPECIAL_OPERATOR_REGEX
             else:
-                deflated_value = property_obj.deflate(value)
+                deflated_value = property_definition.deflate(value)
 
         # map property to correct property name in the database
         db_property = cls.__property_and_alias_definitions__[prop].db_property or prop
@@ -595,13 +594,12 @@ class NodeSet(NodeSetBase):
                 else:
                     desc = False
 
-                if prop not in self.source_class.__property_and_alias_definitions__:
-                    raise ValueError("No such property {} on {}".format(
-                        prop, self.source_class.__name__))
+                if prop in self.source_class.__alias_definitions__:
+                    prop = self.source_class.__alias_definitions__[prop].target
 
-                property_obj = getattr(self.source_class, prop)
-                if isinstance(property_obj, AliasPropertyType):
-                    prop = property_obj.aliased_to()
+                if prop not in self.source_class.__property_definitions__:
+                    raise ValueError("No such property {} on {}".format(
+                        prop, self.source_class.__qualname__))
 
                 self._order_by.append(prop + (' DESC' if desc else ''))
 

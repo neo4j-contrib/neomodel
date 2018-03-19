@@ -1,6 +1,6 @@
 from datetime import datetime, date
 
-from pytest import mark, raises
+from pytest import raises
 from pytz import timezone
 
 from neomodel.core import StructuredNode
