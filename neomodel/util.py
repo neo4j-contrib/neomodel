@@ -4,7 +4,6 @@ import sys
 import time
 import warnings
 from threading import local
-from functools import wraps
 
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
