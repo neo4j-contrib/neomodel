@@ -170,8 +170,6 @@ def process_has_args(cls, kwargs):
 
         rhs_ident = name
 
-        relationship_definitions[name]._lookup_node_class()
-
         if constraint is True:
             match[rhs_ident] = relationship_definitions[name].definition
         elif constraint is False:
@@ -481,11 +479,12 @@ class NodeSet(NodeSetBase):
                     "Can't install traversal, '{}' exists on NodeSet."
                     .format(name)
                 )
-            rel = getattr(self.source_class, name)
-            rel._lookup_node_class()
 
-            traversal = Traversal(source=self, name=name, definition=rel.definition)
-            setattr(self, name, traversal)
+            definition = getattr(self.source_class, name).definition
+            setattr(
+                self, name, Traversal(source=self, name=name,
+                                      definition=definition)
+            )
 
     def get(self, **kwargs):
         """

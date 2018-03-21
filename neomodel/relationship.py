@@ -1,7 +1,7 @@
 import sys
 from functools import wraps
-from importlib import import_module
 
+from neomodel import NodeType
 from neomodel.bases import PropertyManager, PropertyManagerMeta
 from neomodel.db import client
 from neomodel.exceptions import (
@@ -12,7 +12,7 @@ from neomodel.hooks import hooks
 from neomodel.match import (
     EITHER, INCOMING, OUTGOING, NodeSet, Traversal, _rel_helper
 )
-from neomodel.types import RelationshipType, RelationshipDefinitionType
+from neomodel.types import RelationshipDefinitionType, RelationshipType
 
 
 # relationship models
@@ -539,62 +539,30 @@ class OneOrMore(RelationshipManager):
 
 
 class RelationshipDefinition(RelationshipDefinitionType):
-    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
-        self.module_name = sys._getframe(4).f_globals['__name__']
-        if '__file__' in sys._getframe(4).f_globals:
-            self.module_file = sys._getframe(4).f_globals['__file__']
-        self._raw_class = cls_name
-        self.manager = manager
+    def __init__(self, relation_type, target_model, direction,
+                 manager_class=RelationshipManager, model=None):
+        self.target_model = target_model
+        self.manager_class = manager_class
         self.definition = {'direction': direction, 'model': model,
                            'relation_type': relation_type}
 
-    # TODO this should at best be called only once
-    # this should happen after all node models have been imported :-/
-    # it may also be simplified with newer importlib capabilities
-    # and introspective class properties
-    def _lookup_node_class(self):
-        if 'node_class' in self.definition:
-            return
+    def _set_defintion_node_class(self, owner):
+        if isinstance(self.target_model, str):
+            if self.target_model.startswith('.'):  # relative
+                module = owner.__module__.rsplit('.', 1)[0] \
+                         + self.target_model.rsplit('.', 1)[0]
+                member = self.target_model.rsplit('.', 1)[1]
+            elif '.' in self.target_model:  # absolute
+                module, _, member = self.target_model.rpartition('.')
+            else:  # in the owner's module
+                module, member = owner.__module__, self.target_model
 
-        if not isinstance(self._raw_class, str):
-            self.definition['node_class'] = self._raw_class
-        else:
-            name = self._raw_class
-            if name.find('.') == -1:
-                module = self.module_name
-            else:
-                module, _, name = name.rpartition('.')
+            self.target_model = getattr(sys.modules[module], member)
 
-            if module not in sys.modules:
-                # yet another hack to get around python semantics
-                # __name__ is the namespace of the parent module for __init__.py files,
-                # and the namespace of the current module for other .py files,
-                # therefore there's a need to define the namespace differently for
-                # these two cases in order for . in relative imports to work correctly
-                # (i.e. to mean the same thing for both cases).
-                # For example in the comments below, namespace == myapp, always
-                if not hasattr(self, 'module_file'):
-                    raise ImportError("Couldn't lookup '{}'".format(name))
-
-                if '__init__.py' in self.module_file:
-                    # e.g. myapp/__init__.py -[__name__]-> myapp
-                    namespace = self.module_name
-                else:
-                    # e.g. myapp/models.py -[__name__]-> myapp.models
-                    namespace = self.module_name.rpartition('.')[0]
-
-                # load a module from a namespace (e.g. models from myapp)
-                if module:
-                    module = import_module(module, namespace).__name__
-                # load the namespace itself (e.g. myapp)
-                # (otherwise it would look like import . from myapp)
-                else:
-                    module = import_module(namespace).__name__
-            self.definition['node_class'] = getattr(sys.modules[module], name)
+        self.definition['node_class'] = self.target_model
 
     def build_manager(self, source, name):
-        self._lookup_node_class()
-        return self.manager(source, name, self.definition)
+        return self.manager_class(source, name, self.definition)
 
 
 def _relationship_factory(cls_name, direction, rel_type, cardinality=None, model=None):

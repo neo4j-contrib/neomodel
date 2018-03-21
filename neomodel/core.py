@@ -79,14 +79,22 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
     # static properties
 
     __abstract_node__ = True
+    __resolved_relationships_classes__ = set()
 
     # magic methods
 
-    def __init__(self, *args, **kwargs):
+    def __new__(cls, *args, **kwargs):
+        # at this point, when the user code initializes a node model for the
+        # first time, all model classes should have been evaluated and string
+        # references can be resolved to them
+        cls._ensure_relationships_are_setup()
+        return super().__new__(cls)
+
+    def __init__(self, **kwargs):
         for name, definition in self.__relationship_definitions__.items():
             setattr(self, name, definition.build_manager(self, name))
-
-        super().__init__(*args, **kwargs)
+        self.__deleted__ = False
+        super().__init__(**kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, NodeType):
@@ -113,6 +121,9 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         :return: NodeSet
         :rtype: NodeSet
         """
+        # at the point, when the user code makes a query, all model classes
+        # should have been evaluated string references can be resolved to them
+        cls._ensure_relationships_are_setup()
         return NodeSet(cls)
 
     # methods
@@ -277,6 +288,19 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
         delattr(self, 'id')
         self.__deleted__ = True
         return True
+
+    @classmethod
+    def _ensure_relationships_are_setup(cls, ignore_target=None):
+        if cls in StructuredNode.__resolved_relationships_classes__:
+            return
+
+        for relationship in cls.__relationship_definitions__.values():
+            relationship._set_defintion_node_class(cls)
+            # cls and the cls that may have called are already being processed
+            if not any(x is relationship.target_model for x in (cls, ignore_target)):
+                (relationship.target_model
+                 ._ensure_relationships_are_setup(ignore_target=cls))
+        StructuredNode.__resolved_relationships_classes__.add(cls)
 
     @classmethod
     def get_or_create(cls, *props, **kwargs):
