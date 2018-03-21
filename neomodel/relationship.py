@@ -539,11 +539,21 @@ class OneOrMore(RelationshipManager):
 
 
 class RelationshipDefinition(RelationshipDefinitionType):
-    def __init__(self, relation_type, target_model, direction,
-                 manager_class=RelationshipManager, model=None):
+    def __init__(self, target_model, relation_type,
+                 cardinality=ZeroOrMore, model=None):
+
+        if not (isinstance(target_model, str) or
+                issubclass(target_model, NodeType)):
+            raise TypeError(
+                'Expected a class name or a node model, got '
+                + repr(target_model)
+            )
+        if model and not issubclass(model, RelationshipType):
+            raise ValueError('model must be a StructuredRel')
+
         self.target_model = target_model
-        self.manager_class = manager_class
-        self.definition = {'direction': direction, 'model': model,
+        self.manager_class = cardinality
+        self.definition = {'direction': self.direction, 'model': model,
                            'relation_type': relation_type}
 
     def _set_defintion_node_class(self, owner):
@@ -565,22 +575,13 @@ class RelationshipDefinition(RelationshipDefinitionType):
         return self.manager_class(source, name, self.definition)
 
 
-def _relationship_factory(cls_name, direction, rel_type, cardinality=None, model=None):
-    if not isinstance(cls_name, (str, type)):
-        raise ValueError('Expected class name or class got ' + repr(cls_name))
-
-    if model and not issubclass(model, RelationshipType):
-        raise ValueError('model must be a StructuredRel')
-    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
+class Relationship(RelationshipDefinition):
+    direction = EITHER
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relationship_factory(cls_name, OUTGOING, rel_type, cardinality, model)
+class RelationshipFrom(RelationshipDefinition):
+    direction = INCOMING
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relationship_factory(cls_name, INCOMING, rel_type, cardinality, model)
-
-
-def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relationship_factory(cls_name, EITHER, rel_type, cardinality, model)
+class RelationshipTo(RelationshipDefinition):
+    direction = OUTGOING
