@@ -200,19 +200,23 @@ class AliasProperty(AliasPropertyType):
     """
     Alias of another existing property.
 
-    :param target: Name of property to alias.
+    :param to: Name of property to alias.
     :type: :class:`str`
     """
-    required = has_default = False
+    required = False
 
     def __init__(self, to=None):
         self.target = to
 
-    def __get__(self, obj, cls):
+    def __get__(self, obj, _):
         return getattr(obj, self.target) if obj else self
 
     def __set__(self, obj, value):
         setattr(obj, self.target, value)
+
+    @lazy_property
+    def has_default(self):
+        return getattr(self.owner, self.target).has_default
 
     @lazy_property
     def index(self):

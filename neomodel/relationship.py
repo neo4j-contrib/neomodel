@@ -106,7 +106,7 @@ def ensure_node_exists_in_db(method):
 
     @wraps(method)
     def wrapper(self, *args, **kwargs):
-        if getattr(self.source, '__deleted__', False):
+        if self.source.__deleted__:
             raise NodeIsDeletedError(deleted_msg)
         if not hasattr(self.source, 'id'):
             raise UnsavedNodeError(unsaved_msg)

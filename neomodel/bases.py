@@ -77,13 +77,14 @@ class PropertyManager(AttributedType, metaclass=PropertyManagerMeta):
     def __getattr__(self, name):
         if name in self.__property_definitions__:
             return self.__properties__[name]
-        # elif name in self.__alias_definitions__:
-        #     return self.__properties__[self.__alias_definitions__[name].target]
         elif name.startswith('get_') and name.endswith('_display'):
             setattr(self, name, self.__make_get_display_method(name[4:-8]))
             return getattr(self, name)
 
-        raise AttributeError
+        raise AttributeError(
+            "type '{cls}' has no attribute '{name}'"
+            .format(cls=self.__class__.__qualname__, name=name)
+        )
 
     def __make_get_display_method(self, name):
         def get_display_method():
@@ -94,8 +95,6 @@ class PropertyManager(AttributedType, metaclass=PropertyManagerMeta):
     def __setattr__(self, name, value):
         if name in self.__property_definitions__:
             self.__properties__[name] = value
-        # elif name in self.__alias_definitions__:
-        #     self.__properties__[self.__alias_definitions__[name].target] = value
         else:
             super().__setattr__(name, value)
 

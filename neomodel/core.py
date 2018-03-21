@@ -60,7 +60,7 @@ def ensure_node_exists_in_db(method):
 
     @wraps(method)
     def wrapper(self, *args, **kwargs):
-        if getattr(self, '__deleted__', False):
+        if self.__deleted__:
             raise NodeIsDeletedError(deleted_msg)
         if not hasattr(self, 'id'):
             raise UnsavedNodeError(unsaved_msg)
@@ -387,7 +387,7 @@ class StructuredNode(PropertyManager, NodeType, metaclass=NodeMeta):
                         ("SET n:`{label}`\n".format(label=label)
                          for label in self.__all_labels__))
             self.cypher(query, self.deflate(properties, self))
-        elif getattr(self, '__deleted__', False):
+        elif self.__deleted__:
             raise NodeIsDeletedError("{}.save() attempted on deleted node".format(
                 self.__class__.__qualname__))
         else:  # create

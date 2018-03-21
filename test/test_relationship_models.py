@@ -43,7 +43,7 @@ def test_either_connect_with_rel_model():
     tom = Badger(name="Tom").save()
 
     # creating rels
-    new_rel = tom.friend.disconnect(paul)
+    tom.friend.disconnect(paul)
     new_rel = tom.friend.connect(paul)
     assert isinstance(new_rel, FriendRel)
     assert isinstance(new_rel.since, datetime)
