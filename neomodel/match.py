@@ -156,32 +156,6 @@ def process_filter_args(cls, kwargs):
     return output
 
 
-def process_has_args(cls, kwargs):
-    """
-    loop through has parameters check they correspond to class rels defined
-    """
-    relationship_definitions = cls.__relationship_definitions__
-
-    match, dont_match = {}, {}
-
-    for name, constraint in kwargs.items():
-        if name not in relationship_definitions:
-            raise ValueError("No such relation {} defined on a {}".format(name, cls.__name__))
-
-        rhs_ident = name
-
-        if constraint is True:
-            match[rhs_ident] = relationship_definitions[name].definition
-        elif constraint is False:
-            dont_match[rhs_ident] = relationship_definitions[name].definition
-        elif isinstance(constraint, NodeSetType):
-            raise NotImplementedError("Not implemented yet")
-        else:
-            raise ValueError("Expecting True / False / NodeSet got: " + repr(constraint))
-
-    return match, dont_match
-
-
 class QueryBuilder:
     def __init__(self, node_set):
         self.node_set = node_set
@@ -567,9 +541,31 @@ class NodeSet(NodeSetBase):
         return self
 
     def has(self, **kwargs):
-        must_match, dont_match = process_has_args(self.source_class, kwargs)
-        self.must_match.update(must_match)
-        self.dont_match.update(dont_match)
+        relationship_definitions = self.source_class.__relationship_definitions__
+
+        for name, constraint in kwargs.items():
+            if name not in relationship_definitions:
+                raise ValueError(
+                    "No such relation {} defined on a {}"
+                    .format(name, self.source_class.__name__)
+                )
+            if constraint is True:
+                self.must_match[name] = \
+                    relationship_definitions[name].definition
+            elif constraint is False:
+                self.dont_match[name] = \
+                    relationship_definitions[name].definition
+            elif isinstance(constraint, NodeSetType):
+                # TODO
+                raise NotImplementedError(
+                    "Support for NodeSet instances as constraint for 'has' "
+                    "queries is not implemented yet."
+                )
+            else:
+                raise ValueError(
+                    "Expecting True or False, got: " + repr(constraint)
+                )
+
         return self
 
     def order_by(self, *props):
