@@ -12,7 +12,7 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 - Django integration via django_neomodel_
 
 .. _django_neomodel: https://github.com/robinedwards/django-neomodel
-.. _neo4j: https://www.neo4j.org
+.. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
 .. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
