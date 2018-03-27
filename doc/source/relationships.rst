@@ -23,7 +23,7 @@ Remember this needs to be declared on both sides of the definition::
         car = RelationshipTo('Car', 'CAR', cardinality=One)
 
     class Car(StructuredNode):
-        owner = RelationshipFrom('Person', cardinality=One)
+        owner = RelationshipFrom('Person', 'CAR', cardinality=One)
 
 The following cardinality classes are available:
 
