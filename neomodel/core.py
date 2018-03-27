@@ -352,8 +352,9 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{} {{{}}}".format(':'.join(cls.inherited_labels()),
-                                         ", ".join("{0}: params.create.{0}".format(p) for p in cls.__required_properties__))
+        n_merge = "n:{} {{{}}}".format(
+            ":".join(cls.inherited_labels()),
+            ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
             query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
