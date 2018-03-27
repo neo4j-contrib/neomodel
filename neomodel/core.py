@@ -84,22 +84,23 @@ def install_labels(cls, quiet=True, stdout=None):
         return
 
     for key, prop in cls.defined_properties(aliases=False, rels=False).items():
+        db_property = prop.db_property or key
         if prop.index:
             if not quiet:
                 stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
-                    key, cls.__label__, cls.__module__, cls.__name__))
+                    db_property, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                cls.__label__, key))
+                cls.__label__, db_property))
 
         elif prop.unique_index:
             if not quiet:
                 stdout.write(' + Creating unique constraint for {} on label {} for class {}.{}\n'.format(
-                    key, cls.__label__, cls.__module__, cls.__name__))
+                    db_property, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE CONSTRAINT "
                             "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                cls.__label__, key))
+                cls.__label__, db_property))
 
 
 def install_all_labels(stdout=None):
