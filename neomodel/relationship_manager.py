@@ -387,7 +387,6 @@ class ZeroOrMore(RelationshipManager):
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
     if not isinstance(cls_name, (basestring, object)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
-    from .relationship import StructuredRel # TODO
 
     if model and not issubclass(model, (StructuredRel,)):
         raise ValueError('model must be a StructuredRel')
