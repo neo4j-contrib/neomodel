@@ -83,13 +83,14 @@ def install_labels(cls, quiet=True, stdout=None):
         return
 
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
+        db_property = prop.db_property or key
         if property.index:
             if not quiet:
                 stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE INDEX on :{}({}); ".format(
-                cls.__label__, name))
+                cls.__label__, db_property))
 
         elif property.unique_index:
             if not quiet:
@@ -98,7 +99,7 @@ def install_labels(cls, quiet=True, stdout=None):
 
             db.cypher_query("CREATE CONSTRAINT "
                             "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
-                cls.__label__, name))
+                cls.__label__, db_property))
 
 
 def install_all_labels(stdout=None):
@@ -251,8 +252,9 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{} {{{}}}".format(':'.join(cls.inherited_labels()),
-                                         ", ".join("{0}: params.create.{0}".format(p) for p in cls.__required_properties__))
+        n_merge = "n:{} {{{}}}".format(
+            ":".join(cls.inherited_labels()),
+            ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
             query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)

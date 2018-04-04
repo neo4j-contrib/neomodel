@@ -198,8 +198,28 @@ def test_independent_property_name():
     x.delete()
 
 
+def test_independent_property_name_get_or_create():
+    class TestNode(StructuredNode):
+        uid = UniqueIdProperty()
+        name_ = StringProperty(db_property="name", required=True)
+
+    # create the node
+    TestNode.get_or_create({'uid': 123, 'name_': 'jim'})
+    # test that the node is retrieved correctly
+    x = TestNode.get_or_create({'uid': 123, 'name_': 'jim'})[0]
+
+    # check database property name on low level
+    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
+    assert results[0][0].properties['name'] == "jim"
+    assert 'name_' not in results[0][0].properties
+
+    # delete node afterwards
+    x.delete()
+
+
 @mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
 def test_normalized_property(normalized_class):
+
     class TestProperty(normalized_class):
         def normalize(self, value):
             self._called_with = value

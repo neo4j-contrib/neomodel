@@ -20,10 +20,10 @@ It's possible to (softly) enforce cardinality restrictions on your relationships
 Remember this needs to be declared on both sides of the definition::
 
     class Person(StructuredNode):
-        car = RelationshipTo('Car', 'CAR', cardinality=One)
+        car = RelationshipTo('Car', 'OWNS', cardinality=One)
 
     class Car(StructuredNode):
-        owner = RelationshipFrom('Person', cardinality=One)
+        owner = RelationshipFrom('Person', 'OWNS', cardinality=One)
 
 The following cardinality classes are available:
 
