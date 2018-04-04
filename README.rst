@@ -66,11 +66,7 @@ Ideas, bugs, tests and pull requests always welcome.
 Running the test suite
 ----------------------
 
-Make sure you have a fresh virtualenv and `nose` installed::
-
-    $ pip install nose
-
-Also a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
+Make sure you have a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
 
     $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
 
@@ -79,7 +75,7 @@ Setup a virtual environment, install neomodel for development and run the test s
     $ virtualenv venv
     $ source venv/bin/activate
     $ python setup.py develop
-    $ nosetests -s
+    $ pytest
 
 If your running a neo4j database for the first time the test suite will set the password to 'test'.
 
