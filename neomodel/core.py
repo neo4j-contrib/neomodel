@@ -83,7 +83,7 @@ def install_labels(cls, quiet=True, stdout=None):
         return
 
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
-        db_property = prop.db_property or key
+        db_property = property.db_property or key
         if property.index:
             if not quiet:
                 stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
