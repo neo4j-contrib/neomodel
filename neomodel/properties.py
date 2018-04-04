@@ -1,89 +1,94 @@
-from .exceptions import InflateError, DeflateError, RequiredProperty
-from . import config
-
-from datetime import datetime, date
-from uuid import uuid4
-import re
-import types
-import pytz
+import functools
 import json
 import sys
-import functools
+import types
+import re
+import uuid
+import warnings
+from datetime import date, datetime
+
+import pytz
+
+from neomodel import config
+from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
 
 
 if sys.version_info >= (3, 0):
-    unicode = lambda x: str(x)
+    unicode = str
 
 
 def display_for(key):
     def display_choice(self):
-        return getattr(self.__class__, key).choice_map[getattr(self, key)]
+        return getattr(self.__class__, key).choices[getattr(self, key)]
     return display_choice
 
 
 class PropertyManager(object):
-    # Common methods for handling properties on node and relationship objects
+    """
+    Common methods for handling properties on node and relationship objects.
+    """
 
-    def __init__(self, *args, **kwargs):
-
+    def __init__(self, **kwargs):
         properties = getattr(self, "__all_properties__", None)
         if properties is None:
-            properties = self.defined_properties(rels=False, aliases=False).items()
-        for key, val in properties:
-            # handle default values
-            if key not in kwargs or kwargs[key] is None:
-                if hasattr(val, 'has_default') and val.has_default:
-                    setattr(self, key, val.default_value())
+            properties = \
+                self.defined_properties(rels=False, aliases=False).items()
+        for name, property in properties:
+            if kwargs.get(name) is None:
+                if getattr(property, 'has_default', False):
+                    setattr(self, name, property.default_value())
                 else:
-                    setattr(self, key, None)
+                    setattr(self, name, None)
             else:
-                setattr(self, key, kwargs[key])
+                setattr(self, name, kwargs[name])
 
-            if hasattr(val, 'choices') and getattr(val, 'choices'):
-                setattr(self, 'get_{}_display'.format(key),
-                        types.MethodType(display_for(key), self))
+            if getattr(property, 'choices', None):
+                setattr(self, 'get_{}_display'.format(name),
+                        types.MethodType(display_for(name), self))
 
-            if key in kwargs:
-                del kwargs[key]
+            if name in kwargs:
+                del kwargs[name]
 
         aliases = getattr(self, "__all_aliases__", None)
         if aliases is None:
-            aliases = self.defined_properties(rels=False, properties=False).items()
-        # aliases next so they don't have their alias over written
-        for key, val in aliases:
-            if key in kwargs:
-                setattr(self, key, kwargs[key])
-                del kwargs[key]
+            aliases = self.defined_properties(
+                aliases=True, rels=False, properties=False).items()
+        for name, property in aliases:
+            if name in kwargs:
+                setattr(self, name, kwargs[name])
+                del kwargs[name]
 
-        # undefined properties last (for magic @prop.setters etc)
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+        # undefined properties (for magic @prop.setters etc)
+        for name, property in kwargs.items():
+            setattr(self, name, property)
 
     @property
     def __properties__(self):
         from .relationship_manager import RelationshipManager
-        props = {}
-        for key, value in self.__dict__.items():
-            if not (key.startswith('_')
-                    or isinstance(value,
-                        (types.MethodType, RelationshipManager, AliasProperty,))):
-                props[key] = value
-        return props
+
+        return dict((name, value) for name, value in vars(self).items()
+                    if not name.startswith('_')
+                    and not callable(value)
+                    and not isinstance(value,
+                                       (RelationshipManager, AliasProperty,))
+                    )
 
     @classmethod
-    def deflate(cls, obj_props, obj=None, skip_empty=False):
+    def deflate(cls, properties, obj=None, skip_empty=False):
         # deflate dict ready to be stored
         deflated = {}
-        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            # map property name to correct database property
-            db_property = prop.db_property or key
-            if key in obj_props and obj_props[key] is not None:
-                deflated[db_property] = prop.deflate(obj_props[key], obj)
-            elif prop.has_default:
-                deflated[db_property] = prop.deflate(prop.default_value(), obj)
-            elif prop.required or prop.unique_index:
-                raise RequiredProperty(key, cls)
-            elif skip_empty is not True:
+        for name, property \
+                in cls.defined_properties(aliases=False, rels=False).items():
+            db_property = property.db_property or name
+            if properties.get(name) is not None:
+                deflated[db_property] = property.deflate(properties[name], obj)
+            elif property.has_default:
+                deflated[db_property] = property.deflate(
+                    property.default_value(), obj
+                )
+            elif property.required or property.unique_index:
+                raise RequiredProperty(name, cls)
+            elif not skip_empty:
                 deflated[db_property] = None
         return deflated
 
@@ -91,13 +96,14 @@ class PropertyManager(object):
     def defined_properties(cls, aliases=True, properties=True, rels=True):
         from .relationship_manager import RelationshipDefinition
         props = {}
-        for scls in reversed(cls.mro()):
-            for key, prop in scls.__dict__.items():
-                if ((aliases and isinstance(prop, AliasProperty))
-                        or (properties and hasattr(prop, '__class__') and issubclass(prop.__class__, Property)
-                            and not isinstance(prop, AliasProperty))
-                        or (rels and isinstance(prop, RelationshipDefinition))):
-                    props[key] = prop
+        for baseclass in reversed(cls.__mro__):
+            props.update(dict(
+                (name, property) for name, property in vars(baseclass).items()
+                if (aliases and isinstance(property, AliasProperty))
+                or (properties and isinstance(property, Property)
+                    and not isinstance(property, AliasProperty))
+                or (rels and isinstance(property, RelationshipDefinition))
+            ))
         return props
 
 
@@ -188,11 +194,10 @@ class Property(object):
         return self.unique_index or self.index
 
 
-class NormalProperty(Property):
+class NormalizedProperty(Property):
     """
-    Base class for Normalized properties
-
-    Those that use the same normalization method to inflate or deflate.
+    Base class for normalized properties. These use the same normalization
+    method to in- or deflating.
     """
 
     @validator
@@ -204,14 +209,34 @@ class NormalProperty(Property):
         return self.normalize(value)
 
     def default_value(self):
-        default = super(NormalProperty, self).default_value()
+        default = super(NormalizedProperty, self).default_value()
         return self.normalize(default)
 
     def normalize(self, value):
         raise NotImplementedError('Specialize normalize method')
 
 
-class RegexProperty(NormalProperty):
+## TODO remove this with the next major release
+def _warn_NormalProperty_renamed():
+    warnings.warn(
+        'The class NormalProperty was renamed to NormalizedProperty. '
+        'Use that one as base class. The former will be removed in the next '
+        'major release.', DeprecationWarning)
+
+
+if sys.version_info >= (3, 6):
+    class NormalProperty(NormalizedProperty):
+        def __init_subclass__(cls, **kwargs):
+            _warn_NormalProperty_renamed()
+else:
+    class NormalProperty(NormalizedProperty):
+        def __init__(self, *args, **kwargs):
+            _warn_NormalProperty_renamed()
+            super(NormalProperty, self).__init__(*args, **kwargs)
+##
+
+
+class RegexProperty(NormalizedProperty):
     """
     Validates a property against a regular expression.
 
@@ -255,42 +280,39 @@ class EmailProperty(RegexProperty):
     expression = r'[^@]+@[^@]+\.[^@]+'
 
 
-class StringProperty(Property):
+class StringProperty(NormalizedProperty):
     """
-    Store strings
+    Stores a unicode string
+
+    :param choices: A mapping of valid strings to label strings that are used
+                    to display information in an application. If the default
+                    value ``None`` is used, any string is valid.
+    :type choices: Any type that can be used to initiate a :class:`dict`.
     """
     def __init__(self, choices=None, **kwargs):
-        """
-        :param choices: tuple of tuple pairs.
-        :type: tuple
-        :param kwargs:
-        """
         super(StringProperty, self).__init__(**kwargs)
-        self.choices = choices
 
-        if self.choices:
-            if not isinstance(self.choices, tuple):
-                raise ValueError("Choices must be a tuple of tuples")
-
-            self.choice_map = dict(self.choices)
+        if choices is None:
+            self.choices = None
+        else:
+            try:
+                self.choices = dict(choices)
+            except Exception:
+                raise ValueError("The choices argument must be convertable to "
+                                 "a dictionary.")
+            # Python 3:
+            # except Exception as e:
+            #     raise ValueError("The choices argument must be convertable to "
+            #                      "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
-    @validator
-    def inflate(self, value):
-        if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {}".format(value))
-
-        return unicode(value)
-
-    @validator
-    def deflate(self, value):
-        if self.choices and value not in self.choice_map:
-            raise ValueError("Invalid choice {}".format(value))
-
+    def normalize(self, value):
+        if self.choices is not None and value not in self.choices:
+            raise ValueError("Invalid choice: {}".format(value))
         return unicode(value)
 
     def default_value(self):
-        return unicode(super(StringProperty, self).default_value())
+        return self.normalize(super(StringProperty, self).default_value())
 
 
 class IntegerProperty(Property):
@@ -515,7 +537,7 @@ class UniqueIdProperty(Property):
                 raise ValueError('{} argument ignored by {}'.format(item, self.__class__.__name__))
 
         kwargs['unique_index'] = True
-        kwargs['default'] = lambda: uuid4().hex
+        kwargs['default'] = lambda: uuid.uuid4().hex
         super(UniqueIdProperty, self).__init__(**kwargs)
 
     @validator

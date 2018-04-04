@@ -1,4 +1,5 @@
 Version 3.2.6
+ * neomodel.properties.NormalClass is renamed to NormalizedClass
  * Respect when db_property is set in install_labels and get_or_create - mprahl
  * Use a clearer relationship name in the Relationships documentation - mprahl
  * Improve relationship documentation - mprahl
@@ -102,7 +103,7 @@ Version 3.0.0 2016-11-27
  * Add __repr__ and __str__ methods to StructuredNode
  * Add get_or_none method to NodeSet
  * Fixed filters persisting across node relationship queries (#208)
- * Un-deprecate is_connected, its intuitive 
+ * Un-deprecate is_connected, its intuitive
  * Fixed NodeSet index returning a list now returns just the node, e.g
  jim.friends[0] returns a node as opposed to a list containing one node.
  * Added missing filter and exclude methods to rel manager enabling: jim.friends.filter(name='bob')

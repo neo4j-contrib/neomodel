@@ -81,8 +81,9 @@ unless you define different properties when calling connect. neomodel utilises `
 Explicit Traversal
 ==================
 
-It is possible to specify a node traversal by creating a Traversal object. This will get all Person entities that are
-directly related to another Person, through all relationships::
+It is possible to specify a node traversal by creating a
+:class:`~neomodel.match.Traversal` object. This will get all Person entities
+that are directly related to another Person, through all relationships::
 
     definition = dict(node_class=Person, direction=OUTGOING,
                       relation_type=None, model=None)

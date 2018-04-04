@@ -5,6 +5,7 @@ import inspect
 import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
+
 # basestring python 3.x fallback
 try:
     basestring
@@ -120,7 +121,7 @@ def install_traversals(cls, node_set):
         rel = getattr(cls, key)
         rel._lookup_node_class()
 
-        traversal = Traversal(source=node_set, key=key, definition=rel.definition)
+        traversal = Traversal(source=node_set, name=key, definition=rel.definition)
         setattr(node_set, key, traversal)
 
 
@@ -615,15 +616,23 @@ class NodeSet(BaseSet):
 
 class Traversal(BaseSet):
     """
-    Models a traversal from a node to another, inherits from BaseSet
+    Models a traversal from a node to another.
+
+    :param source: Starting of the traversal.
+    :type source: A :class:`~neomodel.core.StructuredNode` subclass, an
+                  instance of such, a :class:`~neomodel.match.NodeSet` instance
+                  or a :class:`~neomodel.match.Traversal` instance.
+    :param name: A name for the traversal.
+    :type name: :class:`str`
+    :param definition: A relationship definition that most certainly deserves
+                       a documentation here.
+    :type defintion: :class:`dict`
     """
 
-    def __init__(self, source, key, definition):
+    def __init__(self, source, name, definition):
         """
         Create a traversal
-        :param source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
-        :param key:
-        :param definition: relationship definition
+
         """
         self.source = source
 
@@ -636,11 +645,12 @@ class Traversal(BaseSet):
         elif isinstance(source, NodeSet):
             self.source_class = source.source_class
         else:
-            raise ValueError("Bad source for traversal: {}".format(repr(source)))
+            raise TypeError("Bad source for traversal: "
+                            "{}".format(type(source)))
 
         self.definition = definition
         self.target_class = definition['node_class']
-        self.name = key
+        self.name = name
         self.filters = []
 
     def match(self, **kwargs):
@@ -653,7 +663,7 @@ class Traversal(BaseSet):
         :return: self
         """
         if kwargs:
-            if 'model' not in self.definition or self.definition['model'] is None:
+            if self.definition.get('model') is None:
                 raise ValueError("match() with filter only available on relationships with a model")
             output = process_filter_args(self.definition['model'], kwargs)
             if output:
