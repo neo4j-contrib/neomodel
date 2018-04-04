@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/robinedwards/neomodel/master/doc/source/_static/neomodel-300.png
+.. image:: https://raw.githubusercontent.com/neo4j-contrib/neomodel/master/doc/source/_static/neomodel-300.png
    :alt: neomodel
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
@@ -11,12 +11,12 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 - pre/post save/delete hooks.
 - Django integration via django_neomodel_
 
-.. _django_neomodel: https://github.com/robinedwards/django-neomodel
+.. _django_neomodel: https://github.com/neo4j-contrib/django-neomodel
 .. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
-.. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
-    :target: https://secure.travis-ci.org/robinedwards/neomodel/
+.. image:: https://secure.travis-ci.org/neo4j-contrib/neomodel.png
+    :target: https://secure.travis-ci.org/neo4j-contrib/neomodel/
 
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
@@ -91,5 +91,5 @@ interpreters and neo4j versions::
 
 
 .. image:: https://badges.gitter.im/Join%20Chat.svg
-   :alt: Join the chat at https://gitter.im/robinedwards/neomodel
-   :target: https://gitter.im/robinedwards/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+   :alt: Join the chat at https://gitter.im/neo4j-contrib/neomodel
+   :target: https://gitter.im/neo4j-contrib/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
