@@ -31,4 +31,4 @@ Django signals
 
 Signals are now supported through the django_neomodel_ module.
 
-.. _django_neomodel: https://github.com/robinedwards/django-neomodel
+.. _django_neomodel: https://github.com/neo4j-contrib/django-neomodel

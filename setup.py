@@ -10,7 +10,7 @@ setup(
     author='Robin Edwards',
     author_email='robin.ge@gmail.com',
     zip_safe=True,
-    url='http://github.com/robinedwards/neomodel',
+    url='http://github.com/neo4j-contrib/neomodel',
     license='MIT',
     packages=find_packages(exclude=('tests',)),
     keywords='graph neo4j ORM OGM',
