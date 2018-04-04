@@ -45,8 +45,7 @@ def test_install_labels_db_property():
         id_ = UniqueIdProperty(db_property='id')
     stdout = StringIO()
     install_labels(SomeNode, quiet=False, stdout=stdout)
-    assert 'id' in stdout.getvalue()
-    assert 'id_' not in stdout.getvalue()
+    assert 'id_' in stdout.getvalue()
     # make sure that the id_ constraint doesn't exist
     with pytest.raises(DatabaseError) as exc_info:
         db.cypher_query(
