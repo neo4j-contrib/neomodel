@@ -1,7 +1,29 @@
-Version 3.2.5
+Version 3.2.6
+ * Respect when db_property is set in install_labels and get_or_create - mprahl
+ * Use a clearer relationship name in the Relationships documentation - mprahl
+ * Improve relationship documentation - mprahl
+ * Ensure_connection only called when accessing the database, not when
+ constructing the transaction decorator - Robert Grant
+ * Test against newer neo4j releases - Frank Sachsenheim
+ * Fixes and simplifies pickling of DoesNotExist subclasses - Frank Sachsenheim
+ * Add NeomodelException and move exceptions to a module - Frank Sachsenheim
+ * Many documentation improvements - Frank Sachsenheim
+ * Add newline to is abstract warning #305 - Omer Yampel
+ * Refactors tests to use pytest as runner.- Frank Sachsenheim
+ * Remove support for Python 3.3 - Frank Sachsenheim
+ * Adds support for neo4j 3.3 - Frank Sachsenheim
+ * Updates .travis.yml in order to also test against various neo4j versions - Frank Sachsenheim
+ * Updates neo4j-driver dependency to 1.5.2 - Frank Sachsenheim
+ * Adds a script to tests against various platforms with Docker Compose - Frank Sachsenheim
+ * Fix service unavailable issue (#281) - Warin Isvilanonda
+ * Add neomodel_remove_labels - Ivan Laković
+ * Test for model is None in Traversal.match() - pvanheus
+
+Version 3.2.5 2017-06-10
+ * Upgrade pytz
  * Remove use of START in match engine breaking neo4j 3.2
 
-Version 3.2.4 2017-06-17
+Version 3.2.4 2017-04-30
  * Upgrade neo4j-driver to 1.2.1 #251
 
 Version 3.2.3 2017-04-17
