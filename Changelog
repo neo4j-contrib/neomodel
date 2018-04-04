@@ -1,4 +1,5 @@
 Version 3.2.6
+ * Code clean ups and documentation improvments - Frank Sachsenheim
  * neomodel.properties.NormalClass is renamed to NormalizedClass
  * Respect when db_property is set in install_labels and get_or_create - mprahl
  * Use a clearer relationship name in the Relationships documentation - mprahl
