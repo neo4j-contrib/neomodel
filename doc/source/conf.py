@@ -117,7 +117,7 @@ html_theme = 'alabaster'
 html_theme_options = {
     'logo': 'neomodel-148.png',
 #    'logo_align': 'left',
-    'github_user': 'robinedwards',
+    'github_user': 'neo4j-contrib',
     'github_repo': 'neomodel',
    # 'github_branch': 'master',
     'travis_button': True,
