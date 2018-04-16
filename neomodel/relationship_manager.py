@@ -209,6 +209,18 @@ class RelationshipManager(object):
         self.source.cypher(q, {'them': node.id})
 
     @check_source
+    def disconnect_all(self):
+        """
+        Disconnect all nodes
+
+        :return:
+        """
+        rhs = 'b:' + self.definition['node_class'].__label__
+        rel = _rel_helper(lhs='a', rhs=rhs, ident='r', **self.definition)
+        q = "MATCH (a) WHERE id(a)={self} MATCH " + rel + " DELETE r"
+        self.source.cypher(q)
+
+    @check_source
     def _new_traversal(self):
         return Traversal(self.source, self.name, self.definition)
 

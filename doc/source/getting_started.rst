@@ -126,4 +126,12 @@ Working with relationships::
     # Find people called 'Jim' in germany
     germany.inhabitant.search(name='Jim')
 
+    # Remove Jim's country relationship with Germany
     jim.country.disconnect(germany)
+
+    usa = Country(code='US').save()
+    jim.country.connect(usa)
+    jim.country.connect(germany)
+
+    # Remove all of Jim's country relationships
+    jim.country.disconnect_all()
