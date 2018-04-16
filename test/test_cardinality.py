@@ -92,7 +92,7 @@ def test_cardinality_one():
     m.toothbrush.connect(b)
     assert m.toothbrush.single().name == 'Jim'
 
-    x = ToothBrush(name='Jim').save
+    x = ToothBrush(name='Jim').save()
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
 
