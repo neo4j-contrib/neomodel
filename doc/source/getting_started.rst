@@ -98,6 +98,12 @@ Using the '.nodes' class property::
     # Will return None unless bob exists
     someone = Person.nodes.get_or_none(name='bob')
 
+    # Will return the first Person node with the name bob. This raises Person.DoesNotExist if there's no match.
+    someone = Person.nodes.first(name='bob')
+
+    # Will return the first Person node with the name bob or None if there's no match
+    someone = Person.nodes.first_or_none(name='bob')
+
     # Return set of nodes
     people = Person.nodes.filter(age__gt=3)
 

@@ -494,6 +494,12 @@ class NodeSet(BaseSet):
         self.must_match = {}
         self.dont_match = {}
 
+    def _get(self, limit=None, **kwargs):
+        self.filter(**kwargs)
+        if limit:
+            self.limit = limit
+        return self.query_cls(self).build_ast()._execute()
+
     def get(self, **kwargs):
         """
         Retrieve one node from the set matching supplied parameters
@@ -501,11 +507,7 @@ class NodeSet(BaseSet):
         :param kwargs: same syntax as `filter()`
         :return: node
         """
-        output = process_filter_args(self.source_class, kwargs)
-        if output:
-            self.filters.append(output)
-        self.limit = 2
-        result = self.query_cls(self).build_ast()._execute()
+        result = self._get(limit=2, **kwargs)
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
         elif not result:
@@ -522,6 +524,31 @@ class NodeSet(BaseSet):
         """
         try:
             return self.get(**kwargs)
+        except self.source_class.DoesNotExist:
+            pass
+
+    def first(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters
+
+        :param kwargs: same syntax as `filter()`
+        :return: node
+        """
+        result = result = self._get(limit=1, **kwargs)
+        if result:
+            return result[0]
+        else:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+
+    def first_or_none(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters or return none
+
+        :param kwargs: same syntax as `filter()`
+        :return: node or none
+        """
+        try:
+            return self.first(**kwargs)
         except self.source_class.DoesNotExist:
             pass
 
