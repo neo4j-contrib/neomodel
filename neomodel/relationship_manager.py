@@ -108,6 +108,19 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
+    def replace(self, node, properties=None):
+        """
+        Disconnect all existing nodes and connect the supplied node
+
+        :param node:
+        :param properties: for the new relationship
+        :type: dict
+        :return:
+        """
+        self.disconnect_all()
+        self.connect(node, properties)
+
+    @check_source
     def relationship(self, node):
         """
         Retrieve the relationship object for this first relationship between self and node.
@@ -217,7 +230,7 @@ class RelationshipManager(object):
         """
         rhs = 'b:' + self.definition['node_class'].__label__
         rel = _rel_helper(lhs='a', rhs=rhs, ident='r', **self.definition)
-        q = "MATCH (a) WHERE id(a)={self} MATCH " + rel + " DELETE r"
+        q = 'MATCH (a) WHERE id(a)={self} MATCH ' + rel + ' DELETE r'
         self.source.cypher(q)
 
     @check_source

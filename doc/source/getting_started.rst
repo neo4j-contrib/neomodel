@@ -135,3 +135,7 @@ Working with relationships::
 
     # Remove all of Jim's country relationships
     jim.country.disconnect_all()
+
+    jim.country.connect(usa)
+    # Replace Jim's country relationship with a new one
+    jim.country.replace(germany)
