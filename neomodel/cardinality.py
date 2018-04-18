@@ -114,6 +114,11 @@ class One(RelationshipManager):
             "Cardinality one, cannot disconnect use reconnect."
         )
 
+    def disconnect_all(self):
+        raise AttemptedCardinalityViolation(
+            "Cardinality one, cannot disconnect_all use reconnect."
+        )
+
     def connect(self, node, properties=None):
         """
         Connect a node

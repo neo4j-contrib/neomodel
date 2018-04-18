@@ -43,6 +43,13 @@ def test_cardinality_zero_or_more():
     assert m.dryers.all() == []
     assert m.dryers.single() is None
 
+    h2 = HairDryer(version=2).save()
+    m.dryers.connect(h)
+    m.dryers.connect(h2)
+    m.dryers.disconnect_all()
+    assert m.dryers.all() == []
+    assert m.dryers.single() is None
+
 
 def test_cardinality_zero_or_one():
     m = Monkey(name='bob').save()
