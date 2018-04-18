@@ -61,6 +61,10 @@ def test_cardinality_zero_or_one():
     assert len(m.driver.all()) == 1
     assert m.driver.single().version == 1
 
+    # Make sure an exception is not raised when connect is called with an
+    # already connected node
+    m.driver.connect(h)
+
     j = ScrewDriver(version=2).save()
     with raises(AttemptedCardinalityViolation):
         m.driver.connect(j)
@@ -99,7 +103,11 @@ def test_cardinality_one():
     m.toothbrush.connect(b)
     assert m.toothbrush.single().name == 'Jim'
 
-    x = ToothBrush(name='Jim').save
+    # Make sure an exception is not raised when connect is called with an
+    # already connected node
+    m.toothbrush.connect(b)
+
+    x = ToothBrush(name='Jim').save()
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
 

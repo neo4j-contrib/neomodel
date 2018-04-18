@@ -36,7 +36,7 @@ class ZeroOrOne(RelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if len(self):
+        if len(self) and node not in self:
             raise AttemptedCardinalityViolation(
                     "Node already has {0} can't connect more".format(self))
         else:
@@ -129,7 +129,7 @@ class One(RelationshipManager):
         """
         if not hasattr(self.source, 'id'):
             raise ValueError("Node has not been saved cannot connect!")
-        if len(self):
+        if len(self) and node not in self:
             raise AttemptedCardinalityViolation(
                 "Node already has one relationship"
             )
