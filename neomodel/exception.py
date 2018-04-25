@@ -1,2 +1,2 @@
 # Backwards compat
-import * from .exceptions
+from .exceptions import *
