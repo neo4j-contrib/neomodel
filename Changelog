@@ -1,3 +1,6 @@
+Version 3.2.8 2018-04-29
+ * Fix syntax error in import
+
 Version 3.2.7 2018-04-23
  * Back compat for exceptions module move - Robin Edwards
  * Lower the required pytz version (#328) - mprahl
