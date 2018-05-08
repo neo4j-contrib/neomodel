@@ -675,6 +675,15 @@ class Traversal(BaseSet):
             raise TypeError("Bad source for traversal: "
                             "{}".format(type(source)))
 
+        invalid_keys = (
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+        )
+        if invalid_keys:
+            raise ValueError(
+                'Unallowed keys in Traversal definition: {invalid_keys}'
+                .format(invalid_keys=invalid_keys)
+            )
+
         self.definition = definition
         self.target_class = definition['node_class']
         self.name = name
