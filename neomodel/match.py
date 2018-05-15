@@ -106,6 +106,12 @@ OPERATOR_TABLE = {
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
+# list all supported operators
+OPERAND_TABLE = {
+    'or': ' OR ',
+    'and': ' AND '
+}
+
 
 def install_traversals(cls, node_set):
     """
@@ -132,6 +138,7 @@ def process_filter_args(cls, kwargs):
     """
 
     output = {}
+    operand = ' AND '
 
     for key, value in kwargs.items():
         if '__' in key:
@@ -140,6 +147,13 @@ def process_filter_args(cls, kwargs):
         else:
             prop = key
             operator = '='
+        if prop.startswith('or_'):
+            prop = prop.replace('or_', '')
+            operand = OPERAND_TABLE['or']
+
+        elif prop.startswith('and_'):
+            prop = prop.replace('and_', '')
+            operand = OPERAND_TABLE['and']
 
         if prop not in cls.defined_properties(rels=False):
             raise ValueError("No such property {} on {}".format(prop, cls.__name__))
@@ -173,7 +187,7 @@ def process_filter_args(cls, kwargs):
         # map property to correct property name in the database
         db_property = cls.defined_properties(rels=False)[prop].db_property or prop
 
-        output[db_property] = (operator, deflated_value)
+        output[db_property] = (operator, deflated_value, operand)
 
     return output
 
@@ -339,6 +353,7 @@ class QueryBuilder(object):
         construct a where statement from some filters
         """
         stmts = []
+        pre_oprand = None
         for row in filters:
             negate = False
 
@@ -348,7 +363,7 @@ class QueryBuilder(object):
                 row = row['__NOT__']
 
             for prop, op_and_val in row.items():
-                op, val = op_and_val
+                op, val, oprand = op_and_val
                 if op in _UNARY_OPERATORS:
                     # unary operators do not have a parameter
                     statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
@@ -356,9 +371,12 @@ class QueryBuilder(object):
                     place_holder = self._register_place_holder(ident + '_' + prop)
                     statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
                     self._query_params[place_holder] = val
+                if pre_oprand:
+                    statement = pre_oprand + statement
+                pre_oprand = oprand
                 stmts.append(statement)
 
-        self._ast['where'].append(' AND '.join(stmts))
+        self._ast['where'].append(''.join(stmts))
 
     def build_query(self):
         query = ''
