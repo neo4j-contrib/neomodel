@@ -1,13 +1,17 @@
 from datetime import datetime, date
 
-from pytest import raises
+from pytest import mark, raises
 from pytz import timezone
 
-from neomodel.properties import (IntegerProperty, DateTimeProperty,
-                                 NormalProperty, RegexProperty, EmailProperty,
-                                 DateProperty, StringProperty, JSONProperty, UniqueIdProperty, ArrayProperty)
-from neomodel.exceptions import InflateError, DeflateError
 from neomodel import StructuredNode, db
+from neomodel.exceptions import InflateError, DeflateError
+from neomodel.properties import (
+    ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
+    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
+    RegexProperty, StringProperty, UniqueIdProperty
+)
+
+
 
 
 class FooBar(object):
@@ -16,7 +20,7 @@ class FooBar(object):
 
 def test_string_property_w_choice():
     class TestChoices(StructuredNode):
-        SEXES = (('M', 'Male'), ('F', 'Female'))
+        SEXES = {'F': 'Female', 'M': 'Male', 'O': 'Other'}
         sex = StringProperty(required=True, choices=SEXES)
 
     try:
@@ -191,12 +195,32 @@ def test_independent_property_name():
     assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
     assert TestNode.nodes.get(name_="jim").name_ == x.name_
 
+    x.delete()
+
+
+def test_independent_property_name_get_or_create():
+    class TestNode(StructuredNode):
+        uid = UniqueIdProperty()
+        name_ = StringProperty(db_property="name", required=True)
+
+    # create the node
+    TestNode.get_or_create({'uid': 123, 'name_': 'jim'})
+    # test that the node is retrieved correctly
+    x = TestNode.get_or_create({'uid': 123, 'name_': 'jim'})[0]
+
+    # check database property name on low level
+    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
+    assert results[0][0].properties['name'] == "jim"
+    assert 'name_' not in results[0][0].properties
+
     # delete node afterwards
     x.delete()
 
 
-def test_normal_property():
-    class TestProperty(NormalProperty):
+@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
+def test_normalized_property(normalized_class):
+
+    class TestProperty(normalized_class):
         def normalize(self, value):
             self._called_with = value
             self._called = True

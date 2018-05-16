@@ -143,6 +143,32 @@ def test_valid_reconnection():
     assert c.president.is_connected(pp)
 
 
+def test_valid_replace():
+    brady = Person(name='Tom Brady', age=40).save()
+    assert brady
+
+    gronk = Person(name='Rob Gronkowski', age=28).save()
+    assert gronk
+
+    colbert = Person(name='Stephen Colbert', age=53).save()
+    assert colbert
+
+    hanks = Person(name='Tom Hanks', age=61).save()
+    assert hanks
+
+    brady.knows.connect(gronk)
+    brady.knows.connect(colbert)
+    assert len(brady.knows) == 2
+    assert brady.knows.is_connected(gronk)
+    assert brady.knows.is_connected(colbert)
+
+    brady.knows.replace(hanks)
+    assert len(brady.knows) == 1
+    assert brady.knows.is_connected(hanks)
+    assert not brady.knows.is_connected(gronk)
+    assert not brady.knows.is_connected(colbert)
+
+
 def test_props_relationship():
     u = Person(name='Mar', age=20).save()
     assert u

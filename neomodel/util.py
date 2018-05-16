@@ -21,8 +21,14 @@ logger = logging.getLogger(__name__)
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
     def wrapper(self, *args, **kwargs):
-        if not self.url:
-            self.set_connection(config.DATABASE_URL)
+        # Sort out where to find url
+        if hasattr(self, 'db'):
+            _db = self.db
+        else:
+            _db = self
+
+        if not _db.url:
+            _db.set_connection(config.DATABASE_URL)
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -62,7 +68,6 @@ class Database(local):
         self._active_transaction = None
 
     @property
-    @ensure_connection
     def transaction(self):
         return TransactionProxy(self)
 
@@ -127,6 +132,7 @@ class TransactionProxy(object):
     def __init__(self, db):
         self.db = db
 
+    @ensure_connection
     def __enter__(self):
         self.db.begin()
         return self

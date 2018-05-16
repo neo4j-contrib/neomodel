@@ -2,9 +2,11 @@ from datetime import datetime
 
 from pytest import raises
 
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
-                      RelationshipTo, StructuredRel, DateTimeProperty)
-from neomodel.match import NodeSet, QueryBuilder
+from neomodel import (
+    INCOMING, DateTimeProperty, IntegerProperty, RelationshipFrom, RelationshipTo,
+    StringProperty, StructuredNode, StructuredRel
+)
+from neomodel.match import NodeSet, QueryBuilder, Traversal
 from neomodel.exceptions import MultipleNodesReturned
 
 
@@ -237,3 +239,22 @@ def test_extra_filters():
     unpriced_coffees = Coffee.nodes.filter(price__isnull=True).all()
     assert len(unpriced_coffees) == 1, "unexpected number of results"
     assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
+
+
+def test_traversal_definition_keys_are_valid():
+    muckefuck = Coffee(name='Mukkefuck', price=1)
+
+    with raises(ValueError):
+        Traversal(
+            muckefuck, 'a_name', {
+                'node_class': Supplier, 'direction': INCOMING,
+                'relationship_type': 'KNOWS', 'model': None
+            }
+        )
+
+    Traversal(
+        muckefuck, 'a_name', {
+            'node_class': Supplier, 'direction': INCOMING,
+            'relation_type': 'KNOWS', 'model': None
+        }
+    )

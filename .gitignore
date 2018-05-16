@@ -14,3 +14,4 @@ development.env
 .python-version
 .ropeproject
 \#*\#
+.eggs

@@ -98,6 +98,12 @@ Using the '.nodes' class property::
     # Will return None unless bob exists
     someone = Person.nodes.get_or_none(name='bob')
 
+    # Will return the first Person node with the name bob. This raises Person.DoesNotExist if there's no match.
+    someone = Person.nodes.first(name='bob')
+
+    # Will return the first Person node with the name bob or None if there's no match
+    someone = Person.nodes.first_or_none(name='bob')
+
     # Return set of nodes
     people = Person.nodes.filter(age__gt=3)
 
@@ -120,4 +126,16 @@ Working with relationships::
     # Find people called 'Jim' in germany
     germany.inhabitant.search(name='Jim')
 
+    # Remove Jim's country relationship with Germany
     jim.country.disconnect(germany)
+
+    usa = Country(code='US').save()
+    jim.country.connect(usa)
+    jim.country.connect(germany)
+
+    # Remove all of Jim's country relationships
+    jim.country.disconnect_all()
+
+    jim.country.connect(usa)
+    # Replace Jim's country relationship with a new one
+    jim.country.replace(germany)

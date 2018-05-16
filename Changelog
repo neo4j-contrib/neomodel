@@ -1,7 +1,40 @@
-Version 3.2.5
+Version 3.2.8 2018-04-29
+ * Fix syntax error in import
+
+Version 3.2.7 2018-04-23
+ * Back compat for exceptions module move - Robin Edwards
+ * Lower the required pytz version (#328) - mprahl
+ * Add the "disconnect_all" and "replace" methods on relationship properties (#327) - mprahl
+ * Add the "first" and "first_or_none" methods on the NodeSet class (#325) - mprahl
+
+Version 3.2.6 2018-04-04
+ * Code clean ups and documentation improvments - Frank Sachsenheim
+ * neomodel.properties.NormalClass is renamed to NormalizedClass
+ * Respect when db_property is set in install_labels and get_or_create - mprahl
+ * Use a clearer relationship name in the Relationships documentation - mprahl
+ * Improve relationship documentation - mprahl
+ * Ensure_connection only called when accessing the database, not when
+ constructing the transaction decorator - Robert Grant
+ * Test against newer neo4j releases - Frank Sachsenheim
+ * Fixes and simplifies pickling of DoesNotExist subclasses - Frank Sachsenheim
+ * Add NeomodelException and move exceptions to a module - Frank Sachsenheim
+ * Many documentation improvements - Frank Sachsenheim
+ * Add newline to is abstract warning #305 - Omer Yampel
+ * Refactors tests to use pytest as runner.- Frank Sachsenheim
+ * Remove support for Python 3.3 - Frank Sachsenheim
+ * Adds support for neo4j 3.3 - Frank Sachsenheim
+ * Updates .travis.yml in order to also test against various neo4j versions - Frank Sachsenheim
+ * Updates neo4j-driver dependency to 1.5.2 - Frank Sachsenheim
+ * Adds a script to tests against various platforms with Docker Compose - Frank Sachsenheim
+ * Fix service unavailable issue (#281) - Warin Isvilanonda
+ * Add neomodel_remove_labels - Ivan Laković
+ * Test for model is None in Traversal.match() - pvanheus
+
+Version 3.2.5 2017-06-10
+ * Upgrade pytz
  * Remove use of START in match engine breaking neo4j 3.2
 
-Version 3.2.4 2017-06-17
+Version 3.2.4 2017-04-30
  * Upgrade neo4j-driver to 1.2.1 #251
 
 Version 3.2.3 2017-04-17
@@ -80,7 +113,7 @@ Version 3.0.0 2016-11-27
  * Add __repr__ and __str__ methods to StructuredNode
  * Add get_or_none method to NodeSet
  * Fixed filters persisting across node relationship queries (#208)
- * Un-deprecate is_connected, its intuitive 
+ * Un-deprecate is_connected, its intuitive
  * Fixed NodeSet index returning a list now returns just the node, e.g
  jim.friends[0] returns a node as opposed to a list containing one node.
  * Added missing filter and exclude methods to rel manager enabling: jim.friends.filter(name='bob')
