@@ -71,11 +71,15 @@ class Database(local):
     def transaction(self):
         return TransactionProxy(self)
 
+    @property
+    def write_transaction(self):
+        return TransactionProxy(self, access_mode="WRITE")
+
     @ensure_connection
-    def begin(self):
+    def begin(self, access_mode=None):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session().begin_transaction()
+        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -129,12 +133,13 @@ class Database(local):
 
 
 class TransactionProxy(object):
-    def __init__(self, db):
+    def __init__(self, db, access_mode=None):
         self.db = db
+        self.access_mode = access_mode
 
     @ensure_connection
     def __enter__(self):
-        self.db.begin()
+        self.db.begin(access_mode=self.access_mode)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
