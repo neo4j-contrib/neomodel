@@ -216,7 +216,7 @@ class NormalizedProperty(Property):
         raise NotImplementedError('Specialize normalize method')
 
 
-## TODO remove this with the next major release
+# TODO remove this with the next major release
 def _warn_NormalProperty_renamed():
     warnings.warn(
         'The class NormalProperty was renamed to NormalizedProperty. '
@@ -226,10 +226,12 @@ def _warn_NormalProperty_renamed():
 
 if sys.version_info >= (3, 6):
     class NormalProperty(NormalizedProperty):
+
         def __init_subclass__(cls, **kwargs):
             _warn_NormalProperty_renamed()
 else:
     class NormalProperty(NormalizedProperty):
+
         def __init__(self, *args, **kwargs):
             _warn_NormalProperty_renamed()
             super(NormalProperty, self).__init__(*args, **kwargs)
@@ -289,9 +291,11 @@ class StringProperty(NormalizedProperty):
                     value ``None`` is used, any string is valid.
     :type choices: Any type that can be used to initiate a :class:`dict`.
     """
-    def __init__(self, choices=None, **kwargs):
+
+    def __init__(self, choices=None, max_length=None, **kwargs):
         super(StringProperty, self).__init__(**kwargs)
 
+        self.max_length = max_length
         if choices is None:
             self.choices = None
         else:
@@ -309,6 +313,8 @@ class StringProperty(NormalizedProperty):
     def normalize(self, value):
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {}".format(value))
+        if self.max_length is not None and len(value) > self.max_length:
+            raise ValueError("Max Length Exceeds: {}".format(value))
         return unicode(value)
 
     def default_value(self):
@@ -482,6 +488,7 @@ class JSONProperty(Property):
 
     The structure will be inflated when a node is retrieved.
     """
+
     def __init__(self, *args, **kwargs):
         super(JSONProperty, self).__init__(*args, **kwargs)
 
@@ -498,6 +505,7 @@ class AliasProperty(property, Property):
     """
     Alias another existing property
     """
+
     def __init__(self, to=None):
         """
         Create new alias
@@ -531,6 +539,7 @@ class UniqueIdProperty(Property):
     """
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
+
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:
