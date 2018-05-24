@@ -27,8 +27,8 @@ def ensure_connection(func):
         else:
             _db = self
 
-        if not _db.url:
-            _db.set_connection(config.DATABASE_URL)
+        if not _db.driver:
+            _db.set_connection()
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -43,13 +43,14 @@ def clear_neo4j_database(db):
 
 
 class Database(local):
-    def __init__(self):
+    def __init__(self, url=None):
         self._active_transaction = None
-        self.url = None
+        self.url = url
         self.driver = None
         self._pid = None
 
-    def set_connection(self, url):
+    def set_connection(self):
+        url = self.url or config.DATABASE_URL
         u = urlparse(url)
 
         if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
