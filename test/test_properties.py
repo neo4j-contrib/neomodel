@@ -12,10 +12,19 @@ from neomodel.properties import (
 )
 
 
-
-
 class FooBar(object):
     pass
+
+
+def test_string_proerty_max_length_exceeds():
+    class TestLongString(StructuredNode):
+        name = StringProperty(required=True, max_length=5)
+
+    with raises(ValueError):
+        TestLongString(name='a_very_long_name').save()
+
+    node = TestLongString(name='Owen').save()
+    assert 'Owen', node.name
 
 
 def test_string_property_w_choice():
@@ -163,6 +172,7 @@ def test_default_valude_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
         class Foo(object):
+
             def __str__(self):
                 return "123"
         return Foo()
@@ -221,6 +231,7 @@ def test_independent_property_name_get_or_create():
 def test_normalized_property(normalized_class):
 
     class TestProperty(normalized_class):
+
         def normalize(self, value):
             self._called_with = value
             self._called = True
