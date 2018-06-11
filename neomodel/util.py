@@ -5,11 +5,10 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
+from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
 
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
-
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -55,7 +54,7 @@ class Database(local):
         self.url = None
         self.driver = None
         self._pid = None
-        # Maintains a lookup directory that is used by cypher_objectaware_query
+        # Maintains a lookup directory that is used by cypher_query
         # to infer which class to instantiate by examining the labels of the
         # node in the resultset.
         # _NODE_CLASS_REGISTRY is populated automatically by the constructor
@@ -121,9 +120,9 @@ class Database(local):
         self._active_transaction = None
 
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
         """
-        Runs a query on the database and returns a list of results and their headers
+        Runs a query on the database and returns a list of results and their headers.
         
         :param query: A CYPHER query
         :type: str
@@ -133,6 +132,8 @@ class Database(local):
         :type: bool
         :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
         :type: bool        
+-        :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
+        :type: bool
         """
         
         if self._pid != os.getpid():
@@ -144,10 +145,25 @@ class Database(local):
             session = self.driver.session()
 
         try:
+            # Retrieve the data
             start = time.clock()
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.clock()
+            
+            if resolve_objects:
+                # Do any automatic resolution required
+                for a_result_item in enumerate(results):
+                    for a_result_attribute in enumerate(a_result_item[1]):                    
+                        try:
+                            # Try to resolve the object to one of the known ones
+                            results[a_result_item[0]][a_result_attribute[0]] = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(a_result_attribute[1]) if type(a_result_attribute[1]) is Node else a_result_attribute[1]
+                        except KeyError:
+                            # Not being able to match the label set of a node with a known object results 
+                            # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                            # to match, then raise an exception with more details about the error.
+                            raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)           
+                    
         except CypherError as ce:
             if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 if 'already exists with label' in ce.message and handle_unique:
@@ -171,22 +187,6 @@ class Database(local):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
         return results, meta
-        
-    @ensure_connection
-    def cypher_objectaware_query(self, query, params = None, handle_unique = True, retry_on_session_expire = False):
-        """
-        Returns properly instantiated classes from the model hierarchy. Its parameters 
-        are exactly the same as `cypher_query`.
-        """
-        results, meta = self.cypher_query(query, params, handle_unique, retry_on_session_expire)
-        objects_to_return = []
-        for result_item in results:
-            try:
-                objects_to_return.append(self._NODE_CLASS_REGISTRY[frozenset(result_item[0].labels)].inflate(result_item[0]))
-            except KeyError:
-                raise ModelDefinitionMismatch(result_item[0], self._NODE_CLASS_REGISTRY)
-                
-        return objects_to_return, meta       
         
         
 class TransactionProxy(object):

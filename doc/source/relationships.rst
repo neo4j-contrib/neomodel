@@ -99,7 +99,7 @@ further defined. ::
         Base class for defining some basic sort of an actor in a system.
         
         The base actor is defined by its name and a `friends_with` 
-        relationship
+        relationship.
         """
         name = neomodel.StringProperty(required = True, unique_index = True)
         friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH", model = PersonalRelationship)
@@ -107,14 +107,14 @@ further defined. ::
     class TechnicalPerson(BasePerson):
         """
         A Technical person specialises BasePerson by adding their 
-        expertise
+        expertise.
         """
         expertise = neomodel.StringProperty(required = True)
         
     class PilotPerson(BasePerson):
         """
         A pilot person specialises BasePerson by adding the type of 
-        airplane they can operate
+        airplane they can operate.
         """
         airplane = neomodel.StringProperty(required = True)
         
@@ -155,7 +155,7 @@ Automatic class resolution
 --------------------------
 
 Neomodel is able to transform nodes to objects, automatically, via a *node-class registry* 
-that is progreessively built up during the definition of the models.
+that is progressively built up during the definition of the models.
 
 The dictionary provides a mapping from the set of labels associated with a node to the class 
 that is implied by this set of labels. In the example above, the *node-class registry* would contain 
