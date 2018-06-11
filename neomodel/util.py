@@ -10,6 +10,7 @@ from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
 
+
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
 else:
@@ -205,10 +206,10 @@ class TransactionProxy(object):
         if exc_type is CypherError:
             if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 raise UniqueProperty(exc_value.message)
-
+                
         if not exc_value:
-            self.db.commit()
-
+            self.db.commit()                            
+            
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:
