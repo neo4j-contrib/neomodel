@@ -1,6 +1,11 @@
 import importlib
 
 
+class DatabaseNotInDebugMode(Exception):
+    def __init__(self, msg):
+        super().__init__(self, msg)
+        
+        
 class ConstraintValidationFailed(ValueError):
     def __init__(self, msg):
         self.message = msg
