@@ -1,5 +1,6 @@
 from neomodel.core import StructuredNode
 from neomodel.exceptions import InflateConflict, DeflateConflict
+from neomodel.util import _get_node_properties
 
 
 class SemiStructuredNode(StructuredNode):
@@ -33,18 +34,19 @@ class SemiStructuredNode(StructuredNode):
         else:
             props = {}
             for key, prop in cls.__all_properties__:
-                if key in node.properties:
-                    props[key] = prop.inflate(node.properties[key], node)
+                node_properties = _get_node_properties(node)
+                if key in node_properties:
+                    props[key] = prop.inflate(node_properties[key], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:
                     props[key] = None
             # handle properties not defined on the class
-            for free_key in (x for x in node.properties if x not in props):
+            for free_key in (x for x in node_properties if x not in props):
                 if hasattr(cls, free_key):
                     raise InflateConflict(cls, free_key,
-                                          node.properties[free_key], node.id)
-                props[free_key] = node.properties[free_key]
+                                          node_properties[free_key], node.id)
+                props[free_key] = node_properties[free_key]
 
             snode = cls(**props)
             snode.id = node.id
