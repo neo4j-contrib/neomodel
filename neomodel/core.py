@@ -6,7 +6,7 @@ from neomodel import config
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
-from neomodel.util import Database, classproperty, _UnsavedNode
+from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
 
 db = Database()
 
@@ -438,13 +438,14 @@ class StructuredNode(NodeBase):
             snode = cls()
             snode.id = node
         else:
+            node_properties = _get_node_properties(node)
             props = {}
             for key, prop in cls.__all_properties__:
                 # map property name from database to object property
                 db_property = prop.db_property or key
 
-                if db_property in node.properties:
-                    props[key] = prop.inflate(node.properties[db_property], node)
+                if db_property in node_properties:
+                    props[key] = prop.inflate(node_properties[db_property], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:

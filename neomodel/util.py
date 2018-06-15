@@ -193,3 +193,13 @@ class _UnsavedNode(object):
 
     def __str__(self):
         return self.__repr__()
+
+
+def _get_node_properties(node):
+    """Get the properties from a neo4j.v1.types.graph.Node object."""
+    # 1.6.x and newer have it as `_properties`
+    if hasattr(node, '_properties'):
+        return node._properties
+    # 1.5.x and older have it as `properties`
+    else:
+        return node.properties

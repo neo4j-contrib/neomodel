@@ -2,7 +2,7 @@ import sys
 import functools
 from importlib import import_module
 from .exceptions import NotConnected
-from .util import deprecated
+from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
 
@@ -190,7 +190,8 @@ class RelationshipManager(object):
             "MATCH (us), (old) WHERE id(us)={self} and id(old)={old} "
             "MATCH " + old_rel + " RETURN r", {'old': old_node.id})
         if result:
-            existing_properties = result[0][0].properties.keys()
+            node_properties = _get_node_properties(result[0][0])
+            existing_properties = node_properties.keys()
         else:
             raise NotConnected('reconnect', self.source, old_node)
 
