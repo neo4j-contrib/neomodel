@@ -338,7 +338,7 @@ class StructuredNode(NodeBase):
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
 
-        Note that the post_create hook isn't called after get_or_create
+        Note that the post_create hook isn't called after create_or_update
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
