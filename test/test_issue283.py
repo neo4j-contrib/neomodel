@@ -34,25 +34,25 @@ class BasePerson(neomodel.StructuredNode):
     
 class TechnicalPerson(BasePerson):
     """
-    A Technical person specialises BasePerson by adding their expertise
+    A Technical person specialises BasePerson by adding their expertise.
     """
     expertise = neomodel.StringProperty(required = True)
     
 class PilotPerson(BasePerson):
     """
-    A pilot person specialises BasePerson by adding the type of airplane they can operate
+    A pilot person specialises BasePerson by adding the type of airplane they can operate.
     """
     airplane = neomodel.StringProperty(required = True)
     
 class BaseOtherPerson(neomodel.StructuredNode):
     """
-    An obviously "wrong" class of actor to befriend BasePersons with
+    An obviously "wrong" class of actor to befriend BasePersons with.
     """
     car_color = neomodel.StringProperty(required = True)
     
 class SomePerson(BaseOtherPerson):
     """
-    Concrete class that simply derives from BaseOtherPerson
+    Concrete class that simply derives from BaseOtherPerson.
     """
     pass  
 
@@ -61,7 +61,7 @@ class SomePerson(BaseOtherPerson):
 def test_automatic_object_resolution():
     """
     Node objects at the end of relationships are instantiated to their 
-    corresponding object
+    corresponding Python object.
     """
         
     # Create a few entities
@@ -80,8 +80,35 @@ def test_automatic_object_resolution():
     A.delete()
     B.delete()
     C.delete()
+    
+def test_recursive_automatic_object_resolution():
+    """
+    Node objects are instantiated to native Python objects, both at the top level of returned results 
+    and in the case where they are returned within lists.
+    """
         
-            
+    # Create a few entities
+    A = TechnicalPerson.get_or_create({"name":"Grumpier", "expertise":"Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name":"Happier", "expertise":"Grumpiness"})[0]
+    C = TechnicalPerson.get_or_create({"name":"Sleepier", "expertise":"Pillows"})[0]
+    D = TechnicalPerson.get_or_create({"name":"Sneezier", "expertise":"Pillows"})[0]
+    
+    # Retrieve mixed results, both at the top level and nested
+    L, _ = neomodel.db.cypher_query("MATCH (a:TechnicalPerson) WHERE a.expertise='Grumpiness' WITH collect(a) as Alpha \
+           MATCH (b:TechnicalPerson) WHERE b.expertise='Pillows' WITH Alpha, collect(b) as Beta \
+           return [Alpha, [Beta, [Beta, ['Banana', Alpha]]]]", resolve_objects = True)
+    
+    # Assert that a Node returned deep in a nested list structure is of the correct type
+    assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
+    # Assert that primitive data types remain primitive data types
+    assert type( L[0][0][0][1][0][1][0][1][0][0]) is str
+    
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
+    
+    
 def test_validation_with_inheritance_from_db():    
     """
     Objects descending from the specified class of a relationship's end-node are also 

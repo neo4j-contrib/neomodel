@@ -119,6 +119,44 @@ class Database(local):
         self._active_transaction.rollback()
         self._active_transaction = None
 
+    def _object_resolution(self, result_list):
+        """
+        Performs in place automatic object resolution on a set of results returned by cypher_query.
+        The function operates recursively in order to be able to resolve Nodes within nested list structures.
+        Not meant to be called directly, used primarily by cypher_query.
+        
+        :param result_list: A list of results as returned by cypher_query.
+        :type list:
+        
+        :return: A list of instantiated objects.
+        """
+        
+        # Object resolution occurs in-place
+        for a_result_item in enumerate(result_list):
+            for a_result_attribute in enumerate(a_result_item[1]):                    
+                try:
+                    # Primitive types should remain primitive types, 
+                    #  Nodes to be resolved to native objects
+                    resolved_object = a_result_attribute[1]
+                    
+                    if type(a_result_attribute[1]) is Node:
+                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(a_result_attribute[1])
+                        
+                    if type(a_result_attribute[1]) is list:
+                        resolved_object = self._object_resolution([a_result_attribute[1]])                    
+                    
+                    result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
+                    
+                except KeyError:
+                    # Not being able to match the label set of a node with a known object results 
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # to match, then raise an exception with more details about the error.
+                    raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
+                    
+        return result_list
+
+        
+        
     @ensure_connection
     def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
         """
@@ -153,17 +191,8 @@ class Database(local):
             
             if resolve_objects:
                 # Do any automatic resolution required
-                for a_result_item in enumerate(results):
-                    for a_result_attribute in enumerate(a_result_item[1]):                    
-                        try:
-                            # Try to resolve the object to one of the known ones
-                            results[a_result_item[0]][a_result_attribute[0]] = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(a_result_attribute[1]) if type(a_result_attribute[1]) is Node else a_result_attribute[1]
-                        except KeyError:
-                            # Not being able to match the label set of a node with a known object results 
-                            # in a KeyError in the internal dictionary used for resolution. If it is impossible 
-                            # to match, then raise an exception with more details about the error.
-                            raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)           
-                    
+                results = self._object_resolution(results)
+                
         except CypherError as ce:
             if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 if 'already exists with label' in ce.message and handle_unique:
