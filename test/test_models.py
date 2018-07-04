@@ -3,7 +3,7 @@ from __future__ import print_function
 from pytest import raises
 
 from neomodel import StructuredNode, StringProperty, IntegerProperty
-from neomodel.exception import RequiredProperty, UniqueProperty
+from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
 class User(StructuredNode):
@@ -65,6 +65,22 @@ def test_get_and_get_or_none():
     assert rob.email == 'robin@test.com'
 
     n = User.nodes.get_or_none(email='robin@nothere.com')
+    assert n is None
+
+
+def test_first_and_first_or_none():
+    u = User(email='matt@test.com', age=24)
+    assert u.save()
+    u2 = User(email='tbrady@test.com', age=40)
+    assert u2.save()
+    tbrady = User.nodes.order_by('-age').first()
+    assert tbrady.email == 'tbrady@test.com'
+    assert tbrady.age == 40
+
+    tbrady = User.nodes.order_by('-age').first_or_none()
+    assert tbrady.email == 'tbrady@test.com'
+
+    n = User.nodes.first_or_none(email='matt@nothere.com')
     assert n is None
 
 

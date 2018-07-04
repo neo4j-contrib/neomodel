@@ -8,7 +8,7 @@ from threading import local
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
 
 from . import config
-from .exception import UniqueProperty, ConstraintValidationFailed
+from .exceptions import UniqueProperty, ConstraintValidationFailed
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -21,8 +21,14 @@ logger = logging.getLogger(__name__)
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
     def wrapper(self, *args, **kwargs):
-        if not self.url:
-            self.set_connection(config.DATABASE_URL)
+        # Sort out where to find url
+        if hasattr(self, 'db'):
+            _db = self.db
+        else:
+            _db = self
+
+        if not _db.url:
+            _db.set_connection(config.DATABASE_URL)
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -62,15 +68,18 @@ class Database(local):
         self._active_transaction = None
 
     @property
-    @ensure_connection
     def transaction(self):
         return TransactionProxy(self)
 
+    @property
+    def write_transaction(self):
+        return TransactionProxy(self, access_mode="WRITE")
+
     @ensure_connection
-    def begin(self):
+    def begin(self, access_mode=None):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session().begin_transaction()
+        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -124,11 +133,13 @@ class Database(local):
 
 
 class TransactionProxy(object):
-    def __init__(self, db):
+    def __init__(self, db, access_mode=None):
         self.db = db
+        self.access_mode = access_mode
 
+    @ensure_connection
     def __enter__(self):
-        self.db.begin()
+        self.db.begin(access_mode=self.access_mode)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -182,3 +193,13 @@ class _UnsavedNode(object):
 
     def __str__(self):
         return self.__repr__()
+
+
+def _get_node_properties(node):
+    """Get the properties from a neo4j.v1.types.graph.Node object."""
+    # 1.6.x and newer have it as `_properties`
+    if hasattr(node, '_properties'):
+        return node._properties
+    # 1.5.x and older have it as `properties`
+    else:
+        return node.properties

@@ -1,8 +1,8 @@
 import sys
 import functools
 from importlib import import_module
-from .exception import NotConnected
-from .util import deprecated
+from .exceptions import NotConnected
+from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
 
@@ -68,8 +68,10 @@ class RelationshipManager(object):
         self._check_node(node)
 
         if not self.definition['model'] and properties:
-            raise NotImplementedError("Relationship properties without " +
-                    "using a relationship model is no longer supported")
+            raise NotImplementedError(
+                "Relationship properties without using a relationship model "
+                "is no longer supported."
+            )
 
         params = {}
         rel_model = self.definition['model']
@@ -104,6 +106,19 @@ class RelationshipManager(object):
             rel_instance.post_save()
 
         return rel_instance
+
+    @check_source
+    def replace(self, node, properties=None):
+        """
+        Disconnect all existing nodes and connect the supplied node
+
+        :param node:
+        :param properties: for the new relationship
+        :type: dict
+        :return:
+        """
+        self.disconnect_all()
+        self.connect(node, properties)
 
     @check_source
     def relationship(self, node):
@@ -175,7 +190,8 @@ class RelationshipManager(object):
             "MATCH (us), (old) WHERE id(us)={self} and id(old)={old} "
             "MATCH " + old_rel + " RETURN r", {'old': old_node.id})
         if result:
-            existing_properties = result[0][0].properties.keys()
+            node_properties = _get_node_properties(result[0][0])
+            existing_properties = node_properties.keys()
         else:
             raise NotConnected('reconnect', self.source, old_node)
 
@@ -205,6 +221,18 @@ class RelationshipManager(object):
         q = "MATCH (a), (b) WHERE id(a)={self} and id(b)={them} " \
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': node.id})
+
+    @check_source
+    def disconnect_all(self):
+        """
+        Disconnect all nodes
+
+        :return:
+        """
+        rhs = 'b:' + self.definition['node_class'].__label__
+        rel = _rel_helper(lhs='a', rhs=rhs, ident='r', **self.definition)
+        q = 'MATCH (a) WHERE id(a)={self} MATCH ' + rel + ' DELETE r'
+        self.source.cypher(q)
 
     @check_source
     def _new_traversal(self):
@@ -385,7 +413,6 @@ class ZeroOrMore(RelationshipManager):
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
     if not isinstance(cls_name, (basestring, object)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
-    from .relationship import StructuredRel # TODO
 
     if model and not issubclass(model, (StructuredRel,)):
         raise ValueError('model must be a StructuredRel')

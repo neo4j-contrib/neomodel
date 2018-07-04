@@ -1,10 +1,13 @@
-from .relationship_manager import RelationshipManager, ZeroOrMore # noqa
+from neomodel.exceptions import (
+    AttemptedCardinalityViolation, CardinalityViolation
+)
+from neomodel.relationship_manager import (
+    RelationshipManager, ZeroOrMore
+)  #noqa: F401
 
 
 class ZeroOrOne(RelationshipManager):
-    """
-    A relationship to zero or one node
-    """
+    """ A relationship to zero or one node. """
     description = "zero or one relationship"
 
     def single(self):
@@ -25,7 +28,7 @@ class ZeroOrOne(RelationshipManager):
 
     def connect(self, node, properties=None):
         """
-        Connect a node
+        Connect to a node.
 
         :param node:
         :type: StructuredNode
@@ -41,9 +44,7 @@ class ZeroOrOne(RelationshipManager):
 
 
 class OneOrMore(RelationshipManager):
-    """
-    A relationship to zero or more nodes
-    """
+    """ A relationship to zero or more nodes. """
     description = "one or more relationships"
 
     def single(self):
@@ -59,7 +60,7 @@ class OneOrMore(RelationshipManager):
 
     def all(self):
         """
-        Return all related nodes
+        Returns all related nodes.
 
         :return: [node1, node2...]
         """
@@ -109,7 +110,14 @@ class One(RelationshipManager):
         return [self.single()]
 
     def disconnect(self, node):
-        raise AttemptedCardinalityViolation("Cardinality one, cannot disconnect use reconnect")
+        raise AttemptedCardinalityViolation(
+            "Cardinality one, cannot disconnect use reconnect."
+        )
+
+    def disconnect_all(self):
+        raise AttemptedCardinalityViolation(
+            "Cardinality one, cannot disconnect_all use reconnect."
+        )
 
     def connect(self, node, properties=None):
         """
@@ -122,29 +130,8 @@ class One(RelationshipManager):
         if not hasattr(self.source, 'id'):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
-            raise AttemptedCardinalityViolation("Node already has one relationship")
+            raise AttemptedCardinalityViolation(
+                "Node already has one relationship"
+            )
         else:
             return super(One, self).connect(node, properties)
-
-
-class AttemptedCardinalityViolation(Exception):
-    """
-    Attempted to alter the database state against the cardinality definitions.
-
-    Example: a relationship of type `One` trying to connect a second node.
-    """
-    pass
-
-
-class CardinalityViolation(Exception):
-    """
-    The state of database doesn't match the nodes cardinality definition.
-
-    For example a relationship type `OneOrMore` returns no nodes.
-    """
-    def __init__(self, rel_manager, actual):
-        self.rel_manager = str(rel_manager)
-        self.actual = str(actual)
-
-    def __str__(self):
-        return "CardinalityViolation: Expected {0} got {1}".format(self.rel_manager, self.actual)

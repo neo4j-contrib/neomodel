@@ -1,6 +1,6 @@
-====================
-Module documentation
-====================
+=====================
+Modules documentation
+=====================
 
 Core
 ----
@@ -11,17 +11,21 @@ Properties
 ----------
 .. automodule:: neomodel.properties
   :members:
+  :show-inheritance:
 
 Relationships
 -------------
 .. automodule:: neomodel.relationship
   :members:
+  :show-inheritance:
 
 .. automodule:: neomodel.relationship_manager
   :members:
+  :show-inheritance:
 
 .. automodule:: neomodel.cardinality
   :members:
+  :show-inheritance:
 
 Match
 -----
@@ -36,3 +40,11 @@ Match
    :members:
    :undoc-members:
 
+
+Exceptions
+----------
+
+.. automodule:: neomodel.exceptions
+   :members:
+   :undoc-members:
+   :show-inheritance:

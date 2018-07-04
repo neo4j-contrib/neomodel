@@ -1,36 +1,13 @@
-from ..core import StructuredNode
-
-
-class InflateConflict(Exception):
-    def __init__(self, cls, key, value, nid):
-        self.cls_name = cls.__name__
-        self.property_name = key
-        self.value = value
-        self.nid = nid
-
-    def __str__(self):
-        return """Found conflict with node {0}, has property '{1}' with value '{2}'
-            although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
-
-
-class DeflateConflict(InflateConflict):
-    def __init__(self, cls, key, value, nid):
-        self.cls_name = cls.__name__
-        self.property_name = key
-        self.value = value
-        self.nid = nid if nid else '(unsaved)'
-
-    def __str__(self):
-        return """Found trying to set property '{1}' with value '{2}' on node {0}
-            although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+from neomodel.core import StructuredNode
+from neomodel.exceptions import InflateConflict, DeflateConflict
+from neomodel.util import _get_node_properties
 
 
 class SemiStructuredNode(StructuredNode):
     """
-    A base class allowing properties to be stored on a node that aren't specified in it's definition.
-    Conflicting properties are avoided through the DeflateConflict exception::
+    A base class allowing properties to be stored on a node that aren't
+    specified in its definition. Conflicting properties are signaled with the
+    :class:`DeflateConflict` exception::
 
         class Person(SemiStructuredNode):
             name = StringProperty()
@@ -57,17 +34,19 @@ class SemiStructuredNode(StructuredNode):
         else:
             props = {}
             for key, prop in cls.__all_properties__:
-                if key in node.properties:
-                    props[key] = prop.inflate(node.properties[key], node)
+                node_properties = _get_node_properties(node)
+                if key in node_properties:
+                    props[key] = prop.inflate(node_properties[key], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:
                     props[key] = None
             # handle properties not defined on the class
-            for free_key in [key for key in node.properties if key not in props]:
+            for free_key in (x for x in node_properties if x not in props):
                 if hasattr(cls, free_key):
-                    raise InflateConflict(cls, free_key, node.properties[free_key], node.id)
-                props[free_key] = node.properties[free_key]
+                    raise InflateConflict(cls, free_key,
+                                          node_properties[free_key], node.id)
+                props[free_key] = node_properties[free_key]
 
             snode = cls(**props)
             snode.id = node.id
@@ -76,7 +55,8 @@ class SemiStructuredNode(StructuredNode):
 
     @classmethod
     def deflate(cls, node_props, obj=None, skip_empty=False):
-        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj, skip_empty=skip_empty)
+        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj,
+                                                          skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
                 raise DeflateConflict(cls, key, deflated[key], obj.id)

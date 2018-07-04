@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/robinedwards/neomodel/master/doc/source/_static/neomodel-300.png
+.. image:: https://raw.githubusercontent.com/neo4j-contrib/neomodel/master/doc/source/_static/neomodel-300.png
    :alt: neomodel
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
@@ -11,12 +11,12 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 - pre/post save/delete hooks.
 - Django integration via django_neomodel_
 
-.. _django_neomodel: https://github.com/robinedwards/django-neomodel
-.. _neo4j: https://www.neo4j.org
+.. _django_neomodel: https://github.com/neo4j-contrib/django-neomodel
+.. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
-.. image:: https://secure.travis-ci.org/robinedwards/neomodel.png
-    :target: https://secure.travis-ci.org/robinedwards/neomodel/
+.. image:: https://secure.travis-ci.org/neo4j-contrib/neomodel.png
+    :target: https://secure.travis-ci.org/neo4j-contrib/neomodel/
 
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
@@ -45,7 +45,7 @@ Install from pypi (recommended)::
 
 To install from github::
 
-    $ pip install git+git://github.com/robinedwards/neomodel.git@HEAD#egg=neomodel-dev
+    $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
 Upgrading 2.x to 3.x
 ====================
@@ -66,11 +66,7 @@ Ideas, bugs, tests and pull requests always welcome.
 Running the test suite
 ----------------------
 
-Make sure you have a fresh virtualenv and `nose` installed::
-
-    $ pip install nose
-
-Also a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
+Make sure you have a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
 
     $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
 
@@ -79,7 +75,7 @@ Setup a virtual environment, install neomodel for development and run the test s
     $ virtualenv venv
     $ source venv/bin/activate
     $ python setup.py develop
-    $ nosetests -s
+    $ pytest
 
 If your running a neo4j database for the first time the test suite will set the password to 'test'.
 
@@ -91,5 +87,5 @@ interpreters and neo4j versions::
 
 
 .. image:: https://badges.gitter.im/Join%20Chat.svg
-   :alt: Join the chat at https://gitter.im/robinedwards/neomodel
-   :target: https://gitter.im/robinedwards/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+   :alt: Join the chat at https://gitter.im/neo4j-contrib/neomodel
+   :target: https://gitter.im/neo4j-contrib/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge

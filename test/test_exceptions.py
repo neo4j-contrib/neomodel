@@ -19,13 +19,11 @@ def test_object_does_not_exist():
         assert False, "Person.DoesNotExist not raised."
 
 
-def test_raise_does_not_exist():
+def test_pickle_does_not_exist():
     try:
-        raise DoesNotExist("My Test Message")
-    except DoesNotExist as e:
+        raise Person.DoesNotExist("My Test Message")
+    except Person.DoesNotExist as e:
         pickle_instance = pickle.dumps(e)
         assert pickle_instance
         assert pickle.loads(pickle_instance)
         assert isinstance(pickle.loads(pickle_instance), DoesNotExist)
-    else:
-        assert False, "DoesNotExist not raised."

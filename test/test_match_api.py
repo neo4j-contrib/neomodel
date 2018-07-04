@@ -2,10 +2,12 @@ from datetime import datetime
 
 from pytest import raises
 
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, RelationshipFrom,
-                      RelationshipTo, StructuredRel, DateTimeProperty)
-from neomodel.match import NodeSet, QueryBuilder
-from neomodel.exception import MultipleNodesReturned
+from neomodel import (
+    INCOMING, DateTimeProperty, IntegerProperty, RelationshipFrom, RelationshipTo,
+    StringProperty, StructuredNode, StructuredRel
+)
+from neomodel.match import NodeSet, QueryBuilder, Traversal
+from neomodel.exceptions import MultipleNodesReturned
 
 
 class SupplierRel(StructuredRel):
@@ -23,6 +25,7 @@ class Coffee(StructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, 'COFFEE SUPPLIERS', model=SupplierRel)
+    id_ = IntegerProperty()
 
 
 def test_filter_exclude_via_labels():
@@ -218,10 +221,10 @@ def test_extra_filters():
     for c in Coffee.nodes:
         c.delete()
 
-    c1 = Coffee(name="Icelands finest", price=5).save()
-    c2 = Coffee(name="Britains finest", price=10).save()
-    c3 = Coffee(name="Japans finest", price=35).save()
-    c4 = Coffee(name="US extra-fine", price=None).save()
+    c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
+    c2 = Coffee(name="Britains finest", price=10, id_=2).save()
+    c3 = Coffee(name="Japans finest", price=35, id_=3).save()
+    c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
 
     coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5]).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
@@ -237,3 +240,27 @@ def test_extra_filters():
     unpriced_coffees = Coffee.nodes.filter(price__isnull=True).all()
     assert len(unpriced_coffees) == 1, "unexpected number of results"
     assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
+
+    coffees_with_id_gte_3 = Coffee.nodes.filter(id___gte=3).all()
+    assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
+    assert c3 in coffees_with_id_gte_3
+    assert c4 in coffees_with_id_gte_3
+
+
+def test_traversal_definition_keys_are_valid():
+    muckefuck = Coffee(name='Mukkefuck', price=1)
+
+    with raises(ValueError):
+        Traversal(
+            muckefuck, 'a_name', {
+                'node_class': Supplier, 'direction': INCOMING,
+                'relationship_type': 'KNOWS', 'model': None
+            }
+        )
+
+    Traversal(
+        muckefuck, 'a_name', {
+            'node_class': Supplier, 'direction': INCOMING,
+            'relation_type': 'KNOWS', 'model': None
+        }
+    )

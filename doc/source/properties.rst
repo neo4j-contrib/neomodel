@@ -2,41 +2,47 @@
 Property types
 ==============
 
-The following properties are available on nodes and relationships::
+The following properties are available on nodes and relationships:
 
-    StringProperty, IntegerProperty, FloatProperty, BooleanProperty, ArrayProperty
+==============================================  ==============================================
+:class:`~neomodel.properties.AliasProperty`     :class:`~neomodel.properties.IntegerProperty`
+:class:`~neomodel.properties.ArrayProperty`     :class:`~neomodel.properties.JSONProperty`
+:class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
+:class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
+:class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
+:class:`~neomodel.properties.FloatProperty`
+==============================================  ==============================================
 
-    DateProperty, DateTimeProperty, JSONProperty, AliasProperty, UniqueIdProperty
 
 Defaults
 ========
 
-*Default values* you may provide a default value to any property, this can also be a function or any callable::
+*Default values* you may provide a default value to any property, this can
+also be a :term:`function` or any callable::
 
         from uuid import uuid4
         my_id = StringProperty(unique_index=True, default=uuid4)
 
-You may provide arguments using a wrapper function or lambda::
+You may provide arguments as :term:`function` or :term:`lambda`::
 
         my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
 Choices
 =======
 
-You can specify a list of valid values for a `StringProperty` using choices::
+You can specify a list of valid values for a :class:`~neomodel.properties.StringProperty`
+using the ``choices`` argument. The mapping's values are supposed to be used
+when displaying information to users::
 
     class Person(StructuredNode):
-        SEXES = (
-            ('M', 'Male'),
-            ('F', 'Female')
-        )
+        SEXES = {'F': 'Female', 'M': 'Male', 'O': 'Other'}
         sex = StringProperty(required=True, choices=SEXES)
 
     tim = Person(sex='M').save()
     tim.sex # M
     tim.get_sex_display() # 'Male'
 
-The value will be checked both when saved and loaded from neo4j.
+The value's validity will be checked both when saved and loaded from Neo4j.
 
 Array Properties
 ================
@@ -101,7 +107,7 @@ This is useful for e.g. hiding graph properties behind a python property::
 
     class Person(StructuredNode):
         name_ = StringProperty(db_property='name')
-        
+
         @property
         def name(self):
             return self.name_.lower() if self.name_ else None

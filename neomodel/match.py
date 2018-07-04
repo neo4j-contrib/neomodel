@@ -1,9 +1,10 @@
 from .core import StructuredNode, db
 from .properties import AliasProperty
-from .exception import MultipleNodesReturned
+from .exceptions import MultipleNodesReturned
 import inspect
 import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
+
 
 # basestring python 3.x fallback
 try:
@@ -120,7 +121,7 @@ def install_traversals(cls, node_set):
         rel = getattr(cls, key)
         rel._lookup_node_class()
 
-        traversal = Traversal(source=node_set, key=key, definition=rel.definition)
+        traversal = Traversal(source=node_set, name=key, definition=rel.definition)
         setattr(node_set, key, traversal)
 
 
@@ -134,7 +135,7 @@ def process_filter_args(cls, kwargs):
 
     for key, value in kwargs.items():
         if '__' in key:
-            prop, operator = key.split('__')
+            prop, operator = key.rsplit('__')
             operator = OPERATOR_TABLE[operator]
         else:
             prop = key
@@ -493,6 +494,12 @@ class NodeSet(BaseSet):
         self.must_match = {}
         self.dont_match = {}
 
+    def _get(self, limit=None, **kwargs):
+        self.filter(**kwargs)
+        if limit:
+            self.limit = limit
+        return self.query_cls(self).build_ast()._execute()
+
     def get(self, **kwargs):
         """
         Retrieve one node from the set matching supplied parameters
@@ -500,11 +507,7 @@ class NodeSet(BaseSet):
         :param kwargs: same syntax as `filter()`
         :return: node
         """
-        output = process_filter_args(self.source_class, kwargs)
-        if output:
-            self.filters.append(output)
-        self.limit = 2
-        result = self.query_cls(self).build_ast()._execute()
+        result = self._get(limit=2, **kwargs)
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
         elif not result:
@@ -521,6 +524,31 @@ class NodeSet(BaseSet):
         """
         try:
             return self.get(**kwargs)
+        except self.source_class.DoesNotExist:
+            pass
+
+    def first(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters
+
+        :param kwargs: same syntax as `filter()`
+        :return: node
+        """
+        result = result = self._get(limit=1, **kwargs)
+        if result:
+            return result[0]
+        else:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+
+    def first_or_none(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters or return none
+
+        :param kwargs: same syntax as `filter()`
+        :return: node or none
+        """
+        try:
+            return self.first(**kwargs)
         except self.source_class.DoesNotExist:
             pass
 
@@ -615,15 +643,23 @@ class NodeSet(BaseSet):
 
 class Traversal(BaseSet):
     """
-    Models a traversal from a node to another, inherits from BaseSet
+    Models a traversal from a node to another.
+
+    :param source: Starting of the traversal.
+    :type source: A :class:`~neomodel.core.StructuredNode` subclass, an
+                  instance of such, a :class:`~neomodel.match.NodeSet` instance
+                  or a :class:`~neomodel.match.Traversal` instance.
+    :param name: A name for the traversal.
+    :type name: :class:`str`
+    :param definition: A relationship definition that most certainly deserves
+                       a documentation here.
+    :type defintion: :class:`dict`
     """
 
-    def __init__(self, source, key, definition):
+    def __init__(self, source, name, definition):
         """
         Create a traversal
-        :param source: start of traversal could be any of: StructuredNode instance, StucturedNode class, NodeSet
-        :param key:
-        :param definition: relationship definition
+
         """
         self.source = source
 
@@ -636,11 +672,21 @@ class Traversal(BaseSet):
         elif isinstance(source, NodeSet):
             self.source_class = source.source_class
         else:
-            raise ValueError("Bad source for traversal: {}".format(repr(source)))
+            raise TypeError("Bad source for traversal: "
+                            "{}".format(type(source)))
+
+        invalid_keys = (
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+        )
+        if invalid_keys:
+            raise ValueError(
+                'Unallowed keys in Traversal definition: {invalid_keys}'
+                .format(invalid_keys=invalid_keys)
+            )
 
         self.definition = definition
         self.target_class = definition['node_class']
-        self.name = key
+        self.name = name
         self.filters = []
 
     def match(self, **kwargs):
@@ -653,9 +699,9 @@ class Traversal(BaseSet):
         :return: self
         """
         if kwargs:
-            if 'model' not in self.definition or self.definition['model'] is None:
-                raise ValueError("match() with filter only available on relationships with a model")            
-            output = process_filter_args(self.definition['model'], kwargs) 
+            if self.definition.get('model') is None:
+                raise ValueError("match() with filter only available on relationships with a model")
+            output = process_filter_args(self.definition['model'], kwargs)
             if output:
                 self.filters.append(output)
         return self
