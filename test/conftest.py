@@ -4,7 +4,6 @@ import os
 import sys
 
 from neomodel import config, db, clear_neo4j_database, change_neo4j_password
-from neomodel.exception import DatabaseNotInDebugMode
 from neo4j.v1 import CypherError
 
 
@@ -34,7 +33,7 @@ def pytest_sessionstart(session):
         # Clear the database if required
         database_is_populated, _ = db.cypher_query("MATCH (a) return count(a)>0 as database_is_populated")
         if database_is_populated[0][0] and not session.config.getoption("resetdb"):
-            raise DatabaseNotInDebugMode("Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb.")
+            raise SystemError("Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb.")
         else:
             clear_neo4j_database(db)        
     except CypherError as ce:
