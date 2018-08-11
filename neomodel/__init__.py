@@ -4,6 +4,7 @@ from .core import *
 from neomodel.exceptions import *
 from .util import clear_neo4j_database, change_neo4j_password
 from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal
+from neomodel.match_q import Q  # noqa
 from neomodel.relationship_manager import (
     NotConnected, RelationshipTo, RelationshipFrom, Relationship,
     RelationshipManager, RelationshipDefinition
