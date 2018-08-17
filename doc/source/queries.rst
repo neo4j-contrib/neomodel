@@ -54,6 +54,70 @@ The filter method borrows the same django filter format with double underscore p
 - regex - matches a regex expression
 - iregex - matches a regex expression, case insensitive
 
+Complex lookups with ``Q`` objects
+==================================
+
+Keyword argument queries -- in `filter`,
+etc. -- are "AND"ed together. If you need to execute more complex queries (for
+example, queries with ``OR`` statements), you can use `Q objects <neomodel.Q>`.
+
+A `Q object` (``neomodel.Q``) is an object
+used to encapsulate a collection of keyword arguments. These keyword arguments
+are specified as in "Field lookups" above.
+
+For example, this ``Q`` object encapsulates a single ``LIKE`` query::
+
+    from neomodel import Q
+    Q(name__startswith='Py')
+
+``Q`` objects can be combined using the ``&`` and ``|`` operators. When an
+operator is used on two ``Q`` objects, it yields a new ``Q`` object.
+
+For example, this statement yields a single ``Q`` object that represents the
+"OR" of two ``"name__startswith"`` queries::
+
+    Q(name__startswith='Py') | Q(name__startswith='Jav')
+
+This is equivalent to the following SQL ``WHERE`` clause::
+
+    WHERE name STARTS WITH 'Py' OR name STARTS WITH 'Jav'
+
+You can compose statements of arbitrary complexity by combining ``Q`` objects
+with the ``&`` and ``|`` operators and use parenthetical grouping. Also, ``Q``
+objects can be negated using the ``~`` operator, allowing for combined lookups
+that combine both a normal query and a negated (``NOT``) query::
+
+    Q(name__startswith='Py') | ~Q(year=2005)
+
+Each lookup function that takes keyword-arguments
+(e.g. `filter`, `exclude`, `get`) can also be passed one or more
+``Q`` objects as positional (not-named) arguments. If you provide multiple
+``Q`` object arguments to a lookup function, the arguments will be "AND"ed
+together. For example::
+
+    Lang.nodes.filter(
+        Q(name__startswith='Py'),
+        Q(year=2005) | Q(year=2006)
+    )
+
+... roughly translates into the Cypher::
+
+    MATCH (lang:Lang) WHERE name STARTS WITH 'Py'
+        AND (year = 2005 OR year = 2006)
+        return lang;
+
+Lookup functions can mix the use of ``Q`` objects and keyword arguments. All
+arguments provided to a lookup function (be they keyword arguments or ``Q``
+objects) are "AND"ed together. However, if a ``Q`` object is provided, it must
+precede the definition of any keyword arguments. For example::
+
+    Lang.nodes.get(
+        Q(year=2005) | Q(year=2006),
+        name__startswith='Py',
+    )
+
+... would be a valid query, equivalent to the previous example;
+
 Has a relationship
 ==================
 
