@@ -4,7 +4,7 @@ from pytest import raises
 
 from neomodel import (
     INCOMING, DateTimeProperty, IntegerProperty, RelationshipFrom, RelationshipTo,
-    StringProperty, StructuredNode, StructuredRel
+    StringProperty, StructuredNode, StructuredRel, Q
 )
 from neomodel.match import NodeSet, QueryBuilder, Traversal
 from neomodel.exceptions import MultipleNodesReturned
@@ -264,3 +264,37 @@ def test_traversal_definition_keys_are_valid():
             'relation_type': 'KNOWS', 'model': None
         }
     )
+
+
+def test_q_filters():
+
+    for c in Coffee.nodes:
+        c.delete()
+
+    c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
+    c2 = Coffee(name="Britains finest", price=10, id_=2).save()
+    c3 = Coffee(name="Japans finest", price=35, id_=3).save()
+    c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
+
+    coffees_5_10 = Coffee.nodes.filter(Q(price=10) | Q(price=5)).all()
+    assert len(coffees_5_10) == 2, "unexpected number of results"
+    assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
+    assert c2 in coffees_5_10, "doesnt contain 10 price coffee"
+
+    finest_coffees = Coffee.nodes.filter(name__iendswith=' Finest').all()
+    assert len(finest_coffees) == 3, "unexpected number of results"
+    assert c1 in finest_coffees, "doesnt contain 1st finest coffee"
+    assert c2 in finest_coffees, "doesnt contain 2nd finest coffee"
+    assert c3 in finest_coffees, "doesnt contain 3rd finest coffee"
+
+    unpriced_coffees = Coffee.nodes.filter(Q(price__isnull=True)).all()
+    assert len(unpriced_coffees) == 1, "unexpected number of results"
+    assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
+
+    coffees_with_id_gte_3 = Coffee.nodes.filter(Q(id___gte=3)).all()
+    assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
+    assert c3 in coffees_with_id_gte_3
+    assert c4 in coffees_with_id_gte_3
+
+    coffees_5_not_japans = Coffee.nodes.filter(Q(price__gt=5) & ~Q(name="Japans finest")).all()
+    assert c3 not in coffees_5_not_japans
