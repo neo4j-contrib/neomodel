@@ -178,6 +178,16 @@ def test_refresh():
     assert c.age == 20
     assert c.my_custom_prop == 'value'
 
+    c = Customer2.inflate(c.id)
+    c.age = 30
+    c.refresh()
+
+    assert c.age == 20
+
+    c = Customer2.inflate(999)
+    with raises(Customer2.DoesNotExist):
+        c.refresh()
+
 
 def test_setting_value_to_none():
     c = Customer2(email='alice@bob.com', age=42).save()

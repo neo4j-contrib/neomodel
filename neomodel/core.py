@@ -492,8 +492,11 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0][0][0])
+            request = self.cypher("MATCH (n) WHERE id(n)={self}"
+                                            " RETURN n")[0]
+            if not request or not request[0]:
+                raise self.__class__.DoesNotExist("Can't refresh non existent node")
+            node = self.inflate(request[0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
         else:
