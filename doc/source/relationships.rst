@@ -2,7 +2,8 @@
 Relationships
 =============
 
-Directionless relationships, first argument the class second the neo4j relationship::
+Establishing an undirected relationship between two entities is done via the `Relationship` 
+class. This requires the class of the connected entity as well as the type of the relationship.
 
     class Person(StructuredNode):
         friends = Relationship('Person', 'FRIEND')
@@ -16,8 +17,8 @@ This avoids cyclic imports::
 
 Cardinality
 ===========
-It's possible to (softly) enforce cardinality restrictions on your relationships.
-Remember this needs to be declared on both sides of the definition::
+It is possible to (softly) enforce cardinality constraints on your relationships.
+Remember this needs to be declared on both sides of the relationship definition::
 
     class Person(StructuredNode):
         car = RelationshipTo('Car', 'OWNS', cardinality=One)
@@ -25,16 +26,17 @@ Remember this needs to be declared on both sides of the definition::
     class Car(StructuredNode):
         owner = RelationshipFrom('Person', 'OWNS', cardinality=One)
 
-The following cardinality classes are available:
+The following cardinality constraints are available:
 
 ===================================================  ========================================
 :class:`~neomodel.cardinality.ZeroOrOne`             :class:`~neomodel.cardinality.One`
 :class:`~neomodel.cardinality.ZeroOrMore` (default)  :class:`~neomodel.cardinality.OneOrMore`
 ===================================================  ========================================
 
-If cardinality is broken by existing data a :class:`~neomodel.exception.CardinalityViolation`
+If a cardinality constrain is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
-On attempting to break a cardinality restriction a
+
+On attempting to violate a cardinality constrain a 
 :class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
 
 Properties
@@ -56,7 +58,8 @@ Neomodel uses :mod:`~neomodel.relationship` models to define the properties stor
     rel.since # datetime object
 
 
-These can be passed in when calling the connect method::
+The data to populate these properties when establishing a connection can be supplied 
+to the `connect` method::
 
     rel = jim.friends.connect(bob,
                               {'since': yesterday, 'met': 'Paris'})
@@ -75,8 +78,8 @@ This is only available for relationships with a defined relationship model::
 Relationship Uniqueness
 =======================
 
-By default in neomodel there is only one relationship of one type between two nodes
-unless you define different properties when calling connect. neomodel utilises `CREATE UNIQUE` in cypher to achieve this.
+By default neomodel applies only one relationship instance between two node instances and 
+this is achieved via use of `CREATE UNIQUE`.
 
 Relationships and Inheritance
 =============================
@@ -179,9 +182,6 @@ If the exception is not handled, it produces an error message that returns the l
 was retrieved from the database as well as the current *node-class registry*. These two pieces of 
 information can be used to debug the model mismatch further.
     
-
-
-        
 
 Explicit Traversal
 ==================

@@ -7,7 +7,8 @@ All batch operations can be executed with one or more nodes.
 create()
 --------
 Note that batch create is a relic of the Neo4j REST API.
-Now neomodel uses Bolt it exists for convenience and compatibility and a CREATE query is issued for each dict provided.
+With the adoption of Bolt by neomodel, it exists for convenience and compatibility 
+and a CREATE query is issued for each `dict` provided.
 
 Create multiple nodes at once in a single transaction::
 
@@ -35,10 +36,10 @@ Atomically create or update nodes in a single operation::
         {'name': 'Jane', 'age': 24},
     )
 
-This is useful for ensuring data is up to date, each node is matched by its' required and/or unique properties. Any
+This is useful for ensuring data is up to date, each node is matched by its required and/or unique properties. Any
 additional properties will be set on a newly created or an existing node.
 
-It is important to provide unique identifiers where known, any fields with default values that are omitted will be generated.
+It is important to provide unique identifiers were known, any fields with default values that are omitted will be generated.
 
 get_or_create()
 ---------------
@@ -58,7 +59,7 @@ Atomically get or create nodes in a single operation::
     assert people[0] == people_with_jill[0]
     assert people[1] == people_with_jill[1]
 
-This is useful for ensuring specific nodes exist, only and all required properties must be specified to ensure
+This is useful for ensuring specific nodes exist only and all required properties must be specified to ensure
 uniqueness. In this example 'Tim' and 'Bob' are created on the first call, and are retrieved in the second call.
 
 Additionally, get_or_create() allows the "relationship" parameter to be passed. When a relationship is specified, the
@@ -83,4 +84,3 @@ matching is done based on that relationship and not globally::
 
 In case when the only required property is unique, the operation is redundant. However with simple required properties,
 the relationship becomes a part of the unique identifier.
-

@@ -215,7 +215,7 @@ def test_failed_object_resolution():
     
     # Now try to instantiate a RandomPerson
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
-    with pytest.raises(neomodel.exception.ModelDefinitionMismatch):        
+    with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):        
         for some_friend in A.friends_with:
             print(some_friend.name)
             
@@ -248,6 +248,6 @@ def test_node_label_mismatch():
     # One of them is UltraTechnicalPerson which would be returned as a valid node to a friends_with query
     # but is currently unknown to the node class registry.
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
-    with pytest.raises(neomodel.exception.ModelDefinitionMismatch):            
+    with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):            
         for some_friend in A.friends_with:
             print(some_friend.name)

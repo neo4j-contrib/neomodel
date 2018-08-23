@@ -92,6 +92,10 @@ class Database(local):
     @property
     def write_transaction(self):
         return TransactionProxy(self, access_mode="WRITE")
+        
+    @property
+    def read_transaction(self):
+        return TransactionProxy(self, access_mode="READ")        
 
     @ensure_connection
     def begin(self, access_mode=None):

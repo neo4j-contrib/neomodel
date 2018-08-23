@@ -10,7 +10,7 @@ Before executing any neomodel code set the connection url::
     from neomodel import config
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
 
-This needs to be called early on in your app, if you are using Django the settings.py file is ideal.
+This needs to be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: http://localhost:7474 ).
@@ -49,13 +49,13 @@ Below is a definition of two types of node `Person` and `Country`::
 
 
 There is one type of relationship present `IS_FROM`, we are defining two different ways for traversing it
-one accessible via Person objects and one via Country objects
+one accessible via `Person` objects and one via `Country` objects
 
 We can use the `Relationship` class as opposed to the `RelationshipTo` or `RelationshipFrom`
 if we don't want to specify a direction.
 
-Neomodel automatically creates a label for each StructuredNode class in the database
- with the corresponding indexes and constraints.
+Neomodel automatically creates a label for each `StructuredNode` class in the database
+with the corresponding indexes and constraints.
 
 Setup constraints and indexes
 =============================
@@ -75,10 +75,10 @@ For deleting all existing constraints and indexes from database, neomodel provid
 
 After executing, it will print all indexes and constraints it has deleted.
 
-Create, Save, Delete
-====================
+Create, Update, Delete
+======================
 
-Using convenient methods::
+Using convenience methods such as::
 
     jim = Person(name='Jim', age=3).save()
     jim.age = 4
@@ -87,8 +87,8 @@ Using convenient methods::
     jim.refresh() # reload properties from neo
     jim.id # neo4j internal id
 
-Finding nodes
-=============
+Retrieving nodes
+================
 
 Using the '.nodes' class property::
 
