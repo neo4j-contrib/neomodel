@@ -2,7 +2,8 @@
 Provides a test case for issue 283 - "Inheritance breaks".
 
 The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/283
-More information about the same issue at: https://github.com/aanastasiou/neomodelInheritanceTest
+More information about the same issue at:
+https://github.com/aanastasiou/neomodelInheritanceTest
 
 The following example uses a recursive relationship for economy, but the 
 idea remains the same: "Instantiate the correct type of node at the end of 
@@ -30,7 +31,8 @@ class BasePerson(neomodel.StructuredNode):
     Base class for defining some basic sort of an actor.
     """
     name = neomodel.StringProperty(required = True, unique_index = True)
-    friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH", model = PersonalRelationship)
+    friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH",
+                                           model = PersonalRelationship)
     
 class TechnicalPerson(BasePerson):
     """
@@ -40,7 +42,8 @@ class TechnicalPerson(BasePerson):
     
 class PilotPerson(BasePerson):
     """
-    A pilot person specialises BasePerson by adding the type of airplane they can operate.
+    A pilot person specialises BasePerson by adding the type of airplane they
+    can operate.
     """
     airplane = neomodel.StringProperty(required = True)
     
@@ -74,7 +77,8 @@ def test_automatic_object_resolution():
     B.friends_with.connect(C)
     C.friends_with.connect(A)
 
-    # If A is friends with B, then A's friends_with objects should be TechnicalPerson (!NOT basePerson!)
+    # If A is friends with B, then A's friends_with objects should be
+    # TechnicalPerson (!NOT basePerson!)
     assert type(A.friends_with[0]) is TechnicalPerson    
     
     A.delete()
@@ -83,8 +87,9 @@ def test_automatic_object_resolution():
     
 def test_recursive_automatic_object_resolution():
     """
-    Node objects are instantiated to native Python objects, both at the top level of returned results 
-    and in the case where they are returned within lists.
+    Node objects are instantiated to native Python objects, both at the top
+    level of returned results and in the case where they are returned within
+    lists.
     """
         
     # Create a few entities
@@ -94,11 +99,17 @@ def test_recursive_automatic_object_resolution():
     D = TechnicalPerson.get_or_create({"name":"Sneezier", "expertise":"Pillows"})[0]
     
     # Retrieve mixed results, both at the top level and nested
-    L, _ = neomodel.db.cypher_query("MATCH (a:TechnicalPerson) WHERE a.expertise='Grumpiness' WITH collect(a) as Alpha \
-           MATCH (b:TechnicalPerson) WHERE b.expertise='Pillows' WITH Alpha, collect(b) as Beta \
-           return [Alpha, [Beta, [Beta, ['Banana', Alpha]]]]", resolve_objects = True)
+    L, _ = neomodel.db.cypher_query("MATCH (a:TechnicalPerson) "
+                                    "WHERE a.expertise='Grumpiness' "
+                                    "WITH collect(a) as Alpha "
+                                    "MATCH (b:TechnicalPerson) "
+                                    "WHERE b.expertise='Pillows' "
+                                    "WITH Alpha, collect(b) as Beta "
+                                    "RETURN [Alpha, [Beta, [Beta, ['Banana', "
+                                    "Alpha]]]]", resolve_objects = True)
     
-    # Assert that a Node returned deep in a nested list structure is of the correct type
+    # Assert that a Node returned deep in a nested list structure is of the
+    # correct type
     assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
     # Assert that primitive data types remain primitive data types
     assert type( L[0][0][0][1][0][1][0][1][0][0]) is str
@@ -111,8 +122,8 @@ def test_recursive_automatic_object_resolution():
     
 def test_validation_with_inheritance_from_db():    
     """
-    Objects descending from the specified class of a relationship's end-node are also 
-    perfectly valid to appear as end-node values too
+    Objects descending from the specified class of a relationship's end-node are
+    also perfectly valid to appear as end-node values too
     """
     
     #Create a few entities
@@ -179,7 +190,8 @@ def test_validation_enforcement_to_db():
     A.friends_with.connect(D)
     E.friends_with.connect(C)
     
-    # Trying to befriend a Technical Person with Some Person should raise an exception
+    # Trying to befriend a Technical Person with Some Person should raise an
+    # exception
     with pytest.raises(ValueError):
         A.friends_with.connect(F)
     
@@ -209,8 +221,8 @@ def test_failed_object_resolution():
     
     A.friends_with.connect(B)
     
-    # Simulate the condition where the definition of class RandomPerson is not known 
-    # yet.
+    # Simulate the condition where the definition of class RandomPerson is not
+    # known yet.
     del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson","BasePerson"])]        
     
     # Now try to instantiate a RandomPerson
@@ -225,7 +237,8 @@ def test_failed_object_resolution():
 
 def test_node_label_mismatch():
     """
-    A Neo4j driver node FROM the database contains a superset of the known labels
+    A Neo4j driver node FROM the database contains a superset of the known
+    labels.
     """
     
     class SuperTechnicalPerson(TechnicalPerson):
@@ -242,11 +255,14 @@ def test_node_label_mismatch():
     
     
     # Forget about the UltraTechnicalPerson
-    del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["UltraTechnicalPerson","SuperTechnicalPerson", "TechnicalPerson", "BasePerson"])]        
+    del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["UltraTechnicalPerson",
+                                                    "SuperTechnicalPerson",
+                                                    "TechnicalPerson",
+                                                    "BasePerson"])]
     
     # Recall a TechnicalPerson and enumerate its friends. 
-    # One of them is UltraTechnicalPerson which would be returned as a valid node to a friends_with query
-    # but is currently unknown to the node class registry.
+    # One of them is UltraTechnicalPerson which would be returned as a valid
+    # node to a friends_with query but is currently unknown to the node class registry.
     A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
     with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):            
         for some_friend in A.friends_with:

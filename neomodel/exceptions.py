@@ -48,14 +48,20 @@ class ModelDefinitionMismatch(NeomodelException):
         to an object
         
         :param db_node: Neo4j driver node object
-        :param current_node_class_registry: Dictionary that maps frozeset of node 
-        labels to model classes
+        :param current_node_class_registry: Dictionary that maps frozenset of
+               node labels to model classes
         """
         self.db_node = db_node
-        self.current_node_class_registry=current_node_class_registry
+        self.current_node_class_registry = current_node_class_registry
         
     def __str__(self):
-        return "Node with labels {} does not resolve to any of the known objects\n{}\n".format(",".join(db_node.labels), "\n".join(list(map(lambda x:"{} --> {}".format(",".join(x[0]),x[1]),current_node_class_registry.items()))))
+        node_labels = ",".join(self.db_node.labels)
+        ncr_items = list(map(lambda x:"{} --> {}".format(",".join(x[0]), x[1]),
+                             self.current_node_class_registry.items()))
+        ncr_items_multiline = "\n".join(ncr_items)
+
+        return "Node with labels {} does not resolve to any of the known " \
+               "objects\n{}\n".format(node_labels, ncr_items_multiline)
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):

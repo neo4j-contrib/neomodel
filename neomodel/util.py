@@ -125,9 +125,12 @@ class Database(local):
 
     def _object_resolution(self, result_list):
         """
-        Performs in place automatic object resolution on a set of results returned by cypher_query.
-        The function operates recursively in order to be able to resolve Nodes within nested list structures.
-        Not meant to be called directly, used primarily by cypher_query.
+        Performs in place automatic object resolution on a set of results
+        returned by cypher_query.
+
+        The function operates recursively in order to be able to resolve Nodes
+        within nested list structures. Not meant to be called directly,
+        used primarily by cypher_query.
         
         :param result_list: A list of results as returned by cypher_query.
         :type list:
@@ -144,7 +147,8 @@ class Database(local):
                     resolved_object = a_result_attribute[1]
                     
                     if type(a_result_attribute[1]) is Node:
-                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(a_result_attribute[1])
+                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(
+                            a_result_attribute[1])
                         
                     if type(a_result_attribute[1]) is list:
                         resolved_object = self._object_resolution([a_result_attribute[1]])                    
@@ -174,7 +178,7 @@ class Database(local):
         :type: bool
         :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
         :type: bool        
--        :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
+        :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
         
@@ -212,7 +216,9 @@ class Database(local):
         except SessionError:
             if retry_on_session_expire:
                 self.set_connection(self.url)
-                return self.cypher_query(query=query, params=params, handle_unique=handle_unique,
+                return self.cypher_query(query=query,
+                                         params=params,
+                                         handle_unique=handle_unique,
                                          retry_on_session_expire=False)
             raise
 
