@@ -625,8 +625,7 @@ class NodeSet(BaseSet):
         :param kwargs: filter parameters see syntax for the filter method
         :return: self
         """
-        if args or kwargs:
-            self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
+        self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
     def has(self, **kwargs):
