@@ -266,6 +266,38 @@ def test_traversal_definition_keys_are_valid():
     )
 
 
+def test_empty_filters():
+    """Test this case:
+        ```
+            SomeModel.nodes.filter().filter(Q(arg1=val1)).all()
+            SomeModel.nodes.exclude().exclude(Q(arg1=val1)).all()
+            SomeModel.nodes.filter().filter(arg1=val1).all()
+       ```
+       In django_rest_framework filter uses such as lazy function and
+       ``get_queryset`` function in ``GenericAPIView`` should returns
+       ``NodeSet`` object.
+    """
+
+    for c in Coffee.nodes:
+        c.delete()
+
+    c1 = Coffee(name="Super", price=5, id_=1).save()
+    c2 = Coffee(name="Puper", price=10, id_=2).save()
+
+    empty_filter = Coffee.nodes.filter()
+
+    all_coffees = empty_filter.all()
+    assert len(all_coffees) == 2, "unexpected number of results"
+
+    filter_empty_filter = empty_filter.filter(price=5)
+    assert len(filter_empty_filter.all()) == 1, "unexpected number of results"
+    assert c1 in filter_empty_filter.all(), "doesnt contain c1 in ``filter_empty_filter``"
+
+    filter_q_empty_filter = empty_filter.filter(Q(price=5))
+    assert len(filter_empty_filter.all()) == 1, "unexpected number of results"
+    assert c1 in filter_empty_filter.all(), "doesnt contain c1 in ``filter_empty_filter``"
+
+
 def test_q_filters():
 
     for c in Coffee.nodes:
