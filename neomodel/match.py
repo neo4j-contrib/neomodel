@@ -435,7 +435,7 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident + '_contains')
         self._ast['where'].append('id({}) = {{{}}}'.format(ident, place_holder))
         self._query_params[place_holder] = node_id
-        return self._count() == 1
+        return self._count() >= 1
 
     def _execute(self):
         query = self.build_query()
