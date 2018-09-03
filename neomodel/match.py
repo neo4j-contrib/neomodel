@@ -614,8 +614,8 @@ class NodeSet(BaseSet):
 
         :return: self
         """
-
-        self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
+        if args or kwargs:
+            self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
         return self
 
     def exclude(self, *args, **kwargs):
