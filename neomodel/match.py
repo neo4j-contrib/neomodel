@@ -178,7 +178,6 @@ def process_filter_args(cls, kwargs):
         db_property = cls.defined_properties(rels=False)[prop].db_property or prop
 
         output[db_property] = (operator, deflated_value)
-
     return output
 
 
@@ -229,7 +228,7 @@ class QueryBuilder(object):
         return self
 
     def build_source(self, source):
-        if isinstance(source, Traversal):
+        if isinstance(source, (Traversal, TraversalRelationships)):
             return self.build_traversal(source)
         elif isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(source.source, StructuredNode):
@@ -267,22 +266,27 @@ class QueryBuilder(object):
         """
         traverse a relationship from a node to a set of nodes
         """
-        # build source
-        rhs_label = ':' + traversal.target_class.__label__
-
-        # build source
+        #build source
         lhs_ident = self.build_source(traversal.source)
-        rhs_ident = traversal.name + rhs_label
-        self._ast['return'] = traversal.name
+        rhs_ident = "{alias}:{def_label}".format(alias=traversal.name,
+                def_label=traversal.definition.get('node_class').__label__)
+
+
+        if isinstance(traversal, TraversalRelationships):
+            self._ast['return'] = traversal.rel_ident
+            rel_ident = traversal.rel_ident
+        elif isinstance(traversal, Traversal):
+            self._ast['return'] = traversal.name
+            rel_ident = self.create_ident()
+
         self._ast['result_class'] = traversal.target_class
 
-        rel_ident = self.create_ident()
+        # create static rel ident
         stmt = _rel_helper(lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition)
         self._ast['match'].append(stmt)
 
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
-
         return traversal.name
 
     def build_node(self, node):
@@ -718,6 +722,7 @@ class Traversal(BaseSet):
         self.definition = definition
         self.target_class = definition['node_class']
         self.name = name
+        self.rel_ident = name
         self.filters = []
 
     def match(self, **kwargs):
@@ -736,3 +741,14 @@ class Traversal(BaseSet):
             if output:
                 self.filters.append(output)
         return self
+
+
+class TraversalRelationships(Traversal):
+
+    REL_IDENT = "static_ident_rel"
+
+    def __init__(self, source, name, definition):
+        super().__init__(source, name, definition)
+        self.rel_ident = self.REL_IDENT
+        self.name = name
+        self.target_class = definition['model']

@@ -5,6 +5,7 @@ from .exceptions import NotConnected
 from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
+from .match import TraversalRelationships
 
 
 # basestring python 3.x fallback
@@ -31,6 +32,7 @@ class RelationshipManager(object):
 
     I.e the 'friends' object in  `user.friends.all()`
     """
+
     def __init__(self, source, key, definition):
         self.source = source
         self.source_class = source.__class__
@@ -89,7 +91,8 @@ class RelationshipManager(object):
             if hasattr(tmp, 'pre_save'):
                 tmp.pre_save()
 
-        new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
+        new_rel = _rel_helper(lhs='us', rhs='them', ident='r',
+                              relation_properties=rp, **self.definition)
         q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
             "CREATE UNIQUE" + new_rel
 
@@ -157,6 +160,20 @@ class RelationshipManager(object):
 
         rel_model = self.definition.get('model') or StructuredRel
         return [self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels]
+
+    @check_source
+    def filter_relationships(self, node, **kwargs):
+        """
+        Filter and get all relationship objects between self and node by kwargs.
+
+        :param node:
+        :param kwargs: same as `NodeSet.filter()`
+        :return: [StructuredRel]
+        """
+        self._check_node(node)
+
+        definition = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
+        return TraversalRelationships(self.source, self.name, self.definition).match(**kwargs)
 
     def _set_start_end_cls(self, rel_instance, obj):
         if self.definition['direction'] == INCOMING:
