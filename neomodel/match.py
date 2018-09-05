@@ -63,7 +63,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
 
 # special operators
 _SPECIAL_OPERATOR_IN = 'IN'
-_SPECIAL_OPERATOR_INSENSITIVE = '(?i)'
+_SPECIAL_OPERATOR_INSENSITIVE = '(?ui)'
 _SPECIAL_OPERATOR_ISNULL = 'IS NULL'
 _SPECIAL_OPERATOR_ISNOTNULL = 'IS NOT NULL'
 _SPECIAL_OPERATOR_REGEX = '=~'
