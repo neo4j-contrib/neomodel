@@ -116,6 +116,9 @@ class QBase(object):
 
         If `squash` is False the data is prepared and added as a child to
         this tree without further logic.
+
+        Args:
+            conn_type (str, optional ["AND", "OR"]): connection method
         """
         if data in self.children:
             return data

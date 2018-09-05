@@ -340,7 +340,10 @@ class QueryBuilder(object):
         target = []
         for child in q.children:
             if isinstance(child, QBase):
-                target.append(self._parse_q_filters(ident, child))
+                q_childs = self._parse_q_filters(ident, child)
+                if child.connector == Q.OR:
+                    q_childs = "(" + q_childs + ")"
+                target.append(q_childs)
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(cls, kwargs)
