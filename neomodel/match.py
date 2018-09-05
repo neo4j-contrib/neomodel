@@ -1,3 +1,4 @@
+#encoding=utf-8
 from .core import StructuredNode, db
 from .properties import AliasProperty
 from .exceptions import MultipleNodesReturned
