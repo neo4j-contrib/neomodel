@@ -16,6 +16,11 @@ import datetime
 import pytest
 import random
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 # Set up a very simple model for the tests
 class PersonalRelationship(neomodel.StructuredRel):
     """
@@ -112,7 +117,7 @@ def test_recursive_automatic_object_resolution():
     # correct type
     assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
     # Assert that primitive data types remain primitive data types
-    assert type( L[0][0][0][1][0][1][0][1][0][0]) is str
+    assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
     
     A.delete()
     B.delete()
