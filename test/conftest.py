@@ -28,7 +28,7 @@ def pytest_sessionstart(session):
     
     config.DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:neo4j@localhost:7687')
     config.AUTO_INSTALL_LABELS = True
-
+    
     try:
         # Clear the database if required
         database_is_populated, _ = db.cypher_query("MATCH (a) return count(a)>0 as database_is_populated")

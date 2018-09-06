@@ -439,12 +439,16 @@ class QueryBuilder(object):
 
     def _execute(self):
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
+        # The following is not as elegant as it could be but had to be copied from the 
+        # version prior to cypher_query with the resolve_objects capability.
+        # It seems that certain calls are only supposed to be focusing to the first 
+        # result item returned (?)
         if results:
-            return [self._ast['result_class'].inflate(n[0]) for n in results]
+            return [n[0] for n in results]
         return []
-
-
+        
+        
 class BaseSet(object):
     """
     Base class for all node sets.

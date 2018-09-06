@@ -171,7 +171,8 @@ class NodeMeta(type):
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
-
+            db._NODE_CLASS_REGISTRY[frozenset(cls.inherited_labels())] = cls
+            
         return cls
 
 

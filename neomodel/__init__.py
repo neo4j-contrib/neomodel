@@ -15,7 +15,7 @@ from .properties import (StringProperty, IntegerProperty, AliasProperty,
                          FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
                          NormalizedProperty, RegexProperty, EmailProperty,
                          JSONProperty, ArrayProperty, UniqueIdProperty)
-
+                         
 __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
 __license__ = 'MIT'

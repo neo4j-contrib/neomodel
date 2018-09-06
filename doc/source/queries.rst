@@ -2,7 +2,7 @@
 Advanced queries
 ================
 
-Neomodel contains an API for querying sets of nodes without needing to write cypher::
+Neomodel contains an API for querying sets of nodes without having to write cypher::
 
     class SupplierRel(StructuredRel):
         since = DateTimeProperty(default=datetime.now)
@@ -22,7 +22,7 @@ Neomodel contains an API for querying sets of nodes without needing to write cyp
 Node sets and filtering
 =======================
 
-The `nodes` property on a class is the set of all nodes in the database of that type contained.
+The `nodes` property of a class returns all nodes of that type from the database.
 
 This set (or `NodeSet`) can be iterated over and filtered on. Under the hood it uses labels introduced in neo4j 2::
 
@@ -34,7 +34,7 @@ This set (or `NodeSet`) can be iterated over and filtered on. Under the hood it 
     except Coffee.DoesNotExist:
         print "Couldn't find coffee 'Java'"
 
-The filter method borrows the same django filter format with double underscore prefixed operators:
+The filter method borrows the same Django filter format with double underscore prefixed operators:
 
 - lt - less than
 - gt - greater than
@@ -58,8 +58,9 @@ Complex lookups with ``Q`` objects
 ==================================
 
 Keyword argument queries -- in `filter`,
-etc. -- are "AND"ed together. If you need to execute more complex queries (for
-example, queries with ``OR`` statements), you can use `Q objects <neomodel.Q>`.
+etc. -- are "AND"ed together. To execute more complex queries (for
+example, queries with ``OR`` statements), `Q objects <neomodel.Q>` can 
+be used.
 
 A `Q object` (``neomodel.Q``) is an object
 used to encapsulate a collection of keyword arguments. These keyword arguments
@@ -82,7 +83,7 @@ This is equivalent to the following SQL ``WHERE`` clause::
 
     WHERE name STARTS WITH 'Py' OR name STARTS WITH 'Jav'
 
-You can compose statements of arbitrary complexity by combining ``Q`` objects
+Statements of arbitrary complexity can be composed by combining ``Q`` objects
 with the ``&`` and ``|`` operators and use parenthetical grouping. Also, ``Q``
 objects can be negated using the ``~`` operator, allowing for combined lookups
 that combine both a normal query and a negated (``NOT``) query::
@@ -91,8 +92,8 @@ that combine both a normal query and a negated (``NOT``) query::
 
 Each lookup function that takes keyword-arguments
 (e.g. `filter`, `exclude`, `get`) can also be passed one or more
-``Q`` objects as positional (not-named) arguments. If you provide multiple
-``Q`` object arguments to a lookup function, the arguments will be "AND"ed
+``Q`` objects as positional (not-named) arguments. If multiple
+``Q`` object arguments are provided to a lookup function, the arguments will be "AND"ed
 together. For example::
 
     Lang.nodes.filter(
@@ -100,7 +101,7 @@ together. For example::
         Q(year=2005) | Q(year=2006)
     )
 
-... roughly translates into the Cypher::
+This roughly translates to the following Cypher query::
 
     MATCH (lang:Lang) WHERE name STARTS WITH 'Py'
         AND (year = 2005 OR year = 2006)
@@ -116,7 +117,7 @@ precede the definition of any keyword arguments. For example::
         name__startswith='Py',
     )
 
-... would be a valid query, equivalent to the previous example;
+This would be a valid query, equivalent to the previous example;
 
 Has a relationship
 ==================
@@ -125,7 +126,7 @@ The `has` method checks for existence of (one or more) relationships, in this ca
 
     Coffee.nodes.has(suppliers=True)
 
-This can be negated `suppliers=False`, should you wish to find `Coffee` nodes without `suppliers`.
+This can be negated by setting `suppliers=False`, to find `Coffee` nodes without `suppliers`.
 
 Iteration, slicing and more
 ===========================
@@ -141,7 +142,7 @@ Iteration, slicing and counting is also supported::
 
 The slice syntax returns a NodeSet object which can in turn be chained.
 
-Length and boolean methods dont return NodeSet objects so cant be chained further::
+Length and boolean methods dont return NodeSet objects and cannot be chained further::
 
     # Count with __len__
     print len(Coffee.nodes.filter(price__gt=2))
@@ -154,26 +155,26 @@ Filtering by relationship properties
 
 Filtering on relationship properties is also possible using the `match` method. Note that again these relationships must have a definition.::
 
-    nescafe = Coffee.nodes.get(name="Nescafe")
+    coffee_brand = Coffee.nodes.get(name="BestCoffeeEver")
 
-    for supplier in nescafe.suppliers.match(since_lt=january):
-        print supplier.name
+    for supplier in coffee_brand.suppliers.match(since_lt=january):
+        print(supplier.name)
 
 Ordering by property
 ====================
 
-To order results by a particular property, use the `order_by` method::
+Ordering results by a particular property is done via th `order_by` method::
 
     # Ascending sort
     for coffee in Coffee.nodes.order_by('price'):
-        print coffee, coffee.price
+        print(coffee, coffee.price)
 
     # Descending sort
     for supplier in Supplier.nodes.order_by('-delivery_cost'):
-        print supplier, supplier.delivery_cost
+        print(supplier, supplier.delivery_cost)
 
 
-To remove ordering from a previously defined query, pass `None` to `order_by`::
+Removing the ordering from a previously defined query, is done by passing `None` to `order_by`::
 
     # Sort in descending order
     suppliers = Supplier.nodes.order_by('-delivery_cost')

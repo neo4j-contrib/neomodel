@@ -58,21 +58,21 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        node = self._start_node_class()
-        node.id = self._start_node_id
-        node.refresh()
-        return node
-
+        return db.cypher_query("MATCH (aNode) "
+                               "WHERE id(aNode)={nodeid} "
+                               "RETURN aNode".format(nodeid=self._start_node_id),
+                               resolve_objects = True)[0][0][0]
+      
     def end_node(self):
         """
         Get end node
 
         :return: StructuredNode
         """
-        node = self._end_node_class()
-        node.id = self._end_node_id
-        node.refresh()
-        return node
+        return db.cypher_query("MATCH (aNode) "
+                               "WHERE id(aNode)={nodeid} "
+                               "RETURN aNode".format(nodeid=self._end_node_id),
+                               resolve_objects = True)[0][0][0]
 
     @classmethod
     def inflate(cls, rel):

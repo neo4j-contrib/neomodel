@@ -50,7 +50,7 @@ class RelationshipManager(object):
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
-        if not isinstance(obj, self.definition['node_class']):
+        if not issubclass(type(obj), self.definition['node_class']):
             raise ValueError("Expected node of class " + self.definition['node_class'].__name__)
         if not hasattr(obj, 'id'):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
