@@ -340,7 +340,10 @@ class QueryBuilder(object):
         target = []
         for child in q.children:
             if isinstance(child, QBase):
-                target.append(self._parse_q_filters(ident, child))
+                q_childs = self._parse_q_filters(ident, child)
+                if child.connector == Q.OR:
+                    q_childs = "(" + q_childs + ")"
+                target.append(q_childs)
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(cls, kwargs)
@@ -629,7 +632,8 @@ class NodeSet(BaseSet):
         :param kwargs: filter parameters see syntax for the filter method
         :return: self
         """
-        self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
+        if args or kwargs:
+            self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
     def has(self, **kwargs):
