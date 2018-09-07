@@ -1,4 +1,4 @@
-#encoding=utf-8
+# encoding=utf-8
 from .core import StructuredNode, db
 from .properties import AliasProperty
 from .exceptions import MultipleNodesReturned
@@ -126,9 +126,11 @@ def install_traversals(cls, node_set):
         traversal = Traversal(source=node_set, name=key, definition=rel.definition)
         setattr(node_set, key, traversal)
 
+
 re._alphanum_str = frozenset(
     "_абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ\
             abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890")
+
 
 def process_filter_args(cls, kwargs):
     """
@@ -157,7 +159,8 @@ def process_filter_args(cls, kwargs):
             # handle special operators
             if operator == _SPECIAL_OPERATOR_IN:
                 if not isinstance(value, tuple) and not isinstance(value, list):
-                    raise ValueError('Value must be a tuple or list for IN operation {}={}'.format(key, value))
+                    raise ValueError(
+                        'Value must be a tuple or list for IN operation {}={}'.format(key, value))
                 deflated_value = [property_obj.deflate(v) for v in value]
             elif operator == _SPECIAL_OPERATOR_ISNULL:
                 if not isinstance(value, bool):
@@ -267,11 +270,10 @@ class QueryBuilder(object):
         """
         traverse a relationship from a node to a set of nodes
         """
-        #build source
+        # build source
         lhs_ident = self.build_source(traversal.source)
         rhs_ident = "{alias}:{def_label}".format(alias=traversal.name,
-                def_label=traversal.definition.get('node_class').__label__)
-
+                                                 def_label=traversal.definition.get('node_class').__label__)
 
         if isinstance(traversal, TraversalRelationships):
             self._ast['return'] = traversal.rel_ident
@@ -295,7 +297,8 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = 'MATCH ({}) WHERE id({})={{{}}} WITH {}'.format(ident, ident, place_holder, ident)
+        _node_lookup = 'MATCH ({}) WHERE id({})={{{}}} WITH {}'.format(
+            ident, ident, place_holder, ident)
         self._ast['lookup'] = _node_lookup
 
         self._query_params[place_holder] = node.id
@@ -392,7 +395,8 @@ class QueryBuilder(object):
                         statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        statement = '{} {}.{} {} {{{}}}'.format(
+                            'NOT' if negate else '', ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
@@ -512,6 +516,7 @@ class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
     """
+
     def __init__(self, source):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
@@ -712,7 +717,7 @@ class Traversal(BaseSet):
                             "{}".format(type(source)))
 
         invalid_keys = (
-                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+            set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
         )
         if invalid_keys:
             raise ValueError(
