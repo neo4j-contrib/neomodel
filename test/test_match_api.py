@@ -336,9 +336,11 @@ def test_q_filters():
     assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
 
     coffees_with_id_gte_3 = Coffee.nodes.filter(Q(id___gte=3)).all()
-    assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
+    assert len(coffees_with_id_gte_3) == 4, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
+    assert c5 in coffees_with_id_gte_3
+    assert c6 in coffees_with_id_gte_3
 
     coffees_5_not_japans = Coffee.nodes.filter(Q(price__gt=5) & ~Q(name="Japans finest")).all()
     assert c3 not in coffees_5_not_japans
