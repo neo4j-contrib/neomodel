@@ -307,11 +307,23 @@ def test_q_filters():
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
     c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
+    c5 = Coffee(name="Latte", price=35, id_=5).save()
+    c6 = Coffee(name="Cappuccino", price=35, id_=6).save()
 
     coffees_5_10 = Coffee.nodes.filter(Q(price=10) | Q(price=5)).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
     assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
     assert c2 in coffees_5_10, "doesnt contain 10 price coffee"
+
+    coffees_5_6 = Coffee.nodes.filter(Q(name="Latte") | Q(name="Cappuccino")).filter(price=35).all()
+    assert len(coffees_5_6) == 2, "unexpected number of results"
+    assert c5 in coffees_5_6, "doesnt contain 5 coffee"
+    assert c6 in coffees_5_6, "doesnt contain 6 coffee"
+
+    coffees_5_6 = Coffee.nodes.filter(price=35).filter(Q(name="Latte") | Q(name="Cappuccino")).all()
+    assert len(coffees_5_6) == 2, "unexpected number of results"
+    assert c5 in coffees_5_6, "doesnt contain 5 coffee"
+    assert c6 in coffees_5_6, "doesnt contain 6 coffee"
 
     finest_coffees = Coffee.nodes.filter(name__iendswith=' Finest').all()
     assert len(finest_coffees) == 3, "unexpected number of results"
@@ -324,9 +336,11 @@ def test_q_filters():
     assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
 
     coffees_with_id_gte_3 = Coffee.nodes.filter(Q(id___gte=3)).all()
-    assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
+    assert len(coffees_with_id_gte_3) == 4, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
+    assert c5 in coffees_with_id_gte_3
+    assert c6 in coffees_with_id_gte_3
 
     coffees_5_not_japans = Coffee.nodes.filter(Q(price__gt=5) & ~Q(name="Japans finest")).all()
     assert c3 not in coffees_5_not_japans
