@@ -315,12 +315,12 @@ def test_q_filters():
     assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
     assert c2 in coffees_5_10, "doesnt contain 10 price coffee"
 
-    coffees_5_6 = Cofee.nodes.filter(Q(name="Latte") | Q(name="Cappuccino")).filter(price=35).all()
+    coffees_5_6 = Coffee.nodes.filter(Q(name="Latte") | Q(name="Cappuccino")).filter(price=35).all()
     assert len(coffees_5_6) == 2, "unexpected number of results"
     assert c5 in coffees_5_6, "doesnt contain 5 coffee"
     assert c6 in coffees_5_6, "doesnt contain 6 coffee"
 
-    coffees_5_6 = Cofee.nodes.filter(price=35).filter(Q(name="Latte") | Q(name="Cappuccino")).all()
+    coffees_5_6 = Coffee.nodes.filter(price=35).filter(Q(name="Latte") | Q(name="Cappuccino")).all()
     assert len(coffees_5_6) == 2, "unexpected number of results"
     assert c5 in coffees_5_6, "doesnt contain 5 coffee"
     assert c6 in coffees_5_6, "doesnt contain 6 coffee"
