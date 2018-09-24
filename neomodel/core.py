@@ -6,7 +6,7 @@ from neomodel import config
 from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
-from neomodel.util import Database, classproperty, _UnsavedNode
+from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
 
 db = Database()
 
@@ -171,7 +171,8 @@ class NodeMeta(type):
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
-
+            db._NODE_CLASS_REGISTRY[frozenset(cls.inherited_labels())] = cls
+            
         return cls
 
 
@@ -338,7 +339,7 @@ class StructuredNode(NodeBase):
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
 
-        Note that the post_create hook isn't called after get_or_create
+        Note that the post_create hook isn't called after create_or_update
 
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
@@ -438,13 +439,14 @@ class StructuredNode(NodeBase):
             snode = cls()
             snode.id = node
         else:
+            node_properties = _get_node_properties(node)
             props = {}
             for key, prop in cls.__all_properties__:
                 # map property name from database to object property
                 db_property = prop.db_property or key
 
-                if db_property in node.properties:
-                    props[key] = prop.inflate(node.properties[db_property], node)
+                if db_property in node_properties:
+                    props[key] = prop.inflate(node_properties[db_property], node)
                 elif prop.has_default:
                     props[key] = prop.default_value()
                 else:
@@ -491,8 +493,11 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            node = self.inflate(self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0][0][0])
+            request = self.cypher("MATCH (n) WHERE id(n)={self}"
+                                            " RETURN n")[0]
+            if not request or not request[0]:
+                raise self.__class__.DoesNotExist("Can't refresh non existent node")
+            node = self.inflate(request[0][0])
             for key, val in node.__properties__.items():
                 setattr(self, key, val)
         else:

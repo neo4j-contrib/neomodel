@@ -10,8 +10,7 @@ from neomodel.properties import (
     EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
     RegexProperty, StringProperty, UniqueIdProperty
 )
-
-
+from neomodel.util import _get_node_properties
 
 
 class FooBar(object):
@@ -187,9 +186,11 @@ def test_independent_property_name():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    assert results[0][0].properties['name'] == "jim"
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties['name'] == "jim"
 
-    assert not 'name_' in results[0][0].properties
+    node_properties = _get_node_properties(results[0][0])
+    assert not 'name_' in node_properties
     assert not hasattr(x, 'name')
     assert hasattr(x, 'name_')
     assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
@@ -210,8 +211,9 @@ def test_independent_property_name_get_or_create():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    assert results[0][0].properties['name'] == "jim"
-    assert 'name_' not in results[0][0].properties
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties['name'] == "jim"
+    assert 'name_' not in node_properties
 
     # delete node afterwards
     x.delete()

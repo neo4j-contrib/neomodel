@@ -4,11 +4,11 @@ Extending neomodel
 
 Inheritance
 -----------
-You may want to create a 'base node' classes which extends the functionality which neomodel provides
+Neomodel extends the ability to compose classes by inheritance to the backend. This 
+makes it possible to create a node class which extends the functionality that neomodel provides
 (such as `neomodel.contrib.SemiStructuredNode`).
 
-Or just have common methods and properties you want to share.
-This can be achieved using the `__abstract_node__` property on any base classes you wish to inherit from::
+Creating purely abstract classes is achieved using the `__abstract_node__` property on base classes::
 
     class User(StructuredNode):
         __abstract_node__ = True
@@ -23,7 +23,7 @@ This can be achieved using the `__abstract_node__` property on any base classes 
 
 Mixins
 ------
-You can use mixins to share the functionality between nodes classes::
+Mixins can be used to share functionality between nodes classes::
 
     class UserMixin(object):
         name = StringProperty(unique_index=True)
@@ -42,13 +42,14 @@ You can use mixins to share the functionality between nodes classes::
     jim = Shopper(name='jimmy', balance=300).save()
     jim.credit_account(50)
 
-Make sure your mixins *dont* inherit from `StructuredNode` and your concrete class does.
+Please note that it has to be ensured that the mixins *do not* inherit 
+from `StructuredNode` but that the concrete class does.
 
 Overriding the StructuredNode constructor
 -----------------------------------------
 
-When defining classes that have a custom `__init__(self, ...)` method,
-you must always call `super()` for the neomodel magic to work::
+When defining classes that have a custom `__init__(self, ...)` constructor,
+the `super()` class constructor must also be called::
 
     class Item(StructuredNode):
         name = StringProperty(unique_index=True)
@@ -61,5 +62,6 @@ you must always call `super()` for the neomodel magic to work::
 
             super(Item, self).__init__(self, *args, **kwargs)
 
-It's important to note that `StructuredNode`'s constructor will override properties set (which are defined on the class).
-So you must pass the values in via `kwargs` (as above). You may set them after calling the constructor but it does skip validation.
+It is important to note that `StructuredNode`'s constructor will override properties set (which are defined on the class).
+Therefore constructor parameters must be passed via `kwargs` (as above). 
+These can also be set after calling the constructor but this would skip validation.

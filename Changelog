@@ -1,3 +1,11 @@
+Version 3.2.9 2018-07-04
+ * Add check for wiping db on test run - Athanasios
+ * Correct function name in doc string - Henry Jordan
+ * Support filtering on properties that end with a hash (#348) - mprahl
+ * Support neo4j-driver v1.6.0 (#347) - mprahl
+ * Explicit write transaction mode (#337) - Robert Grant
+ * Adds a check for Traversal's definition argument (#333) - Frank Sachsenheim
+
 Version 3.2.8 2018-04-29
  * Fix syntax error in import
 
