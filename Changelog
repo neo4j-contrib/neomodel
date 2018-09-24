@@ -1,4 +1,21 @@
-Version 3.2.6
+Version 3.2.9 2018-07-04
+ * Add check for wiping db on test run - Athanasios
+ * Correct function name in doc string - Henry Jordan
+ * Support filtering on properties that end with a hash (#348) - mprahl
+ * Support neo4j-driver v1.6.0 (#347) - mprahl
+ * Explicit write transaction mode (#337) - Robert Grant
+ * Adds a check for Traversal's definition argument (#333) - Frank Sachsenheim
+
+Version 3.2.8 2018-04-29
+ * Fix syntax error in import
+
+Version 3.2.7 2018-04-23
+ * Back compat for exceptions module move - Robin Edwards
+ * Lower the required pytz version (#328) - mprahl
+ * Add the "disconnect_all" and "replace" methods on relationship properties (#327) - mprahl
+ * Add the "first" and "first_or_none" methods on the NodeSet class (#325) - mprahl
+
+Version 3.2.6 2018-04-04
  * Code clean ups and documentation improvments - Frank Sachsenheim
  * neomodel.properties.NormalClass is renamed to NormalizedClass
  * Respect when db_property is set in install_labels and get_or_create - mprahl

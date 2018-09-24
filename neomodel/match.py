@@ -1,6 +1,7 @@
 from .core import StructuredNode, db
 from .properties import AliasProperty
 from .exceptions import MultipleNodesReturned
+from .match_q import Q, QBase
 import inspect
 import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
@@ -135,7 +136,7 @@ def process_filter_args(cls, kwargs):
 
     for key, value in kwargs.items():
         if '__' in key:
-            prop, operator = key.split('__')
+            prop, operator = key.rsplit('__')
             operator = OPERATOR_TABLE[operator]
         else:
             prop = key
@@ -238,8 +239,8 @@ class QueryBuilder(object):
             if hasattr(source, '_order_by'):
                 self.build_order_by(ident, source)
 
-            if source.filters:
-                self.build_where_stmt(ident, source.filters)
+            if source.filters or source.q_filters:
+                self.build_where_stmt(ident, source.filters, source.q_filters)
 
             return ident
         elif isinstance(source, StructuredNode):
@@ -334,31 +335,63 @@ class QueryBuilder(object):
             self._place_holder_registry[key] = 1
         return key + '_' + str(self._place_holder_registry[key])
 
-    def build_where_stmt(self, ident, filters):
+    def _parse_q_filters(self, ident, q):
+        cls = self.node_set.source_class
+        target = []
+        for child in q.children:
+            if isinstance(child, QBase):
+                q_childs = self._parse_q_filters(ident, child)
+                if child.connector == Q.OR:
+                    q_childs = "(" + q_childs + ")"
+                target.append(q_childs)
+            else:
+                kwargs = {child[0]: child[1]}
+                filters = process_filter_args(cls, kwargs)
+                for prop, op_and_val in filters.items():
+                    op, val = op_and_val
+                    if op in _UNARY_OPERATORS:
+                        # unary operators do not have a parameter
+                        statement = '{}.{} {}'.format(ident, prop, op)
+                    else:
+                        place_holder = self._register_place_holder(ident + '_' + prop)
+                        statement = '{}.{} {} {{{}}}'.format(ident, prop, op, place_holder)
+                        self._query_params[place_holder] = val
+                    target.append(statement)
+        ret = ' {} '.format(q.connector).join(target)
+        if q.negated:
+            ret = 'NOT ({})'.format(ret)
+        return ret
+
+    def build_where_stmt(self, ident, filters, q_filters=None):
         """
         construct a where statement from some filters
         """
-        stmts = []
-        for row in filters:
-            negate = False
+        if q_filters is not None:
+            stmts = self._parse_q_filters(ident, q_filters)
+            if stmts:
+                self._ast['where'].append(stmts)
+        else:
+            stmts = []
+            for row in filters:
+                negate = False
 
-            # pre-process NOT cases as they are nested dicts
-            if '__NOT__' in row and len(row) == 1:
-                negate = True
-                row = row['__NOT__']
+                # pre-process NOT cases as they are nested dicts
+                if '__NOT__' in row and len(row) == 1:
+                    negate = True
+                    row = row['__NOT__']
 
-            for prop, op_and_val in row.items():
-                op, val = op_and_val
-                if op in _UNARY_OPERATORS:
-                    # unary operators do not have a parameter
-                    statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
-                else:
-                    place_holder = self._register_place_holder(ident + '_' + prop)
-                    statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
-                    self._query_params[place_holder] = val
-                stmts.append(statement)
+                for prop, op_and_val in row.items():
+                    op, val = op_and_val
+                    if op in _UNARY_OPERATORS:
+                        # unary operators do not have a parameter
+                        statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
+                    else:
+                        place_holder = self._register_place_holder(ident + '_' + prop)
+                        statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        self._query_params[place_holder] = val
+                    stmts.append(statement)
 
-        self._ast['where'].append(' AND '.join(stmts))
+            self._ast['where'].append(' AND '.join(stmts))
 
     def build_query(self):
         query = ''
@@ -405,16 +438,20 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident + '_contains')
         self._ast['where'].append('id({}) = {{{}}}'.format(ident, place_holder))
         self._query_params[place_holder] = node_id
-        return self._count() == 1
+        return self._count() >= 1
 
     def _execute(self):
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
+        # The following is not as elegant as it could be but had to be copied from the 
+        # version prior to cypher_query with the resolve_objects capability.
+        # It seems that certain calls are only supposed to be focusing to the first 
+        # result item returned (?)
         if results:
-            return [self._ast['result_class'].inflate(n[0]) for n in results]
+            return [n[0] for n in results]
         return []
-
-
+        
+        
 class BaseSet(object):
     """
     Base class for all node sets.
@@ -489,10 +526,17 @@ class NodeSet(BaseSet):
         install_traversals(self.source_class, self)
 
         self.filters = []
+        self.q_filters = Q()
 
         # used by has()
         self.must_match = {}
         self.dont_match = {}
+
+    def _get(self, limit=None, **kwargs):
+        self.filter(**kwargs)
+        if limit:
+            self.limit = limit
+        return self.query_cls(self).build_ast()._execute()
 
     def get(self, **kwargs):
         """
@@ -501,11 +545,7 @@ class NodeSet(BaseSet):
         :param kwargs: same syntax as `filter()`
         :return: node
         """
-        output = process_filter_args(self.source_class, kwargs)
-        if output:
-            self.filters.append(output)
-        self.limit = 2
-        result = self.query_cls(self).build_ast()._execute()
+        result = self._get(limit=2, **kwargs)
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
         elif not result:
@@ -525,7 +565,32 @@ class NodeSet(BaseSet):
         except self.source_class.DoesNotExist:
             pass
 
-    def filter(self, **kwargs):
+    def first(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters
+
+        :param kwargs: same syntax as `filter()`
+        :return: node
+        """
+        result = result = self._get(limit=1, **kwargs)
+        if result:
+            return result[0]
+        else:
+            raise self.source_class.DoesNotExist(repr(kwargs))
+
+    def first_or_none(self, **kwargs):
+        """
+        Retrieve the first node from the set matching supplied parameters or return none
+
+        :param kwargs: same syntax as `filter()`
+        :return: node or none
+        """
+        try:
+            return self.first(**kwargs)
+        except self.source_class.DoesNotExist:
+            pass
+
+    def filter(self, *args, **kwargs):
         """
         Apply filters to the existing nodes in the set.
 
@@ -556,22 +621,19 @@ class NodeSet(BaseSet):
 
         :return: self
         """
-
-        output = process_filter_args(self.source_class, kwargs)
-        if output:
-            self.filters.append(output)
+        if args or kwargs:
+            self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
         return self
 
-    def exclude(self, **kwargs):
+    def exclude(self, *args, **kwargs):
         """
         Exclude nodes from the NodeSet via filters.
 
         :param kwargs: filter parameters see syntax for the filter method
         :return: self
         """
-        output = process_filter_args(self.source_class, kwargs)
-        if output:
-            self.filters.append({'__NOT__': output})
+        if args or kwargs:
+            self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
     def has(self, **kwargs):
@@ -647,6 +709,15 @@ class Traversal(BaseSet):
         else:
             raise TypeError("Bad source for traversal: "
                             "{}".format(type(source)))
+
+        invalid_keys = (
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+        )
+        if invalid_keys:
+            raise ValueError(
+                'Unallowed keys in Traversal definition: {invalid_keys}'
+                .format(invalid_keys=invalid_keys)
+            )
 
         self.definition = definition
         self.target_class = definition['node_class']

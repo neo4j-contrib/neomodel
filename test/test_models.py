@@ -68,6 +68,22 @@ def test_get_and_get_or_none():
     assert n is None
 
 
+def test_first_and_first_or_none():
+    u = User(email='matt@test.com', age=24)
+    assert u.save()
+    u2 = User(email='tbrady@test.com', age=40)
+    assert u2.save()
+    tbrady = User.nodes.order_by('-age').first()
+    assert tbrady.email == 'tbrady@test.com'
+    assert tbrady.age == 40
+
+    tbrady = User.nodes.order_by('-age').first_or_none()
+    assert tbrady.email == 'tbrady@test.com'
+
+    n = User.nodes.first_or_none(email='matt@nothere.com')
+    assert n is None
+
+
 def test_save_to_model():
     u = User(email='jim@test.com', age=3)
     assert u.save()
@@ -161,6 +177,16 @@ def test_refresh():
     c.refresh()
     assert c.age == 20
     assert c.my_custom_prop == 'value'
+
+    c = Customer2.inflate(c.id)
+    c.age = 30
+    c.refresh()
+
+    assert c.age == 20
+
+    c = Customer2.inflate(999)
+    with raises(Customer2.DoesNotExist):
+        c.refresh()
 
 
 def test_setting_value_to_none():
