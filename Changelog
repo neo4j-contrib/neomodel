@@ -1,5 +1,17 @@
+Version 3.3.0 2018-10-04
+ * Added support for Q() in filter and exclude (#360) - Juan H. Hidalgo
+ * Added  object docs and examples - Juan H. Hidalgo
+ * Raise DoesNotExist when refreshing a non existent inflated node (#355) - lerela
+ * Empty filter bug - Mardanov Timur Rustemovich
+ * Closed #361 Nodes connected with two or more relationships - Mardanov Timur Rustemovich
+ * Exclude method fixed - Mardanov Timur Rustemovich
+ * Filter with OR fixed - Mardanov Timur Rustemovich
+ * Resolved #283, improved object resolution of cypher_query so that it 
+   resolves objects even if they are nested within lists. Overall 
+   documentation edits - Athanasios Anastasiou
+   
 Version 3.2.9 2018-07-04
- * Add check for wiping db on test run - Athanasios
+ * Add check for wiping db on test run - Athanasios 
  * Correct function name in doc string - Henry Jordan
  * Support filtering on properties that end with a hash (#348) - mprahl
  * Support neo4j-driver v1.6.0 (#347) - mprahl
