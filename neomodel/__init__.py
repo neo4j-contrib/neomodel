@@ -15,6 +15,15 @@ from .properties import (StringProperty, IntegerProperty, AliasProperty,
                          FloatProperty, BooleanProperty, DateTimeProperty, DateProperty,
                          NormalizedProperty, RegexProperty, EmailProperty,
                          JSONProperty, ArrayProperty, UniqueIdProperty)
+
+
+# If shapely is not installed, its import will fail and the spatial properties will not be available
+try:
+    from .spatial_properties import (NeomodelPoint,PointProperty)
+except ImportError:
+    sys.stderr.write('WARNING: Shapely not found on system, spatial capabilities will not be available.\n'
+                     'If required, you can install Shapely via `pip install shapely`.')
+
                          
 __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
