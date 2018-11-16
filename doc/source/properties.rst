@@ -10,7 +10,7 @@ The following properties are available on nodes and relationships:
 :class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
 :class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
 :class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
-:class:`~neomodel.properties.FloatProperty`
+:class:`~neomodel.properties.FloatProperty`     :class:`~neomodel.properties.PointProperty`
 ==============================================  ==============================================
 
 
@@ -86,7 +86,14 @@ Other properties
 * `EmailProperty` - validate emails (via a regex).
 * `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
 * `NormalProperty` - use one method (normalize) to inflate and deflate.
-
+* `PointProperty` - store and validate `spatial values <https://neo4j.com/docs/developer-manual/3.4/cypher/syntax/spatial/>`_
+    * A `Point Property` requires its `crs` argument to be set during definition and returns `NeomodelPoint` objects.
+      `NeomodelPoint` objects have attributes such as `crs,x,y,z,longitude,latitude,height` (**depending on** the type
+      of Point) but more importantly are subclasses of `shapely.geometry.Point <http://toblerity.org/shapely/manual.html#geometric-objects>`_.
+      Therefore, they can readily participate in further geospatial processing via `shapely` (or
+      `PySAL <https://pysal.readthedocs.io/en/latest/users/tutorials/shapely.html>`_) out of the box.
+      `NeomodelPoint` objects are immutable. To update a `PointProperty`, please construct a new object rather than trying
+      to modify the existing one.
 
 Aliasing properties
 ===================
