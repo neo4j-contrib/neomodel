@@ -90,7 +90,7 @@ class StructuredRel(StructuredRelBase):
             else:
                 props[key] = None
         srel = cls(**props)
-        srel._start_node_id = rel.start
-        srel._end_node_id = rel.end
+        srel._start_node_id = rel.start_node.id
+        srel._end_node_id = rel.end_node.id
         srel.id = rel.id
         return srel
