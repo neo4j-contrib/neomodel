@@ -91,7 +91,7 @@ With function decorators::
         user.name = name
         user.save()
         
-    @db.read.transaction
+    @db.read_transaction
     def get_all_users():
         return Person.nodes.all()
         
