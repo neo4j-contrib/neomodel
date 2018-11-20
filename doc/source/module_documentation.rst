@@ -20,6 +20,12 @@ Properties
   :members:
   :show-inheritance:
 
+Spatial Properties & Datatypes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. automodule:: neomodel.spatial_properties
+  :members:
+  :show-inheritance:
+
 Relationships
 -------------
 .. automodule:: neomodel.relationship

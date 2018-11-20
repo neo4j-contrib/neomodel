@@ -11,20 +11,18 @@ import shapely
 import pytest
 
 
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
 def basic_type_assertions(ground_truth, tested_object, test_description, check_neo4j_points=False):
     """
-    Tests if `tested_object` has been created as intended
+    Tests that `tested_object` has been created as intended.
 
-    :param ground_truth:
-    :param tested_object:
-    :param test_description:
-    :param check_srid:
+    :param ground_truth: The object as it is supposed to have been created.
+    :type ground_truth: NeomodelPoint or neo4j.v1.spatial.Point
+    :param tested_object: The object as it results from one of the contructors.
+    :type tested_object: NeomodelPoint or neo4j.v1.spatial.Point
+    :param test_description: A brief description of the test being performed.
+    :type test_description: str
+    :param check_neo4j_points: Whether to assert between NeomodelPoint or neo4j.v1.spatial.Point objects.
+    :type check_neo4j_points: bool
     :return:
     """
     if check_neo4j_points:
@@ -45,11 +43,11 @@ def basic_type_assertions(ground_truth, tested_object, test_description, check_n
 # Object Construction
 def test_coord_constructor():
     """
-    Tests all the possible ways by which a NeomodelPoint can be instantiated succesfully via passing coordinates.
+    Tests all the possible ways by which a NeomodelPoint can be instantiated successfully via passing coordinates.
     :return:
     """
 
-    # Implicit cartesian with coords
+    # Implicit cartesian point with coords
     ground_truth_object = neomodel.NeomodelPoint((0.0, 0.0))
     new_point = neomodel.NeomodelPoint((0.0, 0.0))
     basic_type_assertions(ground_truth_object, new_point, "Implicit 2d cartesian point instantiation")
@@ -90,7 +88,7 @@ def test_coord_constructor():
 
 def test_copy_constructors():
     """
-    Tests all the possible ways by which a NeomodelPoint can be instantiated succesfully via a copy constructor call.
+    Tests all the possible ways by which a NeomodelPoint can be instantiated successfully via a copy constructor call.
 
     :return:
     """
@@ -117,7 +115,8 @@ def test_copy_constructors():
 
 def test_prohibited_constructor_forms():
     """
-    Tests all the possible forms by which construction of NeomodelPoints should fail
+    Tests all the possible forms by which construction of NeomodelPoints should fail.
+
     :return:
     """
     # Absurd CRS
@@ -143,7 +142,8 @@ def test_prohibited_constructor_forms():
 
 def test_property_accessors_depending_on_crs():
     """
-    Tests that points are accessed via their respective accessors
+    Tests that points are accessed via their respective accessors.
+
     :return:
     """
     # Geometrical points only have x,y,z coordinates
@@ -167,7 +167,8 @@ def test_property_accessors_depending_on_crs():
 
 def test_property_accessors():
     """
-    Tests that points are accessed via their respective accessors and that these accessors return the right values
+    Tests that points are accessed via their respective accessors and that these accessors return the right values.
+
     :return:
     """
     # Geometrical points

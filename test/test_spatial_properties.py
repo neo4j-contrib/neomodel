@@ -8,16 +8,13 @@ import neomodel
 import pytest
 import neo4j.v1
 from .test_spatial_datatypes import basic_type_assertions
-
-try:
-    basestring
-except NameError:
-    basestring = str
+import random
 
 
 def test_spatial_point_property():
     """
-    Tests that specific modes of instantiation fail as predicted
+    Tests that specific modes of instantiation fail as expected.
+
     :return:
     """
     with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not specified)")'):
@@ -32,7 +29,8 @@ def test_spatial_point_property():
 
 def test_inflate():
     """
-    Tests that the marshalling from neo4j to neomodel data types works as expected
+    Tests that the marshalling from neo4j to neomodel data types works as expected.
+
     :return:
     """
 
@@ -63,7 +61,7 @@ def test_deflate():
     Tests that the marshalling from neomodel to neo4j data types works as expected
     :return:
     """
-    # Please see inline comments in `test_inflate`. This test function is 90% to that one with very minor differences
+    # Please see inline comments in `test_inflate`. This test function is 90% to that one with very minor differences.
     #
     CRS_TO_SRID = dict([(value, key) for key, value in neomodel.spatial_properties.SRID_TO_CRS.items()])
     # Values to construct and expect during deflation
@@ -83,3 +81,51 @@ def test_deflate():
         deflated_point = neomodel.PointProperty(crs=a_value[0].crs).deflate(a_value[0])
         basic_type_assertions(expected_point, deflated_point, '{}, received {}'.format(a_value[1], deflated_point),
                               check_neo4j_points=True)
+
+
+def test_default_value():
+    """
+    Tests that the default value passing mechanism works as expected with NeomodelPoint values.
+    :return:
+    """
+
+    def get_some_point():
+        return neomodel.NeomodelPoint((random.random(),random.random()))
+
+    class LocalisableEntity(neomodel.StructuredNode):
+        """
+        A very simple entity to try out the default value assignment.
+        """
+        identifier = neomodel.UniqueIdProperty()
+        location = neomodel.PointProperty(crs='cartesian', default=get_some_point)
+
+    # Save an object
+    an_object = LocalisableEntity().save()
+    coords = an_object.location.coords[0]
+    # Retrieve it
+    retrieved_object = LocalisableEntity.nodes.get(identifier=an_object.identifier)
+    # Check against an independently created value
+    assert retrieved_object.location == neomodel.NeomodelPoint(coords), "Default value assignment failed."
+
+
+def test_array_of_points():
+    """
+    Tests that Arrays of Points work as expected.
+
+    :return:
+    """
+
+    class AnotherLocalisableEntity(neomodel.StructuredNode):
+        """
+        A very simple entity with an array of locations
+        """
+        identifier = neomodel.UniqueIdProperty()
+        locations = neomodel.ArrayProperty(neomodel.PointProperty(crs='cartesian'))
+
+    an_object = AnotherLocalisableEntity(locations=
+                                         [neomodel.NeomodelPoint((0.0,0.0)), neomodel.NeomodelPoint((1.0,0.0))]).save()
+
+    retrieved_object = AnotherLocalisableEntity.nodes.get(identifier=an_object.identifier)
+    assert type(retrieved_object.locations) is list, "Array of Points definition failed."
+    assert retrieved_object.locations == [neomodel.NeomodelPoint((0.0,0.0)), neomodel.NeomodelPoint((1.0,0.0))], \
+        "Array of Points incorrect values."
