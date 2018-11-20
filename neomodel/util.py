@@ -192,10 +192,10 @@ class Database(local):
 
         try:
             # Retrieve the data
-            start = time.clock()
+            start = time.time()
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
-            end = time.clock()
+            end = time.time()
             
             if resolve_objects:
                 # Do any automatic resolution required
