@@ -22,9 +22,15 @@
 __author__ = "Athanasios Anastasiou"
 
 import neo4j.v1
-from shapely.geometry import Point as ShapelyPoint
-from neomodel.properties import Property, validator
 
+# If shapely is not installed, its import will fail and the spatial properties will not be available
+try:
+    from shapely.geometry import Point as ShapelyPoint
+except ImportError:
+    raise ImportError('NEOMODEL ERROR: Shapely not found. If required, you can install Shapely via '
+                      '`pip install shapely`.')
+
+from neomodel.properties import Property, validator
 
 # Note: Depending on how Neo4J decides to handle the resolution of geographical points, these two
 # private attributes might have to be updated in the future or removed altogether.

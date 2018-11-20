@@ -5,6 +5,7 @@ For more information please see: https://github.com/neo4j-contrib/neomodel/issue
 """
 
 import neomodel
+import neomodel.contrib.spatial_properties
 import pytest
 import neo4j.v1
 from .test_spatial_datatypes import basic_type_assertions
@@ -18,13 +19,13 @@ def test_spatial_point_property():
     :return:
     """
     with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not specified)")'):
-        a_point_property = neomodel.PointProperty()
+        a_point_property = neomodel.contrib.spatial_properties.PointProperty()
 
     with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not acceptable)")'):
-        a_point_property = neomodel.PointProperty(crs='crs_isaak')
+        a_point_property = neomodel.contrib.spatial_properties.PointProperty(crs='crs_isaak')
 
     with pytest.raises(TypeError, message='Expected TypeError("Invalid default value")'):
-        a_point_property = neomodel.PointProperty(default=(0.0, 0.0), crs='cartesian')
+        a_point_property = neomodel.contrib.spatial_properties.PointProperty(default=(0.0, 0.0), crs='cartesian')
 
 
 def test_inflate():
@@ -49,10 +50,10 @@ def test_inflate():
 
     # Run the above tests
     for a_value in values_from_db:
-        expected_point = neomodel.NeomodelPoint(tuple(a_value[0]),
-                                                crs=neomodel.spatial_properties.SRID_TO_CRS[a_value[0].srid])
-        inflated_point = neomodel.PointProperty(crs=neomodel.spatial_properties.SRID_TO_CRS[a_value[0].srid]).inflate(
-                                                a_value[0])
+        expected_point = neomodel.contrib.spatial_properties.NeomodelPoint(tuple(a_value[0]),
+                                                crs=neomodel.contrib.spatial_properties.SRID_TO_CRS[a_value[0].srid])
+        inflated_point = neomodel.contrib.spatial_properties.PointProperty(
+            crs=neomodel.contrib.spatial_properties.SRID_TO_CRS[a_value[0].srid]).inflate(a_value[0])
         basic_type_assertions(expected_point, inflated_point, '{}, received {}'.format(a_value[1], inflated_point))
 
 
@@ -63,22 +64,22 @@ def test_deflate():
     """
     # Please see inline comments in `test_inflate`. This test function is 90% to that one with very minor differences.
     #
-    CRS_TO_SRID = dict([(value, key) for key, value in neomodel.spatial_properties.SRID_TO_CRS.items()])
+    CRS_TO_SRID = dict([(value, key) for key, value in neomodel.contrib.spatial_properties.SRID_TO_CRS.items()])
     # Values to construct and expect during deflation
-    values_from_neomodel = [(neomodel.NeomodelPoint((0.0, 0.0), crs='cartesian'),
+    values_from_neomodel = [(neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0), crs='cartesian'),
                              'Expected Neo4J 2d cartesian point when deflating Neomodel 2d cartesian point'),
-                            (neomodel.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d'),
+                            (neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d'),
                              'Expected Neo4J 3d cartesian point when deflating Neomodel 3d cartesian point'),
-                            (neomodel.NeomodelPoint((0.0,0.0), crs='wgs-84'),
+                            (neomodel.contrib.spatial_properties.NeomodelPoint((0.0,0.0), crs='wgs-84'),
                              'Expected Neo4J 2d geographical point when deflating Neomodel 2d geographical point'),
-                            (neomodel.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d'),
+                            (neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d'),
                              'Expected Neo4J 3d geographical point when deflating Neomodel 3d geographical point')]
 
     # Run the above tests.
     for a_value in values_from_neomodel:
         expected_point = neo4j.v1.spatial.Point(tuple(a_value[0].coords[0]))
         expected_point.srid = CRS_TO_SRID[a_value[0].crs]
-        deflated_point = neomodel.PointProperty(crs=a_value[0].crs).deflate(a_value[0])
+        deflated_point = neomodel.contrib.spatial_properties.PointProperty(crs=a_value[0].crs).deflate(a_value[0])
         basic_type_assertions(expected_point, deflated_point, '{}, received {}'.format(a_value[1], deflated_point),
                               check_neo4j_points=True)
 
@@ -90,14 +91,14 @@ def test_default_value():
     """
 
     def get_some_point():
-        return neomodel.NeomodelPoint((random.random(),random.random()))
+        return neomodel.contrib.spatial_properties.NeomodelPoint((random.random(),random.random()))
 
     class LocalisableEntity(neomodel.StructuredNode):
         """
         A very simple entity to try out the default value assignment.
         """
         identifier = neomodel.UniqueIdProperty()
-        location = neomodel.PointProperty(crs='cartesian', default=get_some_point)
+        location = neomodel.contrib.spatial_properties.PointProperty(crs='cartesian', default=get_some_point)
 
     # Save an object
     an_object = LocalisableEntity().save()
@@ -105,7 +106,8 @@ def test_default_value():
     # Retrieve it
     retrieved_object = LocalisableEntity.nodes.get(identifier=an_object.identifier)
     # Check against an independently created value
-    assert retrieved_object.location == neomodel.NeomodelPoint(coords), "Default value assignment failed."
+    assert retrieved_object.location == neomodel.contrib.spatial_properties.NeomodelPoint(coords), \
+        "Default value assignment failed."
 
 
 def test_array_of_points():
@@ -120,12 +122,15 @@ def test_array_of_points():
         A very simple entity with an array of locations
         """
         identifier = neomodel.UniqueIdProperty()
-        locations = neomodel.ArrayProperty(neomodel.PointProperty(crs='cartesian'))
+        locations = neomodel.ArrayProperty(neomodel.contrib.spatial_properties.PointProperty(crs='cartesian'))
 
     an_object = AnotherLocalisableEntity(locations=
-                                         [neomodel.NeomodelPoint((0.0,0.0)), neomodel.NeomodelPoint((1.0,0.0))]).save()
+                                         [neomodel.contrib.spatial_properties.NeomodelPoint((0.0,0.0)),
+                                          neomodel.contrib.spatial_properties.NeomodelPoint((1.0,0.0))]).save()
 
     retrieved_object = AnotherLocalisableEntity.nodes.get(identifier=an_object.identifier)
+
     assert type(retrieved_object.locations) is list, "Array of Points definition failed."
-    assert retrieved_object.locations == [neomodel.NeomodelPoint((0.0,0.0)), neomodel.NeomodelPoint((1.0,0.0))], \
+    assert retrieved_object.locations == [neomodel.contrib.spatial_properties.NeomodelPoint((0.0,0.0)),
+                                          neomodel.contrib.spatial_properties.NeomodelPoint((1.0,0.0))], \
         "Array of Points incorrect values."
