@@ -72,7 +72,7 @@ class Database(local):
             username, password, = credentials.split(':')
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
-                             " got {}".format(url))
+                             " got {0}".format(url))
 
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
@@ -223,7 +223,7 @@ class Database(local):
             raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
+            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
 
         return results, meta
         

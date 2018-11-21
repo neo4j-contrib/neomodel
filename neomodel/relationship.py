@@ -40,7 +40,7 @@ class StructuredRel(StructuredRelBase):
         props = self.deflate(self.__properties__)
         query = "MATCH ()-[r]->() WHERE id(r)={self} "
         for key in props:
-            query += " SET r.{} = {{{}}}".format(key, key)
+            query += " SET r.{0} = {{{1}}}".format(key, key)
         props['self'] = self.id
 
         db.cypher_query(query, props)

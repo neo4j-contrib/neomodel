@@ -46,7 +46,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
 
     if relation_properties:
         rel_props = ' {{{0}}}'.format(', '.join(
-            ['{}: {}'.format(key, value) for key, value in relation_properties.items()]))
+            ['{0}: {1}'.format(key, value) for key, value in relation_properties.items()]))
 
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
@@ -56,7 +56,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[%s:`%s`%s]' % (ident if ident else '', relation_type, rel_props))
+        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident if ident else '', relation_type, rel_props))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
@@ -117,7 +117,7 @@ def install_traversals(cls, node_set):
 
     for key, value in rels.items():
         if hasattr(node_set, key):
-            raise ValueError("Can't install traversal '{}' exists on NodeSet".format(key))
+            raise ValueError("Can't install traversal '{0}' exists on NodeSet".format(key))
 
         rel = getattr(cls, key)
         rel._lookup_node_class()
@@ -143,7 +143,7 @@ def process_filter_args(cls, kwargs):
             operator = '='
 
         if prop not in cls.defined_properties(rels=False):
-            raise ValueError("No such property {} on {}".format(prop, cls.__name__))
+            raise ValueError("No such property {0} on {1}".format(prop, cls.__name__))
 
         property_obj = getattr(cls, prop)
         if isinstance(property_obj, AliasProperty):
@@ -153,17 +153,17 @@ def process_filter_args(cls, kwargs):
             # handle special operators
             if operator == _SPECIAL_OPERATOR_IN:
                 if not isinstance(value, tuple) and not isinstance(value, list):
-                    raise ValueError('Value must be a tuple or list for IN operation {}={}'.format(key, value))
+                    raise ValueError('Value must be a tuple or list for IN operation {0}={1}'.format(key, value))
                 deflated_value = [property_obj.deflate(v) for v in value]
             elif operator == _SPECIAL_OPERATOR_ISNULL:
                 if not isinstance(value, bool):
-                    raise ValueError('Value must be a bool for isnull operation on {}'.format(key))
+                    raise ValueError('Value must be a bool for isnull operation on {0}'.format(key))
                 operator = 'IS NULL' if value else 'IS NOT NULL'
                 deflated_value = None
             elif operator in _REGEX_OPERATOR_TABLE.values():
                 deflated_value = property_obj.deflate(value)
                 if not isinstance(deflated_value, basestring):
-                    raise ValueError('Must be a string value for {}'.format(key))
+                    raise ValueError('Must be a string value for {0}'.format(key))
                 if operator in _STRING_REGEX_OPERATOR_TABLE.values():
                     deflated_value = re.escape(deflated_value)
                 deflated_value = operator.format(deflated_value)
@@ -189,7 +189,7 @@ def process_has_args(cls, kwargs):
 
     for key, value in kwargs.items():
         if key not in rel_definitions:
-            raise ValueError("No such relation {} defined on a {}".format(key, cls.__name__))
+            raise ValueError("No such relation {0} defined on a {1}".format(key, cls.__name__))
 
         rhs_ident = key
 
@@ -254,10 +254,10 @@ class QueryBuilder(object):
 
     def build_order_by(self, ident, source):
         if '?' in source._order_by:
-            self._ast['with'] = '{}, rand() as r'.format(ident)
+            self._ast['with'] = '{0}, rand() as r'.format(ident)
             self._ast['order_by'] = 'r'
         else:
-            self._ast['order_by'] = ['{}.{}'.format(ident, p)
+            self._ast['order_by'] = ['{0}.{1}'.format(ident, p)
                                      for p in source._order_by]
 
     def build_traversal(self, traversal):
@@ -287,7 +287,7 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = 'MATCH ({}) WHERE id({})={{{}}} WITH {}'.format(ident, ident, place_holder, ident)
+        _node_lookup = 'MATCH ({0}) WHERE id({1})={{{2}}} WITH {3}'.format(ident, ident, place_holder, ident)
         self._ast['lookup'] = _node_lookup
 
         self._query_params[place_holder] = node.id
@@ -301,7 +301,7 @@ class QueryBuilder(object):
         match nodes by a label
         """
         ident_w_label = ident + ':' + cls.__label__
-        self._ast['match'].append('({})'.format(ident_w_label))
+        self._ast['match'].append('({0})'.format(ident_w_label))
         self._ast['return'] = ident
         self._ast['result_class'] = cls
         return ident
@@ -351,15 +351,15 @@ class QueryBuilder(object):
                     op, val = op_and_val
                     if op in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = '{}.{} {}'.format(ident, prop, op)
+                        statement = '{0}.{1} {2}'.format(ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{}.{} {} {{{}}}'.format(ident, prop, op, place_holder)
+                        statement = '{0}.{1} {2} {{{3}}}'.format(ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     target.append(statement)
-        ret = ' {} '.format(q.connector).join(target)
+        ret = ' {0} '.format(q.connector).join(target)
         if q.negated:
-            ret = 'NOT ({})'.format(ret)
+            ret = 'NOT ({0})'.format(ret)
         return ret
 
     def build_where_stmt(self, ident, filters, q_filters=None):
@@ -384,10 +384,10 @@ class QueryBuilder(object):
                     op, val = op_and_val
                     if op in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = '{} {}.{} {}'.format('NOT' if negate else '', ident, prop, op)
+                        statement = '{0} {1}.{2} {3}'.format('NOT' if negate else '', ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{} {}.{} {} {{{}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        statement = '{0} {1}.{2} {3} {{{4}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
@@ -400,7 +400,7 @@ class QueryBuilder(object):
             query += self._ast['lookup']
 
         query += ' MATCH '
-        query += ', '.join(['({})'.format(i) for i in self._ast['match']])
+        query += ', '.join(['({0})'.format(i) for i in self._ast['match']])
 
         if 'where' in self._ast and self._ast['where']:
             query += ' WHERE '
@@ -425,7 +425,7 @@ class QueryBuilder(object):
         return query
 
     def _count(self):
-        self._ast['return'] = 'count({})'.format(self._ast['return'])
+        self._ast['return'] = 'count({0})'.format(self._ast['return'])
         # drop order_by, results in an invalid query
         self._ast.pop('order_by', None)
         query = self.build_query()
@@ -436,7 +436,7 @@ class QueryBuilder(object):
         # inject id = into ast
         ident = self._ast['return']
         place_holder = self._register_place_holder(ident + '_contains')
-        self._ast['where'].append('id({}) = {{{}}}'.format(ident, place_holder))
+        self._ast['where'].append('id({0}) = {{{1}}}'.format(ident, place_holder))
         self._query_params[place_holder] = node_id
         return self._count() >= 1
 
@@ -664,7 +664,7 @@ class NodeSet(BaseSet):
                     desc = False
 
                 if prop not in self.source_class.defined_properties(rels=False):
-                    raise ValueError("No such property {} on {}".format(
+                    raise ValueError("No such property {0} on {1}".format(
                         prop, self.source_class.__name__))
 
                 property_obj = getattr(self.source_class, prop)
@@ -708,7 +708,7 @@ class Traversal(BaseSet):
             self.source_class = source.source_class
         else:
             raise TypeError("Bad source for traversal: "
-                            "{}".format(type(source)))
+                            "{0}".format(type(source)))
 
         invalid_keys = (
                 set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
