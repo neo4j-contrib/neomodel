@@ -6,13 +6,45 @@ At the moment, only one new datatype is offered: NeomodelPoint
 For more information please see: https://github.com/neo4j-contrib/neomodel/issues/374
 """
 
+import os
 import neomodel
 import neomodel.contrib.spatial_properties
 import shapely
 import pytest
 
-import pdb
 
+def version_to_dec(a_version_string):
+    """
+    Converts a version string to a number to allow for quick checks on the versions of specific components.
+
+    :param a_version_string: The version string under test (e.g. '3.4.0')
+    :type a_version_string: str
+    :return: An integer representation of the string version, e.g. '3.4.0' --> 340
+    """
+    components = a_version_string.split('.')
+    num = 0
+    for a_component in enumerate(components):
+        num += (10 ** ((len(components) - 1) - a_component[0])) * int(a_component[1])
+    return num
+
+
+def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
+    """
+    Checks if the NEO4J_VERSION is at least `required_least_neo4j_version` and skips a test if not.
+
+    WARNING: If the NEO4J_VERSION variable is not set, this function returns True, allowing the test to go ahead.
+
+    :param required_least_neo4j_version: The least version to check. This must be the numberic representation of the
+    version. That is: '3.4.0' would be passed as 340.
+    :type required_least_neo4j_version: int
+    :param message: An informative message as to why the calling test had to be skipped.
+    :type message: str
+    :return: A boolean value of True if the version reported is at least `required_least_neo4j_version`
+    """
+    if 'NEO4J_VERSION' in os.environ:
+        if version_to_dec(os.environ['NEO4J_VERSION']) < required_least_neo4j_version:
+            pytest.skip('Neo4j version: {}. {}.'
+                        'Skipping test.'.format(os.environ['NEO4J_VERSION'], message))
 
 def basic_type_assertions(ground_truth, tested_object, test_description, check_neo4j_points=False):
     """
@@ -51,43 +83,46 @@ def test_coord_constructor():
     :return:
     """
 
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Implicit cartesian point with coords
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0))
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0))
-    basic_type_assertions(ground_truth_object, new_point, "Implicit 2d cartesian point instantiation")
+    basic_type_assertions(ground_truth_object, new_point, 'Implicit 2d cartesian point instantiation')
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0))
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0))
-    basic_type_assertions(ground_truth_object, new_point, "Implicit 3d cartesian point instantiation")
+    basic_type_assertions(ground_truth_object, new_point, 'Implicit 3d cartesian point instantiation')
 
     # Explicit geographical point with coords
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0), crs='wgs-84')
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0), crs='wgs-84')
     basic_type_assertions(ground_truth_object, new_point,
-                          "Explicit 2d geographical point with tuple of coords instantiation")
+                          'Explicit 2d geographical point with tuple of coords instantiation')
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d')
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d')
     basic_type_assertions(ground_truth_object, new_point,
-                          "Explicit 3d geographical point with tuple of coords instantiation")
+                          'Explicit 3d geographical point with tuple of coords instantiation')
 
     # Cartesian point with named arguments
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0)
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0)
-    basic_type_assertions(ground_truth_object, new_point, "Cartesian 2d point with named arguments")
+    basic_type_assertions(ground_truth_object, new_point, 'Cartesian 2d point with named arguments')
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0, z=0.0)
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0, z=0.0)
-    basic_type_assertions(ground_truth_object, new_point, "Cartesian 3d point with named arguments")
+    basic_type_assertions(ground_truth_object, new_point, 'Cartesian 3d point with named arguments')
 
     # Geographical point with named arguments
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(longitude=0.0, latitude=0.0)
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(longitude=0.0, latitude=0.0)
-    basic_type_assertions(ground_truth_object, new_point, "Geographical 2d point with named arguments")
+    basic_type_assertions(ground_truth_object, new_point, 'Geographical 2d point with named arguments')
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(longitude=0.0, latitude=0.0, height=0.0)
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(longitude=0.0, latitude=0.0 ,height=0.0)
-    basic_type_assertions(ground_truth_object, new_point, "Geographical 3d point with named arguments")
+    basic_type_assertions(ground_truth_object, new_point, 'Geographical 3d point with named arguments')
 
 
 def test_copy_constructors():
@@ -96,6 +131,10 @@ def test_copy_constructors():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Instantiate from Shapely point
 
     # Implicit cartesian from shapely point
@@ -123,6 +162,10 @@ def test_prohibited_constructor_forms():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Absurd CRS
     with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS...")'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0), crs='blue_hotel')
@@ -153,6 +196,10 @@ def test_property_accessors_depending_on_crs():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Geometrical points only have x,y,z coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d')
     with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''longitude'')...")'):
@@ -178,6 +225,10 @@ def test_property_accessors():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Geometrical points
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 1.0, 2.0), crs='cartesian-3d')
     assert new_point.x == 0.0, 'Expected x coordinate to be 0.0'

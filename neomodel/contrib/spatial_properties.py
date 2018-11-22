@@ -22,7 +22,6 @@
 __author__ = "Athanasios Anastasiou"
 
 import neo4j.v1
-import pdb
 
 # If shapely is not installed, its import will fail and the spatial properties will not be available
 try:

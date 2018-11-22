@@ -4,11 +4,12 @@ Provides a test case for issue 374 - "Support for Point property type".
 For more information please see: https://github.com/neo4j-contrib/neomodel/issues/374
 """
 
+import os
 import neomodel
 import neomodel.contrib.spatial_properties
 import pytest
 import neo4j.v1
-from .test_spatial_datatypes import basic_type_assertions
+from .test_spatial_datatypes import basic_type_assertions, check_and_skip_neo4j_least_version
 import random
 
 
@@ -18,6 +19,10 @@ def test_spatial_point_property():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not specified)")'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty()
 
@@ -34,6 +39,9 @@ def test_inflate():
 
     :return:
     """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
     # The test is repeatable enough to try and standardise it. The same test is repeated with the assertions in
     # `basic_type_assertions` and different messages to be able to localise the exception.
@@ -64,6 +72,10 @@ def test_deflate():
     """
     # Please see inline comments in `test_inflate`. This test function is 90% to that one with very minor differences.
     #
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     CRS_TO_SRID = dict([(value, key) for key, value in neomodel.contrib.spatial_properties.SRID_TO_CRS.items()])
     # Values to construct and expect during deflation
     values_from_neomodel = [(neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0), crs='cartesian'),
@@ -100,6 +112,9 @@ def test_default_value():
         identifier = neomodel.UniqueIdProperty()
         location = neomodel.contrib.spatial_properties.PointProperty(crs='cartesian', default=get_some_point)
 
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+
     # Save an object
     an_object = LocalisableEntity().save()
     coords = an_object.location.coords[0]
@@ -123,6 +138,9 @@ def test_array_of_points():
         """
         identifier = neomodel.UniqueIdProperty()
         locations = neomodel.ArrayProperty(neomodel.contrib.spatial_properties.PointProperty(crs='cartesian'))
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
     an_object = AnotherLocalisableEntity(locations=
                                          [neomodel.contrib.spatial_properties.NeomodelPoint((0.0,0.0)),
