@@ -22,6 +22,7 @@
 __author__ = "Athanasios Anastasiou"
 
 import neo4j.v1
+import pdb
 
 # If shapely is not installed, its import will fail and the spatial properties will not be available
 try:
@@ -56,7 +57,8 @@ class NeomodelPoint(ShapelyPoint):
               to be "wgs-84".
     """
 
-    def __init__(self, *args, crs=None, x=None, y=None, z=None, latitude=None, longitude=None, height=None, **kwargs):
+    # def __init__(self, *args, crs=None, x=None, y=None, z=None, latitude=None, longitude=None, height=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Creates a NeomodelPoint.
 
@@ -80,6 +82,15 @@ class NeomodelPoint(ShapelyPoint):
         :param kwargs: Dictionary of keyword arguments
         :type kwargs: dict
         """
+
+        # Python2.7 Workaround for the order that the arguments get passed to the functions
+        crs = kwargs.pop('crs', None)
+        x = kwargs.pop('x', None)
+        y = kwargs.pop('y', None)
+        z = kwargs.pop('z', None)
+        longitude = kwargs.pop('longitude', None)
+        latitude = kwargs.pop('latitude', None)
+        height = kwargs.pop('height', None)
 
         _x, _y, _z = None, None, None
 
@@ -167,9 +178,15 @@ class NeomodelPoint(ShapelyPoint):
             _y = y
 
         if _z is None:
-            super(NeomodelPoint, self).__init__(float(_x),float(_y), **kwargs)
+            if '-3d' not in self._crs:
+                super(NeomodelPoint, self).__init__((float(_x),float(_y)), **kwargs)
+            else:
+                raise ValueError("Invalid vector dimensions(2) for given CRS({}).".format(self._crs))
         else:
-            super(NeomodelPoint, self).__init__(float(_x), float(_y), float(_z), **kwargs)
+            if '-3d' in self._crs:
+                super(NeomodelPoint, self).__init__((float(_x), float(_y), float(_z)), **kwargs)
+            else:
+                raise ValueError("Invalid vector dimensions(3) for given CRS({}).".format(self._crs))
 
     @property
     def crs(self):
@@ -221,7 +238,7 @@ class PointProperty(Property):
     # The CRS that this property is expected to be expressed in.
     _crs = None
 
-    def __init__(self, crs=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         A Point property that requires at least its CRS to be known to offer proper validation.
 
@@ -230,6 +247,12 @@ class PointProperty(Property):
         :param kwargs: Dictionary of arguments
         :type kwargs: dict
         """
+        if 'crs' in kwargs:
+            crs = kwargs['crs']
+            del(kwargs['crs'])
+        else:
+            crs = None
+
         if crs is None or (crs not in ACCEPTABLE_CRS):
             raise ValueError('Invalid CRS({}). '
                              'Point properties require CRS to be one of {}'.format(crs, ','.join(ACCEPTABLE_CRS)))
@@ -241,7 +264,7 @@ class PointProperty(Property):
                     raise TypeError('Invalid default value. '
                                     'Expected NeomodelPoint, received {}'.format(type(kwargs['default'])))
 
-        super(PointProperty, self).__init__(**kwargs)
+        super(PointProperty, self).__init__(*args, **kwargs)
         self._crs = crs
 
     @validator

@@ -22,7 +22,7 @@ Properties
 
 Spatial Properties & Datatypes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. automodule:: neomodel.spatial_properties
+.. automodule:: neomodel.contrib.spatial_properties
   :members:
   :show-inheritance:
 

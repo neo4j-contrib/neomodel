@@ -11,6 +11,8 @@ import neomodel.contrib.spatial_properties
 import shapely
 import pytest
 
+import pdb
+
 
 def basic_type_assertions(ground_truth, tested_object, test_description, check_neo4j_points=False):
     """
@@ -152,7 +154,7 @@ def test_property_accessors_depending_on_crs():
     :return:
     """
     # Geometrical points only have x,y,z coordinates
-    new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian')
+    new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d')
     with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''longitude'')...")'):
         new_point.longitude
     with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''latitude'')...")'):
