@@ -31,10 +31,6 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
     :target: https://secure.travis-ci.org/neo4j-contrib/neomodel/
     :alt: Build Status
 
-.. image:: https://coveralls.io/repos/github/jberends/neomodel/badge.svg?branch=master
-    :target: https://coveralls.io/github/jberends/neomodel?branch=master
-    :alt: Coverage Status
-
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
     :scale: 100%
