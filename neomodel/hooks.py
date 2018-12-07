@@ -14,4 +14,5 @@ def hooks(fn):
         val = fn(self)
         _exec_hook('post_' + fn_name, self)
         return val
+
     return hooked

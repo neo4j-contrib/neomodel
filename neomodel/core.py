@@ -172,7 +172,7 @@ class NodeMeta(type):
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
             db._NODE_CLASS_REGISTRY[frozenset(cls.inherited_labels())] = cls
-            
+
         return cls
 
 
@@ -255,7 +255,8 @@ class StructuredNode(NodeBase):
         query_params = dict(merge_params=merge_params)
         n_merge = "n:{} {{{}}}".format(
             ":".join(cls.inherited_labels()),
-            ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
+            ", ".join(
+                "{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
             query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
@@ -292,7 +293,7 @@ class StructuredNode(NodeBase):
     @classmethod
     def category(cls):
         raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
+                                  "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -494,7 +495,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
             request = self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0]
+                                  " RETURN n")[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])

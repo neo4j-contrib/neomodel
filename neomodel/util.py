@@ -5,15 +5,15 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
-
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
+from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
+    from neo4j import GraphDatabase, basic_auth, CypherError, SessionError, Node
 else:
     from urlparse import urlparse  # noqa
+    from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class Database(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
-    
+
     def __init__(self):
         """
         """
@@ -92,10 +92,10 @@ class Database(local):
     @property
     def write_transaction(self):
         return TransactionProxy(self, access_mode="WRITE")
-        
+
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")        
+        return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -131,45 +131,44 @@ class Database(local):
         The function operates recursively in order to be able to resolve Nodes
         within nested list structures. Not meant to be called directly,
         used primarily by cypher_query.
-        
+
         :param result_list: A list of results as returned by cypher_query.
         :type list:
-        
+
         :return: A list of instantiated objects.
         """
-        
+
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
-            for a_result_attribute in enumerate(a_result_item[1]):                    
+            for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
-                    
-                    if type(a_result_attribute[1]) is Node:
+
+                    if isinstance(a_result_attribute[1], (Node,)):
                         resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(
                             a_result_attribute[1])
-                        
-                    if type(a_result_attribute[1]) is list:
-                        resolved_object = self._object_resolution([a_result_attribute[1]])                    
-                    
+
+                    if isinstance(a_result_attribute[1], (list,)):
+                        resolved_object = self._object_resolution([a_result_attribute[1]])
+
                     result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
-                    
+
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
                     raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
-                    
+
         return result_list
 
-        
-        
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False,
+                     resolve_objects=False):
         """
         Runs a query on the database and returns a list of results and their headers.
-        
+
         :param query: A CYPHER query
         :type: str
         :param params: Dictionary of parameters
@@ -177,11 +176,11 @@ class Database(local):
         :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
         :type: bool
         :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
-        :type: bool        
+        :type: bool
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-        
+
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -196,11 +195,11 @@ class Database(local):
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.clock()
-            
+
             if resolve_objects:
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
-                
+
         except CypherError as ce:
             if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 if 'already exists with label' in ce.message and handle_unique:
@@ -226,8 +225,8 @@ class Database(local):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
 
         return results, meta
-        
-        
+
+
 class TransactionProxy(object):
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -245,10 +244,10 @@ class TransactionProxy(object):
         if exc_type is CypherError:
             if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 raise UniqueProperty(exc_value.message)
-                
+
         if not exc_value:
-            self.db.commit()                            
-            
+            self.db.commit()
+
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:

@@ -1,4 +1,7 @@
-from neo4j.addressing import AddressError
+try:
+    from neobolt.addressing import AddressError  # noqa  # using neobolt
+except ImportError:
+    from neo4j.addressing import AddressError  # noqa  #compat for neo-driver 1.6
 from pytest import raises
 
 from neomodel import db, StructuredNode, StringProperty, UniqueProperty
@@ -72,7 +75,6 @@ def test_query_inside_transaction():
 
 def test_set_connection_works():
     assert Person(name='New guy').save()
-    from socket import gaierror
 
     old_url = db.url
     with raises(AddressError):

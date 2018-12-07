@@ -1,11 +1,11 @@
-import sys
 import functools
+import sys
 from importlib import import_module
+
 from .exceptions import NotConnected
-from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
-
+from .util import deprecated, _get_node_properties
 
 # basestring python 3.x fallback
 try:
@@ -22,6 +22,7 @@ def check_source(fn):
     def checker(self, *args, **kwargs):
         self.source._pre_action_check(self.name + '.' + fn_name)
         return fn(self, *args, **kwargs)
+
     return checker
 
 
@@ -31,6 +32,7 @@ class RelationshipManager(object):
 
     I.e the 'friends' object in  `user.friends.all()`
     """
+
     def __init__(self, source, key, definition):
         self.source = source
         self.source_class = source.__class__

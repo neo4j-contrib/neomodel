@@ -1,8 +1,8 @@
 import functools
 import json
+import re
 import sys
 import types
-import re
 import uuid
 import warnings
 from datetime import date, datetime
@@ -12,7 +12,6 @@ import pytz
 from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
 
-
 if sys.version_info >= (3, 0):
     unicode = str
 
@@ -20,6 +19,7 @@ if sys.version_info >= (3, 0):
 def display_for(key):
     def display_choice(self):
         return getattr(self.__class__, key).choices[getattr(self, key)]
+
     return display_choice
 
 
@@ -233,6 +233,8 @@ else:
         def __init__(self, *args, **kwargs):
             _warn_NormalProperty_renamed()
             super(NormalProperty, self).__init__(*args, **kwargs)
+
+
 ##
 
 
@@ -289,6 +291,7 @@ class StringProperty(NormalizedProperty):
                     value ``None`` is used, any string is valid.
     :type choices: Any type that can be used to initiate a :class:`dict`.
     """
+
     def __init__(self, choices=None, **kwargs):
         super(StringProperty, self).__init__(**kwargs)
 
@@ -482,6 +485,7 @@ class JSONProperty(Property):
 
     The structure will be inflated when a node is retrieved.
     """
+
     def __init__(self, *args, **kwargs):
         super(JSONProperty, self).__init__(*args, **kwargs)
 
@@ -498,6 +502,7 @@ class AliasProperty(property, Property):
     """
     Alias another existing property
     """
+
     def __init__(self, to=None):
         """
         Create new alias
@@ -531,6 +536,7 @@ class UniqueIdProperty(Property):
     """
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
+
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:

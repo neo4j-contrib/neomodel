@@ -3,7 +3,7 @@ from neomodel.exceptions import (
 )
 from neomodel.relationship_manager import (
     RelationshipManager, ZeroOrMore
-)  #noqa: F401
+)  # noqa: F401
 
 
 class ZeroOrOne(RelationshipManager):
@@ -38,7 +38,7 @@ class ZeroOrOne(RelationshipManager):
         """
         if len(self):
             raise AttemptedCardinalityViolation(
-                    "Node already has {0} can't connect more".format(self))
+                "Node already has {0} can't connect more".format(self))
         else:
             return super(ZeroOrOne, self).connect(node, properties)
 

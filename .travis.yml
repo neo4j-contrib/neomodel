@@ -5,15 +5,42 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
+  - "3.7-dev"
+  - "pypy"
+  - "pypy3.5"
 env:
-  - NEO4J_VERSION="3.0.10"
-  - NEO4J_VERSION="3.1.7"
-  - NEO4J_VERSION="3.2.9"
-  - NEO4J_VERSION="3.3.3"
+  #- NEO4J_VERSION="3.0.10"  # unsupported by neo4j.com (DEC18)
+  #- NEO4J_VERSION="3.1.7"   # unsupported by neo4j.com (DEC18)
+  - NEO4J_VERSION="3.2.13"
+  - NEO4J_VERSION="3.3.9"
+  - NEO4J_VERSION="3.4.10"
+  - NEO4J_VERSION="3.5.0"
+matrix:
+  exclude:  # reducing the testing matrix a bit.
+    - python: "2.7"
+      env: NEO4J_VERSION=3.5.0
+    - python: "pypy"
+      env: NEO4J_VERSION=3.4.10
+    - python: "pypy"
+      env: NEO4J_VERSION=3.5.0
+    - python: "3.4"
+      env: NEO4J_VERSION=3.4.10
+    - python: "3.4"
+      env: NEO4J_VERSION=3.5.0
+    - python: "pypy3.5"
+      env: NEO4J_VERSION=3.2.13
+    - python: "pypy3.5"
+      env: NEO4J_VERSION=3.3.9
+
 install:
   - sudo apt-get update && sudo apt-get install oracle-java8-installer
   - curl -L http://dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz | tar xz
+  - pip install tox-travis
 before_script:
   - JAVA_HOME=/usr/lib/jvm/java-8-oracle neo4j-community-$NEO4J_VERSION/bin/neo4j start
   - sleep 10
-script: "python setup.py test"
+script:
+  - tox
+notifications:
+  email: false
+

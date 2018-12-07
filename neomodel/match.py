@@ -1,11 +1,12 @@
-from .core import StructuredNode, db
-from .properties import AliasProperty
-from .exceptions import MultipleNodesReturned
-from .match_q import Q, QBase
 import inspect
 import re
-OUTGOING, INCOMING, EITHER = 1, -1, 0
 
+from .core import StructuredNode, db
+from .exceptions import MultipleNodesReturned
+from .match_q import Q, QBase
+from .properties import AliasProperty
+
+OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 # basestring python 3.x fallback
 try:
@@ -442,16 +443,16 @@ class QueryBuilder(object):
 
     def _execute(self):
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
-        # The following is not as elegant as it could be but had to be copied from the 
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
+        # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
-        # It seems that certain calls are only supposed to be focusing to the first 
+        # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
         if results:
             return [n[0] for n in results]
         return []
-        
-        
+
+
 class BaseSet(object):
     """
     Base class for all node sets.
@@ -511,6 +512,7 @@ class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
     """
+
     def __init__(self, source):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
@@ -716,7 +718,7 @@ class Traversal(BaseSet):
         if invalid_keys:
             raise ValueError(
                 'Unallowed keys in Traversal definition: {invalid_keys}'
-                .format(invalid_keys=invalid_keys)
+                    .format(invalid_keys=invalid_keys)
             )
 
         self.definition = definition

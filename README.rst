@@ -15,8 +15,25 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 .. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
+.. image:: https://img.shields.io/pypi/v/neomodel.svg
+    :target: https://pypi.python.org/pypi/neomodel
+    :alt: Version
+
+.. image:: https://img.shields.io/badge/neo4j-3.0%20%7C%203.1%20%7C%203.2%20%7C%203.3%20%7C%203.4%20%7C%203.5-blue.svg
+    :target: https://neo4j.com
+    :alt: Supported Neo4j versions
+
+.. image:: https://img.shields.io/pypi/pyversions/neomodel.svg
+    :target: https://pypi.python.org/pypi/neomodel
+    :alt: Supported Python Versions
+
 .. image:: https://secure.travis-ci.org/neo4j-contrib/neomodel.png
     :target: https://secure.travis-ci.org/neo4j-contrib/neomodel/
+    :alt: Build Status
+
+.. image:: https://coveralls.io/repos/github/jberends/neomodel/badge.svg?branch=master
+    :target: https://coveralls.io/github/jberends/neomodel?branch=master
+    :alt: Coverage Status
 
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
@@ -34,7 +51,7 @@ Requirements
 ============
 
 - Python 2.7, 3.4+
-- neo4j 3.0, 3.1, 3.2, 3.3
+- neo4j 3.0, 3.1, 3.2, 3.3, 3.4, 3.5
 
 Installation
 ============
@@ -50,13 +67,13 @@ To install from github::
 Upgrading 2.x to 3.x
 ====================
 
- * Now utilises neo4j_driver as the backend which uses bolt so neo4j 3 is required
- * Connection now set through config.DATABASE_URL (see getting started docs)
- * The deprecated category() method on StructuredNode has been removed
- * The deprecated index property on StructuredNode has been removed
- * The streaming=True flag is now irrelevant with bolt and produces a deprecation warning
+ * Now utilises `neo4j_driver` as the backend which uses bolt so neo4j 3+ is required
+ * Connection now set through `config.DATABASE_URL` (see getting started docs)
+ * The deprecated category() method on `StructuredNode` has been removed
+ * The deprecated index property on `StructuredNode` has been removed
+ * The `streaming=True` flag is now irrelevant with bolt and produces a deprecation warning
  * Batch operations must now be wrapped in a transaction in order to be atomic
- * Indexing NodeSets returns a single node now as opposed to a list
+ * Indexing `NodeSets` returns a single node now as opposed to a list
 
 Contributing
 ============
@@ -79,7 +96,7 @@ Setup a virtual environment, install neomodel for development and run the test s
 
 If your running a neo4j database for the first time the test suite will set the password to 'test'.
 
-If you have ``docker-compose`` installed, you can run the test suite against all supported Python
+If you have `docker-compose` installed, you can run the test suite against all supported Python
 interpreters and neo4j versions::
 
     # in the project's root folder:
