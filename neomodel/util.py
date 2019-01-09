@@ -3,12 +3,17 @@ import os
 import sys
 import time
 import warnings
+import random
 from threading import local
 
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
+from .exceptions import (
+    UniqueProperty,
+    ConstraintValidationFailed,
+    ModelDefinitionMismatch,
+)
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
@@ -22,7 +27,7 @@ logger = logging.getLogger(__name__)
 def ensure_connection(func):
     def wrapper(self, *args, **kwargs):
         # Sort out where to find url
-        if hasattr(self, 'db'):
+        if hasattr(self, "db"):
             _db = self.db
         else:
             _db = self
@@ -35,7 +40,7 @@ def ensure_connection(func):
 
 
 def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword({password})", {'password': new_password})
+    db.cypher_query("CALL dbms.changePassword({password})", {"password": new_password})
 
 
 def clear_neo4j_database(db):
@@ -46,7 +51,7 @@ class Database(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
-    
+
     def __init__(self):
         """
         """
@@ -67,17 +72,23 @@ class Database(local):
         """
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
-            credentials, hostname = u.netloc.rsplit('@', 1)
-            username, password, = credentials.split(':')
+        if u.netloc.find("@") > -1 and (
+            u.scheme == "bolt" or u.scheme == "bolt+routing"
+        ):
+            credentials, hostname = u.netloc.rsplit("@", 1)
+            username, password, = credentials.split(":")
         else:
-            raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
-                             " got {}".format(url))
+            raise ValueError(
+                "Expecting url format: bolt://user:password@localhost:7687"
+                " got {}".format(url)
+            )
 
-        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
-                                           auth=basic_auth(username, password),
-                                           encrypted=config.ENCRYPTED_CONNECTION,
-                                           max_pool_size=config.MAX_POOL_SIZE)
+        self.driver = GraphDatabase.driver(
+            u.scheme + "://" + hostname,
+            auth=basic_auth(username, password),
+            encrypted=config.ENCRYPTED_CONNECTION,
+            max_pool_size=config.MAX_POOL_SIZE,
+        )
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
@@ -92,10 +103,10 @@ class Database(local):
     @property
     def write_transaction(self):
         return TransactionProxy(self, access_mode="WRITE")
-        
+
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")        
+        return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -104,7 +115,9 @@ class Database(local):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
+        self._active_transaction = self.driver.session(
+            access_mode=access_mode
+        ).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -137,36 +150,49 @@ class Database(local):
         
         :return: A list of instantiated objects.
         """
-        
+
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
-            for a_result_attribute in enumerate(a_result_item[1]):                    
+            for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
-                    
+
                     if type(a_result_attribute[1]) is Node:
-                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(
-                            a_result_attribute[1])
-                        
+                        resolved_object = self._NODE_CLASS_REGISTRY[
+                            frozenset(a_result_attribute[1].labels)
+                        ].inflate(a_result_attribute[1])
+
                     if type(a_result_attribute[1]) is list:
-                        resolved_object = self._object_resolution([a_result_attribute[1]])                    
-                    
-                    result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
-                    
+                        resolved_object = self._object_resolution(
+                            [a_result_attribute[1]]
+                        )
+
+                    result_list[a_result_item[0]][
+                        a_result_attribute[0]
+                    ] = resolved_object
+
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
-                    raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
-                    
+                    raise ModelDefinitionMismatch(
+                        a_result_attribute[1], self._NODE_CLASS_REGISTRY
+                    )
+
         return result_list
 
-        
-        
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
+    def cypher_query(
+        self,
+        query,
+        params=None,
+        handle_unique=True,
+        retry_on_session_expire=False,
+        resolve_objects=False,
+        max_retry_seconds=60,
+    ):
         """
         Runs a query on the database and returns a list of results and their headers.
         
@@ -181,7 +207,7 @@ class Database(local):
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-        
+
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
@@ -193,17 +219,58 @@ class Database(local):
         try:
             # Retrieve the data
             start = time.clock()
-            response = session.run(query, params)
-            results, meta = [list(r.values()) for r in response], response.keys()
+
+            delay = 1
+            while True:
+                last_exception = None
+                cts = time.clock()
+
+                if cts - start > max_retry_seconds:
+                    # keep in mind that if many
+                    # different exceptions are
+                    # thrown, we only show the
+                    # one that occured last
+                    raise last_exception
+
+                try:
+                    response = session.run(query, params)
+                    results, meta = (
+                        [list(r.values()) for r in response],
+                        response.keys(),
+                    )
+                    break
+                except Exception as e:
+                    # TODO: Exception is too broad, we
+                    # should limit to only high-level,
+                    # transient exceptions
+
+                    # add a random jitter between
+                    # 0 and 1 second to mitigate
+                    # risk of all clients reconnecting
+                    # at the same time in case of
+                    # (transient) connectivity issues
+                    jitter = random.uniform(0.0, 1.0)
+
+                    # wait before retrying in hopes
+                    # that the transient error has passed
+                    # by now
+                    time.sleep(delay + jitter)
+
+                    # wait exponentially longer after
+                    # each failure
+                    delay = delay * 2
+
+                    last_exception = e
+
             end = time.clock()
-            
+
             if resolve_objects:
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
-                
+
         except CypherError as ce:
-            if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
-                if 'already exists with label' in ce.message and handle_unique:
+            if ce.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
+                if "already exists with label" in ce.message and handle_unique:
                     raise UniqueProperty(ce.message)
 
                 raise ConstraintValidationFailed(ce.message)
@@ -216,18 +283,26 @@ class Database(local):
         except SessionError:
             if retry_on_session_expire:
                 self.set_connection(self.url)
-                return self.cypher_query(query=query,
-                                         params=params,
-                                         handle_unique=handle_unique,
-                                         retry_on_session_expire=False)
+                return self.cypher_query(
+                    query=query,
+                    params=params,
+                    handle_unique=handle_unique,
+                    retry_on_session_expire=False,
+                )
             raise
 
-        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
+        if os.environ.get("NEOMODEL_CYPHER_DEBUG", False):
+            logger.debug(
+                "query: "
+                + query
+                + "\nparams: "
+                + repr(params)
+                + "\ntook: %.2gs\n" % (end - start)
+            )
 
         return results, meta
-        
-        
+
+
 class TransactionProxy(object):
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -243,12 +318,12 @@ class TransactionProxy(object):
             self.db.rollback()
 
         if exc_type is CypherError:
-            if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
+            if exc_value.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
                 raise UniqueProperty(exc_value.message)
-                
+
         if not exc_value:
-            self.db.commit()                            
-            
+            self.db.commit()
+
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:
@@ -285,7 +360,7 @@ def classproperty(f):
 # Just used for error messages
 class _UnsavedNode(object):
     def __repr__(self):
-        return '<unsaved node>'
+        return "<unsaved node>"
 
     def __str__(self):
         return self.__repr__()
@@ -294,7 +369,7 @@ class _UnsavedNode(object):
 def _get_node_properties(node):
     """Get the properties from a neo4j.v1.types.graph.Node object."""
     # 1.6.x and newer have it as `_properties`
-    if hasattr(node, '_properties'):
+    if hasattr(node, "_properties"):
         return node._properties
     # 1.5.x and older have it as `properties`
     else:
