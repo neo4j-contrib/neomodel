@@ -216,91 +216,76 @@ class Database(local):
         else:
             session = self.driver.session()
 
-        try:
-            # Retrieve the data
-            start = time.clock()
+        # Retrieve the data
+        start = time.clock()
+        delay = 1
+        while True:
+            last_exception = None
+            cts = time.clock()
 
-            delay = 1
-            while True:
-                last_exception = None
-                cts = time.clock()
+            if cts - start > max_retry_seconds:
+                raise last_exception
 
-                if cts - start > max_retry_seconds:
-                    # keep in mind that if many
-                    # different exceptions are
-                    # thrown, we only show the
-                    # one that occured last
-                    raise last_exception
+            try:
+                response = session.run(query, params)
+                results, meta = ([list(r.values()) for r in response], response.keys())
 
-                try:
-                    response = session.run(query, params)
-                    results, meta = (
-                        [list(r.values()) for r in response],
-                        response.keys(),
+                end = time.clock()
+
+                if resolve_objects:
+                    # Do any automatic resolution required
+                    results = self._object_resolution(results)
+
+                if os.environ.get("NEOMODEL_CYPHER_DEBUG", False):
+                    logger.debug(
+                        "query: "
+                        + query
+                        + "\nparams: "
+                        + repr(params)
+                        + "\ntook: %.2gs\n" % (end - start)
                     )
-                    break
-                except Exception as e:
-                    # TODO: Exception is too broad, we
-                    # should limit to only high-level,
-                    # transient exceptions
 
-                    # add a random jitter between
-                    # 0 and 1 second to mitigate
-                    # risk of all clients reconnecting
-                    # at the same time in case of
-                    # (transient) connectivity issues
-                    jitter = random.uniform(0.0, 1.0)
+                return results, meta
 
-                    # wait before retrying in hopes
-                    # that the transient error has passed
-                    # by now
-                    time.sleep(delay + jitter)
+            except CypherError as ce:
+                if ce.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
+                    if "already exists with label" in ce.message and handle_unique:
+                        raise UniqueProperty(ce.message)
 
-                    # wait exponentially longer after
-                    # each failure
-                    delay = delay * 2
-
-                    last_exception = e
-
-            end = time.clock()
-
-            if resolve_objects:
-                # Do any automatic resolution required
-                results = self._object_resolution(results)
-
-        except CypherError as ce:
-            if ce.code == u"Neo.ClientError.Schema.ConstraintValidationFailed":
-                if "already exists with label" in ce.message and handle_unique:
-                    raise UniqueProperty(ce.message)
-
-                raise ConstraintValidationFailed(ce.message)
-            else:
-                exc_info = sys.exc_info()
-                if sys.version_info >= (3, 0):
-                    raise exc_info[1].with_traceback(exc_info[2])
+                    raise ConstraintValidationFailed(ce.message)
                 else:
-                    raise exc_info[1]
-        except SessionError:
-            if retry_on_session_expire:
-                self.set_connection(self.url)
-                return self.cypher_query(
-                    query=query,
-                    params=params,
-                    handle_unique=handle_unique,
-                    retry_on_session_expire=False,
-                )
-            raise
+                    exc_info = sys.exc_info()
+                    if sys.version_info >= (3, 0):
+                        raise exc_info[1].with_traceback(exc_info[2])
+                    else:
+                        raise exc_info[1]
+            except SessionError:
+                if retry_on_session_expire:
+                    self.set_connection(self.url)
+                    return self.cypher_query(
+                        query=query,
+                        params=params,
+                        handle_unique=handle_unique,
+                        retry_on_session_expire=False,
+                    )
+                raise
+            except Exception as e:
+                # TODO: Exception is too broad, we
+                # should limit to only high-level,
+                # transient exceptions
 
-        if os.environ.get("NEOMODEL_CYPHER_DEBUG", False):
-            logger.debug(
-                "query: "
-                + query
-                + "\nparams: "
-                + repr(params)
-                + "\ntook: %.2gs\n" % (end - start)
-            )
+                # add a random jitter between
+                # 0 and 1 second
+                jitter = random.uniform(0.0, 1.0)
 
-        return results, meta
+                # wait before retrying
+                time.sleep(delay + jitter)
+
+                # wait exponentially longer after
+                # each failure
+                delay = delay * 2
+
+                last_exception = e
 
 
 class TransactionProxy(object):
