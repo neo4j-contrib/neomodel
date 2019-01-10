@@ -217,11 +217,11 @@ class Database(local):
             session = self.driver.session()
 
         # Retrieve the data
-        start = time.clock()
+        start = time.time()
         delay = 1
         while True:
             last_exception = None
-            cts = time.clock()
+            cts = time.time()
 
             if cts - start > max_retry_seconds:
                 raise last_exception
@@ -230,7 +230,7 @@ class Database(local):
                 response = session.run(query, params)
                 results, meta = ([list(r.values()) for r in response], response.keys())
 
-                end = time.clock()
+                end = time.time()
 
                 if resolve_objects:
                     # Do any automatic resolution required
