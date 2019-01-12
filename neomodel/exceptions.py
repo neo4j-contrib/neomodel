@@ -13,6 +13,7 @@ class AttemptedCardinalityViolation(NeomodelException):
 
     Example: a relationship of type `One` trying to connect a second node.
     """
+
     pass
 
 
@@ -22,13 +23,15 @@ class CardinalityViolation(NeomodelException):
 
     For example a relationship type `OneOrMore` returns no nodes.
     """
+
     def __init__(self, rel_manager, actual):
         self.rel_manager = str(rel_manager)
         self.actual = str(actual)
 
     def __str__(self):
-        return "CardinalityViolation: Expected: {0}, got: {1}."\
-            .format(self.rel_manager, self.actual)
+        return "CardinalityViolation: Expected: {0}, got: {1}.".format(
+            self.rel_manager, self.actual
+        )
 
 
 class ModelDefinitionMismatch(NeomodelException):
@@ -41,7 +44,7 @@ class ModelDefinitionMismatch(NeomodelException):
     
     In either of these cases the mismatch must be reported
     """
-    
+
     def __init__(self, db_node, current_node_class_registry):
         """
         Initialises the exception with the database node that failed to resolve 
@@ -53,15 +56,21 @@ class ModelDefinitionMismatch(NeomodelException):
         """
         self.db_node = db_node
         self.current_node_class_registry = current_node_class_registry
-        
+
     def __str__(self):
         node_labels = ",".join(self.db_node.labels)
-        ncr_items = list(map(lambda x:"{} --> {}".format(",".join(x[0]), x[1]),
-                             self.current_node_class_registry.items()))
+        ncr_items = list(
+            map(
+                lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                self.current_node_class_registry.items(),
+            )
+        )
         ncr_items_multiline = "\n".join(ncr_items)
 
-        return "Node with labels {} does not resolve to any of the known " \
-               "objects\n{}\n".format(node_labels, ncr_items_multiline)
+        return (
+            "Node with labels {} does not resolve to any of the known "
+            "objects\n{}\n".format(node_labels, ncr_items_multiline)
+        )
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
@@ -77,9 +86,12 @@ class DeflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to deflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return (
+            "Attempting to deflate property '{0}' on {1} of class '{2}': "
+            "{3}".format(
+                self.property_name, self.obj, self.node_class.__name__, self.msg
+            )
+        )
 
 
 class DoesNotExist(NeomodelException):
@@ -113,7 +125,8 @@ class InflateConflict(NeomodelException):
     def __str__(self):
         return """Found conflict with node {0}, has property '{1}' with value '{2}'
             although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name
+        )
 
 
 class InflateError(ValueError, NeomodelException):
@@ -124,9 +137,12 @@ class InflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to inflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return (
+            "Attempting to inflate property '{0}' on {1} of class '{2}': "
+            "{3}".format(
+                self.property_name, self.obj, self.node_class.__name__, self.msg
+            )
+        )
 
 
 class DeflateConflict(InflateConflict):
@@ -134,12 +150,13 @@ class DeflateConflict(InflateConflict):
         self.cls_name = cls.__name__
         self.property_name = key
         self.value = value
-        self.nid = nid if nid else '(unsaved)'
+        self.nid = nid if nid else "(unsaved)"
 
     def __str__(self):
         return """Found trying to set property '{1}' with value '{2}' on node {0}
             although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+            self.nid, self.property_name, self.value, self.cls_name
+        )
 
 
 class MultipleNodesReturned(ValueError, NeomodelException):
@@ -154,11 +171,16 @@ class NotConnected(NeomodelException):
         self.node2 = node2
 
     def __str__(self):
-        return ("Error performing '{0}' - Node {1} of type '{2}' is not "
-                "connected to {2} of type '{3}'."
-                .format(self.action, self.node1.id,
-                        self.node1.__class__.__name__, self.node2.id,
-                        self.node2.__class__.__name__))
+        return (
+            "Error performing '{0}' - Node {1} of type '{2}' is not "
+            "connected to {2} of type '{3}'.".format(
+                self.action,
+                self.node1.id,
+                self.node1.__class__.__name__,
+                self.node2.id,
+                self.node2.__class__.__name__,
+            )
+        )
 
 
 class RequiredProperty(NeomodelException):
@@ -168,12 +190,18 @@ class RequiredProperty(NeomodelException):
 
     def __str__(self):
         return "property '{0}' on objects of class {1}".format(
-            self.property_name, self.node_class.__name__)
+            self.property_name, self.node_class.__name__
+        )
 
 
 class UniqueProperty(ConstraintValidationFailed):
     def __init__(self, msg):
         self.message = msg
+
+
+class RetryTimeoutExceeded(Exception):
+    def __init__(self, last_exception):
+        self.last_exception = last_exception
 
 
 __all__ = (
@@ -189,5 +217,5 @@ __all__ = (
     NeomodelException.__name__,
     NotConnected.__name__,
     RequiredProperty.__name__,
-    UniqueProperty.__name__
+    UniqueProperty.__name__,
 )

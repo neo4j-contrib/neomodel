@@ -7,12 +7,14 @@ import random
 from threading import local
 
 from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
+from neo4j.exceptions import *
 
 from . import config
 from .exceptions import (
     UniqueProperty,
     ConstraintValidationFailed,
     ModelDefinitionMismatch,
+    RetryTimeoutExceeded,
 )
 
 if sys.version_info >= (3, 0):
@@ -224,7 +226,7 @@ class Database(local):
             cts = time.time()
 
             if cts - start > max_retry_seconds:
-                raise last_exception
+                raise RetryTimeoutExceeded(last_exception)
 
             try:
                 response = session.run(query, params)
@@ -269,10 +271,10 @@ class Database(local):
                         retry_on_session_expire=False,
                     )
                 raise
-            except Exception as e:
-                # TODO: Exception is too broad, we
-                # should limit to only high-level,
-                # transient exceptions
+            except (ServiceUnavailable, NotALeaderError, DatabaseUnavailableError) as e:
+
+                if isinstance(e, ServiceUnavailable):
+                    self.set_connection(self.url)
 
                 # add a random jitter between
                 # 0 and 1 second
