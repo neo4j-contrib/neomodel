@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+"neo4j-driver" = "<1.7.0,>=1.5.2"
+pytz = ">=2016.10"
+
+[dev-packages]
+pytest = "*"
+
+[requires]
+python_version = "3.6"
