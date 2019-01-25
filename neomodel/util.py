@@ -42,7 +42,22 @@ def clear_neo4j_database(db):
     db.cypher_query("MATCH (a) DETACH DELETE a")
 
 
-class Database(local):
+class NodeClassRegistry:
+    """
+    A singleton class via which all instances share the same Node Class Registry.
+    """
+    # Maintains a lookup directory that is used by cypher_query
+    # to infer which class to instantiate by examining the labels of the
+    # node in the resultset.
+    # _NODE_CLASS_REGISTRY is populated automatically by the constructor
+    # of the NodeMeta type.
+    _NODE_CLASS_REGISTRY = {}
+
+    def __init__(self):
+        self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
+
+
+class Database(local, NodeClassRegistry):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
@@ -54,12 +69,6 @@ class Database(local):
         self.url = None
         self.driver = None
         self._pid = None
-        # Maintains a lookup directory that is used by cypher_query
-        # to infer which class to instantiate by examining the labels of the
-        # node in the resultset.
-        # _NODE_CLASS_REGISTRY is populated automatically by the constructor
-        # of the NodeMeta type.
-        self._NODE_CLASS_REGISTRY = {}
 
     def set_connection(self, url):
         """
