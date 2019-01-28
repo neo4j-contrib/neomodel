@@ -440,7 +440,10 @@ class QueryBuilder(object):
         self._query_params[place_holder] = node_id
         return self._count() >= 1
 
-    def _execute(self):
+    def _execute(self, lazy=False):
+        if lazy:
+            # inject id = into ast
+            self._ast['return'] = 'id({})'.format(self._ast['return'])
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
         # The following is not as elegant as it could be but had to be copied from the 
@@ -460,13 +463,14 @@ class BaseSet(object):
     """
     query_cls = QueryBuilder
 
-    def all(self):
+    def all(self, lazy=False):
         """
         Return all nodes belonging to the set
+        :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :return: list of nodes
         :rtype: list
         """
-        return self.query_cls(self).build_ast()._execute()
+        return self.query_cls(self).build_ast()._execute(lazy)
 
     def __iter__(self):
         return (i for i in self.query_cls(self).build_ast()._execute())
@@ -532,20 +536,20 @@ class NodeSet(BaseSet):
         self.must_match = {}
         self.dont_match = {}
 
-    def _get(self, limit=None, **kwargs):
+    def _get(self, limit=None, lazy=False, **kwargs):
         self.filter(**kwargs)
         if limit:
             self.limit = limit
-        return self.query_cls(self).build_ast()._execute()
+        return self.query_cls(self).build_ast()._execute(lazy)
 
-    def get(self, **kwargs):
+    def get(self, lazy=False, **kwargs):
         """
         Retrieve one node from the set matching supplied parameters
-
+        :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :param kwargs: same syntax as `filter()`
         :return: node
         """
-        result = self._get(limit=2, **kwargs)
+        result = self._get(limit=2, lazy=lazy, **kwargs)
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
         elif not result:
