@@ -267,14 +267,14 @@ class StructuredNode(NodeBase):
             if not relation_type:
                 raise ValueError('No relation_type is specified on provided relationship')
 
-            from .match import OUTGOING, _rel_helper
+            from .match import _rel_helper
 
             query_params["source_id"] = relationship.source.id
             query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
             query += "MERGE "
-            query += _rel_helper(rhs='source', lhs=n_merge, ident=None,
-                                 relation_type=relation_type, direction=OUTGOING)
+            query += _rel_helper(lhs='source', rhs=n_merge, ident=None,
+                                 relation_type=relation_type, direction=relationship.definition['direction'])
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
