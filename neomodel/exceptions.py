@@ -56,12 +56,12 @@ class ModelDefinitionMismatch(NeomodelException):
         
     def __str__(self):
         node_labels = ",".join(self.db_node.labels)
-        ncr_items = list(map(lambda x:"{} --> {}".format(",".join(x[0]), x[1]),
+        ncr_items = list(map(lambda x:"{0} --> {1}".format(",".join(x[0]), x[1]),
                              self.current_node_class_registry.items()))
         ncr_items_multiline = "\n".join(ncr_items)
 
-        return "Node with labels {} does not resolve to any of the known " \
-               "objects\n{}\n".format(node_labels, ncr_items_multiline)
+        return "Node with labels {0} does not resolve to any of the known " \
+               "objects\n{1}\n".format(node_labels, ncr_items_multiline)
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
