@@ -344,3 +344,20 @@ def test_q_filters():
 
     coffees_5_not_japans = Coffee.nodes.filter(Q(price__gt=5) & ~Q(name="Japans finest")).all()
     assert c3 not in coffees_5_not_japans
+
+
+def test_traversal_filter_left_hand_statement():
+    nescafe = Coffee(name='Nescafe2', price=99).save()
+    nescafe_gold = Coffee(name='Nescafe gold', price=11).save()
+
+    tesco = Supplier(name='Sainsburys', delivery_cost=3).save()
+    biedronka = Supplier(name='Biedronka', delivery_cost=5).save()
+    lidl = Supplier(name='Lidl', delivery_cost=3).save()
+
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(biedronka)
+    nescafe_gold.suppliers.connect(lidl)
+
+    lidl_supplier = NodeSet(Coffee.nodes.filter(price=11).suppliers).filter(delivery_cost=3).all()
+
+    assert lidl in lidl_supplier

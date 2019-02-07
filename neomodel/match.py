@@ -240,7 +240,7 @@ class QueryBuilder(object):
                 self.build_order_by(ident, source)
 
             if source.filters or source.q_filters:
-                self.build_where_stmt(ident, source.filters, source.q_filters)
+                self.build_where_stmt(ident, source.filters, source.q_filters, source_class=source.source_class)
 
             return ident
         elif isinstance(source, StructuredNode):
@@ -335,18 +335,17 @@ class QueryBuilder(object):
             self._place_holder_registry[key] = 1
         return key + '_' + str(self._place_holder_registry[key])
 
-    def _parse_q_filters(self, ident, q):
-        cls = self.node_set.source_class
+    def _parse_q_filters(self, ident, q, source_class):
         target = []
         for child in q.children:
             if isinstance(child, QBase):
-                q_childs = self._parse_q_filters(ident, child)
+                q_childs = self._parse_q_filters(ident, child, source_class)
                 if child.connector == Q.OR:
                     q_childs = "(" + q_childs + ")"
                 target.append(q_childs)
             else:
                 kwargs = {child[0]: child[1]}
-                filters = process_filter_args(cls, kwargs)
+                filters = process_filter_args(source_class, kwargs)
                 for prop, op_and_val in filters.items():
                     op, val = op_and_val
                     if op in _UNARY_OPERATORS:
@@ -362,12 +361,12 @@ class QueryBuilder(object):
             ret = 'NOT ({0})'.format(ret)
         return ret
 
-    def build_where_stmt(self, ident, filters, q_filters=None):
+    def build_where_stmt(self, ident, filters, q_filters=None, source_class=None):
         """
         construct a where statement from some filters
         """
         if q_filters is not None:
-            stmts = self._parse_q_filters(ident, q_filters)
+            stmts = self._parse_q_filters(ident, q_filters, source_class)
             if stmts:
                 self._ast['where'].append(stmts)
         else:
