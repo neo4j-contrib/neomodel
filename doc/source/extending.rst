@@ -65,3 +65,42 @@ the `super()` class constructor must also be called::
 It is important to note that `StructuredNode`'s constructor will override properties set (which are defined on the class).
 Therefore constructor parameters must be passed via `kwargs` (as above). 
 These can also be set after calling the constructor but this would skip validation.
+
+
+Caveats
+-------
+
+It is very important to realise that `neomodel` builds an internal mapping of the set of labels associated with a node
+to the Python class this node is supposed to be serialised to. This mapping is preserved **within the same process**.
+
+This means that class names within a data model **must** be unique at least within the same process.
+
+The following simple example illustrates exactly the sort of problematic condition this might create::
+
+    import neomodel
+
+    # Once the following class gets defined, `neomodel` will create a mapping between the set of
+    # its labels and the class itself. Here, `Person` does not descend from any other class and therefore
+    # the mapping will be {"Person"}->class Person
+    class Person(neomodel.StructuredNode):
+        uid = neomodel.UniqueIdProperty()
+        full_name = neomodel.StringProperty()
+
+    def some_function():
+        # Class Person is local to `some_function`. This is perfectly valid Python
+        # but its definition would reset the existing `neomodel` mapping of
+        # {"Person"}->class Person, to {"Person"}->some_function.class Person
+        class Person(neomodel.StructuredNode):
+            uid = neomodel.UniqueIdProperty()
+            age = neomodel.IntegerProperty()
+
+        pass
+
+    if __name__ == "__main__":
+        Person(full_name="Tex Murhpy").save()
+        some_function()
+        Person(full_name="Donald Byrd").save()
+
+
+This is disallowed in `neomodel` and an attempt to define a class whose labels are exactly the same as a class that has
+already been defined will lead to raising exception `ClassAlreadyDefined`.

@@ -3,7 +3,7 @@ import sys
 import warnings
 
 from neomodel import config
-from neomodel.exceptions import DoesNotExist
+from neomodel.exceptions import DoesNotExist, ClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
@@ -171,8 +171,13 @@ class NodeMeta(type):
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
-            db._NODE_CLASS_REGISTRY[frozenset(cls.inherited_labels())] = cls
-            
+
+            label_set = frozenset(cls.inherited_labels())
+            if label_set not in db._NODE_CLASS_REGISTRY:
+                db._NODE_CLASS_REGISTRY[label_set] = cls
+            else:
+                raise ClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+
         return cls
 
 

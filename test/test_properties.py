@@ -158,7 +158,7 @@ def test_default_value_callable():
     assert a.uid == 'xx'
 
 
-def test_default_valude_callable_type():
+def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
         class Foo(object):
@@ -178,14 +178,14 @@ def test_default_valude_callable_type():
 
 
 def test_independent_property_name():
-    class TestNode(StructuredNode):
+    class TestDBNamePropertyNode(StructuredNode):
         name_ = StringProperty(db_property="name")
-    x = TestNode()
+    x = TestDBNamePropertyNode()
     x.name_ = "jim"
     x.save()
 
     # check database property name on low level
-    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
+    results, meta = db.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
     node_properties = _get_node_properties(results[0][0])
     assert node_properties['name'] == "jim"
 
@@ -193,8 +193,8 @@ def test_independent_property_name():
     assert not 'name_' in node_properties
     assert not hasattr(x, 'name')
     assert hasattr(x, 'name_')
-    assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
-    assert TestNode.nodes.get(name_="jim").name_ == x.name_
+    assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
+    assert TestDBNamePropertyNode.nodes.get(name_="jim").name_ == x.name_
 
     x.delete()
 

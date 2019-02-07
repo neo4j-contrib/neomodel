@@ -56,6 +56,12 @@ class NodeClassRegistry:
     def __init__(self):
         self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
 
+    def __str__(self):
+        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                         self._NODE_CLASS_REGISTRY.items()))
+        return "\n".join(ncr_items)
+
+
 
 class Database(local, NodeClassRegistry):
     """

@@ -94,7 +94,7 @@ marshalling for it.
 2. Default values (via `default=neomodel.contrib.spatial_properties.NeomodelPoint(...)` or a callable that must return
    a `NeomodelPoint`.
 3. Participation of `NeomodelPoint` in elements of `ArrayProperty` (via the `base_property` keyword of
-:class:`~neomodel.properties.ArrayProperty`)
+   :class:`~neomodel.properties.ArrayProperty`)
 
 But more importantly, during their definition, `PointProperty` properties **require their `crs` to be set**. If a
 `PointProperty` instantiation does not involve its `crs` an exception will be raised.
