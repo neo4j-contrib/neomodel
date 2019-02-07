@@ -4,14 +4,14 @@ Property types
 
 The following properties are available on nodes and relationships:
 
-==============================================  ==============================================
+==============================================  ===========================================================
 :class:`~neomodel.properties.AliasProperty`     :class:`~neomodel.properties.IntegerProperty`
 :class:`~neomodel.properties.ArrayProperty`     :class:`~neomodel.properties.JSONProperty`
 :class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
 :class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
 :class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
-:class:`~neomodel.properties.FloatProperty`
-==============================================  ==============================================
+:class:`~neomodel.properties.FloatProperty`     :class:`~neomodel.contrib.spatial_properties.PointProperty`
+==============================================  ===========================================================
 
 
 Defaults
@@ -86,7 +86,7 @@ Other properties
 * `EmailProperty` - validate emails (via a regex).
 * `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
 * `NormalProperty` - use one method (normalize) to inflate and deflate.
-
+* `PointProperty` - store and validate :ref:`spatial_properties`
 
 Aliasing properties
 ===================
@@ -115,3 +115,4 @@ This is useful when hiding graph properties behind a python property::
         @name.setter
         def name(self, value):
             self.name_ = value
+
