@@ -31,37 +31,51 @@ class CardinalityViolation(NeomodelException):
             .format(self.rel_manager, self.actual)
 
 
-class ModelDefinitionMismatch(NeomodelException):
+class ModelDefinitionException(NeomodelException):
     """
-    Raised when it is impossible to resolve a Neo4j driver Node to a 
-    specific object. This can happen as a result of a query returning 
-    nodes for which class definitions do exist but have not been loaded 
-    (or rather imported) or because the retrieved nodes contain more 
-    labels for a known class.
-    
-    In either of these cases the mismatch must be reported
+    Abstract exception to handle error conditions related to the node-to-class registry.
     """
-    
-    def __init__(self, db_node, current_node_class_registry):
+    def __init__(self, db_node_class, current_node_class_registry):
         """
-        Initialises the exception with the database node that failed to resolve 
-        to an object
-        
-        :param db_node: Neo4j driver node object
+        Initialises the exception with the database node that caused the missmatch.
+
+        :param db_node_class: Depending on the concrete class, this is either a Neo4j driver node object
+               from the DBMS, or a data model class from an application's hierarchy.
         :param current_node_class_registry: Dictionary that maps frozenset of
                node labels to model classes
         """
-        self.db_node = db_node
+        self.db_node_class = db_node_class
         self.current_node_class_registry = current_node_class_registry
-        
-    def __str__(self):
-        node_labels = ",".join(self.db_node.labels)
-        ncr_items = list(map(lambda x:"{0} --> {1}".format(",".join(x[0]), x[1]),
-                             self.current_node_class_registry.items()))
-        ncr_items_multiline = "\n".join(ncr_items)
 
-        return "Node with labels {0} does not resolve to any of the known " \
-               "objects\n{1}\n".format(node_labels, ncr_items_multiline)
+
+class ModelDefinitionMismatch(ModelDefinitionException):
+    """
+    Raised when it is impossible to resolve a Neo4j driver Node to a
+    specific object. This can happen as a result of a query returning
+    nodes for which class definitions do exist but have not been loaded
+    (or rather imported) or because the retrieved nodes contain more
+    labels for a known class.
+
+    In either of these cases the mismatch must be reported
+    """
+    def __str__(self):
+        node_labels = ",".join(self.db_node_class.labels())
+
+        return "Node with labels {} does not resolve to any of the known " \
+               "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
+
+
+class ClassAlreadyDefined(ModelDefinitionException):
+    """
+    Raised when an attempt is made to re-map a set of labels to a class
+    that already has a mapping within the node-to-class registry.
+    """
+    def __str__(self):
+        node_class_labels = ",".join(self.db_node_class.inherited_labels())
+
+        return "Class {}.{} with labels {} already defined:\n{}\n".format(
+            self.db_node_class.__module__, self.db_node_class.__name__,
+            node_class_labels, str(self.current_node_class_registry))
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
@@ -189,5 +203,7 @@ __all__ = (
     NeomodelException.__name__,
     NotConnected.__name__,
     RequiredProperty.__name__,
-    UniqueProperty.__name__
+    UniqueProperty.__name__,
+    ModelDefinitionMismatch.__name__,
+    ClassAlreadyDefined.__name__
 )

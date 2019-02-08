@@ -15,7 +15,7 @@ This needs to be called early on in your app, if you are using Django the `setti
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: http://localhost:7474 ).
 
-You can also change the connection url at any time by calling `set_connection`::
+You can also change the connection url at any time by calling ``set_connection``::
 
     from neomodel import db
     db.set_connection('bolt://neo4j:neo4j@localhost:7687')
@@ -48,13 +48,13 @@ Below is a definition of two types of node `Person` and `Country`::
         country = RelationshipTo(Country, 'IS_FROM')
 
 
-There is one type of relationship present `IS_FROM`, we are defining two different ways for traversing it
-one accessible via `Person` objects and one via `Country` objects
+There is one type of relationship present ``IS_FROM``, we are defining two different ways for traversing it
+one accessible via ``Person`` objects and one via ``Country`` objects
 
-We can use the `Relationship` class as opposed to the `RelationshipTo` or `RelationshipFrom`
+We can use the ``Relationship`` class as opposed to the ``RelationshipTo`` or ``RelationshipFrom``
 if we don't want to specify a direction.
 
-Neomodel automatically creates a label for each `StructuredNode` class in the database
+Neomodel automatically creates a label for each ``StructuredNode`` class in the database
 with the corresponding indexes and constraints.
 
 Setup constraints and indexes
@@ -90,12 +90,19 @@ Using convenience methods such as::
 Retrieving nodes
 ================
 
-Using the '.nodes' class property::
+Using the ``.nodes`` class property::
 
-    # raises Person.DoesNotExist if no match
+    # Return all nodes
+    all_nodes = Person.nodes.all()
+
+    # Returns Person by Person.name=='Jim' or raises Person.DoesNotExist if no match
     jim = Person.nodes.get(name='Jim')
 
-    # Will return None unless bob exists
+
+``.nodes.all()`` and ``.nodes.get()`` can also accept a ``lazy=True`` parameter which will result in those functions
+simply returning the node IDs rather than every attribute associated with that Node. ::
+
+    # Will return None unless "bob" exists
     someone = Person.nodes.get_or_none(name='bob')
 
     # Will return the first Person node with the name bob. This raises Person.DoesNotExist if there's no match.
@@ -139,3 +146,4 @@ Working with relationships::
     jim.country.connect(usa)
     # Replace Jim's country relationship with a new one
     jim.country.replace(germany)
+

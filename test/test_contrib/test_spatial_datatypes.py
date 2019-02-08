@@ -167,26 +167,26 @@ def test_prohibited_constructor_forms():
     check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
     # Absurd CRS
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS...")'):
+    with pytest.raises(ValueError, match='Invalid CRS\(blue_hotel\)'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0), crs='blue_hotel')
 
     # Absurd coord dimensionality
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid vector dimensions...")'):
+    with pytest.raises(ValueError, match='Invalid vector dimensions. Expected 2 or 3, received 7'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0,0,0,0,0,0), crs='cartesian')
 
     # Absurd datatype passed to copy constructor
-    with pytest.raises(TypeError, message='Expected TypeError("Invalid object passed to copy constructor...")'):
+    with pytest.raises(TypeError, match='Invalid object passed to copy constructor'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint('it don''t mean a thing if it '
                                                                       'ain''t got that swing', crs='cartesian')
 
     # Trying to instantiate a point with any of BOTH x,y,z or longitude, latitude, height
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid instantiation via arguments...")'):
+    with pytest.raises(ValueError, match='Invalid instantiation via arguments'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0,
                                                                       longitude=0.0, latitude=2.0, height=-2.0,
                                                                       crs='cartesian')
 
     # Trying to instantiate a point with absolutely NO parameters
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid instantiation via no arguments...")'):
+    with pytest.raises(ValueError, match='Invalid instantiation via no arguments'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint()
 
 
@@ -202,20 +202,20 @@ def test_property_accessors_depending_on_crs():
 
     # Geometrical points only have x,y,z coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d')
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''longitude'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("longitude"\)'):
         new_point.longitude
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''latitude'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("latitude"\)'):
         new_point.latitude
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''height'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("height"\)'):
         new_point.height
 
     # Geographical points only have longitude, latitude, height coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d')
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''x'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("x"\)'):
         new_point.x
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''y'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("y"\)'):
         new_point.y
-    with pytest.raises(AttributeError, message='Expected AttributeError("Invalid coordinate(''z'')...")'):
+    with pytest.raises(AttributeError, match='Invalid coordinate \("z"\)'):
         new_point.z
 
 
