@@ -23,13 +23,13 @@ def test_spatial_point_property():
     # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
     check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not specified)")'):
+    with pytest.raises(ValueError, match='Invalid CRS\(None\)'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty()
 
-    with pytest.raises(ValueError, message='Expected ValueError("Invalid CRS (CRS not acceptable)")'):
+    with pytest.raises(ValueError, match='Invalid CRS\(crs_isaak\)'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty(crs='crs_isaak')
 
-    with pytest.raises(TypeError, message='Expected TypeError("Invalid default value")'):
+    with pytest.raises(TypeError, match='Invalid default value'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty(default=(0.0, 0.0), crs='cartesian')
 
 
