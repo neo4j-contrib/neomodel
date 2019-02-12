@@ -238,7 +238,7 @@ class Database(local, NodeClassRegistry):
             raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
+            logger.debug("query: {}\ntook: {:f}s\n".format(query, end - start), extra=params)
 
         return results, meta
         
