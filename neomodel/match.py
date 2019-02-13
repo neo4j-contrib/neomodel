@@ -444,13 +444,13 @@ class QueryBuilder(object):
             # inject id = into ast
             self._ast['return'] = 'id({})'.format(self._ast['return'])
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
-        # The following is not as elegant as it could be but had to be copied from the 
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=False)
+        # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
-        # It seems that certain calls are only supposed to be focusing to the first 
+        # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
         if results:
-            return [n[0] for n in results]
+            return [self.node_set.source_class.inflate(n[0]) for n in results]
         return []
         
         
