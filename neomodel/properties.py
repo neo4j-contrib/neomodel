@@ -4,7 +4,6 @@ import sys
 import types
 import re
 import uuid
-import warnings
 from datetime import date, datetime
 
 import pytz
@@ -214,26 +213,6 @@ class NormalizedProperty(Property):
 
     def normalize(self, value):
         raise NotImplementedError('Specialize normalize method')
-
-
-## TODO remove this with the next major release
-def _warn_NormalProperty_renamed():
-    warnings.warn(
-        'The class NormalProperty was renamed to NormalizedProperty. '
-        'Use that one as base class. The former will be removed in the next '
-        'major release.', DeprecationWarning)
-
-
-if sys.version_info >= (3, 6):
-    class NormalProperty(NormalizedProperty):
-        def __init_subclass__(cls, **kwargs):
-            _warn_NormalProperty_renamed()
-else:
-    class NormalProperty(NormalizedProperty):
-        def __init__(self, *args, **kwargs):
-            _warn_NormalProperty_renamed()
-            super(NormalProperty, self).__init__(*args, **kwargs)
-##
 
 
 class RegexProperty(NormalizedProperty):

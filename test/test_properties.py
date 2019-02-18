@@ -7,7 +7,7 @@ from neomodel import StructuredNode, db
 from neomodel.exceptions import InflateError, DeflateError
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
-    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
+    EmailProperty, JSONProperty, NormalizedProperty,
     RegexProperty, StringProperty, UniqueIdProperty
 )
 from neomodel.util import _get_node_properties
@@ -219,10 +219,9 @@ def test_independent_property_name_get_or_create():
     x.delete()
 
 
-@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
-def test_normalized_property(normalized_class):
+def test_normalized_property():
 
-    class TestProperty(normalized_class):
+    class TestProperty(NormalizedProperty):
         def normalize(self, value):
             self._called_with = value
             self._called = True
