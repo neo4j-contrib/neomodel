@@ -46,17 +46,18 @@ def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
             pytest.skip('Neo4j version: {}. {}.'
                         'Skipping test.'.format(os.environ['NEO4J_VERSION'], message))
 
+
 def basic_type_assertions(ground_truth, tested_object, test_description, check_neo4j_points=False):
     """
     Tests that `tested_object` has been created as intended.
 
     :param ground_truth: The object as it is supposed to have been created.
-    :type ground_truth: NeomodelPoint or neo4j.v1.spatial.Point
+    :type ground_truth: NeomodelPoint or neo4j.types.spatial.Point
     :param tested_object: The object as it results from one of the contructors.
-    :type tested_object: NeomodelPoint or neo4j.v1.spatial.Point
+    :type tested_object: NeomodelPoint or neo4j.types.spatial.Point
     :param test_description: A brief description of the test being performed.
     :type test_description: str
-    :param check_neo4j_points: Whether to assert between NeomodelPoint or neo4j.v1.spatial.Point objects.
+    :param check_neo4j_points: Whether to assert between NeomodelPoint or neo4j.types.spatial.Point objects.
     :type check_neo4j_points: bool
     :return:
     """
@@ -168,11 +169,11 @@ def test_prohibited_constructor_forms():
 
     # Absurd CRS
     with pytest.raises(ValueError, match='Invalid CRS\(blue_hotel\)'):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0), crs='blue_hotel')
+        new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0, 0), crs='blue_hotel')
 
     # Absurd coord dimensionality
     with pytest.raises(ValueError, match='Invalid vector dimensions. Expected 2 or 3, received 7'):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0,0,0,0,0,0), crs='cartesian')
+        new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0, 0, 0, 0, 0, 0, 0), crs='cartesian')
 
     # Absurd datatype passed to copy constructor
     with pytest.raises(TypeError, match='Invalid object passed to copy constructor'):
