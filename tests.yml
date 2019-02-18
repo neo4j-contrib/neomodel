@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      - neo4j
+    volumes:
+      - .:/src
+      - pip-cache:/root/.cache/pip
+    working_dir: /src
+    command: pytest
+    links:
+      - neo4j
+    environment:
+      NEO4J_BOLT_URL: bolt://neo4j:neo4j@neo4j:7687
+  neo4j:
+    image: "neo4j:latest"
+    environment:
+      NEO4J_AUTH: none
+
+volumes:
+  pip-cache:
+    driver: local

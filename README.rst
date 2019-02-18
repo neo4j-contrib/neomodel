@@ -70,6 +70,13 @@ Contributing
 
 Ideas, bugs, tests and pull requests always welcome.
 
+Running the test suite (Docker)
+-------------------------------
+
+`docker-compose -f tests.yml build`
+`docker-compose -f tests.yml run tests pytest`
+
+
 Running the test suite
 ----------------------
 

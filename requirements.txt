@@ -1,0 +1,4 @@
+neo4j>=1.7.1
+pytz==2018.9
+Shapely==1.7a1
+pytest==4.2.1
