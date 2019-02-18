@@ -95,7 +95,8 @@ def test_either_direction_connect():
     assert isinstance(rels[0], StructuredRel)
 
 
-def test_search_and_filter_and_exclude():
+def test_filter_and_exclude():
+    # Search is now deprecated
     fred = PersonWithRels(name='Fred', age=13).save()
     zz = Country(code='ZZ').save()
     zx = Country(code='ZX').save()
@@ -103,7 +104,7 @@ def test_search_and_filter_and_exclude():
     fred.is_from.connect(zz)
     fred.is_from.connect(zx)
     fred.is_from.connect(zt)
-    result = fred.is_from.search(code='ZX')
+    result = fred.is_from.filter(code='ZX')
     assert result[0].code == 'ZX'
 
     result = fred.is_from.filter(code='ZX')

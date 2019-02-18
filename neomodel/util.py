@@ -5,15 +5,11 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
+from neo4j import GraphDatabase, basic_auth, CypherError, SessionError, Node
 
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
-
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
-else:
-    from urlparse import urlparse  # noqa
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 

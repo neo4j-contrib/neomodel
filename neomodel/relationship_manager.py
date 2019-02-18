@@ -7,13 +7,6 @@ from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
 
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
 # check source node is saved and not deleted
 def check_source(fn):
     fn_name = fn.func_name if hasattr(fn, 'func_name') else fn.__name__
@@ -362,7 +355,7 @@ class RelationshipDefinition(object):
         self.definition['model'] = model
 
     def _lookup_node_class(self):
-        if not isinstance(self._raw_class, basestring):
+        if not isinstance(self._raw_class, str):
             self.definition['node_class'] = self._raw_class
         else:
             name = self._raw_class
@@ -411,7 +404,7 @@ class ZeroOrMore(RelationshipManager):
 
 
 def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
-    if not isinstance(cls_name, (basestring, object)):
+    if not isinstance(cls_name, (str, object)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
 
     if model and not issubclass(model, (StructuredRel,)):

@@ -276,13 +276,9 @@ class StringProperty(NormalizedProperty):
         else:
             try:
                 self.choices = dict(choices)
-            except Exception:
+            except Exception as e:
                 raise ValueError("The choices argument must be convertable to "
-                                 "a dictionary.")
-            # Python 3:
-            # except Exception as e:
-            #     raise ValueError("The choices argument must be convertable to "
-            #                      "a dictionary.") from e
+                                 "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
