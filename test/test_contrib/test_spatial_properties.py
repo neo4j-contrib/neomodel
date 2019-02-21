@@ -152,3 +152,24 @@ def test_array_of_points():
     assert retrieved_object.locations == [neomodel.contrib.spatial_properties.NeomodelPoint((0.0,0.0)),
                                           neomodel.contrib.spatial_properties.NeomodelPoint((1.0,0.0))], \
         "Array of Points incorrect values."
+
+def test_simple_storage_retrieval():
+    """
+    Performs a simple Create, Retrieve via .save(), .get() which, due to the way Q objects operate, tests the
+    __copy__, __deepcopy__ operations of NeomodelPoint.
+    :return:
+    """
+
+    class TestStorageRetrievalProperty(neomodel.StructuredNode):
+        uid = neomodel.UniqueIdProperty()
+        description = neomodel.StringProperty()
+        location = neomodel.contrib.spatial_properties.PointProperty(crs="cartesian")
+
+    a_restaurant = TestStorageRetrievalProperty(description="Milliways",
+                                                location=neomodel.contrib.spatial_properties.NeomodelPoint((0,0))
+                                                ).save()
+
+    a_property = TestStorageRetrievalProperty.nodes.get(location=neomodel.contrib.spatial_properties.NeomodelPoint((0,0)))
+
+    assert a_restaurant.description == a_property.description
+

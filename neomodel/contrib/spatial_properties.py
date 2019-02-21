@@ -227,6 +227,15 @@ class NeomodelPoint(ShapelyPoint):
             raise AttributeError('Invalid coordinate ("height") for points defined over {}'.format(self.crs))
         return super(NeomodelPoint, self).z
 
+    # The following operations are necessary here due to the way queries (and more importantly their parameters) get
+    # combined and evaluated in neomodel. Specifically, query expressions get duplicated with deep copies and any valid
+    # datatype values should also implement these operations.
+    def __copy__(self):
+        return NeomodelPoint(self)
+
+    def __deepcopy__(self, memo):
+        return NeomodelPoint(self)
+
 
 class PointProperty(Property):
     """
