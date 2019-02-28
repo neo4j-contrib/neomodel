@@ -1,3 +1,4 @@
+from unittest import TestCase
 from datetime import datetime, date
 
 from pytest import mark, raises
@@ -132,19 +133,26 @@ def test_json():
     assert prop.inflate('{"test": [1, 2, 3]}') == value
 
 
-def test_default_value():
+class TestDefaultValues(TestCase):
+
+    # Class under test
     class DefaultTestValue(StructuredNode):
-        name_xx = StringProperty(default='jim', index=True)
+        name = StringProperty(default='jim', index=True)
 
-    a = DefaultTestValue()
-    assert a.name_xx == 'jim'
-    a.save()
-    return
-    b = DefaultTestValue.index.get(name='jim')
-    assert b.name == 'jim'
+    def test_default_value(self):
+        a = self.DefaultTestValue()
+        assert a.name == 'jim'
+        a.save()  # Save to use this Node in the next test when we fetch
 
-    c = DefaultTestValue(name=None)
-    assert c.name == 'jim'
+    def test_default_value_fetch(self):
+        # Test fetch value. b is the same node that was a above
+        b = self.DefaultTestValue.nodes.get(name='jim')
+        assert b.name == 'jim'
+
+    def test_override_default_with_none(self):
+        # When value is set to None, default is still used
+        c = self.DefaultTestValue(name=None)
+        assert c.name == 'jim'
 
 
 def test_default_value_callable():
