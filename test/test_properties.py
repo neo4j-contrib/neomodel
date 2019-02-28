@@ -1,7 +1,7 @@
 from unittest import TestCase
 from datetime import datetime, date
 
-from pytest import mark, raises
+from pytest import raises
 from pytz import timezone
 
 from neomodel import StructuredNode, db
@@ -198,7 +198,7 @@ def test_independent_property_name():
     assert node_properties['name'] == "jim"
 
     node_properties = _get_node_properties(results[0][0])
-    assert not 'name_' in node_properties
+    assert 'name_' not in node_properties
     assert not hasattr(x, 'name')
     assert hasattr(x, 'name_')
     assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
@@ -264,7 +264,7 @@ def test_regex_property():
     class TestProperty(RegexProperty):
         name = 'test'
         owner = object()
-        expression = '\w+ \w+$'
+        expression = r'\w+ \w+$'
 
         def normalize(self, value):
             self._called = True
