@@ -568,7 +568,7 @@ class NodeSet(BaseSet):
         :param kwargs: same syntax as `filter()`
         :return: node
         """
-        result = result = self._get(limit=1, **kwargs)
+        result = self._get(limit=1, **kwargs)
         if result:
             return result[0]
         else:
