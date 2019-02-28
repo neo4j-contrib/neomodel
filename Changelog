@@ -1,3 +1,8 @@
+Version 3.4.0 2019-02-28
+ * Remove support for Python 2
+ * Remove all deprecated code
+ * Improvements to testing
+
 Version 3.3.1 2019-02-08
  * Fixed a number of warnings due to deprecations both within neomodel and pytest and overall improvements in
    code style (#381) - Abhishek Modi
