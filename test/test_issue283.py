@@ -71,9 +71,9 @@ def test_automatic_object_resolution():
     """
         
     # Create a few entities
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name":"Happy", "expertise":"Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name":"Sleepy", "expertise":"Pillows"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
 
     # Add connections
     A.friends_with.connect(B)
@@ -87,7 +87,8 @@ def test_automatic_object_resolution():
     A.delete()
     B.delete()
     C.delete()
-    
+
+
 def test_recursive_automatic_object_resolution():
     """
     Node objects are instantiated to native Python objects, both at the top
@@ -96,10 +97,10 @@ def test_recursive_automatic_object_resolution():
     """
         
     # Create a few entities
-    A = TechnicalPerson.get_or_create({"name":"Grumpier", "expertise":"Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name":"Happier", "expertise":"Grumpiness"})[0]
-    C = TechnicalPerson.get_or_create({"name":"Sleepier", "expertise":"Pillows"})[0]
-    D = TechnicalPerson.get_or_create({"name":"Sneezier", "expertise":"Pillows"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpier", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happier", "expertise": "Grumpiness"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepier", "expertise": "Pillows"})[0]
+    D = TechnicalPerson.get_or_create({"name": "Sneezier", "expertise": "Pillows"})[0]
     
     # Retrieve mixed results, both at the top level and nested
     L, _ = neomodel.db.cypher_query("MATCH (a:TechnicalPerson) "
@@ -131,13 +132,13 @@ def test_validation_with_inheritance_from_db():
     
     #Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name":"Happy", "expertise":"Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name":"Sleepy", "expertise":"Pillows"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
     
     # Pilot Persons
-    D = PilotPerson.get_or_create({"name":"Porco Rosso", "airplane":"Savoia-Marchetti"})[0]
-    E = PilotPerson.get_or_create({"name":"Jack Dalton", "airplane":"Beechcraft Model 18"})[0]
+    D = PilotPerson.get_or_create({"name": "Porco Rosso", "airplane": "Savoia-Marchetti"})[0]
+    E = PilotPerson.get_or_create({"name": "Jack Dalton", "airplane": "Beechcraft Model 18"})[0]
     
     # TechnicalPersons can befriend PilotPersons and vice-versa and that's fine
     
@@ -174,16 +175,16 @@ def test_validation_enforcement_to_db():
     
     #Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name":"Happy", "expertise":"Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name":"Sleepy", "expertise":"Pillows"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
     
     # Pilot Persons
-    D = PilotPerson.get_or_create({"name":"Porco Rosso", "airplane":"Savoia-Marchetti"})[0]
-    E = PilotPerson.get_or_create({"name":"Jack Dalton", "airplane":"Beechcraft Model 18"})[0]
+    D = PilotPerson.get_or_create({"name": "Porco Rosso", "airplane": "Savoia-Marchetti"})[0]
+    E = PilotPerson.get_or_create({"name": "Jack Dalton", "airplane": "Beechcraft Model 18"})[0]
     
     #Some Person    
-    F = SomePerson(car_color = "Blue").save()
+    F = SomePerson(car_color="Blue").save()
     
     # TechnicalPersons can befriend PilotPersons and vice-versa and that's fine
     A.friends_with.connect(B)
@@ -214,13 +215,13 @@ def test_failed_object_resolution():
     """
     
     class RandomPerson(BasePerson):
-        randomness = neomodel.FloatProperty(default = random.random)
+        randomness = neomodel.FloatProperty(default=random.random)
     
     # A Technical Person...
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     
     # A Random Person...
-    B = RandomPerson.get_or_create({"name":"Mad Hatter"})[0]
+    B = RandomPerson.get_or_create({"name": "Mad Hatter"})[0]
     
     A.friends_with.connect(B)
     
@@ -229,7 +230,7 @@ def test_failed_object_resolution():
     del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson","BasePerson"])]        
     
     # Now try to instantiate a RandomPerson
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):        
         for some_friend in A.friends_with:
             print(some_friend.name)
@@ -251,9 +252,9 @@ def test_node_label_mismatch():
         ultraness = neomodel.FloatProperty(default=3.1415928)        
         
     # Create a TechnicalPerson...
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     # ...that is connected to an UltraTechnicalPerson
-    F = UltraTechnicalPerson(name = "Chewbaka", expertise="Aarrr wgh ggwaaah").save()
+    F = UltraTechnicalPerson(name="Chewbaka", expertise="Aarrr wgh ggwaaah").save()
     A.friends_with.connect(F)
     
     
@@ -266,7 +267,7 @@ def test_node_label_mismatch():
     # Recall a TechnicalPerson and enumerate its friends. 
     # One of them is UltraTechnicalPerson which would be returned as a valid
     # node to a friends_with query but is currently unknown to the node class registry.
-    A = TechnicalPerson.get_or_create({"name":"Grumpy", "expertise":"Grumpiness"})[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):            
         for some_friend in A.friends_with:
             print(some_friend.name)
