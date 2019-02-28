@@ -1,5 +1,5 @@
 from neomodel import StructuredNode, StringProperty
-from neo4j.v1 import CypherError
+from neo4j import CypherError
 
 
 class User2(StructuredNode):
