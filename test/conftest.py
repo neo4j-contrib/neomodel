@@ -50,6 +50,7 @@ def pytest_sessionstart(session):
             change_neo4j_password(db, 'test')
             db.set_connection('bolt://neo4j:test@localhost:7687')            
             warnings.warn("Please 'export NEO4J_BOLT_URL=bolt://neo4j:test@localhost:7687' for subsequent test runs")
+            database_is_populated, _ = db.cypher_query("MATCH (a) return count(a)>0 as database_is_populated")
         else:
             raise ce
 
