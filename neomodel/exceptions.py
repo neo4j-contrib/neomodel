@@ -1,6 +1,3 @@
-import importlib
-
-
 class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
@@ -59,7 +56,7 @@ class ModelDefinitionMismatch(ModelDefinitionException):
     In either of these cases the mismatch must be reported
     """
     def __str__(self):
-        node_labels = ",".join(self.db_node_class.labels())
+        node_labels = ",".join(self.db_node_class.labels)
 
         return "Node with labels {} does not resolve to any of the known " \
                "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
