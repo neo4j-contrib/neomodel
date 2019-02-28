@@ -7,13 +7,6 @@ import re
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
 def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
     """
     Generate a relationship matching string, with specified parameters.
@@ -162,7 +155,7 @@ def process_filter_args(cls, kwargs):
                 deflated_value = None
             elif operator in _REGEX_OPERATOR_TABLE.values():
                 deflated_value = property_obj.deflate(value)
-                if not isinstance(deflated_value, basestring):
+                if not isinstance(deflated_value, str):
                     raise ValueError('Must be a string value for {0}'.format(key))
                 if operator in _STRING_REGEX_OPERATOR_TABLE.values():
                     deflated_value = re.escape(deflated_value)

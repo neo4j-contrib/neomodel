@@ -9,17 +9,10 @@ The following example uses a recursive relationship for economy, but the
 idea remains the same: "Instantiate the correct type of node at the end of 
 a relationship as specified by the model"
 """
-
-import os
 import neomodel
-import datetime
 import pytest
 import random
 
-try:
-    basestring
-except NameError:
-    basestring = str
 
 # Set up a very simple model for the tests
 class PersonalRelationship(neomodel.StructuredRel):
@@ -29,35 +22,40 @@ class PersonalRelationship(neomodel.StructuredRel):
     This relationship should be carried over to anything that inherits from 
     basePerson without any further effort.
     """
-    on_date = neomodel.DateProperty(default_now = True)
-    
+    on_date = neomodel.DateProperty(default_now=True)
+
+
 class BasePerson(neomodel.StructuredNode):
     """
     Base class for defining some basic sort of an actor.
     """
-    name = neomodel.StringProperty(required = True, unique_index = True)
+    name = neomodel.StringProperty(required=True, unique_index=True)
     friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH",
-                                           model = PersonalRelationship)
-    
+                                           model=PersonalRelationship)
+
+
 class TechnicalPerson(BasePerson):
     """
     A Technical person specialises BasePerson by adding their expertise.
     """
-    expertise = neomodel.StringProperty(required = True)
-    
+    expertise = neomodel.StringProperty(required=True)
+
+
 class PilotPerson(BasePerson):
     """
     A pilot person specialises BasePerson by adding the type of airplane they
     can operate.
     """
-    airplane = neomodel.StringProperty(required = True)
-    
+    airplane = neomodel.StringProperty(required=True)
+
+
 class BaseOtherPerson(neomodel.StructuredNode):
     """
     An obviously "wrong" class of actor to befriend BasePersons with.
     """
-    car_color = neomodel.StringProperty(required = True)
-    
+    car_color = neomodel.StringProperty(required=True)
+
+
 class SomePerson(BaseOtherPerson):
     """
     Concrete class that simply derives from BaseOtherPerson.
@@ -117,7 +115,7 @@ def test_recursive_automatic_object_resolution():
     # correct type
     assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
     # Assert that primitive data types remain primitive data types
-    assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
+    assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), str)
     
     A.delete()
     B.delete()

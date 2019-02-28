@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from pytest import raises
 
 from neomodel import StructuredNode, StringProperty, IntegerProperty
