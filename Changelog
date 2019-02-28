@@ -2,6 +2,8 @@ Version 3.4.0 2019-02-28
  * Remove support for Python 2
  * Remove all deprecated code
  * Improvements to testing
+ * neo4j.v1 is deprecated package, using neo4j instead for py3 version
+ * reimport AddressError from neobolt (instead of neo-driver) for py3 version
 
 Version 3.3.1 2019-02-08
  * Fixed a number of warnings due to deprecations both within neomodel and pytest and overall improvements in

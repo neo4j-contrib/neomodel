@@ -58,7 +58,6 @@ class NodeClassRegistry:
         return "\n".join(ncr_items)
 
 
-
 class Database(local, NodeClassRegistry):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.

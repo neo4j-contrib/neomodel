@@ -61,7 +61,7 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query("MATCH (aNode) "
                                "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._start_node_id),
-                               resolve_objects = True)[0][0][0]
+                               resolve_objects=True)[0][0][0]
       
     def end_node(self):
         """
@@ -72,7 +72,7 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query("MATCH (aNode) "
                                "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._end_node_id),
-                               resolve_objects = True)[0][0][0]
+                               resolve_objects=True)[0][0][0]
 
     @classmethod
     def inflate(cls, rel):
