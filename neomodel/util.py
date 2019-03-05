@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -239,7 +240,11 @@ class Database(local, NodeClassRegistry):
             raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:f}s\n".format(end - start))
+            logger.debug(json.dumps({
+                "query": query,
+                "params": params,
+                "response_time": end - start
+            }))
 
         return results, meta
         
