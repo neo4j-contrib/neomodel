@@ -35,23 +35,23 @@ class ModelDefinitionException(NeomodelException):
     """
     Abstract exception to handle error conditions related to the node-to-class registry.
     """
-    def __init__(self, db_node_class, current_node_class_registry):
+    def __init__(self, db_node_rel_class, current_node_class_registry):
         """
         Initialises the exception with the database node that caused the missmatch.
 
-        :param db_node_class: Depending on the concrete class, this is either a Neo4j driver node object
+        :param db_node_rel_class: Depending on the concrete class, this is either a Neo4j driver node object
                from the DBMS, or a data model class from an application's hierarchy.
         :param current_node_class_registry: Dictionary that maps frozenset of
                node labels to model classes
         """
-        self.db_node_class = db_node_class
+        self.db_node_rel_class = db_node_rel_class
         self.current_node_class_registry = current_node_class_registry
 
 
-class ModelDefinitionMismatch(ModelDefinitionException):
+class NodeClassNotDefined(ModelDefinitionException):
     """
     Raised when it is impossible to resolve a Neo4j driver Node to a
-    specific object. This can happen as a result of a query returning
+    data model object. This can happen as a result of a query returning
     nodes for which class definitions do exist but have not been loaded
     (or rather imported) or because the retrieved nodes contain more
     labels for a known class.
@@ -59,13 +59,24 @@ class ModelDefinitionMismatch(ModelDefinitionException):
     In either of these cases the mismatch must be reported
     """
     def __str__(self):
-        node_labels = ",".join(self.db_node_class.labels())
+        node_labels = ",".join(self.db_node_rel_class.labels())
 
         return "Node with labels {} does not resolve to any of the known " \
                "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
 
 
-class ClassAlreadyDefined(ModelDefinitionException):
+class RelationshipClassNotDefined(ModelDefinitionException):
+    """
+    Raised when it is impossible to resolve a Neo4j driver Relationship to
+    a data model object.
+    """
+    def __str__(self):
+        relationship_type = self.db_node_rel_class.type
+        return "Relationship of type {} does not resolve to any of the known " \
+               "objects\n{}\n".format(relationship_type, str(self.current_node_class_registry))
+
+
+class NodeClassAlreadyDefined(ModelDefinitionException):
     """
     Raised when an attempt is made to re-map a set of labels to a class
     that already has a mapping within the node-to-class registry.
@@ -77,6 +88,9 @@ class ClassAlreadyDefined(ModelDefinitionException):
             self.db_node_class.__module__, self.db_node_class.__name__,
             node_class_labels, str(self.current_node_class_registry))
 
+# Note: A RelationshipClassAlreadyDefined is not required because relationship classes are characterised by a single
+#       label. Therefore, any "redefinition" of a relationship class that inherits from another class would simply
+#       map to the new class.
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
     def __init__(self, msg):
@@ -204,6 +218,7 @@ __all__ = (
     NotConnected.__name__,
     RequiredProperty.__name__,
     UniqueProperty.__name__,
-    ModelDefinitionMismatch.__name__,
-    ClassAlreadyDefined.__name__
+    NodeClassNotDefined.__name__,
+    NodeClassAlreadyDefined.__name__,
+    RelationshipClassNotDefined.__name__
 )

@@ -5,7 +5,7 @@ from .exceptions import NotConnected
 from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
-
+from .core import db
 
 # basestring python 3.x fallback
 try:
@@ -360,6 +360,12 @@ class RelationshipDefinition(object):
         self.definition['relation_type'] = relation_type
         self.definition['direction'] = direction
         self.definition['model'] = model
+
+        # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
+        # relationship's type determines the class that should be instantiated uniquely. Here however, we still use
+        # a `frozenset([relation_type])` to preserve the mapping type.
+        label_set = frozenset([relation_type])
+        db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _lookup_node_class(self):
         if not isinstance(self._raw_class, basestring):
