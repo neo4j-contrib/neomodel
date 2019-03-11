@@ -20,7 +20,7 @@ def drop_constraints(quiet=True, stdout=None):
     """
 
     results, meta = db.cypher_query("CALL db.constraints()")
-    pattern = re.compile(':(.*) \).*\.(\w*)')
+    pattern = re.compile(r':(.*) \).*\.(\w*)')
     for constraint in results:
         db.cypher_query('DROP ' + constraint[0])
         match = pattern.search(constraint[0])
@@ -38,7 +38,7 @@ def drop_indexes(quiet=True, stdout=None):
     """
 
     results, meta = db.cypher_query("CALL db.indexes()")
-    pattern = re.compile(':(.*)\((.*)\)')
+    pattern = re.compile(r':(.*)\((.*)\)')
     for index in results:
         db.cypher_query('DROP ' + index[0])
         match = pattern.search(index[0])
