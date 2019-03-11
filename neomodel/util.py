@@ -172,11 +172,10 @@ class Database(local, NodeClassRegistry):
                     raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
                     
         return result_list
-
-        
         
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False,
+                     resolve_objects=False):
         """
         Runs a query on the database and returns a list of results and their headers.
         
@@ -191,19 +190,13 @@ class Database(local, NodeClassRegistry):
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-        
         if self._pid != os.getpid():
             self.set_connection(self.url)
-
-        if self._active_transaction:
-            session = self._active_transaction
-        else:
-            session = self.driver.session()
 
         try:
             # Retrieve the data
             start = time.time()
-            response = session.run(query, params)
+            response = self._run_session(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
             
@@ -233,6 +226,20 @@ class Database(local, NodeClassRegistry):
             logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
 
         return results, meta
+
+    def _run_session(self, query, params):
+        """
+        Ensure that connections are closed at the end of a session.
+        :param query:
+        :param params:
+        :return:
+        """
+        if self._active_transaction:
+            session = self._active_transaction
+            return session.run(query, params)
+        else:
+            with self.driver.session() as session:
+                return session.run(query, params)
         
         
 class TransactionProxy(object):
