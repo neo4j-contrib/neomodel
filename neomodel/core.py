@@ -395,9 +395,7 @@ class StructuredNode(NodeBase):
         :return: True
         """
         self._pre_action_check('delete')
-        self.cypher("MATCH (self) WHERE id(self)={self} "
-                    "OPTIONAL MATCH (self)-[r]-()"
-                    " DELETE r, self")
+        self.cypher("MATCH (self) WHERE id(self)={self} OPTIONAL MATCH (self)-[r]-() DELETE r, self")
         delattr(self, 'id')
         self.deleted = True
         return True
@@ -469,9 +467,8 @@ class StructuredNode(NodeBase):
 
         :return: list
         """
-        return [scls.__label__ for scls in cls.mro()
-                if hasattr(scls, '__label__') and not hasattr(
-                scls, '__abstract_node__')]
+        return [scls.__label__ for scls in cls.mro() if hasattr(scls, '__label__')
+                and not hasattr(scls, '__abstract_node__')]
 
     def labels(self):
         """
@@ -481,8 +478,7 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check('labels')
-        return self.cypher("MATCH (n) WHERE id(n)={self} "
-                           "RETURN labels(n)")[0][0][0]
+        return self.cypher("MATCH (n) WHERE id(n)={self} RETURN labels(n)")[0][0][0]
 
     def _pre_action_check(self, action):
         if hasattr(self, 'deleted') and self.deleted:
@@ -498,8 +494,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            request = self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0]
+            request = self.cypher("MATCH (n) WHERE id(n)={self} RETURN n")[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])
