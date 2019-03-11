@@ -76,8 +76,7 @@ class PropertyManager(object):
     def deflate(cls, properties, obj=None, skip_empty=False):
         # deflate dict ready to be stored
         deflated = {}
-        for name, property \
-                in cls.defined_properties(aliases=False, rels=False).items():
+        for name, property in cls.defined_properties(aliases=False, rels=False).items():
             db_property = property.db_property or name
             if properties.get(name) is not None:
                 deflated[db_property] = property.deflate(properties[name], obj)
