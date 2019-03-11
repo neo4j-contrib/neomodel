@@ -11,11 +11,11 @@ from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_prope
 db = Database()
 
 
-def drop_constraints(quiet=True, stdout=None):
+def drop_constraints(stdout=None):
     """
     Discover and drop all constraints.
 
-    :type: bool
+    :param stdout: output stream
     :return: None
     """
 
@@ -29,11 +29,11 @@ def drop_constraints(quiet=True, stdout=None):
     stdout.write("\n")
 
 
-def drop_indexes(quiet=True, stdout=None):
+def drop_indexes(stdout=None):
     """
     Discover and drop all indexes.
 
-    :type: bool
+    :param stdout: output stream
     :return: None
     """
 
@@ -59,10 +59,10 @@ def remove_all_labels(stdout=None):
         stdout = sys.stdout
 
     stdout.write("Droping constraints...\n")
-    drop_constraints(quiet=False, stdout=stdout)
+    drop_constraints(stdout=stdout)
 
     stdout.write('Droping indexes...\n')
-    drop_indexes(quiet=False, stdout=stdout)
+    drop_indexes(stdout=stdout)
 
 
 def install_labels(cls, quiet=True, stdout=None):
