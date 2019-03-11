@@ -250,8 +250,7 @@ class QueryBuilder(object):
             self._ast['with'] = '{0}, rand() as r'.format(ident)
             self._ast['order_by'] = 'r'
         else:
-            self._ast['order_by'] = ['{0}.{1}'.format(ident, p)
-                                     for p in source._order_by]
+            self._ast['order_by'] = ['{0}.{1}'.format(ident, p) for p in source._order_by]
 
     def build_traversal(self, traversal):
         """

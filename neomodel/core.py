@@ -132,8 +132,7 @@ def install_all_labels(stdout=None):
 
 class NodeMeta(type):
     def __new__(mcs, name, bases, namespace):
-        namespace['DoesNotExist'] = \
-            type(name + 'DoesNotExist', (DoesNotExist,), {})
+        namespace['DoesNotExist'] = type(name + 'DoesNotExist', (DoesNotExist,), {})
         cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
         # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
@@ -142,18 +141,15 @@ class NodeMeta(type):
             delattr(cls, '__abstract_node__')
         else:
             if 'deleted' in namespace:
-                raise ValueError("Class property called 'deleted' conflicts "
-                                 "with neomodel internals.")
-            for key, value in ((x, y) for x, y in namespace.items()
-                               if isinstance(y, Property)):
+                raise ValueError("Class property called 'deleted' conflicts with neomodel internals.")
+            for key, value in ((x, y) for x, y in namespace.items() if isinstance(y, Property)):
                 value.name, value.owner = key, cls
                 if hasattr(value, 'setup') and callable(value.setup):
                     value.setup()
 
             # cache various groups of properies
             cls.__required_properties__ = tuple(
-                name for name, property
-                in cls.defined_properties(aliases=False, rels=False).items()
+                name for name, property in cls.defined_properties(aliases=False, rels=False).items()
                 if property.required or property.unique_index
             )
             cls.__all_properties__ = tuple(
@@ -473,11 +469,9 @@ class StructuredNode(NodeBase):
 
     def _pre_action_check(self, action):
         if hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{0}.{1}() attempted on deleted node".format(
-                self.__class__.__name__, action))
+            raise ValueError("{0}.{1}() attempted on deleted node".format(self.__class__.__name__, action))
         if not hasattr(self, 'id'):
-            raise ValueError("{0}.{1}() attempted on unsaved node".format(
-                self.__class__.__name__, action))
+            raise ValueError("{0}.{1}() attempted on unsaved node".format(self.__class__.__name__, action))
 
     def refresh(self):
         """
@@ -507,14 +501,12 @@ class StructuredNode(NodeBase):
             # update
             params = self.deflate(self.__properties__, self)
             query = "MATCH (n) WHERE id(n)={self} \n"
-            query += "\n".join(["SET n.{0} = {{{1}}}".format(key, key) + "\n"
-                                for key in params.keys()])
+            query += "\n".join(["SET n.{0} = {{{1}}}".format(key, key) + "\n" for key in params.keys()])
             for label in self.inherited_labels():
                 query += "SET n:`{0}`\n".format(label)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{0}.save() attempted on deleted node".format(
-                self.__class__.__name__))
+            raise ValueError("{0}.save() attempted on deleted node".format(self.__class__.__name__))
         else:  # create
             self.id = self.create(self.__properties__)[0].id
         return self
