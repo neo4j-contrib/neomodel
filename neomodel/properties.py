@@ -1,6 +1,5 @@
 import functools
 import json
-import sys
 import types
 import re
 import uuid
@@ -10,10 +9,6 @@ import pytz
 
 from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
-
-
-if sys.version_info >= (3, 0):
-    unicode = str
 
 
 def display_for(key):
@@ -227,7 +222,7 @@ class RegexProperty(NormalizedProperty):
         self.expression = actual_re
 
     def normalize(self, value):
-        normal = unicode(value)
+        normal = str(value)
         if not re.match(self.expression, normal):
             raise ValueError('{0!r} does not matches {1!r}'.format(value, self.expression))
         return normal
@@ -243,7 +238,7 @@ class EmailProperty(RegexProperty):
 
 class StringProperty(NormalizedProperty):
     """
-    Stores a unicode string
+    Stores a str string
 
     :param choices: A mapping of valid strings to label strings that are used
                     to display information in an application. If the default
@@ -265,7 +260,7 @@ class StringProperty(NormalizedProperty):
     def normalize(self, value):
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {0}".format(value))
-        return unicode(value)
+        return str(value)
 
     def default_value(self):
         return self.normalize(super(StringProperty, self).default_value())
@@ -380,7 +375,7 @@ class DateProperty(Property):
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(unicode(value), "%Y-%m-%d").date()
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
 
     @validator
     def deflate(self, value):
@@ -497,8 +492,8 @@ class UniqueIdProperty(Property):
 
     @validator
     def inflate(self, value):
-        return unicode(value)
+        return str(value)
 
     @validator
     def deflate(self, value):
-        return unicode(value)
+        return str(value)
