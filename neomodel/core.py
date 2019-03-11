@@ -295,8 +295,9 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def category(cls):
-        raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__))
+        raise NotImplementedError(
+            "Category was deprecated and has now been removed, the functionality is now "
+            "achieved using the {0}.nodes attribute".format(cls.__name__))
 
     @classmethod
     def create(cls, *props, **kwargs):
