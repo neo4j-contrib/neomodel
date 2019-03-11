@@ -219,10 +219,7 @@ class Database(local, NodeClassRegistry):
                 raise ConstraintValidationFailed(ce.message)
             else:
                 exc_info = sys.exc_info()
-                if sys.version_info >= (3, 0):
-                    raise exc_info[1].with_traceback(exc_info[2])
-                else:
-                    raise exc_info[1]
+                raise exc_info[1].with_traceback(exc_info[2])
         except SessionError:
             if retry_on_session_expire:
                 self.set_connection(self.url)
