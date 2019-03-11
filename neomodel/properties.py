@@ -30,8 +30,7 @@ class PropertyManager(object):
     def __init__(self, **kwargs):
         properties = getattr(self, "__all_properties__", None)
         if properties is None:
-            properties = \
-                self.defined_properties(rels=False, aliases=False).items()
+            properties = self.defined_properties(rels=False, aliases=False).items()
         for name, property in properties:
             if kwargs.get(name) is None:
                 if getattr(property, 'has_default', False):
@@ -50,8 +49,7 @@ class PropertyManager(object):
 
         aliases = getattr(self, "__all_aliases__", None)
         if aliases is None:
-            aliases = self.defined_properties(
-                aliases=True, rels=False, properties=False).items()
+            aliases = self.defined_properties(aliases=True, rels=False, properties=False).items()
         for name, property in aliases:
             if name in kwargs:
                 setattr(self, name, kwargs[name])
@@ -65,12 +63,8 @@ class PropertyManager(object):
     def __properties__(self):
         from .relationship_manager import RelationshipManager
 
-        return dict((name, value) for name, value in vars(self).items()
-                    if not name.startswith('_')
-                    and not callable(value)
-                    and not isinstance(value,
-                                       (RelationshipManager, AliasProperty,))
-                    )
+        return dict((name, value) for name, value in vars(self).items() if not name.startswith('_')
+                    and not callable(value) and not isinstance(value, (RelationshipManager, AliasProperty,)))
 
     @classmethod
     def deflate(cls, properties, obj=None, skip_empty=False):
@@ -81,9 +75,7 @@ class PropertyManager(object):
             if properties.get(name) is not None:
                 deflated[db_property] = property.deflate(properties[name], obj)
             elif property.has_default:
-                deflated[db_property] = property.deflate(
-                    property.default_value(), obj
-                )
+                deflated[db_property] = property.deflate(property.default_value(), obj)
             elif property.required or property.unique_index:
                 raise RequiredProperty(name, cls)
             elif not skip_empty:
@@ -156,13 +148,9 @@ class Property(object):
                  db_property=None, label=None, help_text=None, **kwargs):
 
         if default is not None and required:
-            raise ValueError(
-                "The arguments `required` and `default` are mutually exclusive."
-            )
+            raise ValueError("The arguments `required` and `default` are mutually exclusive.")
         if unique_index and index:
-            raise ValueError(
-                "The arguments `unique_index` and `index` are mutually exclusive."
-            )
+            raise ValueError("The arguments `unique_index` and `index` are mutually exclusive.")
 
         self.required = required
         self.unique_index = unique_index
@@ -241,12 +229,7 @@ class RegexProperty(NormalizedProperty):
     def normalize(self, value):
         normal = unicode(value)
         if not re.match(self.expression, normal):
-            raise ValueError(
-                '{0!r} does not matches {1!r}'.format(
-                    value,
-                    self.expression,
-                )
-            )
+            raise ValueError('{0!r} does not matches {1!r}'.format(value, self.expression))
         return normal
 
 
@@ -276,8 +259,7 @@ class StringProperty(NormalizedProperty):
             try:
                 self.choices = dict(choices)
             except Exception as e:
-                raise ValueError("The choices argument must be convertable to "
-                                 "a dictionary.") from e
+                raise ValueError("The choices argument must be convertable to a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
@@ -431,8 +413,7 @@ class DateTimeProperty(Property):
         try:
             epoch = float(value)
         except ValueError:
-            raise ValueError("Float or integer expected, got {0} can't inflate to "
-                             "datetime.".format(type(value)))
+            raise ValueError("Float or integer expected, got {0} can't inflate to datetime.".format(type(value)))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
