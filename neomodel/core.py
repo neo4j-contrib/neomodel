@@ -234,15 +234,6 @@ class StructuredNode(NodeBase):
         from .match import NodeSet
         return NodeSet(cls)
 
-    @property
-    def _id(self, val):
-        warnings.warn('the _id property is deprecated please use .id',
-                      category=DeprecationWarning, stacklevel=1)
-        if val:
-            self.id = val
-
-        return self.id
-
     # methods
 
     @classmethod
