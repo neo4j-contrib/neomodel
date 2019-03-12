@@ -222,6 +222,31 @@ def test_inheritance():
     assert jim.labels()[0] == 'Shopper'
 
 
+def test_optional_labels():
+    print("TEST OPTIONAL LABELS")
+    class User(StructuredNode):
+        __optional_labels__ = ["Alive"]
+        name = StringProperty(unique_index=True)
+
+    class Shopper(User):
+        __optional_labels__ = ["RewardsMember"]
+        balance = IntegerProperty(index=True)
+
+        def credit_account(self, amount):
+            self.balance = self.balance + int(amount)
+            self.save()
+
+    jim = Shopper(name='jimmy', balance=300).save()
+    jim.credit_account(50)
+
+    assert Shopper.__label__ == 'Shopper'
+    assert jim.balance == 350
+    assert len(jim.inherited_labels()) == 2
+    assert len(jim.labels()) == 2
+    
+    assert jim.optional_labels() == ["Alive", "RewardsMember"]
+
+
 def test_mixins():
     class UserMixin(object):
         name = StringProperty(unique_index=True)
