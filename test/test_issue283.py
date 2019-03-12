@@ -21,6 +21,7 @@ try:
 except NameError:
     basestring = str
 
+
 # Set up a very simple model for the tests
 class PersonalRelationship(neomodel.StructuredRel):
     """
@@ -31,6 +32,7 @@ class PersonalRelationship(neomodel.StructuredRel):
     """
     on_date = neomodel.DateProperty(default_now = True)
     
+
 class BasePerson(neomodel.StructuredNode):
     """
     Base class for defining some basic sort of an actor.
@@ -39,12 +41,14 @@ class BasePerson(neomodel.StructuredNode):
     friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH",
                                            model = PersonalRelationship)
     
+
 class TechnicalPerson(BasePerson):
     """
     A Technical person specialises BasePerson by adding their expertise.
     """
     expertise = neomodel.StringProperty(required = True)
     
+
 class PilotPerson(BasePerson):
     """
     A pilot person specialises BasePerson by adding the type of airplane they
@@ -52,12 +56,14 @@ class PilotPerson(BasePerson):
     """
     airplane = neomodel.StringProperty(required = True)
     
+
 class BaseOtherPerson(neomodel.StructuredNode):
     """
     An obviously "wrong" class of actor to befriend BasePersons with.
     """
     car_color = neomodel.StringProperty(required = True)
     
+
 class SomePerson(BaseOtherPerson):
     """
     Concrete class that simply derives from BaseOtherPerson.
@@ -287,3 +293,77 @@ def test_attempted_class_redefinition():
 
     with pytest.raises(neomodel.exceptions.NodeClassAlreadyDefined):
         redefine_class_locally()
+
+
+def test_relationship_object_resolution():
+    """
+    A query returning a "Relationship" object can now instantiate it to a data model class
+    """
+    # Test specific data
+    A = PilotPerson(name="Zantford Granville", airplane="Gee Bee Model R").save()
+    B = PilotPerson(name="Thomas Granville", airplane="Gee Bee Model R").save()
+    C = PilotPerson(name="Robert Granville", airplane="Gee Bee Model R").save()
+    D = PilotPerson(name="Mark Granville", airplane="Gee Bee Model R").save()
+    E = PilotPerson(name="Edward Granville", airplane="Gee Bee Model R").save()
+
+    A.friends_with.connect(B)
+    B.friends_with.connect(C)
+    C.friends_with.connect(D)
+    D.friends_with.connect(E)
+
+    query_data = neomodel.db.cypher_query("MATCH (a:PilotPerson)-[r:FRIENDS_WITH]->(b:PilotPerson) "
+                                          "WHERE a.airplane='Gee Bee Model R' and b.airplane='Gee Bee Model R' "
+                                          "RETURN DISTINCT r", resolve_objects=True)
+
+    # The relationship here should be properly instantiated to a `PersonalRelationship` object.
+    assert isinstance(query_data[0][0][0], PersonalRelationship)
+
+
+def test_properly_inherited_relationship():
+    """
+    A relationship class extends an existing relationship model that must extended the same previously associated
+    relationship label.
+    """
+
+    # Extends an existing relationship by adding the "relationship_strength" attribute.
+    # `ExtendedPersonalRelationship` will now substitute `PersonalRelationship` EVERYWHERE in the system.
+    class ExtendedPersonalRelationship(PersonalRelationship):
+        relationship_strength = neomodel.FloatProperty(default=random.random)
+
+    # Extends SomePerson, establishes "enriched" relationships with any BaseOtherPerson
+    class ExtendedSomePerson(SomePerson):
+        friends_with = neomodel.RelationshipTo("BaseOtherPerson", "FRIENDS_WITH",
+                                               model = ExtendedPersonalRelationship)
+
+    # Test specific data
+    A = ExtendedSomePerson(name="Michael Knight", car_color="Black").save()
+    B = ExtendedSomePerson(name="Luke Duke", car_color="Orange").save()
+    C = ExtendedSomePerson(name="Michael Schumacher", car_color="Red").save()
+
+    A.friends_with.connect(B)
+    A.friends_with.connect(C)
+
+    query_data = neomodel.db.cypher_query("MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+                                          "RETURN DISTINCT r", resolve_objects=True)
+
+    assert isinstance(query_data[0][0][0], ExtendedPersonalRelationship)
+
+
+def test_improperly_inherited_relationship():
+    """
+    Attempting to re-define an existing relationship with a completely unrelated class.
+    :return:
+    """
+    class NewRelationship(neomodel.StructuredRel):
+        profile_match_factor = neomodel.FloatProperty()
+
+    with pytest.raises(neomodel.RelationshipClassRedefined):
+        class NewSomePerson(SomePerson):
+            friends_with = neomodel.RelationshipTo("BaseOtherPerson", "FRIENDS_WITH",
+                                                   model = NewRelationship)
+
+# def test_resolve_inexistent_relationship():
+#     """
+#     Attempting to resolve an inexistent relationship should raise an exception
+#     :return:
+#     """

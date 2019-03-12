@@ -1,7 +1,7 @@
 import sys
 import functools
 from importlib import import_module
-from .exceptions import NotConnected
+from .exceptions import NotConnected, RelationshipClassRedefined
 from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
@@ -361,11 +361,22 @@ class RelationshipDefinition(object):
         self.definition['direction'] = direction
         self.definition['model'] = model
 
-        # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
-        # relationship's type determines the class that should be instantiated uniquely. Here however, we still use
-        # a `frozenset([relation_type])` to preserve the mapping type.
-        label_set = frozenset([relation_type])
-        db._NODE_CLASS_REGISTRY[label_set] = model
+        if model is not None:
+            # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
+            # relationship's type determines the class that should be instantiated uniquely. Here however, we still use
+            # a `frozenset([relation_type])` to preserve the mapping type.
+            label_set = frozenset([relation_type])
+            try:
+                # If the relationship mapping exists then it is attempted to be redefined so that it applies to the same
+                # label. In this case, it has to be ensured that the class that is overriding the relationship is a
+                # descendant of the already existing class
+                if not issubclass(model, db._NODE_CLASS_REGISTRY[label_set]):
+                    raise RelationshipClassRedefined(relation_type, db._NODE_CLASS_REGISTRY, model)
+                else:
+                    db._NODE_CLASS_REGISTRY[label_set] = model
+            except KeyError:
+                # If the mapping does not exist then it is simply created.
+                db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _lookup_node_class(self):
         if not isinstance(self._raw_class, basestring):

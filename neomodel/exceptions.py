@@ -47,22 +47,32 @@ class ModelDefinitionException(NeomodelException):
         self.db_node_rel_class = db_node_rel_class
         self.current_node_class_registry = current_node_class_registry
 
+    def _get_node_class_registry_formatted(self):
+        """
+        Returns the current node class registry string formatted as a list of
+        Labels --> <class to instantiate> entries.
+
+        :return: str
+        """
+        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                             self.current_node_class_registry.items()))
+        return "\n".join(ncr_items)
+
 
 class NodeClassNotDefined(ModelDefinitionException):
     """
     Raised when it is impossible to resolve a Neo4j driver Node to a
     data model object. This can happen as a result of a query returning
-    nodes for which class definitions do exist but have not been loaded
-    (or rather imported) or because the retrieved nodes contain more
-    labels for a known class.
+    nodes for which class definitions do exist but have not been imported
+    or because the retrieved nodes contain more labels for a known class.
 
     In either of these cases the mismatch must be reported
     """
     def __str__(self):
         node_labels = ",".join(self.db_node_rel_class.labels())
 
-        return "Node with labels {} does not resolve to any of the known " \
-               "objects\n{}\n".format(node_labels, str(self.current_node_class_registry))
+        return "Node with labels {} does not resolve to any of the known objects\n{}\n".format(
+            node_labels, self._get_node_class_registry_formatted())
 
 
 class RelationshipClassNotDefined(ModelDefinitionException):
@@ -73,7 +83,31 @@ class RelationshipClassNotDefined(ModelDefinitionException):
     def __str__(self):
         relationship_type = self.db_node_rel_class.type
         return "Relationship of type {} does not resolve to any of the known " \
-               "objects\n{}\n".format(relationship_type, str(self.current_node_class_registry))
+               "objects\n{}\n".format(relationship_type, self._get_node_class_registry_formatted())
+
+
+class RelationshipClassRedefined(ModelDefinitionException):
+    """
+    Raised when an attempt is made to re-map a relationship label to a relationship model of an entirely different type
+    """
+    def __init__(self, db_rel_class_type, current_node_class_registry, remapping_to_class):
+        """
+        Initialises a relationship redefinition exception with the required data as follows:
+
+        :param db_rel_class_type: The type of the relationship that caused the error.
+        :type db_rel_class_type: str (The label of the relationship that caused the error)
+        :param current_node_class_registry: The current db object's node-class registry.
+        :type current_node_class_registry: dict
+        :param remapping_to_class: The relationship class the relationship type was attempted to be redefined to.
+        :type remapping_to_class: class
+        """
+        super(RelationshipClassRedefined, self).__init__(db_rel_class_type, current_node_class_registry)
+        self.remapping_to_class = remapping_to_class
+
+    def __str__(self):
+        relationship_type = self.db_node_rel_class
+        return "Relationship of type {} redefined as {}.\n{}\n".format(
+            relationship_type, self.remapping_to_class, self._get_node_class_registry_formatted())
 
 
 class NodeClassAlreadyDefined(ModelDefinitionException):
@@ -86,11 +120,8 @@ class NodeClassAlreadyDefined(ModelDefinitionException):
 
         return "Class {}.{} with labels {} already defined:\n{}\n".format(
             self.db_node_class.__module__, self.db_node_class.__name__,
-            node_class_labels, str(self.current_node_class_registry))
+            node_class_labels, self._get_node_class_registry_formatted())
 
-# Note: A RelationshipClassAlreadyDefined is not required because relationship classes are characterised by a single
-#       label. Therefore, any "redefinition" of a relationship class that inherits from another class would simply
-#       map to the new class.
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
     def __init__(self, msg):
@@ -220,5 +251,6 @@ __all__ = (
     UniqueProperty.__name__,
     NodeClassNotDefined.__name__,
     NodeClassAlreadyDefined.__name__,
-    RelationshipClassNotDefined.__name__
+    RelationshipClassNotDefined.__name__,
+    RelationshipClassRedefined.__name__
 )
