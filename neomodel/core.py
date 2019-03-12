@@ -169,7 +169,7 @@ class NodeMeta(type):
             )
 
             cls.__label__ = namespace.get('__label__', name)
-            cls.__optional_labels__ = namespace.get('__optional_labels__', name)
+            cls.__optional_labels__ = namespace.get('__optional_labels__', [])
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
