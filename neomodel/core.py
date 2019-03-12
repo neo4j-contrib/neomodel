@@ -183,8 +183,9 @@ class NodeMeta(type):
                 for i in range(1, len(optional_label_set) + 1)
                 for x in combinations(optional_label_set, i)
             ]
+            possible_label_combinations.append(base_label_set)
 
-            for label_set in [base_label_set, *possible_label_combinations]:
+            for label_set in possible_label_combinations:
                 if label_set not in db._NODE_CLASS_REGISTRY:
                     db._NODE_CLASS_REGISTRY[label_set] = cls
                 else:

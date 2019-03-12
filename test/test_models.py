@@ -223,12 +223,11 @@ def test_inheritance():
 
 
 def test_optional_labels():
-    print("TEST OPTIONAL LABELS")
-    class User(StructuredNode):
+    class BaseOptional(StructuredNode):
         __optional_labels__ = ["Alive"]
         name = StringProperty(unique_index=True)
 
-    class Shopper(User):
+    class ExtendedOptional(BaseOptional):
         __optional_labels__ = ["RewardsMember"]
         balance = IntegerProperty(index=True)
 
@@ -236,15 +235,15 @@ def test_optional_labels():
             self.balance = self.balance + int(amount)
             self.save()
 
-    jim = Shopper(name='jimmy', balance=300).save()
-    jim.credit_account(50)
+    henry = ExtendedOptional(name='henry', balance=300).save()
+    henry.credit_account(50)
 
-    assert Shopper.__label__ == 'Shopper'
-    assert jim.balance == 350
-    assert len(jim.inherited_labels()) == 2
-    assert len(jim.labels()) == 2
+    assert ExtendedOptional.__label__ == 'ExtendedOptional'
+    assert henry.balance == 350
+    assert len(henry.inherited_labels()) == 2
+    assert len(henry.labels()) == 2
     
-    assert jim.optional_labels() == ["Alive", "RewardsMember"]
+    assert set(henry.optional_labels()) == {"Alive", "RewardsMember"}
 
 
 def test_mixins():
