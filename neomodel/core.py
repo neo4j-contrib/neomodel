@@ -174,7 +174,7 @@ class NodeMeta(type):
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
 
-            base_label_set = set(cls.inherited_labels())
+            base_label_set = frozenset(cls.inherited_labels())
             optional_label_set = set(cls.optional_labels())
 
             # Construct all possible combinations of labels + optional labels
@@ -184,7 +184,7 @@ class NodeMeta(type):
                 for x in combinations(optional_label_set, i)
             ]
 
-            for label_set in possible_label_combinations:
+            for label_set in [base_label_set, *possible_label_combinations]:
                 if label_set not in db._NODE_CLASS_REGISTRY:
                     db._NODE_CLASS_REGISTRY[label_set] = cls
                 else:
