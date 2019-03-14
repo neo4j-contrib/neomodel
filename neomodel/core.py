@@ -175,7 +175,7 @@ class NodeMeta(type):
                 install_labels(cls)
 
             base_label_set = frozenset(cls.inherited_labels())
-            optional_label_set = set(cls.optional_labels())
+            optional_label_set = set(cls.inherited_optional_labels())
 
             # Construct all possible combinations of labels + optional labels
             possible_label_combinations = [
@@ -487,7 +487,7 @@ class StructuredNode(NodeBase):
                 scls, '__abstract_node__')]
 
     @classmethod
-    def optional_labels(cls):
+    def inherited_optional_labels(cls):
         """
         Return list of optional labels from nodes class hierarchy.
 

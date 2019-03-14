@@ -222,7 +222,7 @@ def test_inheritance():
     assert jim.labels()[0] == 'Shopper'
 
 
-def test_optional_labels():
+def test_inherited_optional_labels():
     class BaseOptional(StructuredNode):
         __optional_labels__ = ["Alive"]
         name = StringProperty(unique_index=True)
@@ -243,7 +243,7 @@ def test_optional_labels():
     assert len(henry.inherited_labels()) == 2
     assert len(henry.labels()) == 2
     
-    assert set(henry.optional_labels()) == {"Alive", "RewardsMember"}
+    assert set(henry.inherited_optional_labels()) == {"Alive", "RewardsMember"}
 
 
 def test_mixins():
