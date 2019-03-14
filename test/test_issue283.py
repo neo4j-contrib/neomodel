@@ -362,8 +362,16 @@ def test_improperly_inherited_relationship():
             friends_with = neomodel.RelationshipTo("BaseOtherPerson", "FRIENDS_WITH",
                                                    model = NewRelationship)
 
-# def test_resolve_inexistent_relationship():
-#     """
-#     Attempting to resolve an inexistent relationship should raise an exception
-#     :return:
-#     """
+
+def test_resolve_inexistent_relationship():
+    """
+    Attempting to resolve an inexistent relationship should raise an exception
+    :return:
+    """
+
+    # Forget about the FRIENDS_WITH Relationship.
+    del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
+
+    with pytest.raises(neomodel.RelationshipClassNotDefined):
+        query_data = neomodel.db.cypher_query("MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+                                              "RETURN DISTINCT r", resolve_objects=True)
