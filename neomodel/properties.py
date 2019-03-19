@@ -443,7 +443,7 @@ class DateTimeFormatProperty(Property):
     :type default_now:  :class:`bool`
     :type format:       :class:`str`
     """
-    form_field_class = 'DateFormatField'
+    form_field_class = 'DateTimeFormatField'
 
     def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
         if default_now:
@@ -456,7 +456,7 @@ class DateTimeFormatProperty(Property):
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(unicode(value), self.format).date()
+        return datetime.strptime(unicode(value), self.format)
 
     @validator
     def deflate(self, value):
