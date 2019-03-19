@@ -433,6 +433,39 @@ class DateProperty(Property):
             raise ValueError(msg)
         return value.isoformat()
 
+class DateTimeFormatProperty(Property):
+    """
+    Store a datetime by custome format
+    :param default_now: If ``True``, the creation time (Local) will be used as default.
+                        Defaults to ``False``.
+    :param format:      Date format string, default is %Y-%m-%d
+
+    :type default_now:  :class:`bool`
+    :type format:       :class:`str`
+    """
+    form_field_class = 'DateFormatField'
+
+    def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: datetime.now()
+
+        self.format = format
+        super(DateTimeFormatProperty, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return datetime.strptime(unicode(value), self.format).date()
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+        return datetime.strftime(value, self.format)
+
+
+
 
 class DateTimeProperty(Property):
     """ A property representing a :class:`datetime.datetime` object as
