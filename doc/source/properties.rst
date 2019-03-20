@@ -48,7 +48,9 @@ Array Properties
 ================
 Neomodel supports arrays via the `ArrayProperty` class and a list element type 
 can optionally be provided as the first argument::
-class Person(StructuredNode): names = ArrayProperty(StringProperty(), required=True)
+   
+    class Person(StructuredNode):
+        names = ArrayProperty(StringProperty(), required=True)
 
     bob = Person(names=['bob', 'rob', 'robert']).save()
 
