@@ -42,7 +42,28 @@ def clear_neo4j_database(db):
     db.cypher_query("MATCH (a) DETACH DELETE a")
 
 
-class Database(local):
+class NodeClassRegistry:
+    """
+    A singleton class via which all instances share the same Node Class Registry.
+    """
+    # Maintains a lookup directory that is used by cypher_query
+    # to infer which class to instantiate by examining the labels of the
+    # node in the resultset.
+    # _NODE_CLASS_REGISTRY is populated automatically by the constructor
+    # of the NodeMeta type.
+    _NODE_CLASS_REGISTRY = {}
+
+    def __init__(self):
+        self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
+
+    def __str__(self):
+        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                         self._NODE_CLASS_REGISTRY.items()))
+        return "\n".join(ncr_items)
+
+
+
+class Database(local, NodeClassRegistry):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
@@ -54,12 +75,6 @@ class Database(local):
         self.url = None
         self.driver = None
         self._pid = None
-        # Maintains a lookup directory that is used by cypher_query
-        # to infer which class to instantiate by examining the labels of the
-        # node in the resultset.
-        # _NODE_CLASS_REGISTRY is populated automatically by the constructor
-        # of the NodeMeta type.
-        self._NODE_CLASS_REGISTRY = {}
 
     def set_connection(self, url):
         """
@@ -72,7 +87,7 @@ class Database(local):
             username, password, = credentials.split(':')
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
-                             " got {}".format(url))
+                             " got {0}".format(url))
 
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
@@ -192,10 +207,10 @@ class Database(local):
 
         try:
             # Retrieve the data
-            start = time.clock()
+            start = time.time()
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
-            end = time.clock()
+            end = time.time()
             
             if resolve_objects:
                 # Do any automatic resolution required
@@ -223,7 +238,7 @@ class Database(local):
             raise
 
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: %.2gs\n" % (end - start))
+            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
 
         return results, meta
         

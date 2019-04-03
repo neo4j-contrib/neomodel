@@ -23,6 +23,13 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
     :scale: 100%
     :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
 
+
+! Support for Python 2.7 !
+==========================
+**Please note:** Version 3.3.1 will be the last version that `neomodel` provides suppport for Python 2.7. By its
+next major release, the project will focus solely on Python 3.*.
+
+
 Documentation
 =============
 
@@ -33,7 +40,7 @@ Available on readthedocs_.
 Requirements
 ============
 
-- Python 2.7, 3.4+
+- Python 2.7 (Up to version 3.3.1), 3.4+
 - neo4j 3.0, 3.1, 3.2, 3.3
 
 Installation
@@ -66,7 +73,7 @@ Ideas, bugs, tests and pull requests always welcome.
 Running the test suite
 ----------------------
 
-Make sure you have a Neo4j database version 3 or higher to run the tests on. (it will wipe this database for each test run)::
+Make sure you have a Neo4j database version 3 or higher to run the tests on.::
 
     $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
 
@@ -77,7 +84,10 @@ Setup a virtual environment, install neomodel for development and run the test s
     $ python setup.py develop
     $ pytest
 
-If your running a neo4j database for the first time the test suite will set the password to 'test'.
+If you are running a neo4j database for the first time the test suite will set the password to 'test'.
+If the database is already populated, the test suite will abort with an error message and ask you to re-run it with the
+`--resetdb` switch. This is a safeguard to ensure that the test suite does not accidentally wipe out a database if
+you happen to not have restarted your Neo4j server to point to a (usually named) `debug.db` database.
 
 If you have ``docker-compose`` installed, you can run the test suite against all supported Python
 interpreters and neo4j versions::

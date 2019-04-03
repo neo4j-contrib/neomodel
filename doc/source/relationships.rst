@@ -3,7 +3,7 @@ Relationships
 =============
 
 Establishing an undirected relationship between two entities is done via the `Relationship` 
-class. This requires the class of the connected entity as well as the type of the relationship.
+class. This requires the class of the connected entity as well as the type of the relationship.::
 
     class Person(StructuredNode):
         friends = Relationship('Person', 'FRIEND')
@@ -152,36 +152,6 @@ Here is a minimal example to demonstrate that::
         
 This will show two friends connected with node "Grumpy", one of which is a ``TechnicalPerson`` 
 and the other a ``PilotPerson``.
-
-
-Automatic class resolution
---------------------------
-
-Neomodel is able to transform nodes to objects, automatically, via a *node-class registry* 
-that is progressively built up during the definition of the models.
-
-The dictionary provides a mapping from the set of labels associated with a node to the class 
-that is implied by this set of labels. In the example above, the *node-class registry* would contain 
-the following entries:
-
-    * BasePerson                  --> BasePerson
-    * BasePerson, TechnicalPerson --> TechnicalPerson
-    * BasePerson, PilotPerson     --> PilotPerson
-    
-This automatic resolution is effected by ``neomodel.Database.cypher_objectaware_query`` which is 
-invoked automatically where needed but it can also be invoked in exactly the same way as ``neomodel.
-Database.cypher_query``, manually, wherever this functionality may be needed.
-
-Doing so however, requires a bit of caution. As a consequence of the way the *node-class registry* is 
-built up and used, if ``BasePerson``, ``TechnicalPerson``, ``PilotPerson`` were defined 
-in separate files / modules and one of them was not loaded prior to a query to the database, then the 
-*node-class registry* would be unaware of the labels that leads to that particular class and would raise 
-``neomodel.exception.ModelDefinitionMismatch``.
-
-If the exception is not handled, it produces an error message that returns the labels of the node that 
-was retrieved from the database as well as the current *node-class registry*. These two pieces of 
-information can be used to debug the model mismatch further.
-    
 
 Explicit Traversal
 ==================

@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='neomodel',
-    version='3.2.9',
+    version='3.3.1',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
     author='Robin Edwards',
@@ -16,7 +16,7 @@ setup(
     keywords='graph neo4j ORM OGM',
     scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],
     setup_requires=['pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
-    tests_require=['pytest'],
+    tests_require=['pytest', 'shapely'],
     install_requires=['neo4j-driver>=1.5.2, <1.7.0', 'pytz>=2016.10'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

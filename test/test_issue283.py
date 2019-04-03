@@ -272,3 +272,18 @@ def test_node_label_mismatch():
     with pytest.raises(neomodel.exceptions.ModelDefinitionMismatch):            
         for some_friend in A.friends_with:
             print(some_friend.name)
+
+
+def test_attempted_class_redefinition():
+    """
+    A neomodel.StructuredNode class is attempted to be redefined.
+    """
+    def redefine_class_locally():
+        # Since this test has already set up a class hierarchy in its global scope, we will try to redefine
+        # SomePerson here.
+        # The internal structure of the SomePerson entity does not matter at all here.
+        class SomePerson(BaseOtherPerson):
+            uid = neomodel.UniqueIdProperty()
+
+    with pytest.raises(neomodel.exceptions.ClassAlreadyDefined):
+        redefine_class_locally()

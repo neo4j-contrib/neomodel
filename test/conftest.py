@@ -16,6 +16,7 @@ def pytest_addoption(parser):
     """
     parser.addoption("--resetdb", action="store_true", help = "Ensures that the database is clear prior to running tests for neomodel", default=False)
     
+
 def pytest_sessionstart(session):
     """
     Provides initial connection to the database and sets up the rest of the test suite

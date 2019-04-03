@@ -3,7 +3,7 @@ import sys
 import warnings
 
 from neomodel import config
-from neomodel.exceptions import DoesNotExist
+from neomodel.exceptions import DoesNotExist, ClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
@@ -24,7 +24,7 @@ def drop_constraints(quiet=True, stdout=None):
     for constraint in results:
         db.cypher_query('DROP ' + constraint[0])
         match = pattern.search(constraint[0])
-        stdout.write(''' - Droping unique constraint and index on label {} with property {}.\n'''.format(
+        stdout.write(''' - Droping unique constraint and index on label {0} with property {1}.\n'''.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
 
@@ -42,7 +42,7 @@ def drop_indexes(quiet=True, stdout=None):
     for index in results:
         db.cypher_query('DROP ' + index[0])
         match = pattern.search(index[0])
-        stdout.write(' - Dropping index on label {} with property {}.\n'.format(
+        stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
 
@@ -79,26 +79,26 @@ def install_labels(cls, quiet=True, stdout=None):
 
     if not hasattr(cls, '__label__'):
         if not quiet:
-            stdout.write(' ! Skipping class {}.{} is abstract\n'.format(cls.__module__, cls.__name__))
+            stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(cls.__module__, cls.__name__))
         return
 
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
         db_property = property.db_property or name
         if property.index:
             if not quiet:
-                stdout.write(' + Creating index {} on label {} for class {}.{}\n'.format(
+                stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
 
-            db.cypher_query("CREATE INDEX on :{}({}); ".format(
+            db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
                 cls.__label__, db_property))
 
         elif property.unique_index:
             if not quiet:
-                stdout.write(' + Creating unique constraint for {} on label {} for class {}.{}\n'.format(
+                stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
 
             db.cypher_query("CREATE CONSTRAINT "
-                            "on (n:{}) ASSERT n.{} IS UNIQUE; ".format(
+                            "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
                 cls.__label__, db_property))
 
 
@@ -121,14 +121,14 @@ def install_all_labels(stdout=None):
 
     i = 0
     for cls in subsub(StructuredNode):
-        stdout.write('Found {}.{}\n'.format(cls.__module__, cls.__name__))
+        stdout.write('Found {0}.{1}\n'.format(cls.__module__, cls.__name__))
         install_labels(cls, quiet=False, stdout=stdout)
         i += 1
 
     if i:
         stdout.write('\n')
 
-    stdout.write('Finished {} classes.\n'.format(i))
+    stdout.write('Finished {0} classes.\n'.format(i))
 
 
 class NodeMeta(type):
@@ -171,8 +171,13 @@ class NodeMeta(type):
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls)
-            db._NODE_CLASS_REGISTRY[frozenset(cls.inherited_labels())] = cls
-            
+
+            label_set = frozenset(cls.inherited_labels())
+            if label_set not in db._NODE_CLASS_REGISTRY:
+                db._NODE_CLASS_REGISTRY[label_set] = cls
+            else:
+                raise ClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+
         return cls
 
 
@@ -213,7 +218,7 @@ class StructuredNode(NodeBase):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<{}: {}>'.format(self.__class__.__name__, self)
+        return '<{0}: {1}>'.format(self.__class__.__name__, self)
 
     def __str__(self):
         return repr(self.__properties__)
@@ -253,28 +258,28 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{} {{{}}}".format(
+        n_merge = "n:{0} {{{1}}}".format(
             ":".join(cls.inherited_labels()),
             ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND {{merge_params}} as params\n MERGE ({})\n ".format(n_merge)
+            query = "UNWIND {{merge_params}} as params\n MERGE ({0})\n ".format(n_merge)
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
-                raise ValueError("relationship source [%s] is not a StructuredNode" % repr(relationship.source))
+                raise ValueError("relationship source [{0}] is not a StructuredNode".format(repr(relationship.source)))
             relation_type = relationship.definition.get('relation_type')
             if not relation_type:
                 raise ValueError('No relation_type is specified on provided relationship')
 
-            from .match import OUTGOING, _rel_helper
+            from .match import _rel_helper
 
             query_params["source_id"] = relationship.source.id
-            query = "MATCH (source:{}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
+            query = "MATCH (source:{0}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
             query += "WITH source\n UNWIND {merge_params} as params \n "
             query += "MERGE "
-            query += _rel_helper(rhs='source', lhs=n_merge, ident=None,
-                                 relation_type=relation_type, direction=OUTGOING)
+            query += _rel_helper(lhs='source', rhs=n_merge, ident=None,
+                                 relation_type=relation_type, direction=relationship.definition['direction'])
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
@@ -292,7 +297,7 @@ class StructuredNode(NodeBase):
     @classmethod
     def category(cls):
         raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {}.nodes attribute".format(cls.__name__))
+            "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__))
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -312,7 +317,7 @@ class StructuredNode(NodeBase):
 
         lazy = kwargs.get('lazy', False)
         # create mapped query
-        query = "CREATE (n:{} {{create_params}})".format(':'.join(cls.inherited_labels()))
+        query = "CREATE (n:{0} {{create_params}})".format(':'.join(cls.inherited_labels()))
 
         # close query
         if lazy:
@@ -481,10 +486,10 @@ class StructuredNode(NodeBase):
 
     def _pre_action_check(self, action):
         if hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.{}() attempted on deleted node".format(
+            raise ValueError("{0}.{1}() attempted on deleted node".format(
                 self.__class__.__name__, action))
         if not hasattr(self, 'id'):
-            raise ValueError("{}.{}() attempted on unsaved node".format(
+            raise ValueError("{0}.{1}() attempted on unsaved node".format(
                 self.__class__.__name__, action))
 
     def refresh(self):
@@ -516,13 +521,13 @@ class StructuredNode(NodeBase):
             # update
             params = self.deflate(self.__properties__, self)
             query = "MATCH (n) WHERE id(n)={self} \n"
-            query += "\n".join(["SET n.{} = {{{}}}".format(key, key) + "\n"
+            query += "\n".join(["SET n.{0} = {{{1}}}".format(key, key) + "\n"
                                 for key in params.keys()])
             for label in self.inherited_labels():
-                query += "SET n:`{}`\n".format(label)
+                query += "SET n:`{0}`\n".format(label)
             self.cypher(query, params)
         elif hasattr(self, 'deleted') and self.deleted:
-            raise ValueError("{}.save() attempted on deleted node".format(
+            raise ValueError("{0}.save() attempted on deleted node".format(
                 self.__class__.__name__))
         else:  # create
             self.id = self.create(self.__properties__)[0].id

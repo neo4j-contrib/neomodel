@@ -1,6 +1,6 @@
-======================
-Batch nodes operations
-======================
+=====================
+Batch node operations
+=====================
 
 All batch operations can be executed with one or more nodes.
 

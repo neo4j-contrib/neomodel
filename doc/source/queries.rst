@@ -22,9 +22,9 @@ Neomodel contains an API for querying sets of nodes without having to write cyph
 Node sets and filtering
 =======================
 
-The `nodes` property of a class returns all nodes of that type from the database.
+The ``.nodes`` property of a class returns all nodes of that type from the database.
 
-This set (or `NodeSet`) can be iterated over and filtered on. Under the hood it uses labels introduced in neo4j 2::
+This set (or `NodeSet`) can be iterated over and filtered on. Under the hood it uses labels introduced in Neo4J 2::
 
     # nodes with label Coffee whose price is greater than 2
     Coffee.nodes.filter(price__gt=2)
@@ -185,3 +185,4 @@ Removing the ordering from a previously defined query, is done by passing `None`
 For random ordering simply pass '?' to the order_by method::
 
     Coffee.nodes.order_by('?')
+

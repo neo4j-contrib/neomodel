@@ -43,6 +43,7 @@ Contents
    getting_started
    relationships
    properties
+   spatial_properties
    queries
    cypher
    transactions

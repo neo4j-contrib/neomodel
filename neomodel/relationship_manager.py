@@ -204,7 +204,7 @@ class RelationshipManager(object):
 
         # copy over properties if we have
         for p in existing_properties:
-            q += " SET r2.{} = r.{}".format(p, p)
+            q += " SET r2.{0} = r.{1}".format(p, p)
         q += " WITH r DELETE r"
 
         self.source.cypher(q, {'old': old_node.id, 'new': new_node.id})
@@ -380,7 +380,7 @@ class RelationshipDefinition(object):
                 # (i.e. to mean the same thing for both cases).
                 # For example in the comments below, namespace == myapp, always
                 if not hasattr(self, 'module_file'):
-                    raise ImportError("Couldn't lookup '{}'".format(name))
+                    raise ImportError("Couldn't lookup '{0}'".format(name))
 
                 if '__init__.py' in self.module_file:
                     # e.g. myapp/__init__.py -[__name__]-> myapp

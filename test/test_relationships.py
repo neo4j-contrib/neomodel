@@ -4,11 +4,11 @@ from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relation
                       StringProperty, IntegerProperty, StructuredRel, One)
 
 
-class Person(StructuredNode):
+class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo('Country', 'IS_FROM')
-    knows = Relationship(u'Person', 'KNOWS')  # use unicode to check issue
+    knows = Relationship(u'PersonWithRels', 'KNOWS')  # use unicode to check issue
 
     @property
     def special_name(self):
@@ -20,11 +20,11 @@ class Person(StructuredNode):
 
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = RelationshipFrom(Person, 'IS_FROM')
-    president = RelationshipTo(Person, 'PRESIDENT', cardinality=One)
+    inhabitant = RelationshipFrom(PersonWithRels, 'IS_FROM')
+    president = RelationshipTo(PersonWithRels, 'PRESIDENT', cardinality=One)
 
 
-class SuperHero(Person):
+class SuperHero(PersonWithRels):
     power = StringProperty(index=True)
 
     def special_power(self):
@@ -32,7 +32,7 @@ class SuperHero(Person):
 
 
 def test_actions_on_deleted_node():
-    u = Person(name='Jim2', age=3).save()
+    u = PersonWithRels(name='Jim2', age=3).save()
     u.delete()
     with raises(ValueError):
         u.is_from.connect(None)
@@ -45,7 +45,7 @@ def test_actions_on_deleted_node():
 
 
 def test_bidirectional_relationships():
-    u = Person(name='Jim', age=3).save()
+    u = PersonWithRels(name='Jim', age=3).save()
     assert u
 
     de = Country(code='DE').save()
@@ -74,8 +74,8 @@ def test_bidirectional_relationships():
 
 
 def test_either_direction_connect():
-    rey = Person(name='Rey', age=3).save()
-    sakis = Person(name='Sakis', age=3).save()
+    rey = PersonWithRels(name='Rey', age=3).save()
+    sakis = PersonWithRels(name='Sakis', age=3).save()
 
     rey.knows.connect(sakis)
     assert rey.knows.is_connected(sakis)
@@ -96,7 +96,7 @@ def test_either_direction_connect():
 
 
 def test_search_and_filter_and_exclude():
-    fred = Person(name='Fred', age=13).save()
+    fred = PersonWithRels(name='Fred', age=13).save()
     zz = Country(code='ZZ').save()
     zx = Country(code='ZX').save()
     zt = Country(code='ZY').save()
@@ -114,7 +114,7 @@ def test_search_and_filter_and_exclude():
 
 
 def test_custom_methods():
-    u = Person(name='Joe90', age=13).save()
+    u = PersonWithRels(name='Joe90', age=13).save()
     assert u.special_power() == "I have no powers"
     u = SuperHero(name='Joe91', age=13, power='xxx').save()
     assert u.special_power() == "I have powers"
@@ -122,10 +122,10 @@ def test_custom_methods():
 
 
 def test_valid_reconnection():
-    p = Person(name='ElPresidente', age=93).save()
+    p = PersonWithRels(name='ElPresidente', age=93).save()
     assert p
 
-    pp = Person(name='TheAdversary', age=33).save()
+    pp = PersonWithRels(name='TheAdversary', age=33).save()
     assert pp
 
     c = Country(code='CU').save()
@@ -144,16 +144,16 @@ def test_valid_reconnection():
 
 
 def test_valid_replace():
-    brady = Person(name='Tom Brady', age=40).save()
+    brady = PersonWithRels(name='Tom Brady', age=40).save()
     assert brady
 
-    gronk = Person(name='Rob Gronkowski', age=28).save()
+    gronk = PersonWithRels(name='Rob Gronkowski', age=28).save()
     assert gronk
 
-    colbert = Person(name='Stephen Colbert', age=53).save()
+    colbert = PersonWithRels(name='Stephen Colbert', age=53).save()
     assert colbert
 
-    hanks = Person(name='Tom Hanks', age=61).save()
+    hanks = PersonWithRels(name='Tom Hanks', age=61).save()
     assert hanks
 
     brady.knows.connect(gronk)
@@ -170,7 +170,7 @@ def test_valid_replace():
 
 
 def test_props_relationship():
-    u = Person(name='Mar', age=20).save()
+    u = PersonWithRels(name='Mar', age=20).save()
     assert u
 
     c = Country(code='AT').save()
