@@ -5,7 +5,8 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node
+from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError
+from neo4j.types.graph import Node
 
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch

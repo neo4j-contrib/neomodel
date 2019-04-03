@@ -1,4 +1,4 @@
-from neo4j.addressing import AddressError
+from neobolt.addressing import AddressError
 from pytest import raises
 
 from neomodel import db, StructuredNode, StringProperty, UniqueProperty
