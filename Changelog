@@ -1,3 +1,10 @@
+Version 3.3.2 [Work in progress - date not finalised yet]
+* Upgraded neo4j python driver requirement to 1.7.2 (#432) - Robert Grant
+* Added a `DateTimeFormatProperty` (#428) - Yu Shengnan
+* Updated `setup.py` so that it excludes the `test/` and `test/test_contrib/` sub-packages (#426) - Jorge Valhondo Rama
+* Updated getting_started.rst typo (#419) - fredthehead
+* Fixed NeomodelPoint instantiation bug (#418) - Athanasios Anastasiou
+
 Version 3.3.1 2019-02-08
  * Fixed a number of warnings due to deprecations both within neomodel and pytest and overall improvements in
    code style (#381) - Abhishek Modi
