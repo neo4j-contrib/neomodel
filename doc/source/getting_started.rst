@@ -125,7 +125,7 @@ Working with relationships::
     if jim.country.is_connected(germany):
         print("Jim's from Germany")
 
-    for p in germany.inhabitant.all()
+    for p in germany.inhabitant.all():
         print(p.name) # Jim
 
     len(germany.inhabitant) # 1
