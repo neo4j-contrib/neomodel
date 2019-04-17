@@ -8,7 +8,7 @@ from neomodel.exceptions import InflateError, DeflateError
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
     EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
-    RegexProperty, StringProperty, UniqueIdProperty
+    RegexProperty, StringProperty, UniqueIdProperty, DateTimeFormatProperty
 )
 from neomodel.util import _get_node_properties
 
@@ -78,6 +78,14 @@ def test_date():
     assert prop.deflate(somedate) == '2012-12-15'
     assert prop.inflate('2012-12-15') == somedate
 
+def test_datetime_format():
+    some_format = "%Y-%m-%d %H:%M:%S"
+    prop = DateTimeFormatProperty(format=some_format)
+    prop.name = 'foo'
+    prop.owner = FooBar
+    some_datetime = datetime(2019, 3, 19, 15, 36, 25)
+    assert prop.deflate(some_datetime) == '2019-03-19 15:36:25'
+    assert prop.inflate('2019-03-19 15:36:25') == some_datetime
 
 def test_datetime_exceptions():
     prop = DateTimeProperty()

@@ -4,14 +4,15 @@ Property types
 
 The following properties are available on nodes and relationships:
 
-==============================================  ===========================================================
-:class:`~neomodel.properties.AliasProperty`     :class:`~neomodel.properties.IntegerProperty`
-:class:`~neomodel.properties.ArrayProperty`     :class:`~neomodel.properties.JSONProperty`
-:class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
-:class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
-:class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
-:class:`~neomodel.properties.FloatProperty`     :class:`~neomodel.contrib.spatial_properties.PointProperty`
-==============================================  ===========================================================
+====================================================  ===========================================================
+:class:`~neomodel.properties.AliasProperty`           :class:`~neomodel.properties.IntegerProperty`
+:class:`~neomodel.properties.ArrayProperty`           :class:`~neomodel.properties.JSONProperty`
+:class:`~neomodel.properties.BooleanProperty`         :class:`~neomodel.properties.RegexProperty`
+:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty`
+:class:`~neomodel.properties.DateTimeProperty`        :class:`~neomodel.properties.UniqueIdProperty`
+:class:`~neomodel.properties.DateTimeFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
+:class:`~neomodel.properties.FloatProperty`           \
+====================================================  ===========================================================
 
 
 Defaults
@@ -47,7 +48,7 @@ Array Properties
 ================
 Neomodel supports arrays via the `ArrayProperty` class and a list element type 
 can optionally be provided as the first argument::
-
+   
     class Person(StructuredNode):
         names = ArrayProperty(StringProperty(), required=True)
 
@@ -72,6 +73,13 @@ Dates and times
 The *DateTimeProperty* accepts `datetime.datetime` objects of any timezone and stores them as a UTC epoch value.
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
 
+The *DateTimeFormatProperty* accepts `datetime.datetime` objects which are same as *DateTimeProperty* but stores them as a formatted date string.
+The date formatted pattern should be set by argument, default is "%Y-%m-%d".
+In the following example the datetime will be stored as 'YYYY-MM-DD HH:mm:ss'::
+      
+        created = DateTimeFormatProperty(format="%Y-%m-%d %H:%M:%S")
+
+
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
 The `default_now` parameter specifies the current time as the default value::
@@ -79,6 +87,7 @@ The `default_now` parameter specifies the current time as the default value::
         created = DateTimeProperty(default_now=True)
 
 Enforcing a specific timezone is done by setting the config variable` NEOMODEL_FORCE_TIMEZONE=1`.
+
 
 Other properties
 ================
