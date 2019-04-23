@@ -546,19 +546,21 @@ class StructuredNode(NodeBase):
         This line is translate into Cypher as:
             MERGE (a:Article {title: 'some title'})   SET a.param = 'value'    RETURN a
 
-        PLEASE NOTE: One and ONLY one unique index required.
-
         :return: the node instance
         """
         props = self.__properties__
         deflated_params = self.deflate(props, skip_empty=True)
         properties = {attr: getattr(self.__class__, attr) for attr in dir(self.__class__)
                       if isinstance(getattr(self.__class__, attr), Property) and not attr.startswith("__")}
-        primary_key = [k for k, v in properties.items() if v.unique_index]
-        assert len(primary_key) == 1
-        primary_key = primary_key[0]
-        property_keys = [k for k in deflated_params.keys() if k != primary_key]
-        query = f"MERGE (n:{':'.join(self.inherited_labels())} {{{primary_key}: '{getattr(self, primary_key)}'}})\n"
+        primary_keys = [k for k, v in properties.items() if v.unique_index]
+        # assert len(primary_key) == 1
+        # primary_key = primary_key[0]
+        property_keys = [k for k, v in properties.items() if not v.unique_index and k in deflated_params]
+        # query = f"MERGE (n:{':'.join(self.inherited_labels())} " \
+        #     f"{{{primary_key}: '{getattr(self, primary_key)}'}})\n"
+        query = f"MERGE (n:{':'.join(self.inherited_labels())} {{" \
+                + ", ".join([f"{Pkey}: '{deflated_params[Pkey]}'" for Pkey in primary_keys]) \
+                + "}})\n"
         query += 'SET ' + ', '.join(
             ['n.' + pkey + '=\'' + deflated_params[pkey] + '\'' for pkey in property_keys]) + '\n' \
             if property_keys else ''
