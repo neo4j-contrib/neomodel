@@ -532,3 +532,38 @@ class StructuredNode(NodeBase):
         else:  # create
             self.id = self.create(self.__properties__)[0].id
         return self
+
+    def merge(self):
+        """
+        Create or update(Cypher MERGE) functionality on a single new created node
+
+        e.g.
+        class Article(StructuredNode):
+            title = StringProperty(unique_index=True, required=True)
+            param = StringProperty()
+
+        >>> article = Article(title='some title', param='value').merge()
+        This line is translate into Cypher as:
+            MERGE (a:Article {title: 'some title'})   SET a.param = 'value'    RETURN a
+
+        PLEASE NOTE: One and ONLY one unique index required.
+
+        :return: the node instance
+        """
+        props = self.__properties__
+        deflated_params = self.deflate(props, skip_empty=True)
+        properties = {attr: getattr(self.__class__, attr) for attr in dir(self.__class__)
+                      if isinstance(getattr(self.__class__, attr), Property) and not attr.startswith("__")}
+        primary_key = [k for k, v in properties.items() if v.unique_index]
+        assert len(primary_key) == 1
+        primary_key = primary_key[0]
+        property_keys = [k for k in deflated_params.keys() if k != primary_key]
+        query = f"MERGE (n:{':'.join(self.inherited_labels())} {{{primary_key}: '{getattr(self, primary_key)}'}})\n"
+        query += 'SET ' + ', '.join(
+            ['n.' + pkey + '=\'' + deflated_params[pkey] + '\'' for pkey in property_keys]) + '\n' \
+            if property_keys else ''
+        query += "RETURN n"
+        node, _ = db.cypher_query(query)
+        assert len(node[0]) == 1
+        self.id = self.inflate(node[0][0]).id
+        return self
