@@ -48,22 +48,40 @@ from `StructuredNode` but that the concrete class does.
 Overriding the StructuredNode constructor
 -----------------------------------------
 
-When defining classes that have a custom `__init__(self, ...)` constructor,
-the `super()` class constructor must also be called::
+When defining classes that require a custom ``__init__(self, ...)`` constructor,
+the `super()` class constructor must also be called **always**.
+
+This is a ``neomodel`` design convention that must be followed very strictly or risk breaking the whole process of
+instantiating a model with data retrieved from the database.
+
+For example, suppose a scenario where it should be possible for an ``Item`` entity to also be instantiated via
+a ``Product`` entity. One way to achieve this, would be to have ``Item``'s constructor accept a ``product`` parameter:
+ ::
 
     class Item(StructuredNode):
         name = StringProperty(unique_index=True)
         uid = StringProperty(unique_index=True)
 
-        def __init__(self, product, *args, **kwargs):
-            self.product = product
-            kwargs["uid"] = 'g.' + str(self.product.pk)
-            kwargs["name"] = self.product.product_name
+        def __init__(self, product=None, *args, **kwargs):
+            if product is not None:
+                self.product = product
+                kwargs["uid"] = 'g.' + str(self.product.pk)
+                kwargs["name"] = self.product.product_name
+            super(Item, self).__init__(*args, **kwargs)
 
-            super(Item, self).__init__(self, *args, **kwargs)
+Note here that it is impossible to automatically infer that ``product`` is a parameter that is only used in the
+derivation of ``Item``'s attributes and the objective is to preserve the ability to instantiate ``Item`` both via a
+``product`` **and** simply via keyword arguments.
 
-It is important to note that `StructuredNode`'s constructor will override properties set (which are defined on the class).
-Therefore constructor parameters must be passed via `kwargs` (as above). 
+A more elegant way to provide the same functionality here would be to leave ``Item``'s constructor as is and provide an
+additional function (e.g. ``from_product()``) for the alternative means of initialising the entity.
+
+The first way of achieving this functionality and involves optional variables is probably easier to handle in Python 3
+onwards (due to less restrictions in handling positional and keyword arguments) while the second way that involves
+setting up a separate function might be more preferable in earlier versions of Python.
+
+It is also important to note that `StructuredNode`'s constructor will override properties set
+(which are defined on the class). Therefore constructor parameters must be passed via `kwargs` (as above).
 These can also be set after calling the constructor but this would skip validation.
 
 .. _automatic_class_resolution:
