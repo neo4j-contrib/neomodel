@@ -16,15 +16,29 @@ class FooBar(object):
     pass
 
 
-def test_string_proerty_max_length_exceeds():
-    class TestLongString(StructuredNode):
-        name = StringProperty(required=True, max_length=5)
-
+def test_string_property_exceeds_max_length():
+    """
+    StringProperty is defined by two properties: `max_length` and `choices` that are mutually exclusive. Furthermore, 
+    max_length must be a positive non-zero number.
+    """
+    # Try to define a property that has both choices and max_length
     with raises(ValueError):
-        TestLongString(name='a_very_long_name').save()
+        some_string_property = StringProperty(choices={"One":"1", "Two":"2"}, max_length=22)
+    
+    # Try to define a string property that has a negative zero length
+    with raises(ValueError):
+        another_string_property = StringProperty(max_length = -35)
+        
+    # Try to validate a long string
+    a_string_property = StringProperty(required=True, max_length=5)
+    with raises(ValueError):
+        a_string_property.normalize('The quick brown fox jumps over the lazy dog')
+        
+    # Try to validate a "valid" string, as per the max_length setting.
+    valid_string = "Owen"
+    normalised_string = a_string_property.normalize(valid_string)
+    assert valid_string == normalised_string, "StringProperty max_length test passed but values do not match."
 
-    node = TestLongString(name='Owen').save()
-    assert 'Owen', node.name
 
 
 def test_string_property_w_choice():
