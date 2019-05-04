@@ -2,6 +2,13 @@
 Modules documentation
 =====================
 
+Database
+--------
+.. module:: neomodel.util
+.. autoclass:: neomodel.util.Database
+  :members:
+  :undoc-members:
+  
 Core
 ----
 .. automodule:: neomodel.core
@@ -10,6 +17,12 @@ Core
 Properties
 ----------
 .. automodule:: neomodel.properties
+  :members:
+  :show-inheritance:
+
+Spatial Properties & Datatypes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. automodule:: neomodel.contrib.spatial_properties
   :members:
   :show-inheritance:
 

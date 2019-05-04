@@ -10,6 +10,7 @@ env:
   - NEO4J_VERSION="3.1.7"
   - NEO4J_VERSION="3.2.9"
   - NEO4J_VERSION="3.3.3"
+  - NEO4J_VERSION="3.4.0"
 install:
   - sudo apt-get update && sudo apt-get install oracle-java8-installer
   - curl -L http://dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz | tar xz

@@ -4,35 +4,35 @@ Property types
 
 The following properties are available on nodes and relationships:
 
-==============================================  ==============================================
-:class:`~neomodel.properties.AliasProperty`     :class:`~neomodel.properties.IntegerProperty`
-:class:`~neomodel.properties.ArrayProperty`     :class:`~neomodel.properties.JSONProperty`
-:class:`~neomodel.properties.BooleanProperty`   :class:`~neomodel.properties.RegexProperty`
-:class:`~neomodel.properties.DateProperty`      :class:`~neomodel.properties.StringProperty`
-:class:`~neomodel.properties.DateTimeProperty`  :class:`~neomodel.properties.UniqueIdProperty`
-:class:`~neomodel.properties.FloatProperty`
-==============================================  ==============================================
+====================================================  ===========================================================
+:class:`~neomodel.properties.AliasProperty`           :class:`~neomodel.properties.IntegerProperty`
+:class:`~neomodel.properties.ArrayProperty`           :class:`~neomodel.properties.JSONProperty`
+:class:`~neomodel.properties.BooleanProperty`         :class:`~neomodel.properties.RegexProperty`
+:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty`
+:class:`~neomodel.properties.DateTimeProperty`        :class:`~neomodel.properties.UniqueIdProperty`
+:class:`~neomodel.properties.DateTimeFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
+:class:`~neomodel.properties.FloatProperty`           \
+====================================================  ===========================================================
 
 
 Defaults
 ========
 
-*Default values* you may provide a default value to any property, this can
-also be a :term:`function` or any callable::
+Default values can be specified for any property, even as the result of a 
+:term:`function` or other callable object::
 
         from uuid import uuid4
         my_id = StringProperty(unique_index=True, default=uuid4)
 
-You may provide arguments as :term:`function` or :term:`lambda`::
+And in terms of a :term:`function` or :term:`lambda`::
 
         my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
 Choices
 =======
 
-You can specify a list of valid values for a :class:`~neomodel.properties.StringProperty`
-using the ``choices`` argument. The mapping's values are supposed to be used
-when displaying information to users::
+Choices can be specified as a mapping (dict) of valid values for a :class:`~neomodel.properties.StringProperty`
+using the ``choices`` argument. The mapping's values are used when displaying information to users::
 
     class Person(StructuredNode):
         SEXES = {'F': 'Female', 'M': 'Male', 'O': 'Other'}
@@ -42,13 +42,13 @@ when displaying information to users::
     tim.sex # M
     tim.get_sex_display() # 'Male'
 
-The value's validity will be checked both when saved and loaded from Neo4j.
+The value's validity will be checked both when saved and loaded from the database.
 
 Array Properties
 ================
-Neo4j supports arrays as a property value, these are used with the `ArrayProperty` class.
-You may optionally provide a list element type as the first argument to ArrayProperty with another property instance::
-
+Neomodel supports arrays via the `ArrayProperty` class and a list element type 
+can optionally be provided as the first argument::
+   
     class Person(StructuredNode):
         names = ArrayProperty(StringProperty(), required=True)
 
@@ -60,7 +60,7 @@ Unique Identifiers
 ==================
 All nodes in neo4j have an internal id (accessible by the 'id' property in neomodel)
 however these should not be used by an application.
-neomodel provides the `UniqueIdProperty` to generate unique identifiers for your nodes (with an unique index)::
+Neomodel provides the `UniqueIdProperty` to generate unique identifiers for nodes (with a unique index)::
 
     class Person(StructuredNode):
         uid = UniqueIdProperty()
@@ -70,16 +70,24 @@ neomodel provides the `UniqueIdProperty` to generate unique identifiers for your
 Dates and times
 ===============
 
-The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
+The *DateTimeProperty* accepts `datetime.datetime` objects of any timezone and stores them as a UTC epoch value.
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
+
+The *DateTimeFormatProperty* accepts `datetime.datetime` objects which are same as *DateTimeProperty* but stores them as a formatted date string.
+The date formatted pattern should be set by argument, default is "%Y-%m-%d".
+In the following example the datetime will be stored as 'YYYY-MM-DD HH:mm:ss'::
+      
+        created = DateTimeFormatProperty(format="%Y-%m-%d %H:%M:%S")
+
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
-You can use `default_now` argument to store the current time by default::
+The `default_now` parameter specifies the current time as the default value::
 
         created = DateTimeProperty(default_now=True)
 
-You can enforce timezones by setting the config var NEOMODEL_FORCE_TIMEZONE=1.
+Enforcing a specific timezone is done by setting the config variable` NEOMODEL_FORCE_TIMEZONE=1`.
+
 
 Other properties
 ================
@@ -87,11 +95,12 @@ Other properties
 * `EmailProperty` - validate emails (via a regex).
 * `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
 * `NormalProperty` - use one method (normalize) to inflate and deflate.
+* `PointProperty` - store and validate :ref:`spatial_properties`
 
 Aliasing properties
 ===================
 
-Allows aliasing to other properties can be useful to provide 'magic' behaviour, (only supported on `StructuredNodes`)::
+Allows aliasing to other properties which can be useful to provide 'magic' behaviour, (only supported on `StructuredNodes`)::
 
     class Person(StructuredNode):
         full_name = StringProperty(index=True)
@@ -102,8 +111,8 @@ Allows aliasing to other properties can be useful to provide 'magic' behaviour, 
 Independent database property name
 ==================================
 
-You can specify an independent property name with 'db_property', which is used on database level. It behaves like Django's 'db_column'.
-This is useful for e.g. hiding graph properties behind a python property::
+You can specify an independent property name with 'db_property', which is used at the database level. It behaves like Django's 'db_column'.
+This is useful when hiding graph properties behind a python property::
 
     class Person(StructuredNode):
         name_ = StringProperty(db_property='name')

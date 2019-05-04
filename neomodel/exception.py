@@ -1,2 +1,2 @@
-# Backwards compat
+# Back compat
 from .exceptions import *

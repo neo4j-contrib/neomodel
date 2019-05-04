@@ -43,7 +43,7 @@ class PropertyManager(object):
                 setattr(self, name, kwargs[name])
 
             if getattr(property, 'choices', None):
-                setattr(self, 'get_{}_display'.format(name),
+                setattr(self, 'get_{0}_display'.format(name),
                         types.MethodType(display_for(name), self))
 
             if name in kwargs:
@@ -375,7 +375,7 @@ class ArrayProperty(Property):
 
             for ilegal_attr in ['default', 'index', 'unique_index', 'required']:
                 if getattr(base_property, ilegal_attr, None):
-                    raise ValueError('ArrayProperty base_property cannot have "{}" set'.format(ilegal_attr))
+                    raise ValueError('ArrayProperty base_property cannot have "{0}" set'.format(ilegal_attr))
 
         self.base_property = base_property
 
@@ -452,6 +452,39 @@ class DateProperty(Property):
             raise ValueError(msg)
         return value.isoformat()
 
+class DateTimeFormatProperty(Property):
+    """
+    Store a datetime by custome format
+    :param default_now: If ``True``, the creation time (Local) will be used as default.
+                        Defaults to ``False``.
+    :param format:      Date format string, default is %Y-%m-%d
+
+    :type default_now:  :class:`bool`
+    :type format:       :class:`str`
+    """
+    form_field_class = 'DateTimeFormatField'
+
+    def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: datetime.now()
+
+        self.format = format
+        super(DateTimeFormatProperty, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return datetime.strptime(unicode(value), self.format)
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+        return datetime.strftime(value, self.format)
+
+
+
 
 class DateTimeProperty(Property):
     """ A property representing a :class:`datetime.datetime` object as
@@ -488,7 +521,7 @@ class DateTimeProperty(Property):
             value = value.astimezone(pytz.utc)
             epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
         elif config.FORCE_TIMEZONE:
-            raise ValueError("Error deflating {}: No timezone provided.".format(value))
+            raise ValueError("Error deflating {0}: No timezone provided.".format(value))
         else:
             # No timezone specified on datetime object.. assuming UTC
             epoch_date = datetime(1970, 1, 1)
@@ -556,7 +589,7 @@ class UniqueIdProperty(Property):
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:
-                raise ValueError('{} argument ignored by {}'.format(item, self.__class__.__name__))
+                raise ValueError('{0} argument ignored by {1}'.format(item, self.__class__.__name__))
 
         kwargs['unique_index'] = True
         kwargs['default'] = lambda: uuid.uuid4().hex

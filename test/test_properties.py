@@ -8,8 +8,10 @@ from neomodel.exceptions import InflateError, DeflateError
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
     EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
-    RegexProperty, StringProperty, UniqueIdProperty
+    RegexProperty, StringProperty, UniqueIdProperty, DateTimeFormatProperty
 )
+
+from neomodel.util import _get_node_properties
 
 
 class FooBar(object):
@@ -102,6 +104,14 @@ def test_date():
     assert prop.deflate(somedate) == '2012-12-15'
     assert prop.inflate('2012-12-15') == somedate
 
+def test_datetime_format():
+    some_format = "%Y-%m-%d %H:%M:%S"
+    prop = DateTimeFormatProperty(format=some_format)
+    prop.name = 'foo'
+    prop.owner = FooBar
+    some_datetime = datetime(2019, 3, 19, 15, 36, 25)
+    assert prop.deflate(some_datetime) == '2019-03-19 15:36:25'
+    assert prop.inflate('2019-03-19 15:36:25') == some_datetime
 
 def test_datetime_exceptions():
     prop = DateTimeProperty()
@@ -182,7 +192,7 @@ def test_default_value_callable():
     assert a.uid == 'xx'
 
 
-def test_default_valude_callable_type():
+def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
         class Foo(object):
@@ -203,21 +213,23 @@ def test_default_valude_callable_type():
 
 
 def test_independent_property_name():
-    class TestNode(StructuredNode):
+    class TestDBNamePropertyNode(StructuredNode):
         name_ = StringProperty(db_property="name")
-    x = TestNode()
+    x = TestDBNamePropertyNode()
     x.name_ = "jim"
     x.save()
 
     # check database property name on low level
-    results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    assert results[0][0].properties['name'] == "jim"
+    results, meta = db.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties['name'] == "jim"
 
-    assert not 'name_' in results[0][0].properties
+    node_properties = _get_node_properties(results[0][0])
+    assert not 'name_' in node_properties
     assert not hasattr(x, 'name')
     assert hasattr(x, 'name_')
-    assert TestNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
-    assert TestNode.nodes.get(name_="jim").name_ == x.name_
+    assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
+    assert TestDBNamePropertyNode.nodes.get(name_="jim").name_ == x.name_
 
     x.delete()
 
@@ -234,8 +246,9 @@ def test_independent_property_name_get_or_create():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    assert results[0][0].properties['name'] == "jim"
-    assert 'name_' not in results[0][0].properties
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties['name'] == "jim"
+    assert 'name_' not in node_properties
 
     # delete node afterwards
     x.delete()
