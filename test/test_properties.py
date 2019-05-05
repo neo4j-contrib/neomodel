@@ -53,8 +53,8 @@ def test_string_property_w_choice():
     except DeflateError as e:
         assert 'choice' in str(e)
     else:
-        assert False, "DeflateError not raised."
-
+        assert False, "DeflateError not raised."        
+    
     node = TestChoices(sex='M').save()
     assert node.get_sex_display() == 'Male'
 

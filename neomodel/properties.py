@@ -295,11 +295,11 @@ class StringProperty(NormalizedProperty):
     """
 
     def __init__(self, choices=None, max_length=None, **kwargs):
-        if max_length is not None and choices is not None:
-            raise ValueError("The arguments `choices` and `max_length` are mutually exclusive.")
-            
-        if max_length<1:
-            raise ValueError("`max_length` cannot be zero or take negative values.")
+        if max_length is not None:
+            if choices is not None:
+                raise ValueError("The arguments `choices` and `max_length` are mutually exclusive.")
+            if max_length<1:
+                raise ValueError("`max_length` cannot be zero or take negative values.")
 
         super(StringProperty, self).__init__(**kwargs)
 
