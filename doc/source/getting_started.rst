@@ -73,6 +73,9 @@ Nodes are defined in the same way classes are defined in Python with the only di
 classes that are intended to be stored to the database must be defined as ``neomodel`` property objects. For more
 detailed information on property objects please see the section on :ref:`property_types`.
 
+**If** you have a need to attach "ad-hoc" properties to nodes that have not been specified at its definition, then 
+consider deriving from the :ref:`semistructurednode_doc` class.
+
 Relationships are defined via ``Relationship, RelationshipTo, RelationshipFrom`` objects. ``RelationshipTo,
 RelationshipFrom`` can also specify the direction that a relationship would be allowed to be traversed. In this
 particular example, ``Country`` objects would be accessible by ``Person`` objects but not the other way around.

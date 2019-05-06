@@ -123,11 +123,11 @@ Neomodel provides the `UniqueIdProperty` to generate unique identifiers for node
 Dates and times
 ===============
 
-The *DateTimeProperty* accepts `datetime.datetime` objects of any timezone and stores them as a UTC epoch value.
+The *DateTimeProperty* accepts ``datetime.datetime`` objects of any timezone and stores them as a UTC epoch value.
 These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
 
-The *DateTimeFormatProperty* accepts `datetime.datetime` objects which are same as *DateTimeProperty* but stores them
-as a formatted date string. The date formatted pattern should be set by argument, default is "%Y-%m-%d".
+Similarly, the *DateTimeFormatProperty* accepts ``datetime.datetime`` objects but stores them
+as a user defined formatted date string. The pattern is set by the ``format`` argument which defaults to "%Y-%m-%d".
 
 In the following example the datetime will be stored as 'YYYY-MM-DD HH:mm:ss'::
       
@@ -135,11 +135,12 @@ In the following example the datetime will be stored as 'YYYY-MM-DD HH:mm:ss'::
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
-The `default_now` parameter specifies the current time as the default value::
+In all of the above, the `default_now` parameter specifies the "current time" (the time a "write" operation takes place)
+as the default value::
 
         created = DateTimeProperty(default_now=True)
 
-Enforcing a specific timezone is done by setting the config variable` NEOMODEL_FORCE_TIMEZONE=1`.
+Enforcing a specific timezone is done by setting the config variable ``NEOMODEL_FORCE_TIMEZONE=1``.
 
 
 Other properties
@@ -188,15 +189,11 @@ This section groups together special notes for specific data types.
 ``StringProperty``
 ------------------
 
-Perhaps the most obvious constraint for a String property is its length. There are two notes related to a string's
-length:
-
-1. A maximum length constraint would impose a performance penalty.
-2. One needs to be extremely careful with very long strings that are also indexed.
+1. One needs to be extremely careful with very long strings that are also indexed.
     1. Neo4j imposes an internal hard limit of 4039 **bytes** to properties of type string. This is **not the same** as
        the length of a UTF-8 string **in characters**, because each character in a UTF-8 string might be represented
        by more than one bytes.
-    2. Internally, Neo4j will **truncate** a string so that its **byte** length is no longer than 4039 but it will not
+    2. Internally, Neo4j will **truncate** a string so that its **byte** length is not longer than 4039 but it will not
        raise an exception. Consequently, if a `neomodel.StringProperty()` happens to run much longer than this limit,
        it will be silently truncated. The rest of the string will be dropped and the next time the entity is read from
        the database it will appear to be incomplete.
