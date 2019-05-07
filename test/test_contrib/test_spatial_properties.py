@@ -166,6 +166,9 @@ def test_simple_storage_retrieval():
         description = neomodel.StringProperty()
         location = neomodel.contrib.spatial_properties.PointProperty(crs="cartesian")
 
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+    
     a_restaurant = TestStorageRetrievalProperty(description="Milliways",
                                                 location=neomodel.contrib.spatial_properties.NeomodelPoint((0,0))
                                                 ).save()
