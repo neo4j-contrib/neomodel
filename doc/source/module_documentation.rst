@@ -14,6 +14,12 @@ Core
 .. automodule:: neomodel.core
   :members:
 
+.. _semistructurednode_doc:
+
+``SemiStructuredNode``
+^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: neomodel.contrib.SemiStructuredNode
+
 Properties
 ----------
 .. automodule:: neomodel.properties

@@ -405,13 +405,14 @@ class StructuredNode(NodeBase):
     @classmethod
     def get_or_create(cls, *props, **kwargs):
         """
-        Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
+        Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
         Parameters must contain all required properties, any non required properties with defaults will be generated.
 
         Note that the post_create hook isn't called after get_or_create
 
-        :param props: dict of properties to get or create the entities with.
+        :param props: Arguments to get_or_create as tuple of dict with property names and values to get or create
+                      the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
