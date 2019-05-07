@@ -10,11 +10,37 @@ from neomodel.properties import (
     EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
     RegexProperty, StringProperty, UniqueIdProperty, DateTimeFormatProperty
 )
+
 from neomodel.util import _get_node_properties
 
 
 class FooBar(object):
     pass
+
+
+def test_string_property_exceeds_max_length():
+    """
+    StringProperty is defined by two properties: `max_length` and `choices` that are mutually exclusive. Furthermore, 
+    max_length must be a positive non-zero number.
+    """
+    # Try to define a property that has both choices and max_length
+    with raises(ValueError):
+        some_string_property = StringProperty(choices={"One":"1", "Two":"2"}, max_length=22)
+    
+    # Try to define a string property that has a negative zero length
+    with raises(ValueError):
+        another_string_property = StringProperty(max_length = -35)
+        
+    # Try to validate a long string
+    a_string_property = StringProperty(required=True, max_length=5)
+    with raises(ValueError):
+        a_string_property.normalize('The quick brown fox jumps over the lazy dog')
+        
+    # Try to validate a "valid" string, as per the max_length setting.
+    valid_string = "Owen"
+    normalised_string = a_string_property.normalize(valid_string)
+    assert valid_string == normalised_string, "StringProperty max_length test passed but values do not match."
+
 
 
 def test_string_property_w_choice():
@@ -27,8 +53,8 @@ def test_string_property_w_choice():
     except DeflateError as e:
         assert 'choice' in str(e)
     else:
-        assert False, "DeflateError not raised."
-
+        assert False, "DeflateError not raised."        
+    
     node = TestChoices(sex='M').save()
     assert node.get_sex_display() == 'Male'
 
@@ -170,6 +196,7 @@ def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
         class Foo(object):
+
             def __str__(self):
                 return "123"
         return Foo()
@@ -231,6 +258,7 @@ def test_independent_property_name_get_or_create():
 def test_normalized_property(normalized_class):
 
     class TestProperty(normalized_class):
+
         def normalize(self, value):
             self._called_with = value
             self._called = True
