@@ -1,4 +1,6 @@
 Version 3.3.2 [Work in progress - date not finalised yet]
+* Minor revisions in `test_set_connection`, `spatial datatypes` and documentation (#442, #446, #447) - Athanasios Anastasiou
+* Added `max_length` constraint on `StringProperty` (#445) - Lazy-Y
 * Upgraded neo4j python driver requirement to 1.7.2 (#432) - Robert Grant
 * Added a `DateTimeFormatProperty` (#428) - Yu Shengnan
 * Updated `setup.py` so that it excludes the `test/` and `test/test_contrib/` sub-packages (#426) - Jorge Valhondo Rama
