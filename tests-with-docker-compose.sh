@@ -18,7 +18,7 @@ services:
       - .:/src
       - pip-cache:/root/.cache/pip
     working_dir: /src
-    command: sh -c "while ! nc neo4j 7687; do  sleep 1; done; python -B setup.py test"
+    command: sh -c "echo "http://mirror.leaseweb.com/alpine/edge/testing" >> /etc/apk/repositories; apk add --no-cache gcc libc-dev geos-dev; pip install shapely; while ! nc neo4j 7687; do  sleep 1; done; python -B setup.py test"
     links:
       - neo4j
     environment:
