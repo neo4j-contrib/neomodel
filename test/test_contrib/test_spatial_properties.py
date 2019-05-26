@@ -114,6 +114,7 @@ def test_default_value():
 
     # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
     check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
+    
     # Save an object
     an_object = LocalisableEntity().save()
     coords = an_object.location.coords[0]
