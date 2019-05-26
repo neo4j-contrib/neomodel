@@ -46,6 +46,7 @@ def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
             pytest.skip('Neo4j version: {}. {}.'
                         'Skipping test.'.format(os.environ['NEO4J_VERSION'], message))
 
+
 def basic_type_assertions(ground_truth, tested_object, test_description, check_neo4j_points=False):
     """
     Tests that `tested_object` has been created as intended.

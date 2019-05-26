@@ -23,6 +23,7 @@ services:
       - neo4j
     environment:
       NEO4J_BOLT_URL: bolt://neo4j:neo4j@neo4j:7687
+      NEO4J_VERSION: ${NEO4J_VERSION}
   neo4j:
     image: "neo4j:${NEO4J_VERSION}"
     environment:
