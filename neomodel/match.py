@@ -200,7 +200,10 @@ def process_has_args(cls, kwargs):
         elif value is False:
             dont_match[rhs_ident] = rel_definitions[key].definition
         elif isinstance(value, NodeSet):
-            raise NotImplementedError("Not implemented yet")
+            if value.source_class is not rel_definitions[key].definition['node_class']:
+                raise ValueError('Relationship "{0}" is not of the same type as the provided NodeSet.'.format(key))
+            match[rhs_ident] = rel_definitions[key].definition.copy()
+            match[rhs_ident]['node_set'] = value
         else:
             raise ValueError("Expecting True / False / NodeSet got: " + repr(value))
 
@@ -215,8 +218,8 @@ class QueryBuilder(object):
         self._place_holder_registry = {}
         self._ident_count = 0
 
-    def build_ast(self):
-        self.build_source(self.node_set)
+    def build_ast(self, alt_node_name=None):
+        self.build_source(self.node_set, alt_node_name=alt_node_name)
 
         if hasattr(self.node_set, 'skip'):
             self._ast['skip'] = self.node_set.skip
@@ -225,14 +228,15 @@ class QueryBuilder(object):
 
         return self
 
-    def build_source(self, source):
+    def build_source(self, source, alt_node_name=None):
         if isinstance(source, Traversal):
             return self.build_traversal(source)
         elif isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(source.source, StructuredNode):
-                ident = self.build_label(source.source.__label__.lower(), source.source)
+                node_name = alt_node_name or source.source.__label__.lower()
+                ident = self.build_label(node_name, source.source)
             else:
-                ident = self.build_source(source.source)
+                ident = self.build_source(source.source, alt_node_name=alt_node_name)
 
             self.build_additional_match(ident, source)
 
@@ -314,9 +318,12 @@ class QueryBuilder(object):
 
         for key, value in node_set.must_match.items():
             if isinstance(value, dict):
-                label = ':' + value['node_class'].__label__
-                stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
-                self._ast['where'].append(stmt)
+                if 'node_set' in value:
+                    self._handle_node_set_relation_filter(source_ident, key, value)
+                else:
+                    label = ':' + value['node_class'].__label__
+                    stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
+                    self._ast['where'].append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(value))
 
@@ -327,6 +334,21 @@ class QueryBuilder(object):
                 self._ast['where'].append('NOT ' + stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
+
+    def _handle_node_set_relation_filter(self, ident, key, value):
+        node_name = '{0}_node'.format(key)
+        label = '{0}:{1}'.format(node_name, value['node_class'].__label__)
+        relation_stmt = _rel_helper(lhs=ident, rhs=label, ident='', **value)
+        self._ast['where'].append(relation_stmt)
+
+        node_set = value['node_set']
+        query_builder = node_set.query_cls(node_set)
+        query_builder.build_source(node_set, alt_node_name=node_name)
+        node_set_ast = query_builder._ast
+        self._ast['match'].extend(node_set_ast['match'])
+        self._ast['where'].extend(node_set_ast['where'])
+
+        self._query_params.update(query_builder._query_params)
 
     def _register_place_holder(self, key):
         if key in self._place_holder_registry:
