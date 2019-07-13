@@ -233,12 +233,12 @@ class QueryBuilder(object):
             return self.build_traversal(source)
         elif isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(source.source, StructuredNode):
-                node_name = alt_node_name or source.source.__label__.lower()
+                node_name = alt_node_name or source.source.__label__.lower().replace('_', '__')
                 ident = self.build_label(node_name, source.source)
             else:
                 ident = self.build_source(source.source, alt_node_name=alt_node_name)
 
-            self.build_additional_match(ident, source)
+            self.build_additional_match(ident, source, alt_node_name=alt_node_name)
 
             if hasattr(source, '_order_by'):
                 self.build_order_by(ident, source)
@@ -287,7 +287,7 @@ class QueryBuilder(object):
         return traversal.name
 
     def build_node(self, node):
-        ident = node.__class__.__name__.lower()
+        ident = node.__class__.__name__.lower().replace('_', '__')
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
@@ -310,7 +310,7 @@ class QueryBuilder(object):
         self._ast['result_class'] = cls
         return ident
 
-    def build_additional_match(self, ident, node_set):
+    def build_additional_match(self, ident, node_set, alt_node_name=None):
         """
             handle additional matches supplied by 'has()' calls
         """
@@ -319,7 +319,7 @@ class QueryBuilder(object):
         for key, value in node_set.must_match.items():
             if isinstance(value, dict):
                 if 'node_set' in value:
-                    self._handle_node_set_relation_filter(source_ident, key, value)
+                    self._handle_node_set_relation_filter(source_ident, key, value, alt_node_name=alt_node_name)
                 else:
                     label = ':' + value['node_class'].__label__
                     stmt = _rel_helper(lhs=source_ident, rhs=label, ident='', **value)
@@ -335,8 +335,12 @@ class QueryBuilder(object):
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
-    def _handle_node_set_relation_filter(self, ident, key, value):
-        node_name = '{0}_node'.format(key)
+    def _handle_node_set_relation_filter(self, ident, key, value, alt_node_name=None):
+        if alt_node_name is None:
+            node_name = '{0}_{1}'.format(ident, key.replace('_', '__'))
+        else:
+            node_name = '{0}_{1}'.format(alt_node_name, key.replace('_', '__'))
+
         label = '{0}:{1}'.format(node_name, value['node_class'].__label__)
         relation_stmt = _rel_helper(lhs=ident, rhs=label, ident='', **value)
         self._ast['where'].append(relation_stmt)
