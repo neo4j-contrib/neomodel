@@ -24,7 +24,7 @@ def drop_constraints(quiet=True, stdout=None):
     for constraint in results:
         db.cypher_query('DROP ' + constraint[0])
         match = pattern.search(constraint[0])
-        stdout.write(''' - Droping unique constraint and index on label {0} with property {1}.\n'''.format(
+        stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
 
@@ -58,10 +58,10 @@ def remove_all_labels(stdout=None):
     if not stdout:
         stdout = sys.stdout
 
-    stdout.write("Droping constraints...\n")
+    stdout.write("Dropping constraints...\n")
     drop_constraints(quiet=False, stdout=stdout)
 
-    stdout.write('Droping indexes...\n')
+    stdout.write('Dropping indexes...\n')
     drop_indexes(quiet=False, stdout=stdout)
 
 
