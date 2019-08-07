@@ -128,6 +128,14 @@ The `has` method checks for existence of (one or more) relationships, in this ca
 
 This can be negated by setting `suppliers=False`, to find `Coffee` nodes without `suppliers`.
 
+Furthermore, `has` can check for a relationship to a specific set of nodes. For example, it is possible to find coffee
+that can be delivered for cheap, by passing a suppliers `NodeSet`::
+
+    Coffee.nodes.has(suppliers=Supplier.nodes.filter(delivery_cost__lt=2))
+
+The `has` function doesn't accept native python collections, only `NodeSet` or Boolean values. This is important
+because `all`, `get` and slicing (see following section) return a native collection and not a `NodeSet`.
+
 Iteration, slicing and more
 ===========================
 
