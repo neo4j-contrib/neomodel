@@ -435,7 +435,7 @@ class QueryBuilder(object):
             query += ' WITH '
             query += self._ast['with']
 
-        query += ' RETURN ' + self._ast['return']
+        query += ' RETURN DISTINCT ' + self._ast['return']
 
         if 'order_by' in self._ast and self._ast['order_by']:
             query += ' ORDER BY '
