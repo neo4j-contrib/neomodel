@@ -162,7 +162,7 @@ Working with relationships::
     len(germany.inhabitant) # 1
 
     # Find people called 'Jim' in germany
-    germany.inhabitant.search(name='Jim')
+    germany.inhabitant.filter(name='Jim')
 
     # Remove Jim's country relationship with Germany
     jim.country.disconnect(germany)
