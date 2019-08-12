@@ -1,7 +1,7 @@
 import sys
 import functools
 from importlib import import_module
-from .exceptions import NotConnected
+from .exceptions import NotConnected, AttemptedCardinalityViolation, NeomodelException
 from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
 from .relationship import StructuredRel
@@ -72,6 +72,34 @@ class RelationshipManager(object):
                 "Relationship properties without using a relationship model "
                 "is no longer supported."
             )
+
+        # Check the other node's constraints
+        reltype = self.definition['relation_type']
+        count_rel = 0
+        for _, model2Rel in node.__all_relationships__:
+            # Relation types must match and directions should be one of the following:
+            # self-->node, self<--node or self--node
+            if model2Rel.definition['relation_type'] == reltype and (
+               self.definition['direction'] + model2Rel.definition['direction'] == 0):
+                count_rel += 1
+                if (model2Rel.manager.__name__ in set(['ZeroOrOne', 'One'])):
+                    direction = model2Rel.definition['direction']
+                    edge_dir = "-[r:{}]-".format(reltype)
+                    if direction == -1:  # incoming
+                        edge_dir = "<" + edge_dir
+                    elif direction == 1:  # outgoing
+                        edge_dir += ">"
+                    rels = node.cypher("MATCH (a)" + edge_dir + "(b) WHERE id(a)={self} RETURN r")
+                    if (len(rels[0]) > 0):
+                        raise AttemptedCardinalityViolation("Aborting connect() since " +
+                                                            "constraint {} of node {} ({}) would be violated".format(
+                                                                model2Rel.manager.__name__, node, node.__class__
+                                                                )
+                                                            )
+        if count_rel == 0:
+            raise NeomodelException("Node {} ({}) doesn't contain the named relation type {}".format(
+                node, node.__class__, reltype) + ", or the relation is in the wrong direction."
+                )
 
         params = {}
         rel_model = self.definition['model']
