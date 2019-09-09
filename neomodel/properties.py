@@ -86,7 +86,7 @@ class PropertyManager(object):
                 deflated[db_property] = property.deflate(
                     property.default_value(), obj
                 )
-            elif property.required or property.unique_index:
+            elif property.required:
                 raise RequiredProperty(name, cls)
             elif not skip_empty:
                 deflated[db_property] = None
