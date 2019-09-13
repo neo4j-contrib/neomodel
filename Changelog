@@ -1,4 +1,8 @@
 Version 3.3.2 [Work in progress - date not finalised yet]
+* Fixed validation for unique properties to also be optional (#470) - Jon Daly
+* Fixed tests-with-docker-compose.sh (#452) - Jorge Valhondo Rama
+* Added exclusion example to documentation and improved naming consistency (#456, #466) - Elena Williams 
+* Fixed the Travis-CI build problems by switching to openjdk (#471) - Duncan Booth
 * Minor revisions in `test_set_connection`, `spatial datatypes` and documentation (#442, #446, #447) - Athanasios Anastasiou
 * Added `max_length` constraint on `StringProperty` (#445) - Lazy-Y
 * Upgraded neo4j python driver requirement to 1.7.2 (#432) - Robert Grant
