@@ -68,7 +68,14 @@ Upgrading 2.x to 3.x
 Contributing
 ============
 
-Ideas, bugs, tests and pull requests always welcome.
+Ideas, bugs, tests and pull requests always welcome. 
+
+As of release `3.3.2` we now have a curated list of issues / development targets for
+`neomodel` available on [the Wiki](https://github.com/neo4j-contrib/neomodel/wiki/TODOs-&-Enhancements).
+
+If you are interested in developing `neomodel` further, pick a subject from the list and open a Pull Request (PR) for 
+it. If you are adding a feature that is not captured in that list yet, consider if the work for it could also 
+contribute towards delivering any of the existing todo items too.
 
 Running the test suite
 ----------------------
