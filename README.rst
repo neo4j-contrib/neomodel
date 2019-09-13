@@ -24,12 +24,6 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
     :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
 
 
-! Support for Python 2.7 !
-==========================
-**Please note:** Version 3.3.1 will be the last version that `neomodel` provides suppport for Python 2.7. By its
-next major release, the project will focus solely on Python 3.*.
-
-
 Documentation
 =============
 
@@ -71,7 +65,7 @@ Contributing
 Ideas, bugs, tests and pull requests always welcome. 
 
 As of release `3.3.2` we now have a curated list of issues / development targets for
-`neomodel` available on [the Wiki](https://github.com/neo4j-contrib/neomodel/wiki/TODOs-&-Enhancements).
+`neomodel` available on `the Wiki <https://github.com/neo4j-contrib/neomodel/wiki/TODOs-&-Enhancements>`_.
 
 If you are interested in developing `neomodel` further, pick a subject from the list and open a Pull Request (PR) for 
 it. If you are adding a feature that is not captured in that list yet, consider if the work for it could also 
