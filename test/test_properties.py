@@ -4,7 +4,9 @@ from pytest import mark, raises
 from pytz import timezone
 
 from neomodel import StructuredNode, db
-from neomodel.exceptions import InflateError, DeflateError
+from neomodel.exceptions import (
+    InflateError, DeflateError, RequiredProperty, UniqueProperty
+)
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
     EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
@@ -373,3 +375,58 @@ def test_indexed_array():
     b = IndexArray(ai=[1, 2]).save()
     c = IndexArray.nodes.get(ai=[1, 2])
     assert b.id == c.id
+
+
+def test_unique_index_prop_not_required():
+    class ConstrainedTestNode(StructuredNode):
+        required_property = StringProperty(required=True)
+        unique_property = StringProperty(unique_index=True)
+        unique_required_property = StringProperty(unique_index=True, required=True)
+        unconstrained_property = StringProperty()
+
+    # Create a node with a missing required property
+    with raises(RequiredProperty):
+        x = ConstrainedTestNode(required_property="required", unique_property="unique")
+        x.save()
+
+    # Create a node with a missing unique (but not required) property.
+    x = ConstrainedTestNode()
+    x.required_property = "required"
+    x.unique_required_property = "unique and required"
+    x.unconstrained_property = "no contraints"
+    x.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties["unique_required_property"] == "unique and required"
+
+    # delete node afterwards
+    x.delete()
+
+
+def test_unique_index_prop_enforced():
+    class UniqueNullableNameNode(StructuredNode):
+        name = StringProperty(unique_index=True)
+
+    # Nameless
+    x = UniqueNullableNameNode()
+    x.save()
+    y = UniqueNullableNameNode()
+    y.save()
+
+    # Named
+    z = UniqueNullableNameNode(name="named")
+    z.save()
+    with raises(UniqueProperty):
+        a = UniqueNullableNameNode(name="named")
+        a.save()
+
+    # Check nodes are in database
+    results, meta = db.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
+    assert len(results) == 3
+
+    # Delete nodes afterwards
+    x.delete()
+    y.delete()
+    z.delete()
