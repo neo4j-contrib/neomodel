@@ -1,4 +1,4 @@
-Version 3.3.2 [Work in progress - date not finalised yet]
+Version 3.3.2 2019-09-29
 * Fixed validation for unique properties to also be optional (#470) - Jon Daly
 * Fixed tests-with-docker-compose.sh (#452) - Jorge Valhondo Rama
 * Added exclusion example to documentation and improved naming consistency (#456, #466) - Elena Williams 
