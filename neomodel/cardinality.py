@@ -1,9 +1,7 @@
 from neomodel.exceptions import (
     AttemptedCardinalityViolation, CardinalityViolation
 )
-from neomodel.relationship_manager import (
-    RelationshipManager, ZeroOrMore
-)  #noqa: F401
+from neomodel.relationship_manager import RelationshipManager  # noqa: F401
 
 
 class ZeroOrOne(RelationshipManager):

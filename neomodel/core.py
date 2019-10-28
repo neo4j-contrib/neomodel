@@ -97,9 +97,12 @@ def install_labels(cls, quiet=True, stdout=None):
                 stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
 
-            db.cypher_query("CREATE CONSTRAINT "
-                            "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
-                cls.__label__, db_property))
+            db.cypher_query(
+                "CREATE CONSTRAINT "
+                "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
+                    cls.__label__, db_property
+                )
+            )
 
 
 def install_all_labels(stdout=None):
@@ -260,7 +263,9 @@ class StructuredNode(NodeBase):
         query_params = dict(merge_params=merge_params)
         n_merge = "n:{0} {{{1}}}".format(
             ":".join(cls.inherited_labels()),
-            ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
+            ", ".join("{0}: params.create.{0}".format(
+                getattr(cls, p).db_property or p) for p in cls.__required_properties__)
+            )
         if relationship is None:
             # create "simple" unwind query
             query = "UNWIND {{merge_params}} as params\n MERGE ({0})\n ".format(n_merge)
@@ -296,8 +301,10 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def category(cls):
-        raise NotImplementedError("Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__))
+        raise NotImplementedError(
+            "Category was deprecated and has now been removed, "
+            "the functionality is now achieved using the {0}.nodes attribute".format(cls.__name__)
+        )
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -499,8 +506,10 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            request = self.cypher("MATCH (n) WHERE id(n)={self}"
-                                            " RETURN n")[0]
+            request = self.cypher(
+                "MATCH (n) WHERE id(n)={self}"
+                " RETURN n"
+            )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])

@@ -12,7 +12,7 @@ class RelationshipMeta(type):
                 value.name = key
                 value.owner = inst
                 if value.is_indexed:
-                    raise NotImplemented("Indexed relationship properties not supported yet")
+                    raise NotImplementedError("Indexed relationship properties not supported yet")
 
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
@@ -49,8 +49,10 @@ class StructuredRel(StructuredRelBase):
 
     @deprecated('This method will be removed in neomodel 4')
     def delete(self):
-        raise NotImplemented("Can not delete relationships please use"
-                             " 'disconnect'")
+        raise NotImplementedError(
+            "Can not delete relationships please use"
+            " 'disconnect'"
+        )
 
     def start_node(self):
         """
@@ -61,8 +63,8 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query("MATCH (aNode) "
                                "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._start_node_id),
-                               resolve_objects = True)[0][0][0]
-      
+                               resolve_objects=True)[0][0][0]
+
     def end_node(self):
         """
         Get end node
@@ -72,7 +74,7 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query("MATCH (aNode) "
                                "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._end_node_id),
-                               resolve_objects = True)[0][0][0]
+                               resolve_objects=True)[0][0][0]
 
     @classmethod
     def inflate(cls, rel):

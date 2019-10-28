@@ -298,7 +298,7 @@ class StringProperty(NormalizedProperty):
         if max_length is not None:
             if choices is not None:
                 raise ValueError("The arguments `choices` and `max_length` are mutually exclusive.")
-            if max_length<1:
+            if max_length < 1:
                 raise ValueError("`max_length` cannot be zero or take negative values.")
 
         super(StringProperty, self).__init__(**kwargs)
@@ -320,8 +320,8 @@ class StringProperty(NormalizedProperty):
     def normalize(self, value):
         # One thing to note here is that the following two checks can remain uncoupled
         # as long as it is guaranteed (by the constructor) that `choices` and `max_length`
-        # are mutually exclusive. If that check in the constructor ever has to be removed, 
-        # these two validation checks here will have to be coupled so that having set 
+        # are mutually exclusive. If that check in the constructor ever has to be removed,
+        # these two validation checks here will have to be coupled so that having set
         # `choices` overrides having set the `max_length`.
         if self.choices is not None and value not in self.choices:
             raise ValueError("Invalid choice: {}".format(value))
@@ -452,6 +452,7 @@ class DateProperty(Property):
             raise ValueError(msg)
         return value.isoformat()
 
+
 class DateTimeFormatProperty(Property):
     """
     Store a datetime by custome format
@@ -482,8 +483,6 @@ class DateTimeFormatProperty(Property):
         if not isinstance(value, datetime):
             raise ValueError('datetime object expected, got {0}.'.format(type(value)))
         return datetime.strftime(value, self.format)
-
-
 
 
 class DateTimeProperty(Property):

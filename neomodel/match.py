@@ -386,7 +386,9 @@ class QueryBuilder(object):
                         statement = '{0} {1}.{2} {3}'.format('NOT' if negate else '', ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{0} {1}.{2} {3} {{{4}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        statement = '{0} {1}.{2} {3} {{{4}}}'.format(
+                            'NOT' if negate else '', ident, prop, op, place_holder
+                        )
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
@@ -444,16 +446,16 @@ class QueryBuilder(object):
             # inject id = into ast
             self._ast['return'] = 'id({})'.format(self._ast['return'])
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)            
-        # The following is not as elegant as it could be but had to be copied from the 
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
+        # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
-        # It seems that certain calls are only supposed to be focusing to the first 
+        # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
         if results:
             return [n[0] for n in results]
         return []
-        
-        
+
+
 class BaseSet(object):
     """
     Base class for all node sets.
