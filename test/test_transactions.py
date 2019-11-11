@@ -1,3 +1,4 @@
+import pytest
 from neobolt.addressing import AddressError
 from pytest import raises
 
@@ -81,3 +82,79 @@ def test_set_connection_works():
     db.set_connection(old_url)
     # set connection back
     assert APerson(name='New guy 3').save()
+
+@db.transaction.with_bookmark
+def in_a_tx(*names):
+    for n in names:
+        APerson(name=n).save()
+
+
+def test_bookmark_transaction_decorator(skip_neo4j_before_330):
+    for p in APerson.nodes:
+        p.delete()
+
+    # should work
+    result, bookmark = in_a_tx('Ruth', bookmarks=None)
+    assert result is None
+    assert bookmark.startswith('neo4j:bookmark')
+
+    # should bail but raise correct error
+    with raises(UniqueProperty):
+        in_a_tx('Jane', 'Ruth')
+
+    assert 'Jane' not in [p.name for p in APerson.nodes]
+
+
+def test_bookmark_transaction_as_a_context(skip_neo4j_before_330):
+    with db.transaction as transaction:
+        APerson(name='Tanya').save()
+    assert transaction.last_bookmark.startswith('neo4j:bookmark:')
+
+    assert APerson.nodes.filter(name='Tanya')
+
+    with raises(UniqueProperty):
+        with db.transaction as transaction:
+            APerson(name='Tanya').save()
+    assert not hasattr(transaction, 'last_bookmark')
+
+@pytest.fixture
+def spy_on_db_begin(monkeypatch):
+    spy_calls = []
+    original_begin = db.begin
+
+    def begin_spy(*args, **kwargs):
+        spy_calls.append((args, kwargs))
+        return original_begin(*args, **kwargs)
+
+    monkeypatch.setattr(db, 'begin', begin_spy)
+    return spy_calls
+
+def test_bookmark_passed_in_to_context(skip_neo4j_before_330, spy_on_db_begin):
+    transaction = db.transaction
+    with transaction:
+        pass
+
+    assert spy_on_db_begin[-1] == ((), { 'access_mode': None })
+    last_bookmark = transaction.last_bookmark
+
+    transaction.bookmarks = last_bookmark
+    with transaction:
+        pass
+    assert spy_on_db_begin[-1] == ((), { 'access_mode': None, 'bookmarks': (last_bookmark,) })
+
+    transaction.bookmarks = [last_bookmark]
+    with transaction:
+        pass
+    assert spy_on_db_begin[-1] == ((), { 'access_mode': None, 'bookmarks': (last_bookmark,) })
+
+def test_query_inside_bookmark_transaction(skip_neo4j_before_330):
+    for p in APerson.nodes:
+        p.delete()
+
+    with db.transaction as transaction:
+        APerson(name='Alice').save()
+        APerson(name='Bob').save()
+
+        assert len([p.name for p in APerson.nodes]) == 2
+
+    assert transaction.last_bookmark.startswith('neo4j:bookmark:')

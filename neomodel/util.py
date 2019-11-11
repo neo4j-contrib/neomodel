@@ -144,22 +144,25 @@ class Database(local, NodeClassRegistry):
         return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
-    def begin(self, access_mode=None):
+    def begin(self, access_mode=None, **parameters):
         """
         Begins a new transaction, raises SystemError exception if a transaction is in progress
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=self._database_name).begin_transaction()
+        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=self._database_name, **parameters).begin_transaction()
 
     @ensure_connection
     def commit(self):
         """
         Commits the current transaction
+
+        :return: The last bookmark
         """
-        r = self._active_transaction.commit()
+        self._active_transaction.commit()
+        last_bookmark = self._active_transaction.session.last_bookmark()
         self._active_transaction = None
-        return r
+        return last_bookmark
 
     @ensure_connection
     def rollback(self):
@@ -203,7 +206,7 @@ class Database(local, NodeClassRegistry):
                     if isinstance(a_result_attribute[1], Relationship):
                         resolved_object = self._NODE_CLASS_REGISTRY[frozenset([a_result_attribute[1].type])].inflate(
                             a_result_attribute[1])
-                        
+
                     if type(a_result_attribute[1]) is list:
                         resolved_object = self._object_resolution([a_result_attribute[1]])
 
@@ -287,13 +290,20 @@ class Database(local, NodeClassRegistry):
 
 
 class TransactionProxy(object):
+    bookmarks = None
+
     def __init__(self, db, access_mode=None):
         self.db = db
         self.access_mode = access_mode
 
     @ensure_connection
     def __enter__(self):
-        self.db.begin(access_mode=self.access_mode)
+        if self.bookmarks is None:
+            self.db.begin(access_mode=self.access_mode)
+        else:
+            bookmarks = (self.bookmarks,) if isinstance(self.bookmarks, string_types) else tuple(self.bookmarks)
+            self.db.begin(access_mode=self.access_mode, bookmarks=bookmarks)
+            self.bookmarks = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -306,7 +316,7 @@ class TransactionProxy(object):
 
         if not exc_value:
             try:
-                self.db.commit()
+                self.last_bookmark = self.db.commit()
             except:
                 # In case when something went wrong during committing changes to the database, we have to close
                 # an active transaction.
@@ -317,6 +327,24 @@ class TransactionProxy(object):
         def wrapper(*args, **kwargs):
             with self:
                 return func(*args, **kwargs)
+
+        return wrapper
+
+    @property
+    def with_bookmark(self):
+        return BookmarkingTransactionProxy(self.db, self.access_mode)
+
+class BookmarkingTransactionProxy(TransactionProxy):
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            self.bookmarks = kwargs.pop("bookmarks", None)
+
+            with self:
+                result = func(*args, **kwargs)
+                self.last_bookmark = None
+
+            return result, self.last_bookmark
 
         return wrapper
 
