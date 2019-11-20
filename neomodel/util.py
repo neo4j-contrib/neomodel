@@ -243,8 +243,9 @@ class Database(local, NodeClassRegistry):
                                          retry_on_session_expire=False)
             raise
 
-        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
+        tte = (end - start)
+        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False) and tte > float(os.environ.get('NEOMODEL_SLOW_QUERIES', 0)):
+            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(tte))
 
         return results, meta
 
