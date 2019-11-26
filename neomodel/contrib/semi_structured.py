@@ -32,9 +32,9 @@ class SemiStructuredNode(StructuredNode):
             snode = cls()
             snode.id = node
         else:
+            node_properties = _get_node_properties(node)
             props = {}
             for key, prop in cls.__all_properties__:
-                node_properties = _get_node_properties(node)
                 if key in node_properties:
                     props[key] = prop.inflate(node_properties[key], node)
                 elif prop.has_default:
