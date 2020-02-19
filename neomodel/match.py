@@ -287,7 +287,7 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = 'MATCH ({0}) WHERE id({1})={{{2}}} WITH {3}'.format(ident, ident, place_holder, ident)
+        _node_lookup = 'MATCH ({0}) WHERE id({1})=${2} WITH {3}'.format(ident, ident, place_holder, ident)
         self._ast['lookup'] = _node_lookup
 
         self._query_params[place_holder] = node.id
@@ -353,7 +353,7 @@ class QueryBuilder(object):
                         statement = '{0}.{1} {2}'.format(ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{0}.{1} {2} {{{3}}}'.format(ident, prop, op, place_holder)
+                        statement = '{0}.{1} {2} ${3}'.format(ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     target.append(statement)
         ret = ' {0} '.format(q.connector).join(target)
@@ -386,7 +386,7 @@ class QueryBuilder(object):
                         statement = '{0} {1}.{2} {3}'.format('NOT' if negate else '', ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{0} {1}.{2} {3} {{{4}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        statement = '{0} {1}.{2} {3} ${4}'.format('NOT' if negate else '', ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
@@ -435,7 +435,7 @@ class QueryBuilder(object):
         # inject id = into ast
         ident = self._ast['return']
         place_holder = self._register_place_holder(ident + '_contains')
-        self._ast['where'].append('id({0}) = {{{1}}}'.format(ident, place_holder))
+        self._ast['where'].append('id({0}) = ${1}'.format(ident, place_holder))
         self._query_params[place_holder] = node_id
         return self._count() >= 1
 
