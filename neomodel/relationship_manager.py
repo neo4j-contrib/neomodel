@@ -3,7 +3,7 @@ import functools
 from importlib import import_module
 from .exceptions import NotConnected
 from .util import deprecated, _get_node_properties
-from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
+from .match import OUTGOING, INCOMING, EITHER, _rel_helper, _rel_merge_helper, Traversal, NodeSet
 from .relationship import StructuredRel
 
 
@@ -89,9 +89,9 @@ class RelationshipManager(object):
             if hasattr(tmp, 'pre_save'):
                 tmp.pre_save()
 
-        new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
+        new_rel = _rel_merge_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
         q = "MATCH (them), (us) WHERE id(them)=$them and id(us)=$self " \
-            "CREATE UNIQUE" + new_rel
+            "MERGE" + new_rel
 
         params['them'] = node.id
 
@@ -196,11 +196,11 @@ class RelationshipManager(object):
             raise NotConnected('reconnect', self.source, old_node)
 
         # remove old relationship and create new one
-        new_rel = _rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
+        new_rel = _rel_merge_helper(lhs='us', rhs='new', ident='r2', **self.definition)
         q = "MATCH (us), (old), (new) " \
             "WHERE id(us)=$self and id(old)=$old and id(new)=$new " \
             "MATCH " + old_rel
-        q += " CREATE UNIQUE" + new_rel
+        q += " MERGE" + new_rel
 
         # copy over properties if we have
         for p in existing_properties:
