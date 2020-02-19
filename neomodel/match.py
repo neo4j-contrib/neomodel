@@ -61,6 +61,55 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
 
+def _rel_merge_helper(lhs, rhs, ident='neomodelident', relation_type=None, direction=None, relation_properties=None, **kwargs):
+    """
+    Generate a relationship merging string, with specified parameters.
+    Examples:
+    relation_direction = OUTGOING: (lhs)-[relation_ident:relation_type]->(rhs)
+    relation_direction = INCOMING: (lhs)<-[relation_ident:relation_type]-(rhs)
+    relation_direction = EITHER: (lhs)-[relation_ident:relation_type]-(rhs)
+
+    :param lhs: The left hand statement.
+    :type lhs: str
+    :param rhs: The right hand statement.
+    :type rhs: str
+    :param ident: A specific identity to name the relationship, or None.
+    :type ident: str
+    :param relation_type: None for all direct rels, * for all of any length, or a name of an explicit rel.
+    :type relation_type: str
+    :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
+    :param relation_properties: dictionary of relationship properties to merge
+    :returns: string
+    """
+
+    if direction == OUTGOING:
+        stmt = '-{0}->'
+    elif direction == INCOMING:
+        stmt = '<-{0}-'
+    else:
+        stmt = '-{0}-'
+
+    rel_props = ''
+
+    if relation_properties:
+        rel_props = ' ON CREATE SET {0} ON MATCH SET {0}'.format(
+            '{0}.{1}'.format(ident, ', '.join(
+                ['{0}={1}'.format(key, value) for key, value in relation_properties.items()]))
+        )
+
+    # direct, relation_type=None is unspecified, relation_type
+    if relation_type is None:
+        stmt = stmt.format('')
+    # all("*" wildcard) relation_type
+    elif relation_type == '*':
+        stmt = stmt.format('[*]')
+    else:
+        # explicit relation_type
+        stmt = stmt.format('[{0}:`{1}`]'.format(ident, relation_type))
+
+    return "({0}){1}({2}){3}".format(lhs, stmt, rhs, rel_props)
+
+
 # special operators
 _SPECIAL_OPERATOR_IN = 'IN'
 _SPECIAL_OPERATOR_INSENSITIVE = '(?i)'
