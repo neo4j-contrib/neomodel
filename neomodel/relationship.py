@@ -59,7 +59,7 @@ class StructuredRel(StructuredRelBase):
         :return: StructuredNode
         """
         return db.cypher_query("MATCH (aNode) "
-                               "WHERE id(aNode)=$nodeid "
+                               "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._start_node_id),
                                resolve_objects = True)[0][0][0]
       
@@ -70,7 +70,7 @@ class StructuredRel(StructuredRelBase):
         :return: StructuredNode
         """
         return db.cypher_query("MATCH (aNode) "
-                               "WHERE id(aNode)=$nodeid "
+                               "WHERE id(aNode)={nodeid} "
                                "RETURN aNode".format(nodeid=self._end_node_id),
                                resolve_objects = True)[0][0][0]
 
