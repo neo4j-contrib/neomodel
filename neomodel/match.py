@@ -353,7 +353,6 @@ class QueryBuilder(object):
                         statement = '{0}.{1} {2}'.format(ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        # statement = '{0}.{1} {2} {{{3}}}'.format(ident, prop, op, place_holder)
                         statement = '{0}.{1} {2} ${3}'.format(ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     target.append(statement)
