@@ -17,7 +17,7 @@ setup(
     scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],
     setup_requires=['pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
     tests_require=['pytest', 'shapely'],
-    install_requires=['neo4j-driver==1.7.2', 'pytz>=2016.10'],
+    install_requires=['neo4j-driver<1.8.0,>=1.7.2', 'pytz>=2016.10'],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
