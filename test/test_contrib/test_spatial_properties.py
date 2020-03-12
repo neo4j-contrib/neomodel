@@ -8,7 +8,6 @@ import os
 import neomodel
 import neomodel.contrib.spatial_properties
 import pytest
-import neo4j.v1
 import neo4j.types.spatial
 from .test_spatial_datatypes import basic_type_assertions, check_and_skip_neo4j_least_version
 import random
