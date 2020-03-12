@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import warnings
+import neomodel.core as core
 from threading import local
 
 from neo4j import GraphDatabase, basic_auth, CypherError, SessionError
@@ -38,10 +39,12 @@ def ensure_connection(func):
 def change_neo4j_password(db, new_password):
     db.cypher_query("CALL dbms.changePassword($password)", {'password': new_password})
 
-
-def clear_neo4j_database(db):
+def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
     db.cypher_query("MATCH (a) DETACH DELETE a")
-
+    if clear_constraints:
+        core.drop_constraints()
+    if clear_indexes:
+        core.drop_indexes()   
 
 class NodeClassRegistry:
     """
