@@ -4,7 +4,7 @@ import os
 import sys
 
 from neomodel import config, db, clear_neo4j_database, change_neo4j_password
-from neo4j.v1 import CypherError
+from neobolt.exceptions import ClientError
 
 
 def pytest_addoption(parser):
@@ -36,13 +36,23 @@ def pytest_sessionstart(session):
         if database_is_populated[0][0] and not session.config.getoption("resetdb"):
             raise SystemError("Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb.")
         else:
-            clear_neo4j_database(db)        
-    except CypherError as ce:
+    except (CypherError, ClientError) as ce:
         # Handle instance without password being changed
         if 'The credentials you provided were valid, but must be changed before you can use this instance' in str(ce):
             warnings.warn("New database with no password set, setting password to 'test'")
-            change_neo4j_password(db, 'test')
+            try:
+                change_neo4j_password(db, 'test')
+                # Ensures that multiprocessing tests can use the new password
+                config.DATABASE_URL = 'bolt://neo4j:test@localhost:7687'
+                db.set_connection('bolt://neo4j:test@localhost:7687')
             db.set_connection('bolt://neo4j:test@localhost:7687')            
-            warnings.warn("Please 'export NEO4J_BOLT_URL=bolt://neo4j:test@localhost:7687' for subsequent test runs")
+                db.set_connection('bolt://neo4j:test@localhost:7687')
+                warnings.warn("Please 'export NEO4J_BOLT_URL=bolt://neo4j:test@localhost:7687' for subsequent test runs")
+            except (CypherError, ClientError) as e:
+                if 'The credentials you provided were valid, but must be changed before you can use this instance' in str(e):
+                    warnings.warn("You appear to be running on version 4.0+ of Neo4j, without having changed the password."
+                        "Please manually log in, change your password, then update the config.DATABASE_URL call at line 32 in this file")
+                else:
+                    raise e
         else:
             raise ce
