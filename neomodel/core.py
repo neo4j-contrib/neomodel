@@ -92,6 +92,8 @@ def install_labels(cls, quiet=True, stdout=None):
     :type: bool
     :return: None
     """
+    if not stdout or stdout is None:
+        stdout = sys.stdout
 
     if not hasattr(cls, '__label__'):
         if not quiet:
@@ -104,18 +106,28 @@ def install_labels(cls, quiet=True, stdout=None):
             if not quiet:
                 stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
-                cls.__label__, db_property))
+            try:
+                db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
+                    cls.__label__, db_property))
+            except ClientError as e:
+                if str(e).lower().startswith("an equivalent index already exists"):
+                    stdout.write('{0}\n'.format(str(e)))
+                else:
+                    raise
 
         elif property.unique_index:
             if not quiet:
                 stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE CONSTRAINT "
-                            "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
-                cls.__label__, db_property))
+            try:
+                db.cypher_query("CREATE CONSTRAINT "
+                                "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
+                    cls.__label__, db_property))
+            except ClientError as e:
+                if str(e).lower().startswith("an equivalent constraint already exists"):
+                    stdout.write('{0}\n'.format(str(e)))
+                else:
+                    raise
 
 
 def install_all_labels(stdout=None):
@@ -127,7 +139,7 @@ def install_all_labels(stdout=None):
     :return: None
     """
 
-    if not stdout:
+    if not stdout or stdout is None:
         stdout = sys.stdout
 
     def subsub(cls):  # recursively return all subclasses
@@ -186,7 +198,7 @@ class NodeMeta(type):
             cls.__label__ = namespace.get('__label__', name)
 
             if config.AUTO_INSTALL_LABELS:
-                install_labels(cls)
+                install_labels(cls, quiet=False)
 
             label_set = frozenset(cls.inherited_labels())
             if label_set not in db._NODE_CLASS_REGISTRY:
