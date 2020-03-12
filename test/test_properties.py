@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode, db
+from neomodel import StructuredNode, db, config
 from neomodel.exceptions import (
     InflateError, DeflateError, RequiredProperty, UniqueProperty
 )
@@ -14,6 +14,8 @@ from neomodel.properties import (
 )
 
 from neomodel.util import _get_node_properties
+
+config.AUTO_INSTALL_LABELS=True
 
 
 class FooBar(object):
@@ -55,8 +57,8 @@ def test_string_property_w_choice():
     except DeflateError as e:
         assert 'choice' in str(e)
     else:
-        assert False, "DeflateError not raised."        
-    
+        assert False, "DeflateError not raised."
+
     node = TestChoices(sex='M').save()
     assert node.get_sex_display() == 'Male'
 
@@ -295,7 +297,7 @@ def test_regex_property():
     class TestProperty(RegexProperty):
         name = 'test'
         owner = object()
-        expression = '\w+ \w+$'
+        expression = r'\w+ \w+$'
 
         def normalize(self, value):
             self._called = True

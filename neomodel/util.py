@@ -10,7 +10,7 @@ from neo4j import GraphDatabase, basic_auth, CypherError, SessionError
 from neo4j.types.graph import Node
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed,  ModelDefinitionMismatch
+from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
 
 if sys.version_info >= (3, 0):
     from urllib.parse import urlparse
