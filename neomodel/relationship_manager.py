@@ -83,7 +83,10 @@ class RelationshipManager(object):
             tmp = rel_model(**properties) if properties else rel_model()
             # build params and place holders to pass to rel_helper
             for p, v in rel_model.deflate(tmp.__properties__).items():
-                rp[p] = '$' + p
+                if v is not None:
+                    rp[p] = '$' + p
+                else:
+                    rp[p] = None
                 params[p] = v
 
             if hasattr(tmp, 'pre_save'):

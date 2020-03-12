@@ -90,13 +90,16 @@ def _rel_merge_helper(lhs, rhs, ident='neomodelident', relation_type=None, direc
         stmt = '-{0}-'
 
     rel_props = ''
+    rel_none_props = ''
 
     if relation_properties:
-        rel_props = ' ON CREATE SET {0} ON MATCH SET {0}'.format(
-            '{0}.{1}'.format(ident, ', '.join(
-                ['{0}={1}'.format(key, value) for key, value in relation_properties.items()]))
-        )
-
+        rel_props = ' {{{0}}}'.format(', '.join(
+            ['{0}: {1}'.format(key, value) for key, value in relation_properties.items() if value is not None]))
+        if None in relation_properties.values():
+            rel_none_props = ' ON CREATE SET {0} ON MATCH SET {0}'.format(
+                ', '.join(
+                    ['{0}.{1}={2}'.format(ident, key, '${!s}'.format(key)) for key, value in relation_properties.items() if value is None])
+            )
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
         stmt = stmt.format('')
@@ -105,9 +108,9 @@ def _rel_merge_helper(lhs, rhs, ident='neomodelident', relation_type=None, direc
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[{0}:`{1}`]'.format(ident, relation_type))
+        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident, relation_type, rel_props))
 
-    return "({0}){1}({2}){3}".format(lhs, stmt, rhs, rel_props)
+    return "({0}){1}({2}){3}".format(lhs, stmt, rhs, rel_none_props)
 
 
 # special operators
