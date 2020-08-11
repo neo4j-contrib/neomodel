@@ -1,5 +1,6 @@
 from neomodel import StructuredNode, StringProperty, db
 from multiprocessing import Pool
+import os
 
 
 class ThingyMaBob(StructuredNode):
@@ -17,3 +18,4 @@ def test_concurrency():
     results = p.map(thing_create, range(50))
     for returned, sent in results:
         assert returned == sent
+    db.set_connection(os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:test@localhost:7687'))
