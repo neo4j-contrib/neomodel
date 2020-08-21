@@ -34,15 +34,15 @@ Available on readthedocs_.
 Requirements
 ============
 
-- Python 2.7 (Up to version 3.3.1), 3.4+
-- neo4j 3.0, 3.1, 3.2, 3.3
+- Python 3.5+ - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
+- neo4j 3.5, 4.0, 4.1 - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
 
 Installation
 ============
 
 Install from pypi (recommended)::
 
-    $ pip install neomodel
+    $ pip install neomodel ($ source dev # To install all things needed in a Python3 venv)
 
 To install from github::
 
@@ -80,9 +80,7 @@ Make sure you have a Neo4j database version 3 or higher to run the tests on.::
 
 Setup a virtual environment, install neomodel for development and run the test suite::
 
-    $ virtualenv venv
-    $ source venv/bin/activate
-    $ python setup.py develop
+    $ source dev
     $ pytest
 
 If you are running a neo4j database for the first time the test suite will set the password to 'test'.

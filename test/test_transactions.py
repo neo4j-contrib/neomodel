@@ -75,7 +75,7 @@ def test_set_connection_works():
     from socket import gaierror
 
     old_url = db.url
-    with raises(AddressError):
+    with raises(ValueError):
         db.set_connection('bolt://user:password@6.6.6.6.6.6.6.6:7687')
     db.set_connection(old_url)
     # set connection back

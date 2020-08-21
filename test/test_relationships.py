@@ -83,7 +83,7 @@ def test_either_direction_connect():
     sakis.knows.connect(rey)
 
     result, meta = sakis.cypher("""MATCH (us), (them)
-            WHERE id(us)={self} and id(them)={them}
+            WHERE id(us)=$self and id(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
             {'them': rey.id})
     assert int(result[0][0]) == 1
@@ -103,7 +103,7 @@ def test_search_and_filter_and_exclude():
     fred.is_from.connect(zz)
     fred.is_from.connect(zx)
     fred.is_from.connect(zt)
-    result = fred.is_from.search(code='ZX')
+    result = fred.is_from.filter(code='ZX')
     assert result[0].code == 'ZX'
 
     result = fred.is_from.filter(code='ZX')

@@ -8,8 +8,7 @@ import os
 import neomodel
 import neomodel.contrib.spatial_properties
 import pytest
-import neo4j.v1
-import neo4j.types.spatial
+import neo4j.spatial
 from .test_spatial_datatypes import basic_type_assertions, check_and_skip_neo4j_least_version
 import random
 
@@ -24,10 +23,10 @@ def test_spatial_point_property():
     # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
     check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
-    with pytest.raises(ValueError, match='Invalid CRS\(None\)'):
+    with pytest.raises(ValueError, match=r'Invalid CRS\(None\)'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty()
 
-    with pytest.raises(ValueError, match='Invalid CRS\(crs_isaak\)'):
+    with pytest.raises(ValueError, match=r'Invalid CRS\(crs_isaak\)'):
         a_point_property = neomodel.contrib.spatial_properties.PointProperty(crs='crs_isaak')
 
     with pytest.raises(TypeError, match='Invalid default value'):
@@ -48,13 +47,13 @@ def test_inflate():
     # `basic_type_assertions` and different messages to be able to localise the exception.
     #
     # Array of points to inflate and messages when things go wrong
-    values_from_db = [(neo4j.types.spatial.CartesianPoint((0.0, 0.0)),
+    values_from_db = [(neo4j.spatial.CartesianPoint((0.0, 0.0)),
                        'Expected Neomodel 2d cartesian point when inflating 2d cartesian neo4j point'),
-                      (neo4j.types.spatial.CartesianPoint((0.0, 0.0, 0.0)),
+                      (neo4j.spatial.CartesianPoint((0.0, 0.0, 0.0)),
                        'Expected Neomodel 3d cartesian point when inflating 3d cartesian neo4j point'),
-                      (neo4j.types.spatial.WGS84Point((0.0, 0.0)),
+                      (neo4j.spatial.WGS84Point((0.0, 0.0)),
                        'Expected Neomodel 2d geographical point when inflating 2d geographical neo4j point'),
-                      (neo4j.types.spatial.WGS84Point((0.0, 0.0, 0.0)),
+                      (neo4j.spatial.WGS84Point((0.0, 0.0, 0.0)),
                        'Expected Neomodel 3d geographical point inflating 3d geographical neo4j point')]
 
     # Run the above tests
@@ -90,7 +89,7 @@ def test_deflate():
 
     # Run the above tests.
     for a_value in values_from_neomodel:
-        expected_point = neo4j.types.spatial.Point(tuple(a_value[0].coords[0]))
+        expected_point = neo4j.spatial.Point(tuple(a_value[0].coords[0]))
         expected_point.srid = CRS_TO_SRID[a_value[0].crs]
         deflated_point = neomodel.contrib.spatial_properties.PointProperty(crs=a_value[0].crs).deflate(a_value[0])
         basic_type_assertions(expected_point, deflated_point, '{}, received {}'.format(a_value[1], deflated_point),

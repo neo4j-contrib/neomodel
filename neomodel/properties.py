@@ -511,6 +511,9 @@ class DateTimeProperty(Property):
         except ValueError:
             raise ValueError("Float or integer expected, got {0} can't inflate to "
                              "datetime.".format(type(value)))
+        except TypeError:
+            raise TypeError(
+                "Float or integer expected. Can't inflate {0} to datetime.".format(type(value)))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator

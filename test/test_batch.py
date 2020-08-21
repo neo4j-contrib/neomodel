@@ -1,9 +1,10 @@
 from pytest import raises
 
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
-                      RelationshipTo, RelationshipFrom)
+                      RelationshipTo, RelationshipFrom, config)
 from neomodel.exceptions import UniqueProperty, DeflateError
 
+config.AUTO_INSTALL_LABELS = True
 
 class UniqueUser(StructuredNode):
     uid = UniqueIdProperty()
