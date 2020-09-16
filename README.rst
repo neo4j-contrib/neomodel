@@ -3,12 +3,12 @@
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
 
-- Familiar Django model style definitions.
+- Familiar class based model definitions with proper inheritance.
 - Powerful query API.
-- Enforce your schema through cardinality restrictions.
+- Schema enforcement through cardinality restrictions.
 - Full transaction support.
 - Thread safe.
-- pre/post save/delete hooks.
+- Pre/post save/delete hooks.
 - Django integration via django_neomodel_
 
 .. _django_neomodel: https://github.com/neo4j-contrib/django-neomodel
