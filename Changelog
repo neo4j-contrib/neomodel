@@ -6,7 +6,7 @@ Version 4.0.0 2020-09-16
 * Updated all underlying queries to better reflect current CYPHER
 * Updated Transaction handling
 * Updated tests
-	* Many thanks to Cristina Escalante, Matt Galvis, JVemmer and a-takahashi223 who made this release possible.
+	* Many thanks to Cristina Escalante, Matt Galvis, JVemmer and a-takahashi223 whose hard work made this release possible.
 
 Version 3.3.2 2019-09-29
 * Fixed validation for unique properties to also be optional (#470) - Jon Daly
