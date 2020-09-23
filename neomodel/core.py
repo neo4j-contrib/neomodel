@@ -2,7 +2,6 @@ import re
 import sys
 import warnings
 
-from django.db.models.base import ModelState
 from neomodel import config
 from neomodel.exceptions import DoesNotExist, ClassAlreadyDefined
 from neomodel.hooks import hooks
@@ -233,8 +232,6 @@ class StructuredNode(NodeBase):
 
         for key, val in self.__all_relationships__:
             self.__dict__[key] = val.build_manager(self, key)
-
-        self._state = ModelState()
 
         super(StructuredNode, self).__init__(*args, **kwargs)
 
