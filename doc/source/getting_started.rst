@@ -164,6 +164,9 @@ Working with relationships::
     # Find people called 'Jim' in germany
     germany.inhabitant.search(name='Jim')
 
+    # Find all the people called in germany except 'Jim'
+    germany.inhabitant.exclude(name='Jim')
+
     # Remove Jim's country relationship with Germany
     jim.country.disconnect(germany)
 

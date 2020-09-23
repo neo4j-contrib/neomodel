@@ -16,7 +16,7 @@ Disable encrypted connection (usefult for development)::
 
 Adjust connection pool size::
 
-    config.MAX_POOL_SIZE = 50  # default
+    config.MAX_CONNECTION_POOL_SIZE = 50  # default
 
 Enable automatic index and constraint creation
 ----------------------------------------------

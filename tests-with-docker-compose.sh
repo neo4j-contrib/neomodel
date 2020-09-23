@@ -18,11 +18,12 @@ services:
       - .:/src
       - pip-cache:/root/.cache/pip
     working_dir: /src
-    command: sh -c "while ! nc neo4j 7687; do  sleep 1; done; python -B setup.py test"
+    command: sh -c "echo "http://mirror.leaseweb.com/alpine/edge/testing" >> /etc/apk/repositories; apk add --no-cache gcc libc-dev geos-dev; pip install shapely; while ! nc neo4j 7687; do  sleep 1; done; python -B setup.py test"
     links:
       - neo4j
     environment:
-      NEO4J_BOLT_URL: bolt://neo4j:neo4j@neo4j:7687
+      NEO4J_BOLT_URL: bolt://neo4j:foobar@neo4j:7687
+      NEO4J_VERSION: ${NEO4J_VERSION}
   neo4j:
     image: "neo4j:${NEO4J_VERSION}"
     environment:
@@ -46,7 +47,7 @@ for dir in neomodel test; do
     find ${dir} -name __pycache__ -exec rm -Rf {} \;
 done
 
-for NEO4J_VERSION in 3.0 3.1 3.2 3.3; do
+for NEO4J_VERSION in 3.0 3.1 3.2 3.3 3.4 3.5; do
     for PYTHON_VERSION in 2.7 3.4 3.5 3.6; do
         write_compose_file
         docker-compose up -d neo4j

@@ -86,7 +86,7 @@ class PropertyManager(object):
                 deflated[db_property] = property.deflate(
                     property.default_value(), obj
                 )
-            elif property.required or property.unique_index:
+            elif property.required:
                 raise RequiredProperty(name, cls)
             elif not skip_empty:
                 deflated[db_property] = None
@@ -312,9 +312,9 @@ class StringProperty(NormalizedProperty):
             except Exception:
                 raise ValueError("The choices argument must be convertable to a dictionary.")
             # Python 3:
-            # except Exception as e:
-            #     raise ValueError("The choices argument must be convertable to "
-            #                      "a dictionary.") from e
+            except Exception as e:
+                raise ValueError("The choices argument must be convertable to "
+                                 "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
@@ -511,6 +511,9 @@ class DateTimeProperty(Property):
         except ValueError:
             raise ValueError("Float or integer expected, got {0} can't inflate to "
                              "datetime.".format(type(value)))
+        except TypeError:
+            raise TypeError(
+                "Float or integer expected. Can't inflate {0} to datetime.".format(type(value)))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
