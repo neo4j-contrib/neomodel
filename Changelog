@@ -1,3 +1,6 @@
+Version 4.0.1 2020-09-28
+* Maintenance release to fix the Django requirement (Matt Galvis)
+
 Version 4.0.0 2020-09-16
 * Dropped Python 2.7 support 
 * Included support for Neo4j 4.*
