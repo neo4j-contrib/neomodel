@@ -4,10 +4,16 @@ jdk:
 python:
   - "2.7"
   - "3.4"
+  - "3.5"
+  - "3.6"
+  - "3.7"
+  - "3.8"
 install: "python setup.py install"
 script: nosetests -s
 env:
-  - NEO4J_VERSION="2.1.5"
+  - NEO4J_VERSION="2.0.5"
+  - NEO4J_VERSION="2.1.8"
+  - NEO4J_VERSION="2.2.10"
 before_install:
   - wget dist.neo4j.org/neo4j-community-$NEO4J_VERSION-unix.tar.gz
   - tar -xzf neo4j-community-$NEO4J_VERSION-unix.tar.gz
