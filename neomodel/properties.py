@@ -6,6 +6,7 @@ import re
 import uuid
 import warnings
 from datetime import date, datetime
+import neo4j.time
 
 import pytz
 
@@ -531,6 +532,38 @@ class DateTimeProperty(Property):
         return float((value - epoch_date).total_seconds())
 
 
+class DateTimeFormatNeo4j(Property):
+    """
+    Store a datetime by native neo4j format
+    
+    :param default_now: If ``True``, the creation time (Local) will be used as default.
+                        Defaults to ``False``.
+
+    :type default_now:  :class:`bool`
+    """
+    form_field_class = 'DateTimeFormatFieldNeo4j'
+
+    def __init__(self, default_now=False, **kwargs):
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: datetime.now()
+
+        self.format = format
+        super(DateTimeFormatNeo4j, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return value.to_native()
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+        return neo4j.time.DateTime.from_native(value)
+
+    
+    
 class JSONProperty(Property):
     """
     Store a data structure as a JSON string.
