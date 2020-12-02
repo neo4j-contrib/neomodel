@@ -28,7 +28,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     :type rhs: str
     :param ident: A specific identity to name the relationship, or None.
     :type ident: str
-    :param relation_type: None for all direct rels, * for all of any length, or a name of an explicit rel.
+    :param relation_type: None for all direct rels, * for all of any length, a name of an explicit rel, or a list of names.
     :type relation_type: str
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
@@ -56,7 +56,15 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident if ident else '', relation_type, rel_props))
+        # if multiple relationship types are given, use OR syntax (:TYPE1|TYPE2|TYPE3...)
+        if type(relation_type) != str and hasattr(relation_type, '__iter__'):
+            # we also have to escape them here, as we cannot escape the built string later.
+            # `TYPE1|TYPE2` will be interpreted as a single value
+            relation_type = "|".join(['`' + label + '`' for label in relation_type])
+        else:
+            # if it is a single value, escape it
+            relation_type = '`' + relation_type + '`'
+        stmt = stmt.format('[{0}:{1}{2}]'.format(ident if ident else '', relation_type, rel_props))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
@@ -323,6 +331,7 @@ class QueryBuilder(object):
         lhs_ident = self.build_source(traversal.source)
         rhs_ident = traversal.name + rhs_label
         self._ast['return'] = traversal.name
+        self._ast['return_mod'] = 'DISTINCT'
         self._ast['result_class'] = traversal.target_class
 
         rel_ident = self.create_ident()
@@ -461,7 +470,7 @@ class QueryBuilder(object):
             query += ' WITH '
             query += self._ast['with']
 
-        query += ' RETURN ' + self._ast['return']
+        query += ' RETURN ' + self._ast.get('return_mod', '') + ' ' + self._ast['return']
 
         if 'order_by' in self._ast and self._ast['order_by']:
             query += ' ORDER BY '
