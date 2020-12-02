@@ -173,5 +173,8 @@ The ``defintion`` argument is a :term:`py3:mapping` with these items:
 ``direction``      ``match.OUTGOING`` / ``match.INCOMING`` / ``match.EITHER``
 ``relation_type``  Can be ``None`` (for any direction), ``*`` for all paths
                    or an explicit name of a relation type (the edge's label).
+                   Matching multiple labels can be done by supplying a list of
+                   names. This will match any edge that matches at least one of
+                   these.
 ``model``          The class of the relation model, ``None`` for such without one.
 =================  ===============================================================
