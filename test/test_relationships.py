@@ -205,12 +205,10 @@ def test_multiple_label_relationship_traversal():
     relations_traversal = Traversal(c1, PersonWithRels.__label__,
                                     definition)
 
-    inhabitants_and_prez = relations_traversal.all()
+    assert len(relations_traversal) == 2
 
-    assert len(inhabitants_and_prez) == 2
-
-    assert p1 in inhabitants_and_prez
-    assert p2 in inhabitants_and_prez
+    assert p1 in relations_traversal
+    assert p2 in relations_traversal
 
     # add president as inhabitant
     c1.inhabitant.connect(p2)
@@ -219,10 +217,16 @@ def test_multiple_label_relationship_traversal():
     relations_traversal = Traversal(c1, PersonWithRels.__label__,
                                     definition)
 
-    inhabitants_and_prez = relations_traversal.all()
-
     # p2 is connected twice, but should only be returned once
-    assert len(inhabitants_and_prez) == 2
+    assert len(relations_traversal) == 2
 
-    assert p1 in inhabitants_and_prez
-    assert p2 in inhabitants_and_prez
+    assert p1 in relations_traversal
+    assert p2 in relations_traversal
+
+    # check if lazy evaluation also honors the distinct restriction
+    lazy_evaluated = Traversal(c1, PersonWithRels.__label__, definition).all(True)
+
+    assert len(lazy_evaluated) == 2
+
+    assert p1.id in lazy_evaluated
+    assert p2.id in lazy_evaluated

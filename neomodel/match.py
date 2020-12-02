@@ -485,7 +485,7 @@ class QueryBuilder(object):
         return query
 
     def _count(self):
-        self._ast['return'] = 'count({0})'.format(self._ast['return'])
+        self._ast['return'] = 'count({0} {1})'.format(self._ast.pop('return_mod', ''), self._ast['return'])
         # drop order_by, results in an invalid query
         self._ast.pop('order_by', None)
         query = self.build_query()
