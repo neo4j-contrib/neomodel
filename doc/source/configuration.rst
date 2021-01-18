@@ -10,7 +10,7 @@ Seting the connection URL::
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
 
-Disable encrypted connection (usefult for development)::
+Disable encrypted connection (useful for development)::
 
     config.ENCRYPTED_CONNECTION = False
 
