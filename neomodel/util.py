@@ -126,7 +126,7 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(default_access_mode=access_mode).begin_transaction()
+        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=config.DATABASE_NAME).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -153,10 +153,10 @@ class Database(local, NodeClassRegistry):
         The function operates recursively in order to be able to resolve Nodes
         within nested list structures. Not meant to be called directly,
         used primarily by cypher_query.
-        
+
         :param result_list: A list of results as returned by cypher_query.
         :type list:
-        
+
         :return: A list of instantiated objects.
         """
 
@@ -164,7 +164,7 @@ class Database(local, NodeClassRegistry):
         for a_result_item in enumerate(result_list):
             for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
@@ -178,8 +178,8 @@ class Database(local, NodeClassRegistry):
                     result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
 
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
                     raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
 
@@ -190,7 +190,7 @@ class Database(local, NodeClassRegistry):
                      resolve_objects=False):
         """
         Runs a query on the database and returns a list of results and their headers.
-        
+
         :param query: A CYPHER query
         :type: str
         :param params: Dictionary of parameters
@@ -198,7 +198,7 @@ class Database(local, NodeClassRegistry):
         :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
         :type: bool
         :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
-        :type: bool        
+        :type: bool
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
@@ -209,7 +209,7 @@ class Database(local, NodeClassRegistry):
         if self._active_transaction:
             session = self._active_transaction
         else:
-            session = self.driver.session()
+            session = self.driver.session(database=config.DATABASE_NAME)
 
         try:
             # Retrieve the data
