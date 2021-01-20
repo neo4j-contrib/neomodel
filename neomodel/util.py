@@ -89,7 +89,9 @@ class Database(local, NodeClassRegistry):
         """
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing' or u.scheme == 'neo4j'):
+        valid_schemas = ['bolt', 'bolt+s', 'bolt+ssc', 'bolt+routing', 'neo4j', 'neo4j+s', 'neo4j+ssc']
+
+        if u.netloc.find('@') > -1 and u.scheme in valid_schemas:
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
         else:
@@ -98,7 +100,6 @@ class Database(local, NodeClassRegistry):
 
         self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
                                            auth=basic_auth(username, password),
-                                           encrypted=config.ENCRYPTED_CONNECTION,
                                            max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE)
         self.url = url
         self._pid = os.getpid()
