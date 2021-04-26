@@ -16,9 +16,9 @@ setup(
     keywords='graph neo4j ORM OGM',
     scripts=['scripts/neomodel_install_labels', 'scripts/neomodel_remove_labels'],
     setup_requires=['pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
-    tests_require=['pytest', 'shapely', 'neobolt'],
+    tests_require=['pytest>=6.0.1', 'shapely', 'neobolt'],
     install_requires=['neo4j-driver==4.1.1', 'pytz>=2016.10',
-                      "neobolt==1.7.17", "pytest>=6.0.1", "Shapely==1.7.1"],
+                      "neobolt==1.7.17", "Shapely==1.7.1"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
