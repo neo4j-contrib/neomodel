@@ -33,6 +33,7 @@ class SemiStructuredNode(StructuredNode):
             snode.id = node
         else:
             props = {}
+            node_properties = {}
             for key, prop in cls.__all_properties__:
                 node_properties = _get_node_properties(node)
                 if key in node_properties:
