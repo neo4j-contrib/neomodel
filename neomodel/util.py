@@ -5,7 +5,7 @@ import time
 import warnings
 from threading import local
 
-from neo4j import GraphDatabase, basic_auth
+from neo4j import GraphDatabase, basic_auth, DEFAULT_DATABASE
 from neo4j.exceptions import ClientError, SessionExpired
 
 from neo4j.graph import Node
@@ -82,6 +82,7 @@ class Database(local, NodeClassRegistry):
         self.url = None
         self.driver = None
         self._pid = None
+        self._database_name = DEFAULT_DATABASE
 
     def set_connection(self, url):
         """
@@ -94,6 +95,7 @@ class Database(local, NodeClassRegistry):
         if u.netloc.find('@') > -1 and u.scheme in valid_schemas:
             credentials, hostname = u.netloc.rsplit('@', 1)
             username, password, = credentials.split(':')
+            database_name = u.path.strip("/")
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {0}".format(url))
@@ -104,6 +106,7 @@ class Database(local, NodeClassRegistry):
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
+        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
     @property
     def transaction(self):
@@ -127,7 +130,7 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(default_access_mode=access_mode).begin_transaction()
+        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=self._database_name).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -210,7 +213,7 @@ class Database(local, NodeClassRegistry):
         if self._active_transaction:
             session = self._active_transaction
         else:
-            session = self.driver.session()
+            session = self.driver.session(database=self._database_name)
 
         try:
             # Retrieve the data
