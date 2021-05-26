@@ -10,6 +10,8 @@ Before executing any neomodel code, set the connection url::
     from neomodel import config
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
 
+    # You can specify a database name: 'bolt://neo4j:neo4j@localhost:7687/mydb'
+
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
 If you are using your neo4j server for the first time you will need to change the default password.
