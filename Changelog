@@ -1,3 +1,12 @@
+Version 4.0.3 2020-09-28
+* fix: "SemiStructuredNode can't have no props #493" (thank you @dmp593)
+* removed pytest as an installation requirement (#553) (thank you @mprahl)
+* allow connection to bolt+s database URL schema (#543) 
+* typo fixes
+
+Version 4.0.2
+* Minor updates
+
 Version 4.0.1 2020-09-28
 * Maintenance release to fix the Django requirement (Matt Galvis)
 
