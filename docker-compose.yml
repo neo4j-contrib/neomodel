@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  tests:
+    image: "python:${PYTHON_VERSION}-slim"
+    volumes:
+      - .:/src
+      - pip-cache:/root/.cache/pip
+    working_dir: /src
+    command: >
+      sh -c "pip install geos shapely && python -B setup.py test"
+    links:
+      - neo4j
+    environment:
+      NEO4J_BOLT_URL: bolt://neo4j:foobar@neo4j:7687
+      NEO4J_VERSION: ${NEO4J_VERSION}
+  neo4j:
+    image: "neo4j:${NEO4J_VERSION}"
+    environment:
+      NEO4J_AUTH: none
+
+volumes:
+  pip-cache:
+    driver: local
+

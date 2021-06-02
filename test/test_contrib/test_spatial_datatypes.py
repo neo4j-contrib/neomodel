@@ -22,6 +22,8 @@ def version_to_dec(a_version_string):
     :return: An integer representation of the string version, e.g. '3.4.0' --> 340
     """
     components = a_version_string.split('.')
+    while len(components) < 3:
+        components.append('0')
     num = 0
     for a_component in enumerate(components):
         num += (10 ** ((len(components) - 1) - a_component[0])) * int(a_component[1])
@@ -168,7 +170,7 @@ def test_prohibited_constructor_forms():
     check_and_skip_neo4j_least_version(340, 'This version does not support spatial data types.')
 
     # Absurd CRS
-    with pytest.raises(ValueError, match='Invalid CRS\(blue_hotel\)'):
+    with pytest.raises(ValueError, match=r'Invalid CRS\(blue_hotel\)'):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0,0), crs='blue_hotel')
 
     # Absurd coord dimensionality
@@ -203,20 +205,20 @@ def test_property_accessors_depending_on_crs():
 
     # Geometrical points only have x,y,z coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='cartesian-3d')
-    with pytest.raises(AttributeError, match='Invalid coordinate \("longitude"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("longitude"\)'):
         new_point.longitude
-    with pytest.raises(AttributeError, match='Invalid coordinate \("latitude"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("latitude"\)'):
         new_point.latitude
-    with pytest.raises(AttributeError, match='Invalid coordinate \("height"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("height"\)'):
         new_point.height
 
     # Geographical points only have longitude, latitude, height coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0), crs='wgs-84-3d')
-    with pytest.raises(AttributeError, match='Invalid coordinate \("x"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("x"\)'):
         new_point.x
-    with pytest.raises(AttributeError, match='Invalid coordinate \("y"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("y"\)'):
         new_point.y
-    with pytest.raises(AttributeError, match='Invalid coordinate \("z"\)'):
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("z"\)'):
         new_point.z
 
 
