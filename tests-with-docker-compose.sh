@@ -13,13 +13,13 @@ for dir in neomodel test; do
     rm -f ${dir}/**/*.pyc
     find ${dir} -name __pycache__ -exec rm -Rf {} \;
 done
-: "${NEO4J_VERSIONS:=4.1 4.0 3.5}"
-: "${PYTHON_VERSIONS:=3.8 3.7 3.6 3.5}"
+: "${NEO4J_VERSIONS:=4.1 4.0}"
+: "${PYTHON_VERSIONS:=3.8 3.7 3.6}"
 for NEO4J_VERSION in ${NEO4J_VERSIONS}; do
     for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
         export NEO4J_VERSION
         export PYTHON_VERSION
-        # docker-compose up -d neo4j
+        docker-compose up -d neo4j
         docker-compose up  --abort-on-container-exit --exit-code-from tests
         RESULT=$?
         if [ ${RESULT} != "0" ]; then
