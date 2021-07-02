@@ -10,13 +10,19 @@ Setting the connection URL::
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
 
-Disable encrypted connection (useful for development)::
+Adjust driver configuration::
 
-    config.ENCRYPTED_CONNECTION = False
-
-Adjust connection pool size::
-
-    config.MAX_CONNECTION_POOL_SIZE = 50  # default
+    config.MAX_CONNECTION_POOL_SIZE = 100  # default
+    config.CONNECTION_ACQUISITION_TIMEOUT = 60.0  # default
+    config.CONNECTION_TIMEOUT = 30.0  # default
+    config.ENCRYPTED = False  # default
+    config.KEEP_ALIVE = True  # default
+    config.MAX_CONNECTION_LIFETIME = 3600  # default
+    config.MAX_CONNECTION_POOL_SIZE = 100  # default
+    config.MAX_TRANSACTION_RETRY_TIME = 30.0  # default
+    config.RESOLVER = None  # default
+    config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES  # default
+    config.USER_AGENT = None  # default
 
 Setting the database name, for neo4j >= 4::
 
