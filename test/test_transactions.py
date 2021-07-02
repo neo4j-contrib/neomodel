@@ -71,12 +71,13 @@ def test_query_inside_transaction():
 
 
 def test_set_connection_works():
-    assert APerson(name='New guy').save()
+    assert APerson(name='New guy 1').save()
     from socket import gaierror
 
     old_url = db.url
     with raises(ValueError):
         db.set_connection('bolt://user:password@6.6.6.6.6.6.6.6:7687')
+        APerson(name='New guy 2').save()
     db.set_connection(old_url)
     # set connection back
-    assert APerson(name='New guy2').save()
+    assert APerson(name='New guy 3').save()
