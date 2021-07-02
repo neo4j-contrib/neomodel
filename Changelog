@@ -1,3 +1,11 @@
+Version 4.0.4 2021-07-01
+* Fix for docker tests (#479)
+* Add support for slow query log (#480)
+* Add support for multi databases (#556)
+* docker-compose-update (#561)
+* Provide additional configuration for neo4j-driver connection (#564)
+* Updated dependencies
+
 Version 4.0.3 2020-09-28
 * fix: "SemiStructuredNode can't have no props #493" (thank you @dmp593)
 * removed pytest as an installation requirement (#553) (thank you @mprahl)

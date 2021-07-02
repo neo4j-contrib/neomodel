@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='neomodel',
-    version='4.0.3',
+    version='4.0.4',
     description='An object mapper for the neo4j graph database.',
     long_description=open('README.rst').read(),
     author='Robin Edwards',
@@ -18,8 +18,8 @@ setup(
              'scripts/neomodel_remove_labels'],
     setup_requires=[
         'pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
-    tests_require=['pytest>=6.0.1', 'shapely', 'neobolt'],
-    install_requires=['neo4j-driver==4.1.1', 'pytz>=2016.10',
+    tests_require=['pytest>=6.2.4', 'shapely', 'neobolt'],
+    install_requires=['neo4j-driver==4.3.1', 'pytz>=2021.1',
                       "neobolt==1.7.17", "Shapely==1.7.1", "six==1.16.0"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
