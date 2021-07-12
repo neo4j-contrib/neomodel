@@ -35,7 +35,7 @@ Requirements
 ============
 
 - Python 3.5+ - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
-- neo4j 3.5, 4.0, 4.1 - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
+- neo4j 3.5, 4.0, 4.1 (4.3 currently being tested) - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
 
 Installation
 ============
