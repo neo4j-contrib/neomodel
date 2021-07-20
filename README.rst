@@ -27,14 +27,14 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
 Documentation
 =============
 
-Available on readthedocs_.
+(Needs an update, but) Available on readthedocs_.
 
 .. _readthedocs: http://neomodel.readthedocs.org
 
 Requirements
 ============
 
-- Python 3.5+ - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
+- Python 3.5+ - Neo4j Python Driver 4.3 https://neo4j.com/docs/api/python-driver/current/
 - neo4j 3.5, 4.0, 4.1 (4.3 currently being tested) - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
 
 Installation
