@@ -100,18 +100,23 @@ class Database(local, NodeClassRegistry):
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {0}".format(url))
 
-        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
-                                           auth=basic_auth(username, password),
-                                           connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
-                                           connection_timeout=config.CONNECTION_TIMEOUT,
-                                           encrypted=config.ENCRYPTED,
-                                           keep_alive=config.KEEP_ALIVE,
-                                           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
-                                           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
-                                           max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
-                                           resolver=config.RESOLVER,
-                                           trust=config.TRUST,
-                                           user_agent=config.USER_AGENT)
+        options = dict(
+           auth=basic_auth(username, password),
+           connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
+           connection_timeout=config.CONNECTION_TIMEOUT,
+           keep_alive=config.KEEP_ALIVE,
+           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
+           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
+           max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
+           resolver=config.RESOLVER,
+           user_agent=config.USER_AGENT
+        )
+
+        if "+s" not in u.scheme:
+            options['encrypted'] = config.ENCRYPTED
+            options['trust'] = config.TRUST
+
+        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname, **options)
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None

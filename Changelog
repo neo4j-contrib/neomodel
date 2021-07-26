@@ -1,3 +1,6 @@
+Version 4.0.5 2021-07-26
+* Fix issue with secure schema
+
 Version 4.0.4 2021-07-01
 * Fix for docker tests (#479)
 * Add support for slow query log (#480)
