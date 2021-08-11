@@ -79,7 +79,7 @@ Relationship Uniqueness
 =======================
 
 By default neomodel applies only one relationship instance between two node instances and 
-this is achieved via use of `CREATE UNIQUE`.
+this is achieved via use of `MERGE`. (This used to be `CREATE UNIQUE` until Cypher deprecated this command.)
 
 Relationships and Inheritance
 =============================
