@@ -48,7 +48,7 @@ If you're using celery or another task scheduler it's advised to wrap each task 
 Explicit Transactions
 ---------------------
 
-Neomodel also supports  `epxlicit transactions <https://neo4j.com/docs/
+Neomodel also supports  `explicit transactions <https://neo4j.com/docs/
 api/python-driver/current/transactions.html>`_ that are pre-designated as either *read* or *write*. 
 
 This is vital when using neomodel over a `Neo4J causal cluster <https://neo4j.com/docs/
