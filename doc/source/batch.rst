@@ -39,7 +39,7 @@ Atomically create or update nodes in a single operation::
 This is useful for ensuring data is up to date, each node is matched by its required and/or unique properties. Any
 additional properties will be set on a newly created or an existing node.
 
-It is important to provide unique identifiers were known, any fields with default values that are omitted will be generated.
+It is important to provide unique identifiers where known, any fields with default values that are omitted will be generated.
 
 get_or_create()
 ---------------
