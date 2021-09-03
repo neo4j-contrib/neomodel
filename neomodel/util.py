@@ -14,8 +14,9 @@ from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
 
 if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
+    from urllib.parse import quote, unquote, urlparse
 else:
+    from urllib import quote, unquote  # noqa
     from urlparse import urlparse  # noqa
 
 logger = logging.getLogger(__name__)
@@ -88,13 +89,18 @@ class Database(local, NodeClassRegistry):
         """
         Sets the connection URL to the address a Neo4j server is set up at
         """
+        p_start = url.replace(':', '', 1).find(':') + 2
+        p_end = url.rfind('@')
+        password = url[p_start:p_end]
+        url = url.replace(password, quote(password))
         u = urlparse(url)
 
         valid_schemas = ['bolt', 'bolt+s', 'bolt+ssc', 'bolt+routing', 'neo4j', 'neo4j+s', 'neo4j+ssc']
 
         if u.netloc.find('@') > -1 and u.scheme in valid_schemas:
             credentials, hostname = u.netloc.rsplit('@', 1)
-            username, password, = credentials.split(':')
+            username, password = credentials.split(':')
+            password = unquote(password)
             database_name = u.path.strip("/")
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
