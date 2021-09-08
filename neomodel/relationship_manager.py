@@ -3,7 +3,7 @@ import functools
 from importlib import import_module
 from .exceptions import NotConnected
 from .util import deprecated, _get_node_properties
-from .match import OUTGOING, INCOMING, EITHER, _rel_helper, Traversal, NodeSet
+from .match import OUTGOING, INCOMING, EITHER, _rel_helper, _rel_merge_helper, Traversal, NodeSet
 from .relationship import StructuredRel
 
 
@@ -83,15 +83,18 @@ class RelationshipManager(object):
             tmp = rel_model(**properties) if properties else rel_model()
             # build params and place holders to pass to rel_helper
             for p, v in rel_model.deflate(tmp.__properties__).items():
-                rp[p] = '{' + p + '}'
+                if v is not None:
+                    rp[p] = '$' + p
+                else:
+                    rp[p] = None
                 params[p] = v
 
             if hasattr(tmp, 'pre_save'):
                 tmp.pre_save()
 
-        new_rel = _rel_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
-        q = "MATCH (them), (us) WHERE id(them)={them} and id(us)={self} " \
-            "CREATE UNIQUE" + new_rel
+        new_rel = _rel_merge_helper(lhs='us', rhs='them', ident='r', relation_properties=rp, **self.definition)
+        q = "MATCH (them), (us) WHERE id(them)=$them and id(us)=$self " \
+            "MERGE" + new_rel
 
         params['them'] = node.id
 
@@ -130,7 +133,7 @@ class RelationshipManager(object):
         """
         self._check_node(node)
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r LIMIT 1"
+        q = "MATCH " + my_rel + " WHERE id(them)=$them and id(us)=$self RETURN r LIMIT 1"
         rels = self.source.cypher(q, {'them': node.id})[0]
         if not rels:
             return
@@ -150,7 +153,7 @@ class RelationshipManager(object):
         self._check_node(node)
 
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
-        q = "MATCH " + my_rel + " WHERE id(them)={them} and id(us)={self} RETURN r "
+        q = "MATCH " + my_rel + " WHERE id(them)=$them and id(us)=$self RETURN r "
         rels = self.source.cypher(q, {'them': node.id})[0]
         if not rels:
             return []
@@ -187,7 +190,7 @@ class RelationshipManager(object):
 
         # get list of properties on the existing rel
         result, meta = self.source.cypher(
-            "MATCH (us), (old) WHERE id(us)={self} and id(old)={old} "
+            "MATCH (us), (old) WHERE id(us)=$self and id(old)=$old "
             "MATCH " + old_rel + " RETURN r", {'old': old_node.id})
         if result:
             node_properties = _get_node_properties(result[0][0])
@@ -196,11 +199,11 @@ class RelationshipManager(object):
             raise NotConnected('reconnect', self.source, old_node)
 
         # remove old relationship and create new one
-        new_rel = _rel_helper(lhs='us', rhs='new', ident='r2', **self.definition)
+        new_rel = _rel_merge_helper(lhs='us', rhs='new', ident='r2', **self.definition)
         q = "MATCH (us), (old), (new) " \
-            "WHERE id(us)={self} and id(old)={old} and id(new)={new} " \
+            "WHERE id(us)=$self and id(old)=$old and id(new)=$new " \
             "MATCH " + old_rel
-        q += " CREATE UNIQUE" + new_rel
+        q += " MERGE" + new_rel
 
         # copy over properties if we have
         for p in existing_properties:
@@ -218,7 +221,7 @@ class RelationshipManager(object):
         :return:
         """
         rel = _rel_helper(lhs='a', rhs='b', ident='r', **self.definition)
-        q = "MATCH (a), (b) WHERE id(a)={self} and id(b)={them} " \
+        q = "MATCH (a), (b) WHERE id(a)=$self and id(b)=$them " \
             "MATCH " + rel + " DELETE r"
         self.source.cypher(q, {'them': node.id})
 
@@ -231,7 +234,7 @@ class RelationshipManager(object):
         """
         rhs = 'b:' + self.definition['node_class'].__label__
         rel = _rel_helper(lhs='a', rhs=rhs, ident='r', **self.definition)
-        q = 'MATCH (a) WHERE id(a)={self} MATCH ' + rel + ' DELETE r'
+        q = 'MATCH (a) WHERE id(a)=$self MATCH ' + rel + ' DELETE r'
         self.source.cypher(q)
 
     @check_source

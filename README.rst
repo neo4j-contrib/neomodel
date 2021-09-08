@@ -3,12 +3,12 @@
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
 
-- Familiar Django model style definitions.
+- Familiar class based model definitions with proper inheritance.
 - Powerful query API.
-- Enforce your schema through cardinality restrictions.
+- Schema enforcement through cardinality restrictions.
 - Full transaction support.
 - Thread safe.
-- pre/post save/delete hooks.
+- Pre/post save/delete hooks.
 - Django integration via django_neomodel_
 
 .. _django_neomodel: https://github.com/neo4j-contrib/django-neomodel
@@ -24,31 +24,25 @@ An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome
     :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
 
 
-! Support for Python 2.7 !
-==========================
-**Please note:** Version 3.3.1 will be the last version that `neomodel` provides suppport for Python 2.7. By its
-next major release, the project will focus solely on Python 3.*.
-
-
 Documentation
 =============
 
-Available on readthedocs_.
+(Needs an update, but) Available on readthedocs_.
 
 .. _readthedocs: http://neomodel.readthedocs.org
 
 Requirements
 ============
 
-- Python 2.7 (Up to version 3.3.1), 3.4+
-- neo4j 3.0, 3.1, 3.2, 3.3
+- Python 3.5+ - Neo4j Python Driver 4.3 https://neo4j.com/docs/api/python-driver/current/
+- neo4j 3.5, 4.0, 4.1 (4.3 currently being tested) - Neo4j Python Driver 4.1 https://neo4j.com/docs/api/python-driver/current/
 
 Installation
 ============
 
 Install from pypi (recommended)::
 
-    $ pip install neomodel
+    $ pip install neomodel ($ source dev # To install all things needed in a Python3 venv)
 
 To install from github::
 
@@ -68,26 +62,31 @@ Upgrading 2.x to 3.x
 Contributing
 ============
 
-Ideas, bugs, tests and pull requests always welcome.
+Ideas, bugs, tests and pull requests always welcome. 
+
+As of release `3.3.2` we now have a curated list of issues / development targets for
+`neomodel` available on `the Wiki <https://github.com/neo4j-contrib/neomodel/wiki/TODOs-&-Enhancements>`_.
+
+If you are interested in developing `neomodel` further, pick a subject from the list and open a Pull Request (PR) for 
+it. If you are adding a feature that is not captured in that list yet, consider if the work for it could also 
+contribute towards delivering any of the existing todo items too.
 
 Running the test suite
 ----------------------
 
 Make sure you have a Neo4j database version 3 or higher to run the tests on.::
 
-    $ export NEO4J_BOLT_URL=bolt://neo4j:neo4j@localhost:7687 # (the default)
+    $ export NEO4J_BOLT_URL=bolt://<username>:<password>@localhost:7687 # check your username and password
 
+Ensure `dbms.security.auth_enabled=true` in your database configuration file.
 Setup a virtual environment, install neomodel for development and run the test suite::
 
-    $ virtualenv venv
-    $ source venv/bin/activate
-    $ python setup.py develop
+    $ source dev
     $ pytest
 
 If you are running a neo4j database for the first time the test suite will set the password to 'test'.
 If the database is already populated, the test suite will abort with an error message and ask you to re-run it with the
-`--resetdb` switch. This is a safeguard to ensure that the test suite does not accidentally wipe out a database if
-you happen to not have restarted your Neo4j server to point to a (usually named) `debug.db` database.
+`--resetdb` switch. This is a safeguard to ensure that the test suite does not accidentally wipe out a database if you happen to not have restarted your Neo4j server to point to a (usually named) `debug.db` database.
 
 If you have ``docker-compose`` installed, you can run the test suite against all supported Python
 interpreters and neo4j versions::

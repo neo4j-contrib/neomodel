@@ -55,8 +55,8 @@ def test_either_connect_with_rel_model():
     # I've tried everything possible to correct this to no avail
     paul = new_rel.start_node()
     tom = new_rel.end_node()
-    assert paul.name == 'Paul'
-    assert tom.name == 'Tom'
+    assert paul.name == 'Tom'
+    assert tom.name == 'Paul'
 
 
 def test_direction_connect_with_rel_model():

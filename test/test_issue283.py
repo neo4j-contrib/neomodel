@@ -29,7 +29,7 @@ class PersonalRelationship(neomodel.StructuredRel):
     This relationship should be carried over to anything that inherits from 
     basePerson without any further effort.
     """
-    on_date = neomodel.DateProperty(default_now = True)
+    on_date = neomodel.DateTimeProperty(default_now = True)
     
 class BasePerson(neomodel.StructuredNode):
     """

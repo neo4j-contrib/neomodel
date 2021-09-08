@@ -61,6 +61,58 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
 
+def _rel_merge_helper(lhs, rhs, ident='neomodelident', relation_type=None, direction=None, relation_properties=None, **kwargs):
+    """
+    Generate a relationship merging string, with specified parameters.
+    Examples:
+    relation_direction = OUTGOING: (lhs)-[relation_ident:relation_type]->(rhs)
+    relation_direction = INCOMING: (lhs)<-[relation_ident:relation_type]-(rhs)
+    relation_direction = EITHER: (lhs)-[relation_ident:relation_type]-(rhs)
+
+    :param lhs: The left hand statement.
+    :type lhs: str
+    :param rhs: The right hand statement.
+    :type rhs: str
+    :param ident: A specific identity to name the relationship, or None.
+    :type ident: str
+    :param relation_type: None for all direct rels, * for all of any length, or a name of an explicit rel.
+    :type relation_type: str
+    :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
+    :param relation_properties: dictionary of relationship properties to merge
+    :returns: string
+    """
+
+    if direction == OUTGOING:
+        stmt = '-{0}->'
+    elif direction == INCOMING:
+        stmt = '<-{0}-'
+    else:
+        stmt = '-{0}-'
+
+    rel_props = ''
+    rel_none_props = ''
+
+    if relation_properties:
+        rel_props = ' {{{0}}}'.format(', '.join(
+            ['{0}: {1}'.format(key, value) for key, value in relation_properties.items() if value is not None]))
+        if None in relation_properties.values():
+            rel_none_props = ' ON CREATE SET {0} ON MATCH SET {0}'.format(
+                ', '.join(
+                    ['{0}.{1}={2}'.format(ident, key, '${!s}'.format(key)) for key, value in relation_properties.items() if value is None])
+            )
+    # direct, relation_type=None is unspecified, relation_type
+    if relation_type is None:
+        stmt = stmt.format('')
+    # all("*" wildcard) relation_type
+    elif relation_type == '*':
+        stmt = stmt.format('[*]')
+    else:
+        # explicit relation_type
+        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident, relation_type, rel_props))
+
+    return "({0}){1}({2}){3}".format(lhs, stmt, rhs, rel_none_props)
+
+
 # special operators
 _SPECIAL_OPERATOR_IN = 'IN'
 _SPECIAL_OPERATOR_INSENSITIVE = '(?i)'
@@ -287,7 +339,7 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = 'MATCH ({0}) WHERE id({1})={{{2}}} WITH {3}'.format(ident, ident, place_holder, ident)
+        _node_lookup = 'MATCH ({0}) WHERE id({1})=${2} WITH {3}'.format(ident, ident, place_holder, ident)
         self._ast['lookup'] = _node_lookup
 
         self._query_params[place_holder] = node.id
@@ -353,7 +405,7 @@ class QueryBuilder(object):
                         statement = '{0}.{1} {2}'.format(ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{0}.{1} {2} {{{3}}}'.format(ident, prop, op, place_holder)
+                        statement = '{0}.{1} {2} ${3}'.format(ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     target.append(statement)
         ret = ' {0} '.format(q.connector).join(target)
@@ -386,7 +438,7 @@ class QueryBuilder(object):
                         statement = '{0} {1}.{2} {3}'.format('NOT' if negate else '', ident, prop, op)
                     else:
                         place_holder = self._register_place_holder(ident + '_' + prop)
-                        statement = '{0} {1}.{2} {3} {{{4}}}'.format('NOT' if negate else '', ident, prop, op, place_holder)
+                        statement = '{0} {1}.{2} {3} ${4}'.format('NOT' if negate else '', ident, prop, op, place_holder)
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
@@ -435,7 +487,7 @@ class QueryBuilder(object):
         # inject id = into ast
         ident = self._ast['return']
         place_holder = self._register_place_holder(ident + '_contains')
-        self._ast['where'].append('id({0}) = {{{1}}}'.format(ident, place_holder))
+        self._ast['where'].append('id({0}) = ${1}'.format(ident, place_holder))
         self._query_params[place_holder] = node_id
         return self._count() >= 1
 

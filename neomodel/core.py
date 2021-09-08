@@ -7,6 +7,7 @@ from neomodel.exceptions import DoesNotExist, ClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
+from neo4j.exceptions import ClientError
 
 db = Database()
 
@@ -18,12 +19,19 @@ def drop_constraints(quiet=True, stdout=None):
     :type: bool
     :return: None
     """
+    if not stdout or stdout is None:
+        stdout = sys.stdout
 
     results, meta = db.cypher_query("CALL db.constraints()")
     pattern = re.compile(':(.*) \).*\.(\w*)')
     for constraint in results:
-        db.cypher_query('DROP ' + constraint[0])
-        match = pattern.search(constraint[0])
+        # Versions prior to 4.0 have a very different return format
+        if constraint[0].startswith('CONSTRAINT '):
+            db.cypher_query('DROP {!s}'.format(constraint[0]))
+            match = pattern.search(constraint[0])
+        else:
+            db.cypher_query('DROP CONSTRAINT {!s}'.format(constraint[0]))
+            match = pattern.search(constraint[1])
         stdout.write(''' - Droping unique constraint and index on label {0} with property {1}.\n'''.format(
             match.group(1), match.group(2)))
     stdout.write("\n")
@@ -36,14 +44,22 @@ def drop_indexes(quiet=True, stdout=None):
     :type: bool
     :return: None
     """
+    if not stdout or stdout is None:
+        stdout = sys.stdout
 
     results, meta = db.cypher_query("CALL db.indexes()")
     pattern = re.compile(':(.*)\((.*)\)')
     for index in results:
-        db.cypher_query('DROP ' + index[0])
-        match = pattern.search(index[0])
-        stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-            match.group(1), match.group(2)))
+        # Versions prior to 4.0 have a very different return format
+        if not isinstance(index[0], int) and index[0].startswith('INDEX '):
+            db.cypher_query('DROP ' + index[0])
+            match = pattern.search(index[0])
+            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
+                match.group(1), match.group(2)))
+        else:
+            db.cypher_query('DROP INDEX ' + index[1])
+            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
+                index[7][0], index[8][0]))
     stdout.write("\n")
 
 
@@ -76,6 +92,8 @@ def install_labels(cls, quiet=True, stdout=None):
     :type: bool
     :return: None
     """
+    if not stdout or stdout is None:
+        stdout = sys.stdout
 
     if not hasattr(cls, '__label__'):
         if not quiet:
@@ -88,18 +106,28 @@ def install_labels(cls, quiet=True, stdout=None):
             if not quiet:
                 stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
-                cls.__label__, db_property))
+            try:
+                db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
+                    cls.__label__, db_property))
+            except ClientError as e:
+                if str(e).lower().startswith("an equivalent index already exists"):
+                    stdout.write('{0}\n'.format(str(e)))
+                else:
+                    raise
 
         elif property.unique_index:
             if not quiet:
                 stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
-
-            db.cypher_query("CREATE CONSTRAINT "
-                            "on (n:{0}) ASSERT n.{1} IS UNIQUE; ".format(
-                cls.__label__, db_property))
+            try:
+                db.cypher_query("CREATE CONSTRAINT "
+                                "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
+                    cls.__label__, db_property))
+            except ClientError as e:
+                if str(e).lower().startswith("an equivalent constraint already exists"):
+                    stdout.write('{0}\n'.format(str(e)))
+                else:
+                    raise
 
 
 def install_all_labels(stdout=None):
@@ -111,11 +139,11 @@ def install_all_labels(stdout=None):
     :return: None
     """
 
-    if not stdout:
+    if not stdout or stdout is None:
         stdout = sys.stdout
 
-    def subsub(kls):  # recursively return all subclasses
-        return kls.__subclasses__() + [g for s in kls.__subclasses__() for g in subsub(s)]
+    def subsub(cls):  # recursively return all subclasses
+        return cls.__subclasses__() + [g for s in cls.__subclasses__() for g in subsub(s)]
 
     stdout.write("Setting up indexes and constraints...\n\n")
 
@@ -170,7 +198,7 @@ class NodeMeta(type):
             cls.__label__ = namespace.get('__label__', name)
 
             if config.AUTO_INSTALL_LABELS:
-                install_labels(cls)
+                install_labels(cls, quiet=False)
 
             label_set = frozenset(cls.inherited_labels())
             if label_set not in db._NODE_CLASS_REGISTRY:
@@ -263,7 +291,7 @@ class StructuredNode(NodeBase):
             ", ".join("{0}: params.create.{0}".format(getattr(cls, p).db_property or p) for p in cls.__required_properties__))
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND {{merge_params}} as params\n MERGE ({0})\n ".format(n_merge)
+            query = "UNWIND $merge_params as params\n MERGE ({0})\n ".format(n_merge)
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
@@ -275,8 +303,8 @@ class StructuredNode(NodeBase):
             from .match import _rel_helper
 
             query_params["source_id"] = relationship.source.id
-            query = "MATCH (source:{0}) WHERE ID(source) = {{source_id}}\n ".format(relationship.source.__label__)
-            query += "WITH source\n UNWIND {merge_params} as params \n "
+            query = "MATCH (source:{0}) WHERE ID(source) = $source_id\n ".format(relationship.source.__label__)
+            query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(lhs='source', rhs=n_merge, ident=None,
                                  relation_type=relation_type, direction=relationship.definition['direction'])
@@ -317,7 +345,7 @@ class StructuredNode(NodeBase):
 
         lazy = kwargs.get('lazy', False)
         # create mapped query
-        query = "CREATE (n:{0} {{create_params}})".format(':'.join(cls.inherited_labels()))
+        query = "CREATE (n:{0} $create_params)".format(':'.join(cls.inherited_labels()))
 
         # close query
         if lazy:
@@ -395,7 +423,7 @@ class StructuredNode(NodeBase):
         :return: True
         """
         self._pre_action_check('delete')
-        self.cypher("MATCH (self) WHERE id(self)={self} "
+        self.cypher("MATCH (self) WHERE id(self)=$self "
                     "OPTIONAL MATCH (self)-[r]-()"
                     " DELETE r, self")
         delattr(self, 'id')
@@ -405,13 +433,14 @@ class StructuredNode(NodeBase):
     @classmethod
     def get_or_create(cls, *props, **kwargs):
         """
-        Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
+        Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
         Parameters must contain all required properties, any non required properties with defaults will be generated.
 
         Note that the post_create hook isn't called after get_or_create
 
-        :param props: dict of properties to get or create the entities with.
+        :param props: Arguments to get_or_create as tuple of dict with property names and values to get or create
+                      the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -481,7 +510,7 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check('labels')
-        return self.cypher("MATCH (n) WHERE id(n)={self} "
+        return self.cypher("MATCH (n) WHERE id(n)=$self "
                            "RETURN labels(n)")[0][0][0]
 
     def _pre_action_check(self, action):
@@ -498,7 +527,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check('refresh')
         if hasattr(self, 'id'):
-            request = self.cypher("MATCH (n) WHERE id(n)={self}"
+            request = self.cypher("MATCH (n) WHERE id(n)=$self"
                                             " RETURN n")[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
@@ -520,9 +549,8 @@ class StructuredNode(NodeBase):
         if hasattr(self, 'id'):
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)={self} \n"
-            query += "\n".join(["SET n.{0} = {{{1}}}".format(key, key) + "\n"
-                                for key in params.keys()])
+            query = "MATCH (n) WHERE id(n)=$self \n"
+            query += "\n".join(["SET n.{0} = ${1}".format(key, key) + "\n" for key in params.keys()])
             for label in self.inherited_labels():
                 query += "SET n:`{0}`\n".format(label)
             self.cypher(query, params)

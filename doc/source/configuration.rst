@@ -6,17 +6,27 @@ This section is covering the Neomodel 'config' module and its variables.
 Database
 --------
 
-Seting the connection URL::
+Setting the connection URL::
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
 
-Disable encrypted connection (usefult for development)::
+Adjust driver configuration::
 
-    config.ENCRYPTED_CONNECTION = False
+    config.MAX_CONNECTION_POOL_SIZE = 100  # default
+    config.CONNECTION_ACQUISITION_TIMEOUT = 60.0  # default
+    config.CONNECTION_TIMEOUT = 30.0  # default
+    config.ENCRYPTED = False  # default
+    config.KEEP_ALIVE = True  # default
+    config.MAX_CONNECTION_LIFETIME = 3600  # default
+    config.MAX_CONNECTION_POOL_SIZE = 100  # default
+    config.MAX_TRANSACTION_RETRY_TIME = 30.0  # default
+    config.RESOLVER = None  # default
+    config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES  # default
+    config.USER_AGENT = None  # default
 
-Adjust connection pool size::
+Setting the database name, for neo4j >= 4::
 
-    config.MAX_POOL_SIZE = 50  # default
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687/mydb`
 
 Enable automatic index and constraint creation
 ----------------------------------------------
@@ -28,7 +38,7 @@ constraints and indexes at compile time. However this method is only recommended
     # before loading your node definitions
     config.AUTO_INSTALL_LABELS = True
 
-Neomodel also provides the `neomodel_install_labels` scripr for this task, 
+Neomodel also provides the `neomodel_install_labels` script for this task,
 however if you want to handle this manually see below.
 
 Install indexes and constraints for a single class::
