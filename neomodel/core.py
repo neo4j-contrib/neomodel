@@ -110,7 +110,7 @@ def install_labels(cls, quiet=True, stdout=None):
                 db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
                     cls.__label__, db_property))
             except ClientError as e:
-                if str(e).lower().startswith("an equivalent index already exists"):
+                if str(e.message).lower().startswith("an equivalent index already exists"):
                     stdout.write('{0}\n'.format(str(e)))
                 else:
                     raise
@@ -124,7 +124,7 @@ def install_labels(cls, quiet=True, stdout=None):
                                 "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
                     cls.__label__, db_property))
             except ClientError as e:
-                if str(e).lower().startswith("an equivalent constraint already exists"):
+                if str(e.message).lower().startswith("an equivalent constraint already exists"):
                     stdout.write('{0}\n'.format(str(e)))
                 else:
                     raise

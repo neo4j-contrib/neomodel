@@ -1,3 +1,7 @@
+Version 4.0.6 2021-09-09
+* Fix calling install_all_labels twice fails #539
+* Fix issue with passwords with special chars #572
+
 Version 4.0.5 2021-07-26
 * Fix issue with secure schema
 
