@@ -188,7 +188,7 @@ class Database(local, NodeClassRegistry):
         for a_result_item in enumerate(result_list):
             for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
@@ -202,8 +202,8 @@ class Database(local, NodeClassRegistry):
                     result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
 
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
                     raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
 
@@ -293,7 +293,13 @@ class TransactionProxy(object):
                 raise UniqueProperty(exc_value.message)
 
         if not exc_value:
-            self.db.commit()
+            try:
+                self.db.commit()
+            except:
+                # In case when something went wrong during committing changes to the database, we have to close
+                # an active transaction.
+                self.db._active_transaction = None
+                raise
 
     def __call__(self, func):
         def wrapper(*args, **kwargs):
