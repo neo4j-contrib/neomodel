@@ -1,3 +1,7 @@
+Version 4.0.7 2021-10-19
+* Update neo4j driver to 4.3.6 #582 (ty @amikrop)
+* Fix After ServiceUnavailable error, connection pool is broken and does not recover #551 (ty @olegchigirin)
+
 Version 4.0.6 2021-09-09
 * Fix calling install_all_labels twice fails #539
 * Fix issue with passwords with special chars #572
