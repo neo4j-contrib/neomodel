@@ -443,7 +443,7 @@ class DateProperty(Property):
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(unicode(value), "%Y-%m-%d").date()
+        return datetime.fromisoformat(unicode(value)).date()
 
     @validator
     def deflate(self, value):
