@@ -22,7 +22,7 @@ __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
 __license__ = 'MIT'
 __package__ = 'neomodel'
-if (sys.version_info.major, sys.version_info.minor) >= (3, 8)
+if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
     from importlib.metadata import version
     neo_version = version("neomodel")
 else:
