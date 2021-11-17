@@ -9,6 +9,8 @@ from datetime import date, datetime
 
 import pytz
 
+import neo4j.time
+
 from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
 
@@ -443,6 +445,11 @@ class DateProperty(Property):
 
     @validator
     def inflate(self, value):
+        if isinstance(value, neo4j.time.DateTime):
+            value = date(value.year, value.month, value.day)
+        elif isinstance(value, str):
+            if "T" in value:
+                value = value[:value.find('T')]
         return datetime.strptime(unicode(value), "%Y-%m-%d").date()
 
     @validator
