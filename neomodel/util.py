@@ -5,18 +5,21 @@ import time
 import warnings
 from threading import local
 
-from neo4j.v1 import GraphDatabase, basic_auth, CypherError, SessionError, Node, Relationship
+from neo4j import GraphDatabase, basic_auth, DEFAULT_DATABASE
+from neo4j.exceptions import ClientError, SessionExpired
+
+from neo4j.graph import Node, Relationship
 
 from . import config
 from .exceptions import UniqueProperty, ConstraintValidationFailed,  NodeClassNotDefined, RelationshipClassNotDefined
 
 if sys.version_info >= (3, 0):
-    from urllib.parse import urlparse
+    from urllib.parse import quote, unquote, urlparse
 else:
+    from urllib import quote, unquote  # noqa
     from urlparse import urlparse  # noqa
 
 logger = logging.getLogger(__name__)
-
 
 
 # make sure the connection url has been set prior to executing the wrapped function
@@ -36,11 +39,16 @@ def ensure_connection(func):
 
 
 def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword({password})", {'password': new_password})
+    db.cypher_query("CALL dbms.changePassword($password)", {'password': new_password})
 
 
-def clear_neo4j_database(db):
+def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
+    import neomodel.core as core
     db.cypher_query("MATCH (a) DETACH DELETE a")
+    if clear_constraints:
+        core.drop_constraints()
+    if clear_indexes:
+        core.drop_indexes()
 
 
 class NodeClassRegistry:
@@ -57,12 +65,17 @@ class NodeClassRegistry:
     def __init__(self):
         self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
 
+    def __str__(self):
+        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                             self._NODE_CLASS_REGISTRY.items()))
+        return "\n".join(ncr_items)
+
 
 class Database(local, NodeClassRegistry):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
-    
+
     def __init__(self):
         """
         """
@@ -70,27 +83,50 @@ class Database(local, NodeClassRegistry):
         self.url = None
         self.driver = None
         self._pid = None
+        self._database_name = DEFAULT_DATABASE
 
     def set_connection(self, url):
         """
         Sets the connection URL to the address a Neo4j server is set up at
         """
+        p_start = url.replace(':', '', 1).find(':') + 2
+        p_end = url.rfind('@')
+        password = url[p_start:p_end]
+        url = url.replace(password, quote(password))
         u = urlparse(url)
 
-        if u.netloc.find('@') > -1 and (u.scheme == 'bolt' or u.scheme == 'bolt+routing'):
+        valid_schemas = ['bolt', 'bolt+s', 'bolt+ssc', 'bolt+routing', 'neo4j', 'neo4j+s', 'neo4j+ssc']
+
+        if u.netloc.find('@') > -1 and u.scheme in valid_schemas:
             credentials, hostname = u.netloc.rsplit('@', 1)
-            username, password, = credentials.split(':')
+            username, password = credentials.split(':')
+            password = unquote(password)
+            database_name = u.path.strip("/")
         else:
             raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
                              " got {0}".format(url))
 
-        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname,
-                                           auth=basic_auth(username, password),
-                                           encrypted=config.ENCRYPTED_CONNECTION,
-                                           max_pool_size=config.MAX_POOL_SIZE)
+        options = dict(
+           auth=basic_auth(username, password),
+           connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
+           connection_timeout=config.CONNECTION_TIMEOUT,
+           keep_alive=config.KEEP_ALIVE,
+           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
+           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
+           max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
+           resolver=config.RESOLVER,
+           user_agent=config.USER_AGENT
+        )
+
+        if "+s" not in u.scheme:
+            options['encrypted'] = config.ENCRYPTED
+            options['trust'] = config.TRUST
+
+        self.driver = GraphDatabase.driver(u.scheme + '://' + hostname, **options)
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
+        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
     @property
     def transaction(self):
@@ -102,10 +138,10 @@ class Database(local, NodeClassRegistry):
     @property
     def write_transaction(self):
         return TransactionProxy(self, access_mode="WRITE")
-        
+
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")        
+        return TransactionProxy(self, access_mode="READ")
 
     @ensure_connection
     def begin(self, access_mode=None):
@@ -114,7 +150,7 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(access_mode=access_mode).begin_transaction()
+        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=self._database_name).begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -147,12 +183,12 @@ class Database(local, NodeClassRegistry):
         
         :return: A list of instantiated objects.
         """
-        
+
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
-            for a_result_attribute in enumerate(a_result_item[1]):                    
+            for a_result_attribute in enumerate(a_result_item[1]):
                 try:
-                    # Primitive types should remain primitive types, 
+                    # Primitive types should remain primitive types,
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
@@ -170,12 +206,12 @@ class Database(local, NodeClassRegistry):
                         
                     if type(a_result_attribute[1]) is list:
                         resolved_object = self._object_resolution([a_result_attribute[1]])
-                    
+
                     result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
-                    
+
                 except KeyError:
-                    # Not being able to match the label set of a node with a known object results 
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible 
+                    # Not being able to match the label set of a node with a known object results
+                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
                     if isinstance(a_result_attribute[1], Node):
                         raise NodeClassNotDefined(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
@@ -185,10 +221,9 @@ class Database(local, NodeClassRegistry):
                     
         return result_list
 
-        
-        
     @ensure_connection
-    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False, resolve_objects=False):
+    def cypher_query(self, query, params=None, handle_unique=True, retry_on_session_expire=False,
+                     resolve_objects=False):
         """
         Runs a query on the database and returns a list of results and their headers.
         
@@ -203,14 +238,14 @@ class Database(local, NodeClassRegistry):
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-        
+
         if self._pid != os.getpid():
             self.set_connection(self.url)
 
         if self._active_transaction:
             session = self._active_transaction
         else:
-            session = self.driver.session()
+            session = self.driver.session(database=self._database_name)
 
         try:
             # Retrieve the data
@@ -218,12 +253,12 @@ class Database(local, NodeClassRegistry):
             response = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
-            
+
             if resolve_objects:
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
-                
-        except CypherError as ce:
+
+        except ClientError as ce:
             if ce.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 if 'already exists with label' in ce.message and handle_unique:
                     raise UniqueProperty(ce.message)
@@ -235,7 +270,7 @@ class Database(local, NodeClassRegistry):
                     raise exc_info[1].with_traceback(exc_info[2])
                 else:
                     raise exc_info[1]
-        except SessionError:
+        except SessionExpired:
             if retry_on_session_expire:
                 self.set_connection(self.url)
                 return self.cypher_query(query=query,
@@ -244,12 +279,13 @@ class Database(local, NodeClassRegistry):
                                          retry_on_session_expire=False)
             raise
 
-        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(end - start))
+        tte = (end - start)
+        if os.environ.get('NEOMODEL_CYPHER_DEBUG', False) and tte > float(os.environ.get('NEOMODEL_SLOW_QUERIES', 0)):
+            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(tte))
 
         return results, meta
-        
-        
+
+
 class TransactionProxy(object):
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -264,13 +300,19 @@ class TransactionProxy(object):
         if exc_value:
             self.db.rollback()
 
-        if exc_type is CypherError:
+        if exc_type is ClientError:
             if exc_value.code == u'Neo.ClientError.Schema.ConstraintValidationFailed':
                 raise UniqueProperty(exc_value.message)
-                
+
         if not exc_value:
-            self.db.commit()                            
-            
+            try:
+                self.db.commit()
+            except:
+                # In case when something went wrong during committing changes to the database, we have to close
+                # an active transaction.
+                self.db._active_transaction = None
+                raise
+
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:

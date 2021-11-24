@@ -3,18 +3,48 @@ from datetime import datetime, date
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode, db
-from neomodel.exceptions import InflateError, DeflateError
+from neomodel import StructuredNode, db, config
+from neomodel.exceptions import (
+    InflateError, DeflateError, RequiredProperty, UniqueProperty
+)
 from neomodel.properties import (
     ArrayProperty, IntegerProperty, DateProperty, DateTimeProperty,
-    EmailProperty, JSONProperty, NormalProperty, NormalizedProperty,
-    RegexProperty, StringProperty, UniqueIdProperty
+    EmailProperty, JSONProperty, NormalizedProperty,
+    RegexProperty, StringProperty, UniqueIdProperty, DateTimeFormatProperty
 )
+
 from neomodel.util import _get_node_properties
+
+config.AUTO_INSTALL_LABELS=True
 
 
 class FooBar(object):
     pass
+
+
+def test_string_property_exceeds_max_length():
+    """
+    StringProperty is defined by two properties: `max_length` and `choices` that are mutually exclusive. Furthermore, 
+    max_length must be a positive non-zero number.
+    """
+    # Try to define a property that has both choices and max_length
+    with raises(ValueError):
+        some_string_property = StringProperty(choices={"One":"1", "Two":"2"}, max_length=22)
+    
+    # Try to define a string property that has a negative zero length
+    with raises(ValueError):
+        another_string_property = StringProperty(max_length = -35)
+        
+    # Try to validate a long string
+    a_string_property = StringProperty(required=True, max_length=5)
+    with raises(ValueError):
+        a_string_property.normalize('The quick brown fox jumps over the lazy dog')
+        
+    # Try to validate a "valid" string, as per the max_length setting.
+    valid_string = "Owen"
+    normalised_string = a_string_property.normalize(valid_string)
+    assert valid_string == normalised_string, "StringProperty max_length test passed but values do not match."
+
 
 
 def test_string_property_w_choice():
@@ -78,6 +108,14 @@ def test_date():
     assert prop.deflate(somedate) == '2012-12-15'
     assert prop.inflate('2012-12-15') == somedate
 
+def test_datetime_format():
+    some_format = "%Y-%m-%d %H:%M:%S"
+    prop = DateTimeFormatProperty(format=some_format)
+    prop.name = 'foo'
+    prop.owner = FooBar
+    some_datetime = datetime(2019, 3, 19, 15, 36, 25)
+    assert prop.deflate(some_datetime) == '2019-03-19 15:36:25'
+    assert prop.inflate('2019-03-19 15:36:25') == some_datetime
 
 def test_datetime_exceptions():
     prop = DateTimeProperty()
@@ -162,6 +200,7 @@ def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
         class Foo(object):
+
             def __str__(self):
                 return "123"
         return Foo()
@@ -219,10 +258,11 @@ def test_independent_property_name_get_or_create():
     x.delete()
 
 
-@mark.parametrize('normalized_class', (NormalizedProperty, NormalProperty))
+@mark.parametrize('normalized_class', (NormalizedProperty,))
 def test_normalized_property(normalized_class):
 
     class TestProperty(normalized_class):
+
         def normalize(self, value):
             self._called_with = value
             self._called = True
@@ -257,7 +297,7 @@ def test_regex_property():
     class TestProperty(RegexProperty):
         name = 'test'
         owner = object()
-        expression = '\w+ \w+$'
+        expression = r'\w+ \w+$'
 
         def normalize(self, value):
             self._called = True
@@ -337,3 +377,58 @@ def test_indexed_array():
     b = IndexArray(ai=[1, 2]).save()
     c = IndexArray.nodes.get(ai=[1, 2])
     assert b.id == c.id
+
+
+def test_unique_index_prop_not_required():
+    class ConstrainedTestNode(StructuredNode):
+        required_property = StringProperty(required=True)
+        unique_property = StringProperty(unique_index=True)
+        unique_required_property = StringProperty(unique_index=True, required=True)
+        unconstrained_property = StringProperty()
+
+    # Create a node with a missing required property
+    with raises(RequiredProperty):
+        x = ConstrainedTestNode(required_property="required", unique_property="unique")
+        x.save()
+
+    # Create a node with a missing unique (but not required) property.
+    x = ConstrainedTestNode()
+    x.required_property = "required"
+    x.unique_required_property = "unique and required"
+    x.unconstrained_property = "no contraints"
+    x.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
+    node_properties = _get_node_properties(results[0][0])
+    assert node_properties["unique_required_property"] == "unique and required"
+
+    # delete node afterwards
+    x.delete()
+
+
+def test_unique_index_prop_enforced():
+    class UniqueNullableNameNode(StructuredNode):
+        name = StringProperty(unique_index=True)
+
+    # Nameless
+    x = UniqueNullableNameNode()
+    x.save()
+    y = UniqueNullableNameNode()
+    y.save()
+
+    # Named
+    z = UniqueNullableNameNode(name="named")
+    z.save()
+    with raises(UniqueProperty):
+        a = UniqueNullableNameNode(name="named")
+        a.save()
+
+    # Check nodes are in database
+    results, meta = db.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
+    assert len(results) == 3
+
+    # Delete nodes afterwards
+    x.delete()
+    y.delete()
+    z.delete()

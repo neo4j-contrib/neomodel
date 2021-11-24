@@ -9,6 +9,8 @@ from datetime import date, datetime
 
 import pytz
 
+import neo4j.time
+
 from neomodel import config
 from neomodel.exceptions import InflateError, DeflateError, RequiredProperty
 
@@ -86,7 +88,7 @@ class PropertyManager(object):
                 deflated[db_property] = property.deflate(
                     property.default_value(), obj
                 )
-            elif property.required or property.unique_index:
+            elif property.required:
                 raise RequiredProperty(name, cls)
             elif not skip_empty:
                 deflated[db_property] = None
@@ -216,7 +218,7 @@ class NormalizedProperty(Property):
         raise NotImplementedError('Specialize normalize method')
 
 
-## TODO remove this with the next major release
+# TODO remove this with the next major release
 def _warn_NormalProperty_renamed():
     warnings.warn(
         'The class NormalProperty was renamed to NormalizedProperty. '
@@ -226,10 +228,12 @@ def _warn_NormalProperty_renamed():
 
 if sys.version_info >= (3, 6):
     class NormalProperty(NormalizedProperty):
+
         def __init_subclass__(cls, **kwargs):
             _warn_NormalProperty_renamed()
 else:
     class NormalProperty(NormalizedProperty):
+
         def __init__(self, *args, **kwargs):
             _warn_NormalProperty_renamed()
             super(NormalProperty, self).__init__(*args, **kwargs)
@@ -288,27 +292,44 @@ class StringProperty(NormalizedProperty):
                     to display information in an application. If the default
                     value ``None`` is used, any string is valid.
     :type choices: Any type that can be used to initiate a :class:`dict`.
+    :param max_length: The maximum non-zero length that this attribute can be
+    :type max_length: int
     """
-    def __init__(self, choices=None, **kwargs):
+
+    def __init__(self, choices=None, max_length=None, **kwargs):
+        if max_length is not None:
+            if choices is not None:
+                raise ValueError("The arguments `choices` and `max_length` are mutually exclusive.")
+            if max_length<1:
+                raise ValueError("`max_length` cannot be zero or take negative values.")
+
         super(StringProperty, self).__init__(**kwargs)
 
+        self.max_length = max_length
         if choices is None:
             self.choices = None
         else:
             try:
                 self.choices = dict(choices)
             except Exception:
-                raise ValueError("The choices argument must be convertable to "
-                                 "a dictionary.")
+                raise ValueError("The choices argument must be convertable to a dictionary.")
             # Python 3:
-            # except Exception as e:
-            #     raise ValueError("The choices argument must be convertable to "
-            #                      "a dictionary.") from e
+            except Exception as e:
+                raise ValueError("The choices argument must be convertable to "
+                                 "a dictionary.") from e
             self.form_field_class = 'TypedChoiceField'
 
     def normalize(self, value):
+        # One thing to note here is that the following two checks can remain uncoupled
+        # as long as it is guaranteed (by the constructor) that `choices` and `max_length`
+        # are mutually exclusive. If that check in the constructor ever has to be removed, 
+        # these two validation checks here will have to be coupled so that having set 
+        # `choices` overrides having set the `max_length`.
         if self.choices is not None and value not in self.choices:
-            raise ValueError("Invalid choice: {0}".format(value))
+            raise ValueError("Invalid choice: {}".format(value))
+        if self.max_length is not None and len(value) > self.max_length:
+            raise ValueError("Property max length exceeded. Expected {}, got {} == len('{}')".format(
+                             self.max_length, len(value), value))
         return unicode(value)
 
     def default_value(self):
@@ -424,6 +445,11 @@ class DateProperty(Property):
 
     @validator
     def inflate(self, value):
+        if isinstance(value, neo4j.time.DateTime):
+            value = date(value.year, value.month, value.day)
+        elif isinstance(value, str):
+            if "T" in value:
+                value = value[:value.find('T')]
         return datetime.strptime(unicode(value), "%Y-%m-%d").date()
 
     @validator
@@ -432,6 +458,39 @@ class DateProperty(Property):
             msg = 'datetime.date object expected, got {0}'.format(repr(value))
             raise ValueError(msg)
         return value.isoformat()
+
+class DateTimeFormatProperty(Property):
+    """
+    Store a datetime by custome format
+    :param default_now: If ``True``, the creation time (Local) will be used as default.
+                        Defaults to ``False``.
+    :param format:      Date format string, default is %Y-%m-%d
+
+    :type default_now:  :class:`bool`
+    :type format:       :class:`str`
+    """
+    form_field_class = 'DateTimeFormatField'
+
+    def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
+        if default_now:
+            if 'default' in kwargs:
+                raise ValueError('too many defaults')
+            kwargs['default'] = lambda: datetime.now()
+
+        self.format = format
+        super(DateTimeFormatProperty, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return datetime.strptime(unicode(value), self.format)
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+        return datetime.strftime(value, self.format)
+
+
 
 
 class DateTimeProperty(Property):
@@ -459,6 +518,9 @@ class DateTimeProperty(Property):
         except ValueError:
             raise ValueError("Float or integer expected, got {0} can't inflate to "
                              "datetime.".format(type(value)))
+        except TypeError:
+            raise TypeError(
+                "Float or integer expected. Can't inflate {0} to datetime.".format(type(value)))
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
@@ -482,6 +544,7 @@ class JSONProperty(Property):
 
     The structure will be inflated when a node is retrieved.
     """
+
     def __init__(self, *args, **kwargs):
         super(JSONProperty, self).__init__(*args, **kwargs)
 
@@ -498,6 +561,7 @@ class AliasProperty(property, Property):
     """
     Alias another existing property
     """
+
     def __init__(self, to=None):
         """
         Create new alias
@@ -531,6 +595,7 @@ class UniqueIdProperty(Property):
     """
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
+
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:

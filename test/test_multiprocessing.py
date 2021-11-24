@@ -1,10 +1,8 @@
 from neomodel import StructuredNode, StringProperty, db
-from multiprocessing import Pool
-
+from multiprocessing.pool import ThreadPool as Pool
 
 class ThingyMaBob(StructuredNode):
     name = StringProperty(unique_index=True, required=True)
-
 
 def thing_create(name):
     name = str(name)
@@ -13,7 +11,7 @@ def thing_create(name):
 
 
 def test_concurrency():
-    p = Pool(5)
-    results = p.map(thing_create, range(50))
-    for returned, sent in results:
-        assert returned == sent
+    with Pool(5) as p:
+        results = p.map(thing_create, range(50))
+        for returned, sent in results:
+            assert returned == sent

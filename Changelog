@@ -1,3 +1,53 @@
+Version 4.0.6 2021-09-09
+* Fix calling install_all_labels twice fails #539
+* Fix issue with passwords with special chars #572
+
+Version 4.0.5 2021-07-26
+* Fix issue with secure schema
+
+Version 4.0.4 2021-07-01
+* Fix for docker tests (#479)
+* Add support for slow query log (#480)
+* Add support for multi databases (#556)
+* docker-compose-update (#561)
+* Provide additional configuration for neo4j-driver connection (#564)
+* Updated dependencies
+
+Version 4.0.3 2020-09-28
+* fix: "SemiStructuredNode can't have no props #493" (thank you @dmp593)
+* removed pytest as an installation requirement (#553) (thank you @mprahl)
+* allow connection to bolt+s database URL schema (#543) 
+* typo fixes
+
+Version 4.0.2
+* Minor updates
+
+Version 4.0.1 2020-09-28
+* Maintenance release to fix the Django requirement (Matt Galvis)
+
+Version 4.0.0 2020-09-16
+* Dropped Python 2.7 support 
+* Included support for Neo4j 4.*
+* Updated spatial PointProperty to better reflect the native data type
+* Updated Database housekeeping functions (drop_constraints(), drop_indexes(), install_labels())
+* Updated all underlying queries to better reflect current CYPHER
+* Updated Transaction handling
+* Updated tests
+	* Many thanks to Cristina Escalante, Matt Galvis, JVemmer and a-takahashi223 whose hard work made this release possible.
+
+Version 3.3.2 2019-09-29
+* Fixed validation for unique properties to also be optional (#470) - Jon Daly
+* Fixed tests-with-docker-compose.sh (#452) - Jorge Valhondo Rama
+* Added exclusion example to documentation and improved naming consistency (#456, #466) - Elena Williams 
+* Fixed the Travis-CI build problems by switching to openjdk (#471) - Duncan Booth
+* Minor revisions in `test_set_connection`, `spatial datatypes` and documentation (#442, #446, #447) - Athanasios Anastasiou
+* Added `max_length` constraint on `StringProperty` (#445) - Lazy-Y
+* Upgraded neo4j python driver requirement to 1.7.2 (#432) - Robert Grant
+* Added a `DateTimeFormatProperty` (#428) - Yu Shengnan
+* Updated `setup.py` so that it excludes the `test/` and `test/test_contrib/` sub-packages (#426) - Jorge Valhondo Rama
+* Updated getting_started.rst typo (#419) - fredthehead
+* Fixed NeomodelPoint instantiation bug (#418) - Athanasios Anastasiou
+
 Version 3.3.1 2019-02-08
  * Fixed a number of warnings due to deprecations both within neomodel and pytest and overall improvements in
    code style (#381) - Abhishek Modi

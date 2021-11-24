@@ -21,7 +21,7 @@
 
 __author__ = "Athanasios Anastasiou"
 
-import neo4j.v1
+import neo4j.spatial
 
 # If shapely is not installed, its import will fail and the spatial properties will not be available
 try:
@@ -227,6 +227,15 @@ class NeomodelPoint(ShapelyPoint):
             raise AttributeError('Invalid coordinate ("height") for points defined over {}'.format(self.crs))
         return super(NeomodelPoint, self).z
 
+    # The following operations are necessary here due to the way queries (and more importantly their parameters) get
+    # combined and evaluated in neomodel. Specifically, query expressions get duplicated with deep copies and any valid
+    # datatype values should also implement these operations.
+    def __copy__(self):
+        return NeomodelPoint(self)
+
+    def __deepcopy__(self, memo):
+        return NeomodelPoint(self)
+
 
 class PointProperty(Property):
     """
@@ -275,7 +284,7 @@ class PointProperty(Property):
         :type value: Neo4J POINT
         :return: NeomodelPoint
         """
-        if not isinstance(value,neo4j.v1.spatial.Point):
+        if not isinstance(value,neo4j.spatial.Point):
             raise TypeError('Invalid datatype to inflate. Expected POINT datatype, received {}'.format(type(value)))
 
         try:
@@ -318,10 +327,10 @@ class PointProperty(Property):
                              'received NeomodelPoint defined over {}'.format(self._crs, value.crs))
 
         if value.crs == 'cartesian-3d':
-            return neo4j.v1.spatial.CartesianPoint((value.x, value.y,  value.z))
+            return neo4j.spatial.CartesianPoint((value.x, value.y,  value.z))
         elif value.crs == 'cartesian':
-            return neo4j.v1.spatial.CartesianPoint((value.x,value.y))
+            return neo4j.spatial.CartesianPoint((value.x,value.y))
         elif value.crs == 'wgs-84':
-            return neo4j.v1.spatial.WGS84Point((value.longitude, value.latitude))
+            return neo4j.spatial.WGS84Point((value.longitude, value.latitude))
         elif value.crs == 'wgs-84-3d':
-            return neo4j.v1.spatial.WGS84Point((value.longitude, value.latitude, value.height))
+            return neo4j.spatial.WGS84Point((value.longitude, value.latitude, value.height))

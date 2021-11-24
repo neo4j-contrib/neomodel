@@ -1,8 +1,9 @@
 from __future__ import print_function
 
+from datetime import datetime
 from pytest import raises
 
-from neomodel import StructuredNode, StringProperty, IntegerProperty
+from neomodel import DateProperty, StructuredNode, StringProperty, IntegerProperty
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
@@ -245,3 +246,10 @@ def test_mixins():
     assert len(jim.inherited_labels()) == 1
     assert len(jim.labels()) == 1
     assert jim.labels()[0] == 'Shopper2'
+
+def test_date_property():
+    class DateTest(StructuredNode):
+        birthdate = DateProperty()
+    
+    user = DateTest(birthdate=datetime.now()).save()
+
