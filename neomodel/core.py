@@ -3,7 +3,7 @@ import sys
 import warnings
 
 from neomodel import config
-from neomodel.exceptions import DoesNotExist, ClassAlreadyDefined
+from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
@@ -204,7 +204,7 @@ class NodeMeta(type):
             if label_set not in db._NODE_CLASS_REGISTRY:
                 db._NODE_CLASS_REGISTRY[label_set] = cls
             else:
-                raise ClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+                raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
 
         return cls
 

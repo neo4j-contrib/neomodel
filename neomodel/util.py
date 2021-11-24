@@ -8,10 +8,10 @@ from threading import local
 from neo4j import GraphDatabase, basic_auth, DEFAULT_DATABASE
 from neo4j.exceptions import ClientError, SessionExpired
 
-from neo4j.graph import Node
+from neo4j.graph import Node, Relationship
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed, ModelDefinitionMismatch
+from .exceptions import UniqueProperty, ConstraintValidationFailed,  NodeClassNotDefined, RelationshipClassNotDefined
 
 if sys.version_info >= (3, 0):
     from urllib.parse import quote, unquote, urlparse
@@ -192,10 +192,18 @@ class Database(local, NodeClassRegistry):
                     #  Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
-                    if type(a_result_attribute[1]) is Node:
+                    # For some reason, while the type of `a_result_attribute[1]` as reported by the neo4j driver is
+                    # `Node` for Node-type data retrieved from the database, when the retrieved data are
+                    # Relationship-Type, the returned type is `abc.[REL_LABEL]` which is however a descendant of
+                    # Relationship. Consequently, the type checking was changed for both Node, Relationship objects
+                    if isinstance(a_result_attribute[1], Node):
                         resolved_object = self._NODE_CLASS_REGISTRY[frozenset(a_result_attribute[1].labels)].inflate(
                             a_result_attribute[1])
 
+                    if isinstance(a_result_attribute[1], Relationship):
+                        resolved_object = self._NODE_CLASS_REGISTRY[frozenset([a_result_attribute[1].type])].inflate(
+                            a_result_attribute[1])
+                        
                     if type(a_result_attribute[1]) is list:
                         resolved_object = self._object_resolution([a_result_attribute[1]])
 
@@ -205,8 +213,12 @@ class Database(local, NodeClassRegistry):
                     # Not being able to match the label set of a node with a known object results
                     # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
-                    raise ModelDefinitionMismatch(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
+                    if isinstance(a_result_attribute[1], Node):
+                        raise NodeClassNotDefined(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
 
+                    if isinstance(a_result_attribute[1], Relationship):
+                        raise RelationshipClassNotDefined(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
+                    
         return result_list
 
     @ensure_connection

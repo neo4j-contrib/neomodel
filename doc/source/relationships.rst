@@ -59,7 +59,7 @@ Neomodel uses :mod:`~neomodel.relationship` models to define the properties stor
 
 
 The data to populate these properties when establishing a connection can be supplied 
-to the `connect` method::
+to the ``connect`` method::
 
     rel = jim.friends.connect(bob,
                               {'since': yesterday, 'met': 'Paris'})
@@ -79,14 +79,23 @@ Relationship Uniqueness
 =======================
 
 By default neomodel applies only one relationship instance between two node instances and 
-this is achieved via use of `MERGE`. (This used to be `CREATE UNIQUE` until Cypher deprecated this command.)
+this is achieved via use of ``MERGE``. (This used to be ``CREATE UNIQUE`` until Cypher deprecated this command.)
 
 Relationships and Inheritance
 =============================
-Neomodel is capable of understanding and resolving inheritance relationships properly.
 
-The following model establishes a BasePerson that can be `friends_with` any class derived 
-from BasePerson. Two concrete classes of BasePerson (TechnicalPerson and PilotPerson) are 
+Relationships are established between Nodes of different types within a Neo4J Data Base Management System (DBMS) and
+this section contains more details about how nodes of different types at the two endpoints of a relationship
+are resolved by neomodel as wel as how extending relationship classes themselves works.
+
+.. _node_inheritance:
+
+Node Inheritance
+----------------
+Neomodel is capable of understanding and resolving derived nodes at the endpoints of a relationships properly.
+
+The following model establishes a ``BasePerson`` that can be `friends_with` any class derived
+from ``BasePerson``. Two concrete classes of ``BasePerson`` (``TechnicalPerson`` and ``PilotPerson``) are
 further defined. ::
 
 
@@ -152,6 +161,81 @@ Here is a minimal example to demonstrate that::
         
 This will show two friends connected with node "Grumpy", one of which is a ``TechnicalPerson`` 
 and the other a ``PilotPerson``.
+
+
+Relationship Inheritance
+------------------------
+
+Neomodel uses ``StructuredRel`` to create classes that describe relationship objects. When the time comes to store this
+relationship with the DBMS, neomodel creates a Neo4J Relationship that is characterised by a **single label** along with
+the data members of the relationship class. Therefore, there is a direct correspondence between the relationship label
+and the relationship class.
+
+Continuing with the example that is defined in section :ref:`node_inheritance`, it is possible to extend
+``PersonalRelationship`` to describe extended (or enriched) versions of the same class, in this way::
+
+
+    class PersonalRelationshipWithStrength(PersonalRelationship):
+        """
+        An extended relationship between two BasePersons that in addition to the date on which the acquaintance was
+        established, it also maintains an abstract `strength` value.
+        """
+        on_date = neomodel.DateProperty(default_now = True)
+        strength = neomodel.FloatProperty(default = 1.0)
+
+There is nothing too special here about the way ``PersonalRelationshipWithStrength`` is established, except perhaps
+noticing that it inherits from ``PersonalRelationship`` rather than ``neomodel.StructuredRel``.
+
+The *special* bit however comes when the extended relationship is attempted to be declared between two nodes. To
+demonstrate this here, we will extend ``BasePerson`` and constrain its ``friends_with`` attribute to be of type
+``PersonalRelationshipWithStrength``::
+
+    class ExtendedBasePerson(BasePerson):
+        """
+        An additional actor in a system, characterised further by a `role` attribute and having relationships with a
+        `strength` attribute.
+        """
+        name = neomodel.StringProperty(required = True, unique_index = True)
+        role = neomodel.StringProperty(required = True)
+        friends_with = neomodel.RelationshipTo("BasePerson", "FRIENDS_WITH", model = PersonalRelationshipWithStrength)
+
+In this case, ``ExtendedBasePerson`` entities are expected to have relationships with a ``strength`` attribute. At the
+moment, ``PersonalRelationshipWithStrength`` substitutes ``PersonalRelationship`` entirely everywhere within the data
+model. This is in-line with Neo4Js current capabilities of supporting only one label per relationship.
+
+Since relationship classes are "tied" to their label definition, derived relationships can only be attached to the same
+label. In the above example, ``FRIENDS_WITH`` is already "tied" to relationships of type ``PersonalRelationship`` and
+``PersonalRelationshipWithStrength`` derives from ``PersonalRelationship`` and this kind of relationship class extension
+is permissible.
+
+If a relationship label is already "tied" with a relationship model and an attempt is made to re-associate it with an
+entirely alien relationship class, an exception of type ``neomodel.exceptions.RelationshipClassRedefined`` is raised
+that contains full information about the current data model state and the re-definition attempt.
+
+This now enables queries returning ``Relationship`` objects to be instantiated to their proper models. Continuing with
+the above example, a representative query to demonstrate this capability would be::
+
+    Z = neomodel.db.cypher_query("MATCH (:BasePerson)-[r:FRIENDS_WITH]->(:BasePerson) RETURN r", resolve_objects=True)
+
+Notice here that ``resolve_objects`` is set to ``True``, which enables this automatic resolution of returned objects
+to their "local" data model counterparts.
+
+Now, elements of ``Z`` contain properly instantiated relationship objects. And because of this, it is now possible to
+access the nodes at their end points directly. For example::
+
+    u = Z[0][0][0].start_node()
+    v = Z[0][0][0].end_node()
+
+Here, ``u,v`` will be instantiated to whatever type nodes are expected to be found at the end points of the
+relationship.
+
+It is worth mentioning at this point that attempting to instantiate a relationship that has not been made known to
+neomodel leads to an exception. For example, suppose that the DBMS contains relationships with label ``BUDDIES_WITH``
+in addition to what has already been defined earlier as ``FRIENDS_WITH``. If that relationship is attempted to be
+"ingested" by neomodel, then exception ``RelationshipClassNotDefined`` would be raised::
+
+    Z = neomodel.db.cypher_query("MATCH (:BasePerson)-[r:BUDDIES_WITH]->(:BasePerson) RETURN r", resolve_objects=True)
+
 
 Explicit Traversal
 ==================
