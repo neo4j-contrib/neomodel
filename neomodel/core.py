@@ -1,6 +1,7 @@
 import re
 import sys
 import warnings
+from itertools import combinations
 
 from neomodel import config
 from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
@@ -198,15 +199,27 @@ class NodeMeta(type):
             )
 
             cls.__label__ = namespace.get('__label__', name)
+            cls.__optional_labels__ = namespace.get('__optional_labels__', [])
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls, quiet=False)
 
-            label_set = frozenset(cls.inherited_labels())
-            if label_set not in db._NODE_CLASS_REGISTRY:
-                db._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+            base_label_set = frozenset(cls.inherited_labels())
+            optional_label_set = set(cls.inherited_optional_labels())
+
+            # Construct all possible combinations of labels + optional labels
+            possible_label_combinations = [
+                frozenset(set(x).union(base_label_set))
+                for i in range(1, len(optional_label_set) + 1)
+                for x in combinations(optional_label_set, i)
+            ]
+            possible_label_combinations.append(base_label_set)
+            
+            for label_set in possible_label_combinations:
+                if label_set not in db._NODE_CLASS_REGISTRY:
+                    db._NODE_CLASS_REGISTRY[label_set] = cls
+                else:
+                    raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
 
         return cls
 
@@ -503,6 +516,21 @@ class StructuredNode(NodeBase):
         return [scls.__label__ for scls in cls.mro()
                 if hasattr(scls, '__label__') and not hasattr(
                 scls, '__abstract_node__')]
+        
+    @classmethod
+    def inherited_optional_labels(cls):
+        """
+        Return list of optional labels from nodes class hierarchy.
+        
+        :return: list
+        :rtype: list
+        """
+        return [
+            label
+            for scls in cls.mro()
+            for label in getattr(scls, '__optional_labels__', [])
+            if not hasattr(scls, '__abstract_node__')
+        ]
 
     def labels(self):
         """
