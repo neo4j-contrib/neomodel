@@ -3,6 +3,8 @@
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
 
+If you need immediate assistance please contact neomodel@tsl.io. 
+
 - Familiar class based model definitions with proper inheritance.
 - Powerful query API.
 - Schema enforcement through cardinality restrictions.
