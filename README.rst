@@ -3,7 +3,7 @@
 
 An Object Graph Mapper (OGM) for the neo4j_ graph database, built on the awesome neo4j_driver_
 
-If you need immediate assistance please contact neomodel@tsl.io. 
+If you need assistance with neomodel, please create an issue on the GitHub repo found at https://github.com/neo4j-contrib/neomodel/.
 
 - Familiar class based model definitions with proper inheritance.
 - Powerful query API.
