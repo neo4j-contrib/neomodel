@@ -1,7 +1,7 @@
 from pytest import raises
 
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relationship,
-                      StringProperty, IntegerProperty, StructuredRel, One)
+                      StringProperty, IntegerProperty, StructuredRel, One, Traversal)
 
 
 class PersonWithRels(StructuredNode):
@@ -182,3 +182,51 @@ def test_props_relationship():
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
 
+
+def test_multiple_label_relationship_traversal():
+    #set up country and two persons
+    p1 = PersonWithRels(name="Max", age=20).save()
+    p2 = PersonWithRels(name="Moritz", age=21).save()
+    c1 = Country(code="IO").save()
+
+    assert p1
+    assert p2
+    assert c1
+
+    c1.inhabitant.connect(p1)
+    c1.president.connect(p2)
+
+    assert len(c1.inhabitant) == 1
+    assert len(c1.president) == 1
+
+    # test that both inhabitant and president is returned when specifying both
+    definition = dict(node_class=PersonWithRels, direction=None,
+                      relation_type=('IS_FROM', 'PRESIDENT'), model=None)
+    relations_traversal = Traversal(c1, PersonWithRels.__label__,
+                                    definition)
+
+    assert len(relations_traversal) == 2
+
+    assert p1 in relations_traversal
+    assert p2 in relations_traversal
+
+    # add president as inhabitant
+    c1.inhabitant.connect(p2)
+
+    # test that we still get only two results from the same traversal
+    relations_traversal = Traversal(c1, PersonWithRels.__label__,
+                                    definition)
+
+    # p2 is connected twice, but should only be returned once
+    assert len(relations_traversal) == 2
+
+    assert p1 in relations_traversal
+    assert p2 in relations_traversal
+
+    # check if lazy evaluation also honors the distinct restriction
+    lazy_evaluated = Traversal(c1, PersonWithRels.__label__, definition).all(True)
+
+    assert len(lazy_evaluated) == 2
+
+    assert p1.id in lazy_evaluated
+    assert p2.id in lazy_evaluated
