@@ -1,8 +1,7 @@
 from pytest import raises
 
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relationship,
-                      StringProperty, IntegerProperty, StructuredRel, One)
-
+                      StringProperty, IntegerProperty, StructuredRel, One, Q)
 
 class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
@@ -106,11 +105,17 @@ def test_search_and_filter_and_exclude():
     result = fred.is_from.filter(code='ZX')
     assert result[0].code == 'ZX'
 
-    result = fred.is_from.filter(code='ZX')
-    assert result[0].code == 'ZX'
+    result = fred.is_from.filter(code='ZY')
+    assert result[0].code == 'ZY'
 
     result = fred.is_from.exclude(code='ZZ').exclude(code='ZY')
     assert result[0].code == 'ZX' and len(result) == 1
+
+    result = fred.is_from.exclude(Q(code__contains='Y'))
+    assert len(result) == 2
+
+    result = fred.is_from.filter(Q(code__contains='Z'))
+    assert len(result) == 3
 
 
 def test_custom_methods():
