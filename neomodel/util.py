@@ -82,6 +82,7 @@ class Database(local, NodeClassRegistry):
         self._active_transaction = None
         self.url = None
         self.driver = None
+        self._session = None
         self._pid = None
         self._database_name = DEFAULT_DATABASE
 
@@ -150,18 +151,20 @@ class Database(local, NodeClassRegistry):
         """
         if self._active_transaction:
             raise SystemError("Transaction in progress")
-        self._active_transaction = self.driver.session(default_access_mode=access_mode, database=self._database_name, **parameters).begin_transaction()
+        self._session = self.driver.session(default_access_mode=access_mode, database=self._database_name, **parameters)
+        self._active_transaction = self._session.begin_transaction()
 
     @ensure_connection
     def commit(self):
         """
         Commits the current transaction
 
-        :return: The last bookmark
+        :return: last_bookmark
         """
         self._active_transaction.commit()
-        last_bookmark = self._active_transaction.session.last_bookmark()
+        last_bookmark = self._session.last_bookmark()
         self._active_transaction = None
+        self._session = None
         return last_bookmark
 
     @ensure_connection
@@ -171,6 +174,7 @@ class Database(local, NodeClassRegistry):
         """
         self._active_transaction.rollback()
         self._active_transaction = None
+        self._session = None
 
     def _object_resolution(self, result_list):
         """
@@ -301,7 +305,7 @@ class TransactionProxy(object):
         if self.bookmarks is None:
             self.db.begin(access_mode=self.access_mode)
         else:
-            bookmarks = (self.bookmarks,) if isinstance(self.bookmarks, string_types) else tuple(self.bookmarks)
+            bookmarks = (self.bookmarks,) if isinstance(self.bookmarks, (str, bytes)) else tuple(self.bookmarks)
             self.db.begin(access_mode=self.access_mode, bookmarks=bookmarks)
             self.bookmarks = None
         return self

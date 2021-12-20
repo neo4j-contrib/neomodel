@@ -96,7 +96,7 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
     # should work
     result, bookmark = in_a_tx('Ruth', bookmarks=None)
     assert result is None
-    assert bookmark.startswith('neo4j:bookmark')
+    assert isinstance(bookmark, str)
 
     # should bail but raise correct error
     with raises(UniqueProperty):
@@ -108,7 +108,7 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
 def test_bookmark_transaction_as_a_context(skip_neo4j_before_330):
     with db.transaction as transaction:
         APerson(name='Tanya').save()
-    assert transaction.last_bookmark.startswith('neo4j:bookmark:')
+    assert isinstance(transaction.last_bookmark, str)
 
     assert APerson.nodes.filter(name='Tanya')
 
@@ -157,4 +157,4 @@ def test_query_inside_bookmark_transaction(skip_neo4j_before_330):
 
         assert len([p.name for p in APerson.nodes]) == 2
 
-    assert transaction.last_bookmark.startswith('neo4j:bookmark:')
+    assert isinstance(transaction.last_bookmark, str)
