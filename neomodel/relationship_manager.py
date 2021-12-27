@@ -270,14 +270,15 @@ class RelationshipManager(object):
         """
         return self.filter(**kwargs).all()
 
-    def filter(self, **kwargs):
+    def filter(self, *args, **kwargs):
         """
         Retrieve related nodes matching the provided properties.
 
+        :param args: a Q object
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).filter(**kwargs)
+        return NodeSet(self._new_traversal()).filter(*args, **kwargs)
 
     def order_by(self, *props):
         """
@@ -288,14 +289,15 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).order_by(*props)
 
-    def exclude(self, **kwargs):
+    def exclude(self, *args, **kwargs):
         """
         Exclude nodes that match the provided properties.
 
+        :param args: a Q object
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).exclude(**kwargs)
+        return NodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
     def is_connected(self, node):
         """
