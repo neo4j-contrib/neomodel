@@ -95,7 +95,7 @@ With function decorators::
     def get_all_users():
         return Person.nodes.all()
         
-    @db.trasaction # Be default a WRITE transaction
+    @db.transaction # By default a WRITE transaction
     ...
         
 
@@ -106,3 +106,59 @@ With explicit designation::
     db.begin("READ")
     ...
     db.begin() # By default a **WRITE** transaction
+
+Bookmarks
+---------
+Neomodel also supports bookmarks. When using neomodel over a `Neo4J causal cluster <https://neo4j.com/docs/
+operations-manual/current/clustering/>`_ there is no guarantee that a read will see all of the data
+from an earlier committed write transaction. Each transaction returns a bookmark that identifies the transaction.
+When starting a new transaction one or more bookmarks may be passed in and the read will not complete until data
+from all of the bookmarked transactions is available.
+
+With context managers one or more bookmarks may be set in the transaction before entering the context manager and
+the resulting bookmark may be extracted only after the context manager has exited successfully::
+
+    transaction = db.transaction
+    transaction.bookmarks = [bookmark1, bookmark2]
+    with transaction:
+        # All database access happens after completion of the transactions
+        # listed in bookmark1 and bookmark2
+
+    bookmark = transaction.last_bookmark
+
+Bookmarks are strings and may be passed between processes. ``transaction.bookmarks`` may be set to a single bookmark,
+a sequence of bookmarks, or None.
+
+With function decorators use the ``with_bookmarks`` attribute on the transaction. The decorator will
+accept an optional ``bookmarks`` keyword-only parameter with the bookmarks to be passed in to the transaction.
+This parameter is removed and not passed to the decorated function.
+Any returned value from the decorated function becomes the first element of a tuple with the last bookmark as
+the second element::
+
+    @db.write_transaction.with_bookmarks
+    def update_user_name(uid, name):
+        user = Person.nodes.filter(uid=uid)[0]
+        user.name = name
+        user.save()
+
+    @db.read_transaction.with_bookmarks
+    def get_all_users():
+        return Person.nodes.all()
+
+
+    result, bookmark = update_user_name(uid, name)
+
+    users, last_bookmark = get_all_users(bookmarks=[bookmark])
+    for user in users:
+        ...
+
+
+or manually::
+
+    db.begin(bookmarks=[bookmark])
+    try:
+        new_user = Person(name=username, email=email).save()
+        send_email(new_user)
+        bookmark = db.commit()
+    except Exception as e:
+        db.rollback()
