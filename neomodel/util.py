@@ -5,13 +5,12 @@ import time
 import warnings
 from threading import local
 
-from neo4j import GraphDatabase, basic_auth, DEFAULT_DATABASE
+from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.exceptions import ClientError, SessionExpired
-
 from neo4j.graph import Node, Relationship
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed,  NodeClassNotDefined, RelationshipClassNotDefined
+from .exceptions import ConstraintValidationFailed, NodeClassNotDefined, RelationshipClassNotDefined, UniqueProperty
 
 if sys.version_info >= (3, 0):
     from urllib.parse import quote, unquote, urlparse
@@ -108,15 +107,15 @@ class Database(local, NodeClassRegistry):
                              " got {0}".format(url))
 
         options = dict(
-           auth=basic_auth(username, password),
-           connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
-           connection_timeout=config.CONNECTION_TIMEOUT,
-           keep_alive=config.KEEP_ALIVE,
-           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
-           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
-           max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
-           resolver=config.RESOLVER,
-           user_agent=config.USER_AGENT
+            auth=basic_auth(username, password),
+            connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
+            connection_timeout=config.CONNECTION_TIMEOUT,
+            keep_alive=config.KEEP_ALIVE,
+            max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
+            max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
+            max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
+            resolver=config.RESOLVER,
+            user_agent=config.USER_AGENT
         )
 
         if "+s" not in u.scheme:
@@ -234,7 +233,7 @@ class Database(local, NodeClassRegistry):
 
                     if isinstance(a_result_attribute[1], Relationship):
                         raise RelationshipClassNotDefined(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
-                    
+
         return result_list
 
     @ensure_connection
@@ -340,6 +339,7 @@ class TransactionProxy(object):
     @property
     def with_bookmark(self):
         return BookmarkingTransactionProxy(self.db, self.access_mode)
+
 
 class BookmarkingTransactionProxy(TransactionProxy):
 
