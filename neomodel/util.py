@@ -161,10 +161,15 @@ class Database(local, NodeClassRegistry):
 
         :return: last_bookmark
         """
-        self._active_transaction.commit()
-        last_bookmark = self._session.last_bookmark()
-        self._active_transaction = None
-        self._session = None
+        try:
+            self._active_transaction.commit()
+            last_bookmark = self._session.last_bookmark()
+        finally:
+            # In case when something went wrong during committing changes to the database, we have to close
+            # an active transaction and session.
+            self._active_transaction = None
+            self._session = None
+
         return last_bookmark
 
     @ensure_connection
@@ -172,9 +177,13 @@ class Database(local, NodeClassRegistry):
         """
         Rolls back the current transaction
         """
-        self._active_transaction.rollback()
-        self._active_transaction = None
-        self._session = None
+        try:
+            self._active_transaction.rollback()
+        finally:
+            # In case when something went wrong during changes rollback, we have to close an active transaction and
+            # session
+            self._active_transaction = None
+            self._session = None
 
     def _object_resolution(self, result_list):
         """
@@ -319,13 +328,7 @@ class TransactionProxy(object):
                 raise UniqueProperty(exc_value.message)
 
         if not exc_value:
-            try:
-                self.last_bookmark = self.db.commit()
-            except:
-                # In case when something went wrong during committing changes to the database, we have to close
-                # an active transaction.
-                self.db._active_transaction = None
-                raise
+            self.last_bookmark = self.db.commit()
 
     def __call__(self, func):
         def wrapper(*args, **kwargs):
