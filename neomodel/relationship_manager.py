@@ -24,6 +24,12 @@ def check_source(fn):
         return fn(self, *args, **kwargs)
     return checker
 
+# checks if obj is a direct subclass, 1 level
+def is_direct_subclass(obj, classinfo):
+    for base in obj.__bases__:
+        if base == classinfo:
+            return True
+    return False
 
 class RelationshipManager(object):
     """
@@ -375,8 +381,11 @@ class RelationshipDefinition(object):
                 # If the relationship mapping exists then it is attempted to be redefined so that it applies to the same
                 # label. In this case, it has to be ensured that the class that is overriding the relationship is a
                 # descendant of the already existing class
-                if not issubclass(model, db._NODE_CLASS_REGISTRY[label_set]):
-                    raise RelationshipClassRedefined(relation_type, db._NODE_CLASS_REGISTRY, model)
+                model_from_registry = db._NODE_CLASS_REGISTRY[label_set]
+                if not issubclass(model, model_from_registry):
+                    is_parent = issubclass(model_from_registry, model)
+                    if is_direct_subclass(model, StructuredRel) and not is_parent:
+                        raise RelationshipClassRedefined(relation_type, db._NODE_CLASS_REGISTRY, model)
                 else:
                     db._NODE_CLASS_REGISTRY[label_set] = model
             except KeyError:
