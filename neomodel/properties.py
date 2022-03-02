@@ -457,7 +457,7 @@ class DateProperty(Property):
         if not isinstance(value, date):
             msg = 'datetime.date object expected, got {0}'.format(repr(value))
             raise ValueError(msg)
-        return value.isoformat()
+        return value
 
 class DateTimeFormatProperty(Property):
     """
