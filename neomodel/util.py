@@ -5,13 +5,12 @@ import time
 import warnings
 from threading import local
 
-from neo4j import GraphDatabase, basic_auth, DEFAULT_DATABASE
+from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.exceptions import ClientError, SessionExpired
-
 from neo4j.graph import Node, Relationship
 
 from . import config
-from .exceptions import UniqueProperty, ConstraintValidationFailed,  NodeClassNotDefined, RelationshipClassNotDefined
+from .exceptions import ConstraintValidationFailed, NodeClassNotDefined, RelationshipClassNotDefined, UniqueProperty
 
 if sys.version_info >= (3, 0):
     from urllib.parse import quote, unquote, urlparse
@@ -108,15 +107,15 @@ class Database(local, NodeClassRegistry):
                              " got {0}".format(url))
 
         options = dict(
-           auth=basic_auth(username, password),
-           connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
-           connection_timeout=config.CONNECTION_TIMEOUT,
-           keep_alive=config.KEEP_ALIVE,
-           max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
-           max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
-           max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
-           resolver=config.RESOLVER,
-           user_agent=config.USER_AGENT
+            auth=basic_auth(username, password),
+            connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
+            connection_timeout=config.CONNECTION_TIMEOUT,
+            keep_alive=config.KEEP_ALIVE,
+            max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
+            max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
+            max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
+            resolver=config.RESOLVER,
+            user_agent=config.USER_AGENT
         )
 
         if "+s" not in u.scheme:
@@ -161,10 +160,15 @@ class Database(local, NodeClassRegistry):
 
         :return: last_bookmark
         """
-        self._active_transaction.commit()
-        last_bookmark = self._session.last_bookmark()
-        self._active_transaction = None
-        self._session = None
+        try:
+            self._active_transaction.commit()
+            last_bookmark = self._session.last_bookmark()
+        finally:
+            # In case when something went wrong during committing changes to the database, we have to close
+            # an active transaction and session.
+            self._active_transaction = None
+            self._session = None
+
         return last_bookmark
 
     @ensure_connection
@@ -172,9 +176,13 @@ class Database(local, NodeClassRegistry):
         """
         Rolls back the current transaction
         """
-        self._active_transaction.rollback()
-        self._active_transaction = None
-        self._session = None
+        try:
+            self._active_transaction.rollback()
+        finally:
+            # In case when something went wrong during changes rollback, we have to close an active transaction and
+            # session
+            self._active_transaction = None
+            self._session = None
 
     def _object_resolution(self, result_list):
         """
@@ -225,7 +233,7 @@ class Database(local, NodeClassRegistry):
 
                     if isinstance(a_result_attribute[1], Relationship):
                         raise RelationshipClassNotDefined(a_result_attribute[1], self._NODE_CLASS_REGISTRY)
-                    
+
         return result_list
 
     @ensure_connection
@@ -319,13 +327,7 @@ class TransactionProxy(object):
                 raise UniqueProperty(exc_value.message)
 
         if not exc_value:
-            try:
-                self.last_bookmark = self.db.commit()
-            except:
-                # In case when something went wrong during committing changes to the database, we have to close
-                # an active transaction.
-                self.db._active_transaction = None
-                raise
+            self.last_bookmark = self.db.commit()
 
     def __call__(self, func):
         def wrapper(*args, **kwargs):
@@ -337,6 +339,7 @@ class TransactionProxy(object):
     @property
     def with_bookmark(self):
         return BookmarkingTransactionProxy(self.db, self.access_mode)
+
 
 class BookmarkingTransactionProxy(TransactionProxy):
 
