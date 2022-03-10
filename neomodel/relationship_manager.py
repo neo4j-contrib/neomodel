@@ -1,3 +1,4 @@
+import inspect
 import sys
 import functools
 from importlib import import_module
@@ -362,9 +363,15 @@ class RelationshipManager(object):
 
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
-        self.module_name = sys._getframe(4).f_globals['__name__']
-        if '__file__' in sys._getframe(4).f_globals:
-            self.module_file = sys._getframe(4).f_globals['__file__']
+        frames = inspect.getouterframes(inspect.currentframe())
+        frame_number = 4
+        for i, frame in enumerate(frames):
+            if cls_name in frame.frame.f_globals:
+                frame_number = i
+                break
+        self.module_name = sys._getframe(frame_number).f_globals['__name__']
+        if '__file__' in sys._getframe(frame_number).f_globals:
+            self.module_file = sys._getframe(frame_number).f_globals['__file__']
         self._raw_class = cls_name
         self.manager = manager
         self.definition = {}
