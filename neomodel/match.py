@@ -1,10 +1,9 @@
 from .core import StructuredNode, db
-from .properties import AliasProperty, DateProperty
+from .properties import AliasProperty
 from .exceptions import MultipleNodesReturned
 from .match_q import Q, QBase
 import inspect
 import re
-from datetime import date
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
@@ -202,11 +201,6 @@ def process_filter_args(cls, kwargs):
         if isinstance(property_obj, AliasProperty):
             prop = property_obj.aliased_to()
             deflated_value = getattr(cls, prop).deflate(value)
-        elif isinstance(property_obj, DateProperty):
-            if not isinstance(value, date):
-                msg = 'datetime.date object expected, got {0}'.format(repr(value))
-                raise ValueError(msg)
-            deflated_value = value
         else:
             # handle special operators
             if operator == _SPECIAL_OPERATOR_IN:
