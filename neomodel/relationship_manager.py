@@ -363,10 +363,18 @@ class RelationshipManager(object):
 
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
-        frames = inspect.getouterframes(inspect.currentframe())
+        current_frame = inspect.currentframe()
+
+        def enumerate_traceback(initial_frame):
+            depth, frame = 0, initial_frame
+            while frame is not None:
+                yield depth, frame
+                frame = frame.f_back
+                depth += 1
+
         frame_number = 4
-        for i, frame in enumerate(frames):
-            if cls_name in frame.frame.f_globals:
+        for i, frame in enumerate_traceback(current_frame):
+            if cls_name in frame.f_globals:
                 frame_number = i
                 break
         self.module_name = sys._getframe(frame_number).f_globals['__name__']
