@@ -25,6 +25,10 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
     :scale: 100%
     :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
 
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+   :alt: Join the chat at https://gitter.im/neo4j-contrib/neomodel
+   :target: https://gitter.im/neo4j-contrib/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+
 
 Documentation
 =============
@@ -45,6 +49,10 @@ Installation
 Install from pypi (recommended)::
 
     $ pip install neomodel ($ source dev # To install all things needed in a Python3 venv)
+
+ Neomodel has some optional dependencies (including Shapely), to install these use:
+
+    $ pip install neomodel['extras']
 
 To install from github::
 
@@ -96,7 +104,3 @@ interpreters and neo4j versions::
     # in the project's root folder:
     $ ./tests-with-docker-compose.sh
 
-
-.. image:: https://badges.gitter.im/Join%20Chat.svg
-   :alt: Join the chat at https://gitter.im/neo4j-contrib/neomodel
-   :target: https://gitter.im/neo4j-contrib/neomodel?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge

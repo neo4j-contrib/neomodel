@@ -18,9 +18,10 @@ setup(
              'scripts/neomodel_remove_labels'],
     setup_requires=[
         'pytest-runner'] if any(x in ('pytest', 'test') for x in sys.argv) else [],
-    tests_require=['pytest>=6.2.4', 'shapely', 'neobolt'],
+    tests_require=['pytest>=6.2.4'],
+    extras_require={'extras': ['Shapely>=1.7.1,<1.9']},
     install_requires=['neo4j-driver==4.3.6', 'pytz>=2021.1',
-                      "neobolt==1.7.17", "Shapely==1.7.1", "six==1.16.0"],
+                      "neobolt==1.7.17", "six==1.16.0"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         'Intended Audience :: Developers',
