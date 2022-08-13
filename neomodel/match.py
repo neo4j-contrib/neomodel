@@ -32,6 +32,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     :type relation_type: str
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
+    :param n_hops: The number of hops for this relationship, e.g. 5, *, 2..5 (two to five), 1.. (one or more) etc.
     :returns: string
     """
 
@@ -55,6 +56,13 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     elif relation_type == '*':
         stmt = stmt.format('[*]')
     else:
+        # allow integer arguments for n_hops
+        if not isinstance(n_hops, str):
+            n_hops = str(n_hops)
+        # add the star prefix if not given (e.g. in the case of integer arguments)
+        if n_hops[0] != '*':
+            n_hops = '*' + n_hops
+
         # explicit relation_type
         stmt = stmt.format('[{0}:`{1}`{2}{3}]'.format(
             ident if ident else '',
