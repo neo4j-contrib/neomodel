@@ -362,7 +362,7 @@ class RelationshipManager(object):
 
 
 class RelationshipDefinition(object):
-    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
+    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None, n_hops=None):
         frames = inspect.getouterframes(inspect.currentframe())
         frame_number = 4
         for i, frame in enumerate(frames):
@@ -374,10 +374,12 @@ class RelationshipDefinition(object):
             self.module_file = sys._getframe(frame_number).f_globals['__file__']
         self._raw_class = cls_name
         self.manager = manager
-        self.definition = {}
-        self.definition['relation_type'] = relation_type
-        self.definition['direction'] = direction
-        self.definition['model'] = model
+        self.definition = {
+            'relation_type': relation_type,
+            'direction': direction,
+            'model': model,
+            'n_hops': n_hops
+        }
 
         if model is not None:
             # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a

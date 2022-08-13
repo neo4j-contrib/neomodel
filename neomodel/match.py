@@ -14,7 +14,7 @@ except NameError:
     basestring = str
 
 
-def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
+def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, n_hops=None, **kwargs):
     """
     Generate a relationship matching string, with specified parameters.
     Examples:
@@ -56,7 +56,12 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
         stmt = stmt.format('[*]')
     else:
         # explicit relation_type
-        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident if ident else '', relation_type, rel_props))
+        stmt = stmt.format('[{0}:`{1}`{2}{3}]'.format(
+            ident if ident else '',
+            relation_type,
+            n_hops if n_hops else '',
+            rel_props,
+        ))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
