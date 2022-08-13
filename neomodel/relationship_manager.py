@@ -44,6 +44,16 @@ class RelationshipManager(object):
         self.name = key
         self.definition = definition
 
+    @property
+    def allows_creation(self):
+        return not self.is_multihop()
+
+    def is_multihop(self):
+        hops = self.definition.get('n_hops', 1)
+        if hops == 1 or hops == '1' or hops == '1..1':
+            return False
+        return True
+
     def __str__(self):
         direction = 'either'
         if self.definition['direction'] == OUTGOING:
@@ -78,6 +88,12 @@ class RelationshipManager(object):
             raise NotImplementedError(
                 "Relationship properties without using a relationship model "
                 "is no longer supported."
+            )
+
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
             )
 
         params = {}
@@ -127,6 +143,12 @@ class RelationshipManager(object):
         :type: dict
         :return:
         """
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
+            )
+
         self.disconnect_all()
         self.connect(node, properties)
 
@@ -138,6 +160,12 @@ class RelationshipManager(object):
         :param node:
         :return: StructuredRel
         """
+        if self.is_multihop():
+            raise NotImplementedError(
+                "This relation cannot be represented by a single relationship object "
+                "(multi-hop or multi-label relationships do not support this action)"
+            )
+
         self._check_node(node)
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH " + my_rel + " WHERE id(them)=$them and id(us)=$self RETURN r LIMIT 1"
@@ -166,6 +194,7 @@ class RelationshipManager(object):
             return []
 
         rel_model = self.definition.get('model') or StructuredRel
+        # TODO: this breaks for multi-hop relationships
         return [self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels]
 
     def _set_start_end_cls(self, rel_instance, obj):
@@ -188,6 +217,12 @@ class RelationshipManager(object):
         :param new_node:
         :return: None
         """
+
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
+            )
 
         self._check_node(old_node)
         self._check_node(new_node)

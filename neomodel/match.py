@@ -57,10 +57,10 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
         stmt = stmt.format('[*]')
     else:
         # allow integer arguments for n_hops
-        if not isinstance(n_hops, str):
+        if isinstance(n_hops, int):
             n_hops = str(n_hops)
         # add the star prefix if not given (e.g. in the case of integer arguments)
-        if n_hops[0] != '*':
+        if n_hops and n_hops[0] != '*':
             n_hops = '*' + n_hops
 
         # explicit relation_type
@@ -783,7 +783,7 @@ class Traversal(BaseSet):
                             "{0}".format(type(source)))
 
         invalid_keys = (
-                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type', 'n_hops'}
         )
         if invalid_keys:
             raise ValueError(
