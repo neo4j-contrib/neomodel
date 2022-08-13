@@ -450,22 +450,22 @@ class ZeroOrMore(RelationshipManager):
     description = "zero or more relationships"
 
 
-def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
+def _relate(cls_name, direction, rel_type, cardinality=None, model=None, n_hops=None):
     if not isinstance(cls_name, (basestring, object)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
 
     if model and not issubclass(model, (StructuredRel,)):
         raise ValueError('model must be a StructuredRel')
-    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
+    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model, n_hops)
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, OUTGOING, rel_type, cardinality, model)
+def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, OUTGOING, rel_type, cardinality, model, n_hops)
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, INCOMING, rel_type, cardinality, model)
+def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, INCOMING, rel_type, cardinality, model, n_hops)
 
 
-def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, EITHER, rel_type, cardinality, model)
+def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, EITHER, rel_type, cardinality, model, n_hops)
