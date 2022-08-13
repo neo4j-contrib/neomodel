@@ -44,6 +44,16 @@ class RelationshipManager(object):
         self.name = key
         self.definition = definition
 
+    @property
+    def allows_creation(self):
+        return not self.is_multihop()
+
+    def is_multihop(self):
+        hops = self.definition.get('n_hops', 1)
+        if hops == 1 or hops == '1' or hops == '1..1':
+            return False
+        return True
+
     def __str__(self):
         direction = 'either'
         if self.definition['direction'] == OUTGOING:
@@ -78,6 +88,12 @@ class RelationshipManager(object):
             raise NotImplementedError(
                 "Relationship properties without using a relationship model "
                 "is no longer supported."
+            )
+
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
             )
 
         params = {}
@@ -127,6 +143,12 @@ class RelationshipManager(object):
         :type: dict
         :return:
         """
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
+            )
+
         self.disconnect_all()
         self.connect(node, properties)
 
@@ -138,6 +160,12 @@ class RelationshipManager(object):
         :param node:
         :return: StructuredRel
         """
+        if self.is_multihop():
+            raise NotImplementedError(
+                "This relation cannot be represented by a single relationship object "
+                "(multi-hop or multi-label relationships do not support this action)"
+            )
+
         self._check_node(node)
         my_rel = _rel_helper(lhs='us', rhs='them', ident='r', **self.definition)
         q = "MATCH " + my_rel + " WHERE id(them)=$them and id(us)=$self RETURN r LIMIT 1"
@@ -166,6 +194,7 @@ class RelationshipManager(object):
             return []
 
         rel_model = self.definition.get('model') or StructuredRel
+        # TODO: this breaks for multi-hop relationships
         return [self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels]
 
     def _set_start_end_cls(self, rel_instance, obj):
@@ -188,6 +217,12 @@ class RelationshipManager(object):
         :param new_node:
         :return: None
         """
+
+        if not self.allows_creation:
+            raise NotImplementedError(
+                "This relationship cannot be used for connecting (multi-hop "
+                "or multi-label relationships do not support this action)"
+            )
 
         self._check_node(old_node)
         self._check_node(new_node)
@@ -362,7 +397,7 @@ class RelationshipManager(object):
 
 
 class RelationshipDefinition(object):
-    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
+    def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None, n_hops=None):
         frames = inspect.getouterframes(inspect.currentframe())
         frame_number = 4
         for i, frame in enumerate(frames):
@@ -374,10 +409,12 @@ class RelationshipDefinition(object):
             self.module_file = sys._getframe(frame_number).f_globals['__file__']
         self._raw_class = cls_name
         self.manager = manager
-        self.definition = {}
-        self.definition['relation_type'] = relation_type
-        self.definition['direction'] = direction
-        self.definition['model'] = model
+        self.definition = {
+            'relation_type': relation_type,
+            'direction': direction,
+            'model': model,
+            'n_hops': n_hops
+        }
 
         if model is not None:
             # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
@@ -448,22 +485,22 @@ class ZeroOrMore(RelationshipManager):
     description = "zero or more relationships"
 
 
-def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
+def _relate(cls_name, direction, rel_type, cardinality=None, model=None, n_hops=None):
     if not isinstance(cls_name, (basestring, object)):
         raise ValueError('Expected class name or class got ' + repr(cls_name))
 
     if model and not issubclass(model, (StructuredRel,)):
         raise ValueError('model must be a StructuredRel')
-    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model)
+    return RelationshipDefinition(rel_type, cls_name, direction, cardinality, model, n_hops)
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, OUTGOING, rel_type, cardinality, model)
+def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, OUTGOING, rel_type, cardinality, model, n_hops)
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, INCOMING, rel_type, cardinality, model)
+def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, INCOMING, rel_type, cardinality, model, n_hops)
 
 
-def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    return _relate(cls_name, EITHER, rel_type, cardinality, model)
+def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None, n_hops=None):
+    return _relate(cls_name, EITHER, rel_type, cardinality, model, n_hops)

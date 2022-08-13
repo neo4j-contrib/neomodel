@@ -14,7 +14,7 @@ except NameError:
     basestring = str
 
 
-def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, **kwargs):
+def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relation_properties=None, n_hops=None, **kwargs):
     """
     Generate a relationship matching string, with specified parameters.
     Examples:
@@ -32,6 +32,7 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     :type relation_type: str
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
+    :param n_hops: The number of hops for this relationship, e.g. 5, *, 2..5 (two to five), 1.. (one or more) etc.
     :returns: string
     """
 
@@ -55,8 +56,20 @@ def _rel_helper(lhs, rhs, ident=None, relation_type=None, direction=None, relati
     elif relation_type == '*':
         stmt = stmt.format('[*]')
     else:
+        # allow integer arguments for n_hops
+        if isinstance(n_hops, int):
+            n_hops = str(n_hops)
+        # add the star prefix if not given (e.g. in the case of integer arguments)
+        if n_hops and n_hops[0] != '*':
+            n_hops = '*' + n_hops
+
         # explicit relation_type
-        stmt = stmt.format('[{0}:`{1}`{2}]'.format(ident if ident else '', relation_type, rel_props))
+        stmt = stmt.format('[{0}:`{1}`{2}{3}]'.format(
+            ident if ident else '',
+            relation_type,
+            n_hops if n_hops else '',
+            rel_props,
+        ))
 
     return "({0}){1}({2})".format(lhs, stmt, rhs)
 
@@ -770,7 +783,7 @@ class Traversal(BaseSet):
                             "{0}".format(type(source)))
 
         invalid_keys = (
-                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type', 'n_hops'}
         )
         if invalid_keys:
             raise ValueError(
