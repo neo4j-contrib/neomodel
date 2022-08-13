@@ -401,7 +401,7 @@ class StructuredNode(NodeBase):
         results = db.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
-    def cypher(self, query, params=None):
+    def cypher(self, query, params=None, resolve_objects=False):
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 
@@ -409,13 +409,15 @@ class StructuredNode(NodeBase):
         :type: string
         :param params: query parameters
         :type: dict
+        :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
+        :type: bool
         :return: list containing query results
         :rtype: list
         """
         self._pre_action_check('cypher')
         params = params or {}
         params.update({'self': self.id})
-        return db.cypher_query(query, params)
+        return db.cypher_query(query, params, resolve_objects=resolve_objects)
 
     @hooks
     def delete(self):
