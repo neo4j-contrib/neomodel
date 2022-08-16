@@ -1,7 +1,7 @@
 from pytest import raises
 
 from neomodel import (StructuredNode, RelationshipTo, RelationshipFrom, Relationship,
-                      StringProperty, IntegerProperty, StructuredRel, One, Q)
+                      StringProperty, IntegerProperty, StructuredRel, One, Q, ZeroOrMore, OUTGOING)
 
 class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
@@ -187,3 +187,36 @@ def test_props_relationship():
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={'city': 'Thessaloniki'})
 
+
+def test_relationship_reversed():
+    jimmy: PersonWithRels = PersonWithRels(name="Jimmy", age=42).save()
+    bobby: PersonWithRels = PersonWithRels(name="Bobby", age=42).save()
+    james: PersonWithRels = PersonWithRels(name="James", age=42).save()
+    jimmy.knows.connect(bobby)
+    james.knows.connect(jimmy)
+
+    definition = dict(jimmy.knows.definition)
+    definition['direction'] = OUTGOING
+    jimmy_knows_directional = ZeroOrMore(jimmy, 'knows', definition)
+
+    assert len(jimmy_knows_directional.all()) == 1
+    assert bobby in jimmy_knows_directional
+    assert bobby in jimmy.knows.reversed()  # check reversed on non-directional
+
+    assert james in jimmy_knows_directional.reversed()
+    assert len(jimmy_knows_directional.reversed()) == 1
+
+    assert len(jimmy.knows) == 2
+
+    jimmy_knows_directional.reversed().disconnect_all()
+
+    assert len(jimmy.knows) == 1
+    assert len(jimmy_knows_directional) == 1
+    assert james not in jimmy.knows
+    assert bobby in jimmy.knows
+
+    jimmy_knows_directional.reversed().connect(james)
+
+    assert james in jimmy.knows
+    assert james in jimmy_knows_directional.reversed()
+    assert james not in jimmy_knows_directional

@@ -6,7 +6,7 @@ from .exceptions import NotConnected, RelationshipClassRedefined
 from .util import deprecated, _get_node_properties
 from .match import OUTGOING, INCOMING, EITHER, _rel_helper, _rel_merge_helper, Traversal, NodeSet
 from .relationship import StructuredRel
-from .core import db
+from .core import db, StructuredNode
 
 # basestring python 3.x fallback
 try:
@@ -38,8 +38,13 @@ class RelationshipManager(object):
 
     I.e the 'friends' object in  `user.friends.all()`
     """
-    def __init__(self, source, key, definition):
-        self.source = source
+    def __init__(self, source: StructuredNode, key: str, definition):
+        """
+        :param source: The source node of the relation
+        :param key: The name of the attribute on the source node
+        :param definition: A dictionary describing the relationship with fields such as
+        """
+        self.source: StructuredNode = source
         self.source_class = source.__class__
         self.name = key
         self.definition = definition
@@ -61,6 +66,21 @@ class RelationshipManager(object):
             raise ValueError("Expected node of class " + self.definition['node_class'].__name__)
         if not hasattr(obj, 'id'):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
+
+    def reversed(self):
+        # do nothing with relationships that have no direction
+        if self.definition['direction'] == EITHER:
+            return self
+
+        definition = dict(self.definition)
+
+        if definition['direction'] == OUTGOING:
+            definition['direction'] = INCOMING
+        elif definition['direction'] == INCOMING:
+            definition['direction'] = OUTGOING
+
+        # always return ZeroOrMore relations, could probably be improved?
+        return ZeroOrMore(self.source, self.name + '_reversed', definition)
 
     @check_source
     def connect(self, node, properties=None):

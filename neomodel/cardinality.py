@@ -44,7 +44,7 @@ class ZeroOrOne(RelationshipManager):
 
 
 class OneOrMore(RelationshipManager):
-    """ A relationship to zero or more nodes. """
+    """ A relationship to one or more nodes. """
     description = "one or more relationships"
 
     def single(self):
