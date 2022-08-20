@@ -7,11 +7,11 @@ this inflates nodes to their class. It is your responsibility to make sure nodes
 
     class Person(StructuredNode):
         def friends(self):
-            results, columns = self.cypher("MATCH (a) WHERE id(a)={self} MATCH (a)-[:FRIEND]->(b) RETURN b")
+            results, columns = self.cypher("MATCH (a:Person) WHERE id(a)=$self MATCH (a)-[:FRIEND]->(b) RETURN b")
             return [self.inflate(row[0]) for row in results]
 
-The self query parameter is prepopulated with the current node id. It's possible to pass in your
-own query parameters to the cypher method.
+The self query parameter is prepopulated with the current node id named `self`. It's possible to pass in your
+own query parameters to the cypher method. You can use them as you would cypher parameters (``$name`` to access the parameter named `name`)
 
 Stand alone
 ===========
@@ -20,8 +20,9 @@ Outside of a `StructuredNode`::
 
     # for standalone queries
     from neomodel import db
-    results, meta = db.cypher_query(query, params)
-    people = [Person.inflate(row[0]) for row in results]
+    results, meta = db.cypher_query(query, params, resolve_objects=True)
+
+The ``resolve_objects`` parameter automatically inflates the returned nodes to their defined classes (this is turned **off** by default). See :ref:`automatic_class_resolution` for details and possible pitfalls.
 
 Logging
 =======
