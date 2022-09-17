@@ -574,6 +574,9 @@ class NodeSet(BaseSet):
             self.source_class = source
         elif isinstance(source, StructuredNode):
             self.source_class = source.__class__
+        elif isinstance(source, NodeSet):
+            self.source_class = source.source_class
+            self.source = source.source
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
 
