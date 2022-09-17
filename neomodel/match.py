@@ -783,14 +783,14 @@ class Traversal(BaseSet):
         self.name = name
         self.filters = []
 
-    def match(self, **kwargs):
+    def match(self, **kwargs) -> NodeSet:
         """
         Traverse relationships with properties matching the given parameters.
 
             e.g: `.match(price__lt=10)`
 
         :param kwargs: see `NodeSet.filter()` for syntax
-        :return: self
+        :return: NodeSet
         """
         if kwargs:
             if self.definition.get('model') is None:
@@ -798,4 +798,4 @@ class Traversal(BaseSet):
             output = process_filter_args(self.definition['model'], kwargs)
             if output:
                 self.filters.append(output)
-        return self
+        return NodeSet(self)

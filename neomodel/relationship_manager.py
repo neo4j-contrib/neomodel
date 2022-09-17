@@ -325,12 +325,12 @@ class RelationshipManager(object):
         except IndexError:
             pass
 
-    def match(self, **kwargs):
+    def match(self, **kwargs) -> NodeSet:
         """
-        Return set of nodes who's relationship properties match supplied args
+        Return set of nodes whose relationship properties match supplied args
 
         :param kwargs: same syntax as `NodeSet.filter()`
-        :return: NodeSet
+        :return: NodeSet of the resulting traversal
         """
         return self._new_traversal().match(**kwargs)
 
