@@ -60,7 +60,9 @@ def drop_indexes(quiet=True, stdout=None):
             # Token lookup indexes (introduced in Neo4j 4.3)
             # They are created automatically so they should not be dropped
             if not index[7]:
-                assert not index[8], "Token lookup indexes have neither label nor property"
+                if index[8]:
+                    raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(
+                        index[1], index[8]))
                 continue
             db.cypher_query('DROP INDEX ' + index[1])
             stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
