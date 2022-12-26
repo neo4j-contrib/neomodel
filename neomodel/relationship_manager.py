@@ -1,12 +1,16 @@
+import functools
 import inspect
 import sys
-import functools
+from enum import EnumMeta
 from importlib import import_module
-from .exceptions import NotConnected, RelationshipClassRedefined
-from .util import deprecated, _get_node_properties
-from .match import OUTGOING, INCOMING, EITHER, _rel_helper, _rel_merge_helper, Traversal, NodeSet
-from .relationship import StructuredRel
+
 from .core import db
+from .exceptions import NotConnected, RelationshipClassRedefined
+from .match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal, \
+    _rel_helper, _rel_merge_helper
+from .relationship import StructuredRel
+from .util import _get_node_properties, deprecated
+
 
 # basestring python 3.x fallback
 try:
@@ -63,7 +67,7 @@ class RelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    def connect(self, node, properties=None):
+    def connect(self, node, properties=None, relation_type=None):
         """
         Connect a node
 
@@ -79,6 +83,13 @@ class RelationshipManager(object):
                 "Relationship properties without using a relationship model "
                 "is no longer supported."
             )
+
+        if relation_type is not None and type(self.definition['relation_type']) == EnumMeta:
+            if relation_type in self.definition['relation_type']:
+                self.definition['relation_type'] = relation_type.value
+            else:
+                print('error')
+                # raise error that this is an invalid relationship type
 
         params = {}
         rel_model = self.definition['model']

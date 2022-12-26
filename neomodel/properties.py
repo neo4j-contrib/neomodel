@@ -612,3 +612,14 @@ class UniqueIdProperty(Property):
     @validator
     def deflate(self, value):
         return unicode(value)
+
+
+class UniqueUUIDProperty(UniqueIdProperty):
+    def __init__(self, **kwargs):
+        for item in ['required', 'unique_index', 'index', 'default']:
+            if item in kwargs:
+                raise ValueError('{0} argument ignored by {1}'.format(item, self.__class__.__name__))
+
+        kwargs['unique_index'] = True
+        kwargs['default'] = lambda: uuid.uuid4()
+        super(UniqueIdProperty, self).__init__(**kwargs)
