@@ -251,9 +251,9 @@ class StructuredNode(NodeBase):
                     elif relation_choice in val.definition['relation_type']:
                         val.definition['relation_type'] = kwargs.get('relation_type')
                     else:
-                        raise ClientError(message="Invalid relationship type provided")
+                        raise ValueError("Invalid relation_type provided")
                 except KeyError:
-                    raise ClientError(message="Must provide relation_type for this Node")
+                    raise KeyError("Must provide relation_type for this Node")
             self.__dict__[key] = val.build_manager(self, key)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
