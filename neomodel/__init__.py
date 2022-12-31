@@ -16,7 +16,7 @@ from .properties import (StringProperty, IntegerProperty, AliasProperty,
                          DateTimeFormatProperty, DateTimeProperty,
                          DateProperty, NormalizedProperty, RegexProperty,
                          EmailProperty, JSONProperty, ArrayProperty,
-                         UniqueIdProperty)
+                         UniqueIdProperty, UniqueUUIDProperty)
 
 __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
