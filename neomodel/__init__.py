@@ -12,7 +12,7 @@ from neomodel.relationship_manager import (
 from .relationship import StructuredRel
 from .cardinality import (ZeroOrMore, OneOrMore, ZeroOrOne, One)
 from .properties import (StringProperty, IntegerProperty, AliasProperty,
-                         FloatProperty, BooleanProperty, 
+                         FloatProperty, BooleanProperty,
                          DateTimeFormatProperty, DateTimeProperty,
                          DateProperty, NormalizedProperty, RegexProperty,
                          EmailProperty, JSONProperty, ArrayProperty,

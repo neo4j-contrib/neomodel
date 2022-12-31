@@ -246,7 +246,9 @@ class StructuredNode(NodeBase):
             if type(val.definition['relation_type']) == EnumMeta:
                 try:
                     relation_choice = kwargs['relation_type']
-                    if relation_choice in val.definition['relation_type']:
+                    if relation_choice is None:
+                        val.definition['relation_type'] = None
+                    elif relation_choice in val.definition['relation_type']:
                         val.definition['relation_type'] = kwargs.get('relation_type')
                     else:
                         raise ClientError(message="Invalid relationship type provided")
