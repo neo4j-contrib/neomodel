@@ -67,7 +67,7 @@ class RelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    def connect(self, node, properties=None, relation_type=None):
+    def connect(self, node, properties=None):
         """
         Connect a node
 
@@ -83,13 +83,6 @@ class RelationshipManager(object):
                 "Relationship properties without using a relationship model "
                 "is no longer supported."
             )
-
-        if relation_type is not None and type(self.definition['relation_type']) == EnumMeta:
-            if relation_type in self.definition['relation_type']:
-                self.definition['relation_type'] = relation_type.value
-            else:
-                print('error')
-                # raise error that this is an invalid relationship type
 
         params = {}
         rel_model = self.definition['model']

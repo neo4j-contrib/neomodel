@@ -8,6 +8,7 @@ from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
 from neo4j.exceptions import ClientError
+from enum import EnumMeta
 
 db = Database()
 
@@ -233,6 +234,24 @@ class StructuredNode(NodeBase):
             raise ValueError("deleted property is reserved for neomodel")
 
         for key, val in self.__all_relationships__:
+            """
+            When building the relationship managers of a Node, check if the
+            relationship is defined as an Enum. If so, use the provided 'relation_type'
+            parameter to build the relationship manager.
+
+            For now, we only have one relationship type defined with an Enum. If this
+            changes, this functionality will need to be adjusted to specify which Enum
+            and relationship are being provided.
+            """
+            if type(val.definition['relation_type']) == EnumMeta:
+                try:
+                    relation_choice = kwargs['relation_type']
+                    if relation_choice in val.definition['relation_type']:
+                        val.definition['relation_type'] = kwargs.get('relation_type')
+                    else:
+                        raise ClientError(message="Invalid relationship type provided")
+                except KeyError:
+                    raise ClientError(message="Must provide relation_type for this Node")
             self.__dict__[key] = val.build_manager(self, key)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
