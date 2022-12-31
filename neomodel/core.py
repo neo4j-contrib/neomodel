@@ -253,7 +253,7 @@ class StructuredNode(NodeBase):
                     else:
                         raise ValueError("Invalid relation_type provided")
                 except KeyError:
-                    raise KeyError("Must provide relation_type for this Node")
+                    pass
             self.__dict__[key] = val.build_manager(self, key)
 
         super(StructuredNode, self).__init__(*args, **kwargs)
