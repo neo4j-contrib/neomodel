@@ -233,6 +233,10 @@ class StructuredNode(NodeBase):
         if 'deleted' in kwargs:
             raise ValueError("deleted property is reserved for neomodel")
 
+        for argv in sys.argv:
+            if 'pytest' in argv:
+                kwargs['test_data'] = True
+
         for key, val in self.__all_relationships__:
             """
             When building the relationship managers of a Node, check if the
