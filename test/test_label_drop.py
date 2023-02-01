@@ -26,7 +26,7 @@ def test_drop_labels():
 
     assert len(constraints) == 0
     # Ignore the automatically created LOOKUP indexes
-    assert len([index for index in indexes if index[7] != []) == 0
+    assert len([index for index in indexes if index[7] != []]) == 0
 
     # Returning all old constraints and indexes
     # Versions prior to 4.0 have a very different return format
