@@ -57,8 +57,9 @@ def drop_indexes(quiet=True, stdout=None):
             stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
                 match.group(1), match.group(2)))
         else:
-            # Token lookup indexes (introduced in Neo4j 4.3)
-            # They are created automatically so they should not be dropped
+            # Neo4j 4.3 introduced token lookup indexes
+            # Two are created automatically so should not be dropped
+            # They can be recognized because their labelsOrTypes and properties arrays are empty
             if not index[7]:
                 if index[8]:
                     raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(

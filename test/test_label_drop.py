@@ -25,7 +25,8 @@ def test_drop_labels():
     indexes, meta = db.cypher_query("CALL db.indexes()")
 
     assert len(constraints) == 0
-    assert all(columns == ([], []) for columns in map(itemgetter(7, 8), indexes))
+    # Ignore the automatically created LOOKUP indexes
+    assert len([index for index in indexes if index[7] != []) == 0
 
     # Returning all old constraints and indexes
     # Versions prior to 4.0 have a very different return format
@@ -39,7 +40,8 @@ def test_drop_labels():
             if not isinstance(index[0], int) and index[0].startswith('INDEX '):
                 db.cypher_query('CREATE ' + index[0])
             else:
-                if not index[7]:
+                # Ignore the automatically created LOOKUP indexes
+                if index[7] == []:
                     continue
                 db.cypher_query('CREATE INDEX {0} FOR (n:{1}) ON (n.{2})'.format(index[1], index[7][0], index[8][0]))
         except ClientError:

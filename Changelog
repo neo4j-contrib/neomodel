@@ -1,3 +1,8 @@
+Version 4.1.0 2023-02-01
+* Update neo4j driver to 4.4.10
+* Confirmed support of all 4.x Neo4j versions (up to LTS version 4.4)
+* Update shapely to 1.8.1 to support Python 3.9 and 3.10
+
 Version 4.0.8 2021-12-14
 * Error handling to prepare for Neo4j update to 4.4 (thank you Alessandro Marchetti)
 * Fix "After ServiceUnavailable error, connection pool is broken and does not recover" (#551) thank you @olegchigirin 
