@@ -8,7 +8,7 @@ services:
       - pip-cache:/root/.cache/pip
     working_dir: /src
     command: >
-      sh -c "pip install geos shapely && python -B setup.py test"
+      sh -c "pip install geos shapely==1.8.1 && python -B setup.py test"
     links:
       - neo4j
     depends_on:

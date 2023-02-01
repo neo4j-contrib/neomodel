@@ -57,9 +57,11 @@ def drop_indexes(quiet=True, stdout=None):
             stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
                 match.group(1), match.group(2)))
         else:
-            db.cypher_query('DROP INDEX ' + index[1])
-            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-                index[7][0], index[8][0]))
+            # Versions after 4.3 create two lookup indexes by default
+            if index[5] != "LOOKUP":
+                db.cypher_query('DROP INDEX ' + index[1])
+                stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
+                    index[7][0], index[8][0]))
     stdout.write("\n")
 
 

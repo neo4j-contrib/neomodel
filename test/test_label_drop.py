@@ -22,8 +22,8 @@ def test_drop_labels():
     constraints, meta = db.cypher_query("CALL db.constraints()")
     indexes, meta = db.cypher_query("CALL db.indexes()")
 
-    assert len(constraints) == 0
-    assert len(indexes) == 0
+    assert len([constraint for constraint in constraints if constraint[5] != "LOOKUP"]) == 0
+    assert len([index for index in indexes if index[5] != "LOOKUP"]) == 0
 
     # Returning all old constraints and indexes
     # Versions prior to 4.0 have a very different return format
@@ -37,6 +37,7 @@ def test_drop_labels():
             if not isinstance(index[0], int) and index[0].startswith('INDEX '):
                 db.cypher_query('CREATE ' + index[0])
             else:
-                db.cypher_query('CREATE INDEX {0} FOR (n:{1}) ON (n.{2})'.format(index[1], index[7][0], index[8][0]))
+                if index[5] != "LOOKUP":
+                    db.cypher_query('CREATE INDEX {0} FOR (n:{1}) ON (n.{2})'.format(index[1], index[7][0], index[8][0]))
         except ClientError:
             pass
