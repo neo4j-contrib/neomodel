@@ -14,7 +14,7 @@ for dir in neomodel test; do
     find ${dir} -name __pycache__ -exec rm -Rf {} \;
 done
 : "${NEO4J_VERSIONS:=4.4 4.3 4.1}"
-: "${PYTHON_VERSIONS:=3.10 3.9 3.8 3.7 3.6}"
+: "${PYTHON_VERSIONS:=3.10 3.9 3.8 3.7}"
 for NEO4J_VERSION in ${NEO4J_VERSIONS}; do
     for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
         export NEO4J_VERSION
