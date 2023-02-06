@@ -84,6 +84,7 @@ class Database(local, NodeClassRegistry):
         self._session = None
         self._pid = None
         self._database_name = DEFAULT_DATABASE
+        self.protocol_version = None
 
     def set_connection(self, url):
         """

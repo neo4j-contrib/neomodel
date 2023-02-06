@@ -1,10 +1,10 @@
 from six import StringIO
 import pytest
-from neo4j.exceptions import DatabaseError
+from neo4j.exceptions import DatabaseError, CypherSyntaxError
 from neomodel import (
     config, StructuredNode, StringProperty, install_all_labels, install_labels,
     UniqueIdProperty)
-from neomodel.core import db
+from neomodel.core import db, drop_constraints
 
 
 config.AUTO_INSTALL_LABELS = False
@@ -37,11 +37,15 @@ def test_labels_were_not_installed():
 
 
 def test_install_all():
+    drop_constraints()
     install_labels(AbstractNode)
     # run install all labels
     install_all_labels()
     # remove constraint for above test
-    db.cypher_query("DROP CONSTRAINT on (n:NoConstraintsSetup) ASSERT n.name IS UNIQUE")
+    try:
+        _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
+    except CypherSyntaxError:
+        db.cypher_query("DROP CONSTRAINT on (n:NoConstraintsSetup) ASSERT n.name IS UNIQUE")
 
 
 def test_install_label_twice():
@@ -51,12 +55,30 @@ def test_install_label_twice():
 
 def test_install_labels_db_property():
     stdout = StringIO()
+    drop_constraints()
     install_labels(SomeNotUniqueNode, quiet=False, stdout=stdout)
     assert 'id' in stdout.getvalue()
     # make sure that the id_ constraint doesn't exist
-    with pytest.raises(DatabaseError) as exc_info:
-        db.cypher_query(
-            'DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id_ IS UNIQUE')
-    assert 'No such constraint' in exc_info.exconly()
+    try:
+        constraint_names = _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id_")
+        assert constraint_names == []
+    except CypherSyntaxError:
+        with pytest.raises(DatabaseError) as exc_info:
+            db.cypher_query(
+                'DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id_ IS UNIQUE')
+        assert 'No such constraint' in exc_info.exconly()
     # make sure the id constraint exists and can be removed
-    db.cypher_query('DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id IS UNIQUE')
+    try:
+        _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
+    except CypherSyntaxError:
+        db.cypher_query('DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id IS UNIQUE')
+
+
+def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
+    results, meta = db.cypher_query("SHOW CONSTRAINTS")
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    constraint_names = [constraint for constraint in results_as_dict if constraint["labelsOrTypes"]==label and constraint["properties"]==property]
+    for constraint_name in constraint_names:
+        db.cypher_query(f"DROP CONSTRAINT {constraint_name}")
+
+    return constraint_names

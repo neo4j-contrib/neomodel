@@ -7,7 +7,7 @@ from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, classproperty, _UnsavedNode, _get_node_properties
-from neo4j.exceptions import ClientError
+from neo4j.exceptions import ClientError, CypherSyntaxError
 
 db = Database()
 
@@ -22,18 +22,27 @@ def drop_constraints(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("CALL db.constraints()")
-    pattern = re.compile(':(.*) \).*\.(\w*)')
-    for constraint in results:
-        # Versions prior to 4.0 have a very different return format
-        if constraint[0].startswith('CONSTRAINT '):
-            db.cypher_query('DROP {!s}'.format(constraint[0]))
-            match = pattern.search(constraint[0])
+    # From Neo4j 4.3 on, the syntax to list constraints is 'SHOW CONSTRAINTS'
+    # For older versions, this returns a CypherSyntaxError, and the correct syntax is 'CALL db.constraints()'
+    try:
+        results, meta = db.cypher_query("SHOW CONSTRAINTS")
+    except CypherSyntaxError:
+        results, meta = db.cypher_query("CALL db.constraints()")
+
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    for constraint in results_as_dict:
+        # Versions prior to 4.3 returned a 'description' column
+        if "description" in constraint:
+            db.cypher_query('DROP {!s}'.format(constraint["description"]))
+
+            pattern = re.compile(':(.*) \).*\.(\w*)')
+            match = pattern.search(constraint["description"])
+            stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
+                match.group(1), match.group(2)))
         else:
-            db.cypher_query('DROP CONSTRAINT {!s}'.format(constraint[0]))
-            match = pattern.search(constraint[1])
-        stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
-            match.group(1), match.group(2)))
+            db.cypher_query('DROP CONSTRAINT ' + constraint["name"])
+            stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
+                constraint["labelsOrTypes"][0], constraint["properties"][0]))
     stdout.write("\n")
 
 
@@ -47,27 +56,31 @@ def drop_indexes(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("CALL db.indexes()")
-    pattern = re.compile(':(.*)\((.*)\)')
-    for index in results:
-        # Versions prior to 4.0 have a very different return format
-        if not isinstance(index[0], int) and index[0].startswith('INDEX '):
-            db.cypher_query('DROP ' + index[0])
-            match = pattern.search(index[0])
-            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-                match.group(1), match.group(2)))
-        else:
-            # Neo4j 4.3 introduced token lookup indexes
-            # Two are created automatically so should not be dropped
-            # They can be recognized because their labelsOrTypes and properties arrays are empty
-            if not index[7]:
-                if index[8]:
-                    raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(
-                        index[1], index[8]))
-                continue
-            db.cypher_query('DROP INDEX ' + index[1])
-            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-                index[7][0], index[8][0]))
+    # From Neo4j 4.3 on, the syntax to list constraints is 'SHOW INDEXES'
+    # For older versions, this returns a CypherSyntaxError, and the correct syntax is 'CALL db.indexes()'
+    try:
+        results, meta = db.cypher_query("SHOW INDEXES")
+    except CypherSyntaxError:
+        results, meta = db.cypher_query("CALL db.indexes()")
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    for index in results_as_dict:
+        # In versions prior to 4.0, 'labelsOrTypes' was named 'tokenNames'
+        if "tokenNames" in index:
+            db.cypher_query('DROP ' + index["description"])
+            stdout.write(' - Dropping index on labels {0} with properties {1}.\n'.format(
+                ",".join(index["tokenNames"]), ",".join(index["properties"])))
+            continue
+        # Neo4j 4.3 introduced token lookup indexes
+        # Two are created automatically so should not be dropped
+        # They can be recognized because their labelsOrTypes and properties arrays are empty
+        elif not index["labelsOrTypes"]:
+            if index["properties"]:
+                raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(
+                    index["name"], ','.join(index["properties"])))
+            continue
+        db.cypher_query('DROP INDEX ' + index["name"])
+        stdout.write(' - Dropping index on labels {0} with properties {1}.\n'.format(
+            ",".join(index["labelsOrTypes"]), ",".join(index["properties"])))
     stdout.write("\n")
 
 
@@ -115,6 +128,9 @@ def install_labels(cls, quiet=True, stdout=None):
                 stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
+                db.cypher_query("CREATE INDEX FOR (n:{0}) ON (n.{1}); ".format(
+                    cls.__label__, db_property))
+            except CypherSyntaxError:
                 db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
                     cls.__label__, db_property))
             except ClientError as e:
@@ -129,6 +145,10 @@ def install_labels(cls, quiet=True, stdout=None):
                 stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
+                db.cypher_query("CREATE CONSTRAINT "
+                                "FOR (n:{0}) REQUIRE n.{1} IS UNIQUE".format(
+                    cls.__label__, db_property))
+            except CypherSyntaxError:
                 db.cypher_query("CREATE CONSTRAINT "
                                 "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
                     cls.__label__, db_property))
