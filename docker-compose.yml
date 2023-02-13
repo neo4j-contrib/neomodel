@@ -8,7 +8,11 @@ services:
       - pip-cache:/root/.cache/pip
     working_dir: /src
     command: >
-      sh -c "pip install geos shapely && python -B setup.py test"
+      sh -c "python -c 'from urllib.request import urlretrieve;
+      urlretrieve(\"https://raw.githubusercontent.com/vishnubob/wait-for-it/81b1373f17855a4dc21156cfe1694c31d7d1792e/wait-for-it.sh\",
+        \"/tmp/wait-for-it.sh\")' &&
+      chmod +x /tmp/wait-for-it.sh &&
+      pip install geos shapely==1.8.1 && /tmp/wait-for-it.sh neo4j:7474 -- python -B setup.py test"
     links:
       - neo4j
     depends_on:
