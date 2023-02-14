@@ -27,7 +27,7 @@ jobs:
     - name: Creating Neo4j Container
       run: |
         chmod +x ./scripts/docker-neo4j-initializer/docker-neo4j.sh
-        sh ./scripts/docker-neo4j-initializer/docker-neo4j.sh ${{ matrix.neo4j-version }}
+        sh ./scripts/docker-neo4j.sh ${{ matrix.neo4j-version }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
