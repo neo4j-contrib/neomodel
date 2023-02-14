@@ -4,6 +4,7 @@ Version 4.1.0 2023-02-01
 * Update shapely to 1.8.1 to support Python 3.9 and 3.10
 * Drop support of Python 3.6
 * Up pytest requirement to 7.1 (Python 3.7+)
+* Update to latest version of setuptools for up-to-date build process
 
 Version 4.0.8 2021-12-14
 * Error handling to prepare for Neo4j update to 4.4 (thank you Alessandro Marchetti)

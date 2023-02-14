@@ -1,1 +1,4 @@
-python3 -m venv venv; source venv/bin/activate; python setup.py develop;
+pip install --upgrade build
+python -m build
+python -m venv .venv
+pip install --editable .
