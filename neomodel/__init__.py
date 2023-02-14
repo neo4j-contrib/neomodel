@@ -24,7 +24,7 @@ __license__ = 'MIT'
 __package__ = 'neomodel'
 if (sys.version_info.major, sys.version_info.minor) >= (3, 8):
     from importlib.metadata import version
-    neo_version = version("neomodel")
+    neo_version = version('neomodel')
 else:
     import pkg_resources
     neo_version = pkg_resources.get_distribution('neomodel').version
