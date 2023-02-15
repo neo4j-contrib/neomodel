@@ -115,7 +115,7 @@ def install_labels(cls, quiet=True, stdout=None):
                 stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
-                db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
+                db.cypher_query("CREATE INDEX for :{0}({1}); ".format(
                     cls.__label__, db_property))
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
@@ -130,7 +130,7 @@ def install_labels(cls, quiet=True, stdout=None):
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
                 db.cypher_query("CREATE CONSTRAINT "
-                                "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
+                                "for (n:{0}) REQUIRE n.{1} IS UNIQUE".format(
                     cls.__label__, db_property))
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
