@@ -162,6 +162,7 @@ class NodeMeta(type):
         namespace['DoesNotExist'] = \
             type(name + 'DoesNotExist', (DoesNotExist,), {})
         cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
+        cls.DoesNotExist._model_class = cls
 
         if hasattr(cls, '__abstract_node__'):
             delattr(cls, '__abstract_node__')
