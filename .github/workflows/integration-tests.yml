@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python package
+name: Integration tests
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.9", "3.8", "3.7"]
-        neo4j-version: ["4.4", "4.3", "4.1"]
+        neo4j-version: ["5.4", "4.4"]
 
     steps:
     - uses: actions/checkout@v3
