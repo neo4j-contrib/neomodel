@@ -30,7 +30,7 @@ def pytest_sessionstart(session):
     
     warnings.simplefilter('default')
     
-    config.DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:foobar@localhost:7687')
+    config.DATABASE_URL = os.environ.get('NEO4J_BOLT_URL', 'bolt://neo4j:foobarbaz@localhost:7687')
     config.AUTO_INSTALL_LABELS = True
     
     try:
