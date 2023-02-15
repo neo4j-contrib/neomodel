@@ -54,6 +54,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = "--resetdb"
+testpaths = "test"
 
 [project.scripts]
 install-labels = "scripts.neomodel_install_labels:main"
