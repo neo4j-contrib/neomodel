@@ -2,10 +2,10 @@
 import os
 import sys
 
-from neomodel import __version__, __author__, __package__
-
 sys.path.insert(0, os.path.abspath('_themes'))
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../../'))
+
+from neomodel import __version__, __author__, __package__
 
 import alabaster
 
