@@ -22,5 +22,5 @@ __author__ = 'Robin Edwards'
 __email__ = 'robin.ge@gmail.com'
 __license__ = 'MIT'
 __package__ = 'neomodel'
-__version__ = '4.0.9'
+__version__ = '4.0.10'
 
