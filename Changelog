@@ -1,4 +1,7 @@
-Version 4.1.0 2023-02-01
+Version 4.0.10 2023-02-16
+* Maintenance release due to misconfiguration of pyproject.toml
+
+Version 4.0.9 2023-02-16
 * Update neo4j driver to 4.4.10
 * Confirmed support of all 4.x Neo4j versions (up to LTS version 4.4)
 * Update shapely to 1.8.1 to support Python 3.9 and 3.10

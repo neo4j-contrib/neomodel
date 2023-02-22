@@ -1,0 +1,6 @@
+neo4j-driver==4.4.10
+pytz>=2021.1
+neobolt==1.7.17
+six==1.16.0
+neomodel==4.0.10
+
