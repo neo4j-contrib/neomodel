@@ -383,15 +383,17 @@ class RelationshipDefinition(object):
         self._raw_class = cls_name
         self.manager = manager
         self.definition = {}
-        self.definition['relation_type'] = relation_type
         self.definition['direction'] = direction
         self.definition['model'] = model
+        self.definition['from'] = current_frame.f_back.f_back.f_back.f_code.co_name
+        self.definition['to'] = cls_name if type(cls_name) is str else cls_name.__name__
+        self.definition['relation_type'] = f"{relation_type}_{self.definition['from']}_{self.definition['to']}"
 
         if model is not None:
             # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
             # relationship's type determines the class that should be instantiated uniquely. Here however, we still use
             # a `frozenset([relation_type])` to preserve the mapping type.
-            label_set = frozenset([relation_type])
+            label_set = frozenset([self.definition['relation_type']])
             try:
                 # If the relationship mapping exists then it is attempted to be redefined so that it applies to the same
                 # label. In this case, it has to be ensured that the class that is overriding the relationship is a
