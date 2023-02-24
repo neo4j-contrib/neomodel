@@ -38,7 +38,7 @@ dependencies = [
     "neobolt==1.7.17",
     "six==1.16.0",
 ]
-dynamic = ["version"]
+version='4.0.10'
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
@@ -56,5 +56,5 @@ dev = [
 addopts = "--resetdb"
 
 [project.scripts]
-install-labels = "scripts.neomodel_install_labels:main"
-remove-labels = "scripts.neomodel_remove_labels:main"
+neomodel_install_labels = "scripts.neomodel_install_labels:main"
+neomodel_remove_labels = "scripts.neomodel_remove_labels:main"
