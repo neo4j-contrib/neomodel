@@ -2,6 +2,8 @@ from neomodel import StructuredNode, StringProperty, config
 from neomodel.core import db, remove_all_labels
 from neo4j.exceptions import ClientError
 
+from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
+
 config.AUTO_INSTALL_LABELS = True
 
 
@@ -11,26 +13,23 @@ class ConstraintAndIndex(StructuredNode):
 
 
 def test_drop_labels():
-    constraints_before, meta_constraints_before = db.cypher_query("SHOW CONSTRAINTS")
-    indexes_before, meta_indexes_before = db.cypher_query("SHOW INDEXES")
+    constraints_before = get_db_constraints_as_dict()
+    indexes_before = get_db_indexes_as_dict()
 
     assert len(constraints_before) > 0
     assert len(indexes_before) > 0
 
     remove_all_labels()
 
-    constraints, meta_constraints = db.cypher_query("SHOW CONSTRAINTS")
-    indexes, meta_indexes = db.cypher_query("SHOW INDEXES")
+    constraints = get_db_constraints_as_dict()
+    indexes = get_db_indexes_as_dict()
 
     assert len(constraints) == 0
-    indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
-    constraints_before_as_dict = [dict(zip(meta_constraints_before, row)) for row in constraints_before]
-    indexes_before_as_dict = [dict(zip(meta_indexes_before, row)) for row in indexes_before]
     # Ignore the automatically created LOOKUP indexes
-    assert len([index for index in indexes_as_dict if index["labelsOrTypes"]]) == 0
+    assert len([index for index in indexes if index["labelsOrTypes"]]) == 0
 
     # Recreating all old constraints and indexes
-    for constraint in constraints_before_as_dict:
+    for constraint in constraints_before:
         constraint_type_clause = "UNIQUE"
         if constraint["type"] == "NODE_PROPERTY_EXISTENCE":
             constraint_type_clause = "NOT NULL"
@@ -45,7 +44,7 @@ def test_drop_labels():
                 constraint["properties"][0],
                 constraint_type_clause,
             ))
-    for index in indexes_before_as_dict:
+    for index in indexes_before:
         try:
             # Ignore the automatically created LOOKUP indexes
             if index["labelsOrTypes"] is None or index["labelsOrTypes"] == []:

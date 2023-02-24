@@ -1,17 +1,26 @@
 from six import StringIO
-import pytest
-from neo4j.exceptions import DatabaseError, CypherSyntaxError
 from neomodel import (
     config, StructuredNode, StringProperty, install_all_labels, install_labels,
-    UniqueIdProperty)
+    UniqueIdProperty, RelationshipTo, StructuredRel)
 from neomodel.core import db, drop_constraints
+
+from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
 
 
 config.AUTO_INSTALL_LABELS = False
 
 
-class NoConstraintsSetup(StructuredNode):
+class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
+
+class NodeWithRelationship(StructuredNode):
+    ...
+
+class IndexedRelationship(StructuredRel):
+    indexed_rel_prop = StringProperty(index=True)
+
+class OtherNodeWithRelationship(StructuredNode):
+    has_rel = RelationshipTo(NodeWithRelationship, "INDEXED_REL", model=IndexedRelationship)
 
 
 class AbstractNode(StructuredNode):
@@ -27,12 +36,12 @@ config.AUTO_INSTALL_LABELS = True
 
 
 def test_labels_were_not_installed():
-    bob = NoConstraintsSetup(name='bob').save()
-    bob2 = NoConstraintsSetup(name='bob').save()
-    bob3 = NoConstraintsSetup(name='bob').save()
+    bob = NodeWithConstraint(name='bob').save()
+    bob2 = NodeWithConstraint(name='bob').save()
+    bob3 = NodeWithConstraint(name='bob').save()
     assert bob.id != bob3.id
 
-    for n in NoConstraintsSetup.nodes.all():
+    for n in NodeWithConstraint.nodes.all():
         n.delete()
 
 
@@ -41,6 +50,16 @@ def test_install_all():
     install_labels(AbstractNode)
     # run install all labels
     install_all_labels()
+
+    indexes = get_db_indexes_as_dict()
+    index_names = [index["name"] for index in indexes]
+    assert "index_INDEXED_REL_indexed_rel_prop" in index_names
+
+    constraints = get_db_constraints_as_dict()
+    constraint_names = [constraint["name"] for constraint in constraints]
+    assert "constraint_unique_NodeWithConstraint_name"in constraint_names
+    assert "constraint_unique_SomeNotUniqueNode_id" in constraint_names
+
     # remove constraint for above test
     _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
 

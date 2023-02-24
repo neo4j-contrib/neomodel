@@ -96,11 +96,12 @@ def install_labels(cls, quiet=True, stdout=None):
             stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(cls.__module__, cls.__name__))
         return
 
+    # Create indexes and constraints for node properties
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
         db_property = property.db_property or name
         if property.index:
             if not quiet:
-                stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
+                stdout.write(' + Creating node index {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
                 db.cypher_query("CREATE INDEX index_{0}_{1} FOR (n:{0}) ON (n.{1}); ".format(
@@ -114,7 +115,7 @@ def install_labels(cls, quiet=True, stdout=None):
 
         elif property.unique_index:
             if not quiet:
-                stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
+                stdout.write(' + Creating node unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
                     name, cls.__label__, cls.__module__, cls.__name__))
             try:
                 db.cypher_query("CREATE CONSTRAINT constraint_unique_{0}_{1} "
@@ -126,6 +127,29 @@ def install_labels(cls, quiet=True, stdout=None):
                     stdout.write('{0}\n'.format(str(e)))
                 else:
                     raise
+
+        # TODO : Add support for existence constraints
+
+    # Create indexes and constraints for relationship properties
+    for rel_name, relationship in cls.defined_properties(aliases=False, rels=True, properties=False).items():
+        relationship_cls = relationship.definition['model']
+        if relationship_cls is not None:
+            relationship_type = relationship.definition['relation_type']
+            for prop_name, property in relationship_cls.defined_properties(aliases=False, rels=False).items():
+                db_property = property.db_property or prop_name
+                if property.index:
+                    if not quiet:
+                        stdout.write(' + Creating relationship index {0} on relationship type {1} for relationship model {2}.{3}\n'.format(
+                            prop_name, relationship_type, cls.__module__, relationship_cls.__name__))
+                    try:
+                        db.cypher_query("CREATE INDEX index_{0}_{1} FOR ()-[r:{0}]-() ON (r.{1}); ".format(
+                            relationship_type, db_property))
+                    except ClientError as e:
+                        if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
+                                    'Neo.ClientError.Schema.IndexAlreadyExists'):
+                            stdout.write('{0}\n'.format(str(e)))
+                        else:
+                            raise
 
 
 def install_all_labels(stdout=None):
