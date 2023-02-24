@@ -770,7 +770,7 @@ class Traversal(BaseSet):
                             "{0}".format(type(source)))
 
         invalid_keys = (
-                set(definition) - {'direction', 'model', 'node_class', 'relation_type'}
+                set(definition) - {'direction', 'model', 'node_class', 'relation_type', 'from', 'to'}
         )
         if invalid_keys:
             raise ValueError(
