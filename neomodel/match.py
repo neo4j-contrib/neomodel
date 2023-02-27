@@ -553,7 +553,7 @@ class BaseSet(object):
             elif key.start:
                 self.skip = key.start
 
-            return self.query_cls(self).build_ast()._execute()
+            return self
 
         elif isinstance(key, int):
             self.skip = key
