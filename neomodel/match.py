@@ -504,8 +504,8 @@ class QueryBuilder(object):
         if results:
             return [n[0] for n in results]
         return []
-        
-        
+
+
 class BaseSet(object):
     """
     Base class for all node sets.
