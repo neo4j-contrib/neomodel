@@ -116,10 +116,10 @@ class NodeClassAlreadyDefined(ModelDefinitionException):
     that already has a mapping within the node-to-class registry.
     """
     def __str__(self):
-        node_class_labels = ",".join(self.db_node_class.inherited_labels())
+        node_class_labels = ",".join(self.db_node_rel_class.inherited_labels())
 
         return "Class {}.{} with labels {} already defined:\n{}\n".format(
-            self.db_node_class.__module__, self.db_node_class.__name__,
+            self.db_node_rel_class.__module__, self.db_node_rel_class.__name__,
             node_class_labels, self._get_node_class_registry_formatted())
 
 

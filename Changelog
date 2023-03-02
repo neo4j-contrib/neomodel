@@ -1,3 +1,25 @@
+Version 4.0.10 2023-02-16
+* Maintenance release due to misconfiguration of pyproject.toml
+
+Version 4.0.9 2023-02-16
+* Update neo4j driver to 4.4.10
+* Confirmed support of all 4.x Neo4j versions (up to LTS version 4.4)
+* Update shapely to 1.8.1 to support Python 3.9 and 3.10
+* Drop support of Python 3.6
+* Up pytest requirement to 7.1 (Python 3.7+)
+* Update to latest version of setuptools for up-to-date build process
+
+Version 4.0.8 2021-12-14
+* Error handling to prepare for Neo4j update to 4.4 (thank you Alessandro Marchetti)
+* Fix "After ServiceUnavailable error, connection pool is broken and does not recover" (#551) thank you @olegchigirin 
+* Fix DateProperty inflate (#586) thank you @ralfeus
+* Use modern python API for metadata (#587) thank you Park, Yury
+
+Version 4.0.7 2021-10-19
+
+* Update neo4j driver to 4.3.6
+* Fix After ServiceUnavailable error, connection pool is broken and does not recover
+
 Version 4.0.6 2021-09-09
 * Fix calling install_all_labels twice fails #539
 * Fix issue with passwords with special chars #572

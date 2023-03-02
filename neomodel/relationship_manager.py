@@ -1,3 +1,4 @@
+import inspect
 import sys
 import functools
 from importlib import import_module
@@ -24,6 +25,12 @@ def check_source(fn):
         return fn(self, *args, **kwargs)
     return checker
 
+# checks if obj is a direct subclass, 1 level
+def is_direct_subclass(obj, classinfo):
+    for base in obj.__bases__:
+        if base == classinfo:
+            return True
+    return False
 
 class RelationshipManager(object):
     """
@@ -270,14 +277,15 @@ class RelationshipManager(object):
         """
         return self.filter(**kwargs).all()
 
-    def filter(self, **kwargs):
+    def filter(self, *args, **kwargs):
         """
         Retrieve related nodes matching the provided properties.
 
+        :param args: a Q object
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).filter(**kwargs)
+        return NodeSet(self._new_traversal()).filter(*args, **kwargs)
 
     def order_by(self, *props):
         """
@@ -288,14 +296,15 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).order_by(*props)
 
-    def exclude(self, **kwargs):
+    def exclude(self, *args, **kwargs):
         """
         Exclude nodes that match the provided properties.
 
+        :param args: a Q object
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).exclude(**kwargs)
+        return NodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
     def is_connected(self, node):
         """
@@ -354,9 +363,23 @@ class RelationshipManager(object):
 
 class RelationshipDefinition(object):
     def __init__(self, relation_type, cls_name, direction, manager=RelationshipManager, model=None):
-        self.module_name = sys._getframe(4).f_globals['__name__']
-        if '__file__' in sys._getframe(4).f_globals:
-            self.module_file = sys._getframe(4).f_globals['__file__']
+        current_frame = inspect.currentframe()
+
+        def enumerate_traceback(initial_frame):
+            depth, frame = 0, initial_frame
+            while frame is not None:
+                yield depth, frame
+                frame = frame.f_back
+                depth += 1
+
+        frame_number = 4
+        for i, frame in enumerate_traceback(current_frame):
+            if cls_name in frame.f_globals:
+                frame_number = i
+                break
+        self.module_name = sys._getframe(frame_number).f_globals['__name__']
+        if '__file__' in sys._getframe(frame_number).f_globals:
+            self.module_file = sys._getframe(frame_number).f_globals['__file__']
         self._raw_class = cls_name
         self.manager = manager
         self.definition = {}
@@ -373,8 +396,11 @@ class RelationshipDefinition(object):
                 # If the relationship mapping exists then it is attempted to be redefined so that it applies to the same
                 # label. In this case, it has to be ensured that the class that is overriding the relationship is a
                 # descendant of the already existing class
-                if not issubclass(model, db._NODE_CLASS_REGISTRY[label_set]):
-                    raise RelationshipClassRedefined(relation_type, db._NODE_CLASS_REGISTRY, model)
+                model_from_registry = db._NODE_CLASS_REGISTRY[label_set]
+                if not issubclass(model, model_from_registry):
+                    is_parent = issubclass(model_from_registry, model)
+                    if is_direct_subclass(model, StructuredRel) and not is_parent:
+                        raise RelationshipClassRedefined(relation_type, db._NODE_CLASS_REGISTRY, model)
                 else:
                     db._NODE_CLASS_REGISTRY[label_set] = model
             except KeyError:

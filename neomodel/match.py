@@ -649,6 +649,10 @@ class NodeSet(BaseSet):
         """
         Apply filters to the existing nodes in the set.
 
+        :param args: a Q object
+
+            e.g `.filter(Q(salary__lt=10000) | Q(salary__gt=20000))`.
+
         :param kwargs: filter parameters
 
             Filters mimic Django's syntax with the double '__' to separate field and operators.

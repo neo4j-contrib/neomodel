@@ -10,7 +10,7 @@ The following properties are available on nodes and relationships:
 :class:`~neomodel.properties.AliasProperty`           :class:`~neomodel.properties.IntegerProperty`
 :class:`~neomodel.properties.ArrayProperty`           :class:`~neomodel.properties.JSONProperty`
 :class:`~neomodel.properties.BooleanProperty`         :class:`~neomodel.properties.RegexProperty`
-:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty` (`Notes <http://www.google.com>`_)
+:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty` (:ref:`Notes <properties_notes>`)
 :class:`~neomodel.properties.DateTimeProperty`        :class:`~neomodel.properties.UniqueIdProperty`
 :class:`~neomodel.properties.DateTimeFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
 :class:`~neomodel.properties.FloatProperty`           \
@@ -179,6 +179,8 @@ This is useful when hiding graph properties behind a python property::
         def name(self, value):
             self.name_ = value
 
+
+.. _properties_notes:
 
 Notes
 =====

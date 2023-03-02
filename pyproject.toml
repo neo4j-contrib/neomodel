@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+where = ["./"]
+
+[project]
+name = "neomodel"
+authors = [
+    {name = "Robin Edwards", email = "robin.ge@gmail.com"},
+]
+maintainers = [
+    {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
+    {name = "Cristina Escalante"},
+    {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
+]
+description = "An object mapper for the neo4j graph database."
+readme = "README.rst"
+requires-python = ">=3.7"
+keywords = ["graph", "neo4j", "ORM", "OGM", "mapper"]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    'Intended Audience :: Developers',
+    'Operating System :: OS Independent',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+]
+dependencies = [
+    "neo4j-driver==4.4.10",
+    "pytz>=2021.1",
+    "neobolt==1.7.17",
+    "six==1.16.0",
+]
+version='4.0.10'
+
+[project.urls]
+documentation = "https://neomodel.readthedocs.io/en/latest/"
+repository = "http://github.com/neo4j-contrib/neomodel"
+changelog = "https://github.com/neo4j-contrib/neomodel/releases"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.1",
+    "pre-commit",
+    "Shapely>=1.8.1,<1.9"
+]
+
+[tool.pytest.ini_options]
+addopts = "--resetdb"
+
+[project.scripts]
+neomodel_install_labels = "scripts.neomodel_install_labels:main"
+neomodel_remove_labels = "scripts.neomodel_remove_labels:main"
