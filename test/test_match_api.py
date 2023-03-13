@@ -145,11 +145,11 @@ def test_slice():
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
 
-    assert len(Coffee.nodes[1:]) == 2
-    assert len(Coffee.nodes[:1]) == 1
+    assert len(list(Coffee.nodes.all()[1:])) == 2
+    assert len(list(Coffee.nodes.all()[:1])) == 1
     assert isinstance(Coffee.nodes[1], Coffee)
     assert isinstance(Coffee.nodes[0], Coffee)
-    assert len(Coffee.nodes[1:2]) == 1
+    assert len(list(Coffee.nodes.all()[1:2])) == 1
 
 
 def test_issue_208():
