@@ -96,12 +96,8 @@ def test_save_to_model():
 def test_unique():
     install_labels(User)
     User(email='jim1@test.com', age=3).save()
-    try:
+    with raises(UniqueProperty):
         User(email='jim1@test.com', age=3).save()
-    except Exception as e:
-        assert e.__class__.__name__ == 'UniqueProperty'
-    else:
-        assert False, "No exception raised."
 
 
 def test_update_unique():

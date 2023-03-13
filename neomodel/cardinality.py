@@ -38,7 +38,7 @@ class ZeroOrOne(RelationshipManager):
         """
         if len(self):
             raise AttemptedCardinalityViolation(
-                    "Node already has {0} can't connect more".format(self))
+                    f"Node already has {self} can't connect more")
         else:
             return super(ZeroOrOne, self).connect(node, properties)
 

@@ -27,8 +27,7 @@ def drop_constraints(quiet=True, stdout=None):
     results_as_dict = [dict(zip(meta, row)) for row in results]
     for constraint in results_as_dict:
         db.cypher_query('DROP CONSTRAINT ' + constraint["name"])
-        stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
-            constraint["labelsOrTypes"][0], constraint["properties"][0]))
+        stdout.write(f' - Dropping unique constraint and index on label {constraint["labelsOrTypes"][0]} with property {constraint["properties"][0]}.\n')
     stdout.write("\n")
 
 
@@ -50,12 +49,10 @@ def drop_indexes(quiet=True, stdout=None):
         # They can be recognized because their labelsOrTypes and properties arrays are empty
         if not index["labelsOrTypes"]:
             if index["properties"]:
-                raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(
-                    index["name"], ','.join(index["properties"])))
+                raise ValueError(f'Index {index["name"]} has no labels but has properties({",".join(index["properties"])}). Unknown index')
             continue
         db.cypher_query('DROP INDEX ' + index["name"])
-        stdout.write(' - Dropping index on labels {0} with properties {1}.\n'.format(
-            ",".join(index["labelsOrTypes"]), ",".join(index["properties"])))
+        stdout.write(f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n')
     stdout.write("\n")
 
 
@@ -93,7 +90,7 @@ def install_labels(cls, quiet=True, stdout=None):
 
     if not hasattr(cls, '__label__'):
         if not quiet:
-            stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(cls.__module__, cls.__name__))
+            stdout.write(f' ! Skipping class {cls.__module__}.{cls.__name__} is abstract\n')
         return
 
     # Create indexes and constraints for node properties
@@ -101,30 +98,26 @@ def install_labels(cls, quiet=True, stdout=None):
         db_property = property.db_property or name
         if property.index:
             if not quiet:
-                stdout.write(' + Creating node index {0} on label {1} for class {2}.{3}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
+                stdout.write(f' + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n')
             try:
-                db.cypher_query("CREATE INDEX index_{0}_{1} FOR (n:{0}) ON (n.{1}); ".format(
-                    cls.__label__, db_property))
+                db.cypher_query(f"CREATE INDEX index_{cls.__label__}_{db_property} FOR (n:{cls.__label__}) ON (n.{db_property}); ")
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
                               'Neo.ClientError.Schema.IndexAlreadyExists'):
-                    stdout.write('{0}\n'.format(str(e)))
+                    stdout.write(f'{str(e)}\n')
                 else:
                     raise
 
         elif property.unique_index:
             if not quiet:
-                stdout.write(' + Creating node unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
+                stdout.write(f' + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n')
             try:
-                db.cypher_query("CREATE CONSTRAINT constraint_unique_{0}_{1} "
-                                "FOR (n:{0}) REQUIRE n.{1} IS UNIQUE".format(
-                    cls.__label__, db_property))
+                db.cypher_query(f"""CREATE CONSTRAINT constraint_unique_{cls.__label__}_{db_property} 
+                                FOR (n:{cls.__label__}) REQUIRE n.{db_property} IS UNIQUE""")
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
                               'Neo.ClientError.Schema.ConstraintAlreadyExists'):
-                    stdout.write('{0}\n'.format(str(e)))
+                    stdout.write(f'{str(e)}\n')
                 else:
                     raise
 
@@ -139,15 +132,13 @@ def install_labels(cls, quiet=True, stdout=None):
                 db_property = property.db_property or prop_name
                 if property.index:
                     if not quiet:
-                        stdout.write(' + Creating relationship index {0} on relationship type {1} for relationship model {2}.{3}\n'.format(
-                            prop_name, relationship_type, cls.__module__, relationship_cls.__name__))
+                        stdout.write(f' + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n')
                     try:
-                        db.cypher_query("CREATE INDEX index_{0}_{1} FOR ()-[r:{0}]-() ON (r.{1}); ".format(
-                            relationship_type, db_property))
+                        db.cypher_query(f"CREATE INDEX index_{relationship_type}_{db_property} FOR ()-[r:{relationship_type}]-() ON (r.{db_property}); ")
                     except ClientError as e:
                         if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
                                     'Neo.ClientError.Schema.IndexAlreadyExists'):
-                            stdout.write('{0}\n'.format(str(e)))
+                            stdout.write(f'{str(e)}\n')
                         else:
                             raise
 
@@ -171,14 +162,14 @@ def install_all_labels(stdout=None):
 
     i = 0
     for cls in subsub(StructuredNode):
-        stdout.write('Found {0}.{1}\n'.format(cls.__module__, cls.__name__))
+        stdout.write(f'Found {cls.__module__}.{cls.__name__}\n')
         install_labels(cls, quiet=False, stdout=stdout)
         i += 1
 
     if i:
         stdout.write('\n')
 
-    stdout.write('Finished {0} classes.\n'.format(i))
+    stdout.write(f'Finished {i} classes.\n')
 
 
 class NodeMeta(type):
@@ -267,7 +258,7 @@ class StructuredNode(NodeBase):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<{0}: {1}>'.format(self.__class__.__name__, self)
+        return f'<{self.__class__.__name__}: {self}>'
 
     def __str__(self):
         return repr(self.__properties__)
