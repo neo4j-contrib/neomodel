@@ -504,8 +504,8 @@ class QueryBuilder(object):
         if results:
             return [n[0] for n in results]
         return []
-        
-        
+
+
 class BaseSet(object):
     """
     Base class for all node sets.
@@ -553,7 +553,7 @@ class BaseSet(object):
             elif key.start:
                 self.skip = key.start
 
-            return self.query_cls(self).build_ast()._execute()
+            return self
 
         elif isinstance(key, int):
             self.skip = key
