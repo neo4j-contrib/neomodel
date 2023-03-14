@@ -22,18 +22,12 @@ def drop_constraints(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("CALL db.constraints()")
-    pattern = re.compile(':(.*) \).*\.(\w*)')
-    for constraint in results:
-        # Versions prior to 4.0 have a very different return format
-        if constraint[0].startswith('CONSTRAINT '):
-            db.cypher_query('DROP {!s}'.format(constraint[0]))
-            match = pattern.search(constraint[0])
-        else:
-            db.cypher_query('DROP CONSTRAINT {!s}'.format(constraint[0]))
-            match = pattern.search(constraint[1])
-        stdout.write(''' - Dropping unique constraint and index on label {0} with property {1}.\n'''.format(
-            match.group(1), match.group(2)))
+    results, meta = db.cypher_query("SHOW CONSTRAINTS")
+
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    for constraint in results_as_dict:
+        db.cypher_query('DROP CONSTRAINT ' + constraint["name"])
+        stdout.write(f' - Dropping unique constraint and index on label {constraint["labelsOrTypes"][0]} with property {constraint["properties"][0]}.\n')
     stdout.write("\n")
 
 
@@ -47,27 +41,18 @@ def drop_indexes(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("CALL db.indexes()")
-    pattern = re.compile(':(.*)\((.*)\)')
-    for index in results:
-        # Versions prior to 4.0 have a very different return format
-        if not isinstance(index[0], int) and index[0].startswith('INDEX '):
-            db.cypher_query('DROP ' + index[0])
-            match = pattern.search(index[0])
-            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-                match.group(1), match.group(2)))
-        else:
-            # Neo4j 4.3 introduced token lookup indexes
-            # Two are created automatically so should not be dropped
-            # They can be recognized because their labelsOrTypes and properties arrays are empty
-            if not index[7]:
-                if index[8]:
-                    raise ValueError('Index {0} has no labels but has properties({1}). Unknown index'.format(
-                        index[1], index[8]))
-                continue
-            db.cypher_query('DROP INDEX ' + index[1])
-            stdout.write(' - Dropping index on label {0} with property {1}.\n'.format(
-                index[7][0], index[8][0]))
+    results, meta = db.cypher_query("SHOW INDEXES")
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    for index in results_as_dict:
+        # Neo4j 4.3 introduced token lookup indexes
+        # Two are created automatically so should not be dropped
+        # They can be recognized because their labelsOrTypes and properties arrays are empty
+        if not index["labelsOrTypes"]:
+            if index["properties"]:
+                raise ValueError(f'Index {index["name"]} has no labels but has properties({",".join(index["properties"])}). Unknown index')
+            continue
+        db.cypher_query('DROP INDEX ' + index["name"])
+        stdout.write(f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n')
     stdout.write("\n")
 
 
@@ -105,39 +90,57 @@ def install_labels(cls, quiet=True, stdout=None):
 
     if not hasattr(cls, '__label__'):
         if not quiet:
-            stdout.write(' ! Skipping class {0}.{1} is abstract\n'.format(cls.__module__, cls.__name__))
+            stdout.write(f' ! Skipping class {cls.__module__}.{cls.__name__} is abstract\n')
         return
 
+    # Create indexes and constraints for node properties
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
         db_property = property.db_property or name
         if property.index:
             if not quiet:
-                stdout.write(' + Creating index {0} on label {1} for class {2}.{3}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
+                stdout.write(f' + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n')
             try:
-                db.cypher_query("CREATE INDEX on :{0}({1}); ".format(
-                    cls.__label__, db_property))
+                db.cypher_query(f"CREATE INDEX index_{cls.__label__}_{db_property} FOR (n:{cls.__label__}) ON (n.{db_property}); ")
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
                               'Neo.ClientError.Schema.IndexAlreadyExists'):
-                    stdout.write('{0}\n'.format(str(e)))
+                    stdout.write(f'{str(e)}\n')
                 else:
                     raise
 
         elif property.unique_index:
             if not quiet:
-                stdout.write(' + Creating unique constraint for {0} on label {1} for class {2}.{3}\n'.format(
-                    name, cls.__label__, cls.__module__, cls.__name__))
+                stdout.write(f' + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n')
             try:
-                db.cypher_query("CREATE CONSTRAINT "
-                                "on (n:{0}) ASSERT n.{1} IS UNIQUE".format(
-                    cls.__label__, db_property))
+                db.cypher_query(f"""CREATE CONSTRAINT constraint_unique_{cls.__label__}_{db_property} 
+                                FOR (n:{cls.__label__}) REQUIRE n.{db_property} IS UNIQUE""")
             except ClientError as e:
                 if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
                               'Neo.ClientError.Schema.ConstraintAlreadyExists'):
-                    stdout.write('{0}\n'.format(str(e)))
+                    stdout.write(f'{str(e)}\n')
                 else:
                     raise
+
+        # TODO : Add support for existence constraints
+
+    # Create indexes and constraints for relationship properties
+    for rel_name, relationship in cls.defined_properties(aliases=False, rels=True, properties=False).items():
+        relationship_cls = relationship.definition['model']
+        if relationship_cls is not None:
+            relationship_type = relationship.definition['relation_type']
+            for prop_name, property in relationship_cls.defined_properties(aliases=False, rels=False).items():
+                db_property = property.db_property or prop_name
+                if property.index:
+                    if not quiet:
+                        stdout.write(f' + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n')
+                    try:
+                        db.cypher_query(f"CREATE INDEX index_{relationship_type}_{db_property} FOR ()-[r:{relationship_type}]-() ON (r.{db_property}); ")
+                    except ClientError as e:
+                        if e.code in ('Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists',
+                                    'Neo.ClientError.Schema.IndexAlreadyExists'):
+                            stdout.write(f'{str(e)}\n')
+                        else:
+                            raise
 
 
 def install_all_labels(stdout=None):
@@ -159,14 +162,14 @@ def install_all_labels(stdout=None):
 
     i = 0
     for cls in subsub(StructuredNode):
-        stdout.write('Found {0}.{1}\n'.format(cls.__module__, cls.__name__))
+        stdout.write(f'Found {cls.__module__}.{cls.__name__}\n')
         install_labels(cls, quiet=False, stdout=stdout)
         i += 1
 
     if i:
         stdout.write('\n')
 
-    stdout.write('Finished {0} classes.\n'.format(i))
+    stdout.write(f'Finished {i} classes.\n')
 
 
 class NodeMeta(type):
@@ -174,7 +177,6 @@ class NodeMeta(type):
         namespace['DoesNotExist'] = \
             type(name + 'DoesNotExist', (DoesNotExist,), {})
         cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
-        # needed by Python < 3.5 for unpickling DoesNotExist objects:
         cls.DoesNotExist._model_class = cls
 
         if hasattr(cls, '__abstract_node__'):
@@ -256,7 +258,7 @@ class StructuredNode(NodeBase):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '<{0}: {1}>'.format(self.__class__.__name__, self)
+        return f'<{self.__class__.__name__}: {self}>'
 
     def __str__(self):
         return repr(self.__properties__)

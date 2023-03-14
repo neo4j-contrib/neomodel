@@ -1,8 +1,7 @@
 import pytest
-from neobolt.addressing import AddressError
 from pytest import raises
 
-from neomodel import db, StructuredNode, StringProperty, UniqueProperty
+from neomodel import db, StructuredNode, StringProperty, UniqueProperty, install_labels
 
 
 class APerson(StructuredNode):
@@ -35,6 +34,7 @@ def in_a_tx(*names):
 
 
 def test_transaction_decorator():
+    install_labels(APerson)
     for p in APerson.nodes:
         p.delete()
 

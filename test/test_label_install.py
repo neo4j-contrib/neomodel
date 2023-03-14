@@ -1,17 +1,26 @@
 from six import StringIO
-import pytest
-from neo4j.exceptions import DatabaseError
 from neomodel import (
     config, StructuredNode, StringProperty, install_all_labels, install_labels,
-    UniqueIdProperty)
-from neomodel.core import db
+    UniqueIdProperty, RelationshipTo, StructuredRel)
+from neomodel.core import db, drop_constraints
+
+from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
 
 
 config.AUTO_INSTALL_LABELS = False
 
 
-class NoConstraintsSetup(StructuredNode):
+class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
+
+class NodeWithRelationship(StructuredNode):
+    ...
+
+class IndexedRelationship(StructuredRel):
+    indexed_rel_prop = StringProperty(index=True)
+
+class OtherNodeWithRelationship(StructuredNode):
+    has_rel = RelationshipTo(NodeWithRelationship, "INDEXED_REL", model=IndexedRelationship)
 
 
 class AbstractNode(StructuredNode):
@@ -27,21 +36,32 @@ config.AUTO_INSTALL_LABELS = True
 
 
 def test_labels_were_not_installed():
-    bob = NoConstraintsSetup(name='bob').save()
-    bob2 = NoConstraintsSetup(name='bob').save()
-    bob3 = NoConstraintsSetup(name='bob').save()
+    bob = NodeWithConstraint(name='bob').save()
+    bob2 = NodeWithConstraint(name='bob').save()
+    bob3 = NodeWithConstraint(name='bob').save()
     assert bob.id != bob3.id
 
-    for n in NoConstraintsSetup.nodes.all():
+    for n in NodeWithConstraint.nodes.all():
         n.delete()
 
 
 def test_install_all():
+    drop_constraints()
     install_labels(AbstractNode)
     # run install all labels
     install_all_labels()
+
+    indexes = get_db_indexes_as_dict()
+    index_names = [index["name"] for index in indexes]
+    assert "index_INDEXED_REL_indexed_rel_prop" in index_names
+
+    constraints = get_db_constraints_as_dict()
+    constraint_names = [constraint["name"] for constraint in constraints]
+    assert "constraint_unique_NodeWithConstraint_name"in constraint_names
+    assert "constraint_unique_SomeNotUniqueNode_id" in constraint_names
+
     # remove constraint for above test
-    db.cypher_query("DROP CONSTRAINT on (n:NoConstraintsSetup) ASSERT n.name IS UNIQUE")
+    _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
 
 
 def test_install_label_twice():
@@ -51,12 +71,21 @@ def test_install_label_twice():
 
 def test_install_labels_db_property():
     stdout = StringIO()
+    drop_constraints()
     install_labels(SomeNotUniqueNode, quiet=False, stdout=stdout)
     assert 'id' in stdout.getvalue()
     # make sure that the id_ constraint doesn't exist
-    with pytest.raises(DatabaseError) as exc_info:
-        db.cypher_query(
-            'DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id_ IS UNIQUE')
-    assert 'No such constraint' in exc_info.exconly()
+    constraint_names = _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id_")
+    assert constraint_names == []
     # make sure the id constraint exists and can be removed
-    db.cypher_query('DROP CONSTRAINT on (n:SomeNotUniqueNode) ASSERT n.id IS UNIQUE')
+    _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
+
+
+def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
+    results, meta = db.cypher_query("SHOW CONSTRAINTS")
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+    constraint_names = [constraint for constraint in results_as_dict if constraint["labelsOrTypes"]==label and constraint["properties"]==property]
+    for constraint_name in constraint_names:
+        db.cypher_query(f"DROP CONSTRAINT {constraint_name}")
+
+    return constraint_names
