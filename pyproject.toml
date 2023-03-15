@@ -56,6 +56,10 @@ dev = [
 addopts = "--resetdb"
 testpaths = "test"
 
+[tool.isort]
+profile = 'black'
+src_paths = ['neomodel']
+
 [project.scripts]
 neomodel_install_labels = "scripts.neomodel_install_labels:main"
 neomodel_remove_labels = "scripts.neomodel_remove_labels:main"

@@ -1,13 +1,10 @@
-from neomodel.exceptions import (
-    AttemptedCardinalityViolation, CardinalityViolation
-)
-from neomodel.relationship_manager import (
-    RelationshipManager, ZeroOrMore
-)  #noqa: F401
+from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
+from neomodel.relationship_manager import RelationshipManager, ZeroOrMore  # noqa: F401
 
 
 class ZeroOrOne(RelationshipManager):
-    """ A relationship to zero or one node. """
+    """A relationship to zero or one node."""
+
     description = "zero or one relationship"
 
     def single(self):
@@ -38,13 +35,15 @@ class ZeroOrOne(RelationshipManager):
         """
         if len(self):
             raise AttemptedCardinalityViolation(
-                    f"Node already has {self} can't connect more")
+                f"Node already has {self} can't connect more"
+            )
         else:
             return super(ZeroOrOne, self).connect(node, properties)
 
 
 class OneOrMore(RelationshipManager):
-    """ A relationship to zero or more nodes. """
+    """A relationship to zero or more nodes."""
+
     description = "one or more relationships"
 
     def single(self):
@@ -56,7 +55,7 @@ class OneOrMore(RelationshipManager):
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes[0]
-        raise CardinalityViolation(self, 'none')
+        raise CardinalityViolation(self, "none")
 
     def all(self):
         """
@@ -67,7 +66,7 @@ class OneOrMore(RelationshipManager):
         nodes = super(OneOrMore, self).all()
         if nodes:
             return nodes
-        raise CardinalityViolation(self, 'none')
+        raise CardinalityViolation(self, "none")
 
     def disconnect(self, node):
         """
@@ -84,6 +83,7 @@ class One(RelationshipManager):
     """
     A relationship to a single node
     """
+
     description = "one relationship"
 
     def single(self):
@@ -99,7 +99,7 @@ class One(RelationshipManager):
             else:
                 raise CardinalityViolation(self, len(nodes))
         else:
-            raise CardinalityViolation(self, 'none')
+            raise CardinalityViolation(self, "none")
 
     def all(self):
         """
@@ -127,11 +127,9 @@ class One(RelationshipManager):
         :param properties: relationship properties
         :return: True / rel instance
         """
-        if not hasattr(self.source, 'id'):
+        if not hasattr(self.source, "id"):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
-            raise AttemptedCardinalityViolation(
-                "Node already has one relationship"
-            )
+            raise AttemptedCardinalityViolation("Node already has one relationship")
         else:
             return super(One, self).connect(node, properties)

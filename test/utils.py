@@ -1,5 +1,7 @@
-from neomodel import db
 from typing import Sequence
+
+from neomodel import db
+
 
 def get_db_indexes_as_dict() -> Sequence[dict]:
     """Returns all indexes existing in the database
@@ -11,6 +13,7 @@ def get_db_indexes_as_dict() -> Sequence[dict]:
     indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
 
     return indexes_as_dict
+
 
 def get_db_constraints_as_dict() -> Sequence[dict]:
     """Returns all constraints existing in the database

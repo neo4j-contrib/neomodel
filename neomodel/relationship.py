@@ -1,7 +1,7 @@
-from .properties import Property, PropertyManager
 from .core import db
-from .util import deprecated
 from .hooks import hooks
+from .properties import Property, PropertyManager
+from .util import deprecated
 
 
 class RelationshipMeta(type):
@@ -13,18 +13,19 @@ class RelationshipMeta(type):
                 value.owner = inst
 
                 # support for 'magic' properties
-                if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):
+                if hasattr(value, "setup") and hasattr(value.setup, "__call__"):
                     value.setup()
         return inst
 
 
-StructuredRelBase = RelationshipMeta('RelationshipBase', (PropertyManager,), {})
+StructuredRelBase = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
 
 
 class StructuredRel(StructuredRelBase):
     """
     Base class for relationship objects
     """
+
     def __init__(self, *args, **kwargs):
         super(StructuredRel, self).__init__(*args, **kwargs)
 
@@ -39,16 +40,15 @@ class StructuredRel(StructuredRelBase):
         query = "MATCH ()-[r]->() WHERE id(r)=$self "
         for key in props:
             query += " SET r.{0} = ${1}".format(key, key)
-        props['self'] = self.id
+        props["self"] = self.id
 
         db.cypher_query(query, props)
 
         return self
 
-    @deprecated('This method will be removed in neomodel 4')
+    @deprecated("This method will be removed in neomodel 4")
     def delete(self):
-        raise NotImplemented("Can not delete relationships please use"
-                             " 'disconnect'")
+        raise NotImplemented("Can not delete relationships please use" " 'disconnect'")
 
     def start_node(self):
         """
@@ -56,21 +56,25 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        return db.cypher_query("MATCH (aNode) "
-                               "WHERE id(aNode)={nodeid} "
-                               "RETURN aNode".format(nodeid=self._start_node_id),
-                               resolve_objects = True)[0][0][0]
-      
+        return db.cypher_query(
+            "MATCH (aNode) "
+            "WHERE id(aNode)={nodeid} "
+            "RETURN aNode".format(nodeid=self._start_node_id),
+            resolve_objects=True,
+        )[0][0][0]
+
     def end_node(self):
         """
         Get end node
 
         :return: StructuredNode
         """
-        return db.cypher_query("MATCH (aNode) "
-                               "WHERE id(aNode)={nodeid} "
-                               "RETURN aNode".format(nodeid=self._end_node_id),
-                               resolve_objects = True)[0][0][0]
+        return db.cypher_query(
+            "MATCH (aNode) "
+            "WHERE id(aNode)={nodeid} "
+            "RETURN aNode".format(nodeid=self._end_node_id),
+            resolve_objects=True,
+        )[0][0][0]
 
     @classmethod
     def inflate(cls, rel):

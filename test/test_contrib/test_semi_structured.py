@@ -1,4 +1,4 @@
-from neomodel import (StringProperty, IntegerProperty)
+from neomodel import IntegerProperty, StringProperty
 from neomodel.contrib import SemiStructuredNode
 
 
@@ -12,7 +12,7 @@ class Dummy(SemiStructuredNode):
 
 
 def test_save_to_model_with_extras():
-    u = UserProf(email='jim@test.com', age=3, bar=99)
+    u = UserProf(email="jim@test.com", age=3, bar=99)
     u.foo = True
     assert u.save()
     u = UserProf.nodes.get(age=3)
@@ -23,4 +23,3 @@ def test_save_to_model_with_extras():
 def test_save_empty_model():
     dummy = Dummy()
     assert dummy.save()
-

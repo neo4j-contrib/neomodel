@@ -1,7 +1,7 @@
 import neo4j
 
 AUTO_INSTALL_LABELS = False
-DATABASE_URL = 'bolt://neo4j:foobarbaz@localhost:7687'
+DATABASE_URL = "bolt://neo4j:foobarbaz@localhost:7687"
 FORCE_TIMEZONE = False
 
 CONNECTION_ACQUISITION_TIMEOUT = 60.0

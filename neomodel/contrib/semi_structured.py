@@ -1,5 +1,5 @@
 from neomodel.core import StructuredNode
-from neomodel.exceptions import InflateConflict, DeflateConflict
+from neomodel.exceptions import DeflateConflict, InflateConflict
 from neomodel.util import _get_node_properties
 
 
@@ -20,6 +20,7 @@ class SemiStructuredNode(StructuredNode):
         tim.hello = "Hi"
         tim.save() # DeflateConflict
     """
+
     __abstract_node__ = True
 
     def __init__(self, *args, **kwargs):
@@ -45,8 +46,9 @@ class SemiStructuredNode(StructuredNode):
             # handle properties not defined on the class
             for free_key in (x for x in node_properties if x not in props):
                 if hasattr(cls, free_key):
-                    raise InflateConflict(cls, free_key,
-                                          node_properties[free_key], node.id)
+                    raise InflateConflict(
+                        cls, free_key, node_properties[free_key], node.id
+                    )
                 props[free_key] = node_properties[free_key]
 
             snode = cls(**props)
@@ -56,8 +58,9 @@ class SemiStructuredNode(StructuredNode):
 
     @classmethod
     def deflate(cls, node_props, obj=None, skip_empty=False):
-        deflated = super(SemiStructuredNode, cls).deflate(node_props, obj,
-                                                          skip_empty=skip_empty)
+        deflated = super(SemiStructuredNode, cls).deflate(
+            node_props, obj, skip_empty=skip_empty
+        )
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key):
                 raise DeflateConflict(cls, key, deflated[key], obj.id)
