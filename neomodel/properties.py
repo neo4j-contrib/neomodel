@@ -178,9 +178,8 @@ class Property(object):
         db_property=None,
         label=None,
         help_text=None,
-        **kwargs
+        **kwargs,
     ):
-
         if default is not None and required:
             raise ValueError(
                 "The arguments `required` and `default` are mutually exclusive."
@@ -413,7 +412,12 @@ class ArrayProperty(Property):
             if isinstance(base_property, ArrayProperty):
                 raise TypeError("Cannot have nested ArrayProperty")
 
-            for ilegal_attr in ["default", "index", "unique_index", "required"]:
+            for ilegal_attr in [
+                "default",
+                "index",
+                "unique_index",
+                "required",
+            ]:
                 if getattr(base_property, ilegal_attr, None):
                     raise ValueError(
                         'ArrayProperty base_property cannot have "{0}" set'.format(

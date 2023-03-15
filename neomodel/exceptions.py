@@ -107,7 +107,10 @@ class RelationshipClassRedefined(ModelDefinitionException):
     """
 
     def __init__(
-        self, db_rel_class_type, current_node_class_registry, remapping_to_class
+        self,
+        db_rel_class_type,
+        current_node_class_registry,
+        remapping_to_class,
     ):
         """
         Initialises a relationship redefinition exception with the required data as follows:
@@ -166,7 +169,10 @@ class DeflateError(ValueError, NeomodelException):
         return (
             "Attempting to deflate property '{0}' on {1} of class '{2}': "
             "{3}".format(
-                self.property_name, self.obj, self.node_class.__name__, self.msg
+                self.property_name,
+                self.obj,
+                self.node_class.__name__,
+                self.msg,
             )
         )
 
@@ -217,7 +223,10 @@ class InflateError(ValueError, NeomodelException):
         return (
             "Attempting to inflate property '{0}' on {1} of class '{2}': "
             "{3}".format(
-                self.property_name, self.obj, self.node_class.__name__, self.msg
+                self.property_name,
+                self.obj,
+                self.node_class.__name__,
+                self.msg,
             )
         )
 

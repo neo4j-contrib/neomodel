@@ -95,7 +95,11 @@ def test_direction_connect_with_rel_model():
     # check deflate check via connect
     with raises(DeflateError):
         paul.hates.connect(
-            ian, {"reason": "thinks paul should bath more often", "since": "2:30pm"}
+            ian,
+            {
+                "reason": "thinks paul should bath more often",
+                "since": "2:30pm",
+            },
         )
 
 

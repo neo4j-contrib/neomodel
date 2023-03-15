@@ -23,7 +23,7 @@ def _rel_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Generate a relationship matching string, with specified parameters.
@@ -86,7 +86,7 @@ def _rel_merge_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Generate a relationship merging string, with specified parameters.
@@ -383,7 +383,10 @@ class QueryBuilder(object):
 
         rel_ident = self.create_ident()
         stmt = _rel_helper(
-            lhs=lhs_ident, rhs=rhs_ident, ident=rel_ident, **traversal.definition
+            lhs=lhs_ident,
+            rhs=rhs_ident,
+            ident=rel_ident,
+            **traversal.definition,
         )
         self._ast["match"].append(stmt)
 
@@ -503,7 +506,11 @@ class QueryBuilder(object):
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
                         statement = "{0} {1}.{2} {3} ${4}".format(
-                            "NOT" if negate else "", ident, prop, op, place_holder
+                            "NOT" if negate else "",
+                            ident,
+                            prop,
+                            op,
+                            place_holder,
                         )
                         self._query_params[place_holder] = val
                     stmts.append(statement)

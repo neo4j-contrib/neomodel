@@ -63,7 +63,8 @@ def test_batch_create_or_update():
     assert Customer.nodes.get(email="merge1@aol.com").age == 11
 
     more_users = Customer.create_or_update(
-        {"email": "merge1@aol.com", "age": 22}, {"email": "merge4@aol.com", "age": None}
+        {"email": "merge1@aol.com", "age": 22},
+        {"email": "merge4@aol.com", "age": None},
     )
     assert len(more_users) == 2
     assert users[0] == more_users[0]

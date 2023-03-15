@@ -119,7 +119,11 @@ class RelationshipManager(object):
                 tmp.pre_save()
 
         new_rel = _rel_merge_helper(
-            lhs="us", rhs="them", ident="r", relation_properties=rp, **self.definition
+            lhs="us",
+            rhs="them",
+            ident="r",
+            relation_properties=rp,
+            **self.definition,
         )
         q = (
             "MATCH (them), (us) WHERE id(them)=$them and id(us)=$self "

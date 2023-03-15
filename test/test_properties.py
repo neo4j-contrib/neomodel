@@ -327,7 +327,6 @@ def test_regex_property():
 
 
 def test_email_property():
-
     prop = EmailProperty()
     prop.name = "email"
     prop.owner = object()

@@ -385,7 +385,9 @@ class PointProperty(Property):
         # wgs-83-3d
         elif value.srid == 4979:
             return NeomodelPoint(
-                longitude=value.longitude, latitude=value.latitude, height=value.height
+                longitude=value.longitude,
+                latitude=value.latitude,
+                height=value.height,
             )
 
     @validator

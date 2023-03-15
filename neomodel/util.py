@@ -173,7 +173,9 @@ class Database(local, NodeClassRegistry):
         if self._active_transaction:
             raise SystemError("Transaction in progress")
         self._session = self.driver.session(
-            default_access_mode=access_mode, database=self._database_name, **parameters
+            default_access_mode=access_mode,
+            database=self._database_name,
+            **parameters,
         )
         self._active_transaction = self._session.begin_transaction()
 

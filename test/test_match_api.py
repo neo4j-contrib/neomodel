@@ -226,7 +226,6 @@ def test_order_by():
 
 
 def test_extra_filters():
-
     for c in Coffee.nodes:
         c.delete()
 
@@ -320,7 +319,6 @@ def test_empty_filters():
 
 
 def test_q_filters():
-
     for c in Coffee.nodes:
         c.delete()
 

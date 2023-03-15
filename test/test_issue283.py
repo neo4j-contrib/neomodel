@@ -369,7 +369,9 @@ def test_properly_inherited_relationship():
     # Extends SomePerson, establishes "enriched" relationships with any BaseOtherPerson
     class ExtendedSomePerson(SomePerson):
         friends_with = neomodel.RelationshipTo(
-            "BaseOtherPerson", "FRIENDS_WITH", model=ExtendedPersonalRelationship
+            "BaseOtherPerson",
+            "FRIENDS_WITH",
+            model=ExtendedPersonalRelationship,
         )
 
     # Test specific data

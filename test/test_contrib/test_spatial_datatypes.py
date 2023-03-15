@@ -115,7 +115,9 @@ def test_coord_constructor():
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0))
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0))
     basic_type_assertions(
-        ground_truth_object, new_point, "Implicit 2d cartesian point instantiation"
+        ground_truth_object,
+        new_point,
+        "Implicit 2d cartesian point instantiation",
     )
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(
@@ -123,7 +125,9 @@ def test_coord_constructor():
     )
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0, 0.0))
     basic_type_assertions(
-        ground_truth_object, new_point, "Implicit 3d cartesian point instantiation"
+        ground_truth_object,
+        new_point,
+        "Implicit 3d cartesian point instantiation",
     )
 
     # Explicit geographical point with coords
@@ -157,7 +161,9 @@ def test_coord_constructor():
     )
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0)
     basic_type_assertions(
-        ground_truth_object, new_point, "Cartesian 2d point with named arguments"
+        ground_truth_object,
+        new_point,
+        "Cartesian 2d point with named arguments",
     )
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(
@@ -165,7 +171,9 @@ def test_coord_constructor():
     )
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(x=0.0, y=0.0, z=0.0)
     basic_type_assertions(
-        ground_truth_object, new_point, "Cartesian 3d point with named arguments"
+        ground_truth_object,
+        new_point,
+        "Cartesian 3d point with named arguments",
     )
 
     # Geographical point with named arguments
@@ -176,7 +184,9 @@ def test_coord_constructor():
         longitude=0.0, latitude=0.0
     )
     basic_type_assertions(
-        ground_truth_object, new_point, "Geographical 2d point with named arguments"
+        ground_truth_object,
+        new_point,
+        "Geographical 2d point with named arguments",
     )
 
     ground_truth_object = neomodel.contrib.spatial_properties.NeomodelPoint(
@@ -186,7 +196,9 @@ def test_coord_constructor():
         longitude=0.0, latitude=0.0, height=0.0
     )
     basic_type_assertions(
-        ground_truth_object, new_point, "Geographical 3d point with named arguments"
+        ground_truth_object,
+        new_point,
+        "Geographical 3d point with named arguments",
     )
 
 
@@ -253,7 +265,8 @@ def test_prohibited_constructor_forms():
 
     # Absurd coord dimensionality
     with pytest.raises(
-        ValueError, match="Invalid vector dimensions. Expected 2 or 3, received 7"
+        ValueError,
+        match="Invalid vector dimensions. Expected 2 or 3, received 7",
     ):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
             (0, 0, 0, 0, 0, 0, 0), crs="cartesian"
@@ -262,13 +275,19 @@ def test_prohibited_constructor_forms():
     # Absurd datatype passed to copy constructor
     with pytest.raises(TypeError, match="Invalid object passed to copy constructor"):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
-            "it don" "t mean a thing if it " "ain" "t got that swing", crs="cartesian"
+            "it don" "t mean a thing if it " "ain" "t got that swing",
+            crs="cartesian",
         )
 
     # Trying to instantiate a point with any of BOTH x,y,z or longitude, latitude, height
     with pytest.raises(ValueError, match="Invalid instantiation via arguments"):
         new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
-            x=0.0, y=0.0, longitude=0.0, latitude=2.0, height=-2.0, crs="cartesian"
+            x=0.0,
+            y=0.0,
+            longitude=0.0,
+            latitude=2.0,
+            height=-2.0,
+            crs="cartesian",
         )
 
     # Trying to instantiate a point with absolutely NO parameters
