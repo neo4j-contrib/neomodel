@@ -1,3 +1,10 @@
+Version 5.0.1 2023-03
+* Confirmed support of Neo4j versions 5.x and 4.4 (LTS)
+* Dropped support of EOL Neo4j versions (4.3 and below)
+* Confirmed support of Python 3.11
+* Add support for relationship indexes
+* Auto-generated indexes now have a deterministic name
+
 Version 4.0.10 2023-02-16
 * Maintenance release due to misconfiguration of pyproject.toml
 

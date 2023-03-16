@@ -3,7 +3,7 @@ from __future__ import print_function
 from datetime import datetime
 from pytest import raises
 
-from neomodel import DateProperty, StructuredNode, StringProperty, IntegerProperty
+from neomodel import DateProperty, StructuredNode, StringProperty, IntegerProperty, install_labels
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
@@ -94,13 +94,10 @@ def test_save_to_model():
 
 
 def test_unique():
+    install_labels(User)
     User(email='jim1@test.com', age=3).save()
-    try:
+    with raises(UniqueProperty):
         User(email='jim1@test.com', age=3).save()
-    except Exception as e:
-        assert e.__class__.__name__ == 'UniqueProperty'
-    else:
-        assert False, "No exception raised."
 
 
 def test_update_unique():
@@ -140,6 +137,7 @@ class Customer2(StructuredNode):
 
 
 def test_not_updated_on_unique_error():
+    install_labels(Customer2)
     Customer2(email='jim@bob.com', age=7).save()
     test = Customer2(email='jim1@bob.com', age=2).save()
     test.email = 'jim@bob.com'

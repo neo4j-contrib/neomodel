@@ -11,8 +11,6 @@ class RelationshipMeta(type):
             if issubclass(value.__class__, Property):
                 value.name = key
                 value.owner = inst
-                if value.is_indexed:
-                    raise NotImplemented("Indexed relationship properties not supported yet")
 
                 # support for 'magic' properties
                 if hasattr(value, 'setup') and hasattr(value.setup, '__call__'):

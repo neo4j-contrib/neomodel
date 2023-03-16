@@ -38,7 +38,7 @@ dependencies = [
     "neobolt==1.7.17",
     "six==1.16.0",
 ]
-version='4.0.10'
+version='5.0.0'
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
@@ -54,6 +54,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = "--resetdb"
+testpaths = "test"
 
 [project.scripts]
 neomodel_install_labels = "scripts.neomodel_install_labels:main"
