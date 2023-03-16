@@ -1,10 +1,14 @@
 from pytest import raises
 
 from neomodel import (
+    EITHER,
+    INCOMING,
+    OUTGOING,
     IntegerProperty,
     One,
     Q,
     Relationship,
+    RelationshipDefinition,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
@@ -16,8 +20,8 @@ from neomodel import (
 class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
-    is_from = RelationshipTo("Country", "IS_FROM")
-    knows = Relationship("PersonWithRels", "KNOWS")  # use unicode to check issue
+    is_from = RelationshipDefinition("Country", "IS_FROM", OUTGOING)
+    knows = RelationshipDefinition("PersonWithRels", "KNOWS", EITHER)
 
     @property
     def special_name(self):
@@ -29,8 +33,10 @@ class PersonWithRels(StructuredNode):
 
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
-    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)
+    inhabitant = RelationshipDefinition(PersonWithRels, "IS_FROM", INCOMING)
+    president = RelationshipDefinition(
+        PersonWithRels, "PRESIDENT", OUTGOING, cardinality=One
+    )
 
 
 class SuperHero(PersonWithRels):
@@ -38,6 +44,13 @@ class SuperHero(PersonWithRels):
 
     def special_power(self):
         return "I have powers"
+
+
+class BackwardRelCompatibility(StructuredNode):
+    name = StringProperty()
+    is_from = RelationshipTo("Country", "IS_FROM")
+    knows = Relationship("PersonWithRels", "KNOWS")
+    saved_by = RelationshipFrom("SuperHero", "SAVED_BY")
 
 
 def test_actions_on_deleted_node():
@@ -60,14 +73,12 @@ def test_bidirectional_relationships():
     de = Country(code="DE").save()
     assert de
 
-    assert len(u.is_from) == 0
     assert not u.is_from
 
     assert u.is_from.__class__.__name__ == "ZeroOrMore"
     u.is_from.connect(de)
 
     assert len(u.is_from) == 1
-    assert u.is_from
 
     assert u.is_from.is_connected(de)
 
@@ -91,7 +102,7 @@ def test_either_direction_connect():
     assert sakis.knows.is_connected(rey)
     sakis.knows.connect(rey)
 
-    result, meta = sakis.cypher(
+    result, _ = sakis.cypher(
         """MATCH (us), (them)
             WHERE id(us)=$self and id(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
@@ -198,3 +209,19 @@ def test_props_relationship():
 
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={"city": "Thessaloniki"})
+
+
+def test_backward_compatibility():
+    country = Country(code="DE").save()
+    person = PersonWithRels(name="Jim", age=3).save()
+    hero = SuperHero(name="Joe91", age=13, power="xxx").save()
+
+    backward_rel = BackwardRelCompatibility(name="Test")
+    backward_rel.is_from.connect(country)
+    assert len(backward_rel.is_from) == 1
+
+    backward_rel.knows.connect(person)
+    assert len(backward_rel.knows) == 1
+
+    backward_rel.saved_by.connect(hero)
+    assert len(backward_rel.saved_by) == 1
