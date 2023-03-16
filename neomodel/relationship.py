@@ -6,7 +6,7 @@ from .util import deprecated
 
 class RelationshipMeta(type):
     def __new__(mcs, name, bases, dct):
-        inst = super(RelationshipMeta, mcs).__new__(mcs, name, bases, dct)
+        inst = super().__new__(mcs, name, bases, dct)
         for key, value in dct.items():
             if issubclass(value.__class__, Property):
                 value.name = key
@@ -27,7 +27,10 @@ class StructuredRel(StructuredRelBase):
     """
 
     def __init__(self, *args, **kwargs):
-        super(StructuredRel, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+        self._start_node_id = 0
+        self._end_node_id = 0
+        self.id = 0
 
     @hooks
     def save(self):
@@ -38,8 +41,7 @@ class StructuredRel(StructuredRelBase):
         """
         props = self.deflate(self.__properties__)
         query = "MATCH ()-[r]->() WHERE id(r)=$self "
-        for key in props:
-            query += " SET r.{0} = ${1}".format(key, key)
+        query += "".join([f" SET r.{key} = ${key}" for key in props])
         props["self"] = self.id
 
         db.cypher_query(query, props)
@@ -48,7 +50,9 @@ class StructuredRel(StructuredRelBase):
 
     @deprecated("This method will be removed in neomodel 4")
     def delete(self):
-        raise NotImplemented("Can not delete relationships please use" " 'disconnect'")
+        raise NotImplementedError(
+            "Can not delete relationships please use 'disconnect'"
+        )
 
     def start_node(self):
         """
@@ -57,9 +61,11 @@ class StructuredRel(StructuredRelBase):
         :return: StructuredNode
         """
         return db.cypher_query(
-            "MATCH (aNode) "
-            "WHERE id(aNode)={nodeid} "
-            "RETURN aNode".format(nodeid=self._start_node_id),
+            f"""
+            MATCH (aNode)
+            WHERE id(aNode)={self._start_node_id}
+            RETURN aNode
+            """,
             resolve_objects=True,
         )[0][0][0]
 
@@ -70,9 +76,11 @@ class StructuredRel(StructuredRelBase):
         :return: StructuredNode
         """
         return db.cypher_query(
-            "MATCH (aNode) "
-            "WHERE id(aNode)={nodeid} "
-            "RETURN aNode".format(nodeid=self._end_node_id),
+            f"""
+            MATCH (aNode)
+            WHERE id(aNode)={self._end_node_id}
+            RETURN aNode
+            """,
             resolve_objects=True,
         )[0][0][0]
 

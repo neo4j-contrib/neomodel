@@ -35,7 +35,7 @@ ORM.
 import copy
 
 
-class QBase(object):
+class QBase:
     """
     A single internal node in the tree graph. A Node should be viewed as a
     connection (the root) with the children being either leaf nodes or other
@@ -143,16 +143,16 @@ class QBase(object):
                 # self.connector.
                 self.children.extend(data.children)
                 return self
-            else:
-                # We could use perhaps additional logic here to see if some
-                # children could be used for pushdown here.
-                self.children.append(data)
-                return data
-        else:
-            obj = self._new_instance(self.children, self.connector, self.negated)
-            self.connector = conn_type
-            self.children = [obj, data]
+
+            # We could use perhaps additional logic here to see if some
+            # children could be used for pushdown here.
+            self.children.append(data)
             return data
+
+        obj = self._new_instance(self.children, self.connector, self.negated)
+        self.connector = conn_type
+        self.children = [obj, data]
+        return data
 
     def negate(self):
         """Negate the sense of the root connector."""
@@ -173,7 +173,7 @@ class Q(QBase):
     def __init__(self, *args, **kwargs):
         connector = kwargs.pop("_connector", None)
         negated = kwargs.pop("_negated", False)
-        super(Q, self).__init__(
+        super().__init__(
             children=list(args) + sorted(kwargs.items()),
             connector=connector,
             negated=negated,
@@ -187,7 +187,7 @@ class Q(QBase):
         if not other:
             return copy.deepcopy(self)
         # Or if this Q is empty, ignore it and just use `other`.
-        elif not self:
+        if not self:
             return copy.deepcopy(other)
 
         obj = type(self)()

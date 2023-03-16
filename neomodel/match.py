@@ -205,7 +205,7 @@ def install_traversals(cls, node_set):
     """
     rels = cls.defined_properties(rels=True, aliases=False, properties=False)
 
-    for key, value in rels.items():
+    for key in rels.keys():
         if hasattr(node_set, key):
             raise ValueError(
                 "Can't install traversal '{0}' exists on NodeSet".format(key)
@@ -307,7 +307,7 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
-class QueryBuilder(object):
+class QueryBuilder:
     def __init__(self, node_set):
         self.node_set = node_set
         self._ast = {"match": [], "where": []}
@@ -328,7 +328,7 @@ class QueryBuilder(object):
     def build_source(self, source):
         if isinstance(source, Traversal):
             return self.build_traversal(source)
-        elif isinstance(source, NodeSet):
+        if isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(
                 source.source, StructuredNode
             ):
@@ -350,10 +350,9 @@ class QueryBuilder(object):
                 )
 
             return ident
-        elif isinstance(source, StructuredNode):
+        if isinstance(source, StructuredNode):
             return self.build_node(source)
-        else:
-            raise ValueError("Unknown source type " + repr(source))
+        raise ValueError("Unknown source type " + repr(source))
 
     def create_ident(self):
         self._ident_count += 1
@@ -400,8 +399,8 @@ class QueryBuilder(object):
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = "MATCH ({0}) WHERE id({1})=${2} WITH {3}".format(
-            ident, ident, place_holder, ident
+        _node_lookup = "MATCH ({0}) WHERE id({0})=${1} WITH {0}".format(
+            ident, place_holder
         )
         self._ast["lookup"] = _node_lookup
 
@@ -427,7 +426,7 @@ class QueryBuilder(object):
         """
         source_ident = ident
 
-        for key, value in node_set.must_match.items():
+        for _, value in node_set.must_match.items():
             if isinstance(value, dict):
                 label = ":" + value["node_class"].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **value)
@@ -435,7 +434,7 @@ class QueryBuilder(object):
             else:
                 raise ValueError("Expecting dict got: " + repr(value))
 
-        for key, val in node_set.dont_match.items():
+        for _, val in node_set.dont_match.items():
             if isinstance(val, dict):
                 label = ":" + val["node_class"].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **val)
@@ -462,14 +461,14 @@ class QueryBuilder(object):
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(source_class, kwargs)
                 for prop, op_and_val in filters.items():
-                    op, val = op_and_val
-                    if op in _UNARY_OPERATORS:
+                    operator, val = op_and_val
+                    if operator in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = "{0}.{1} {2}".format(ident, prop, op)
+                        statement = "{0}.{1} {2}".format(ident, prop, operator)
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
                         statement = "{0}.{1} {2} ${3}".format(
-                            ident, prop, op, place_holder
+                            ident, prop, operator, place_holder
                         )
                         self._query_params[place_holder] = val
                     target.append(statement)
@@ -496,12 +495,12 @@ class QueryBuilder(object):
                     negate = True
                     row = row["__NOT__"]
 
-                for prop, op_and_val in row.items():
-                    op, val = op_and_val
-                    if op in _UNARY_OPERATORS:
+                for prop, operator_and_val in row.items():
+                    operator, val = operator_and_val
+                    if operator in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
                         statement = "{0} {1}.{2} {3}".format(
-                            "NOT" if negate else "", ident, prop, op
+                            "NOT" if negate else "", ident, prop, operator
                         )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
@@ -509,7 +508,7 @@ class QueryBuilder(object):
                             "NOT" if negate else "",
                             ident,
                             prop,
-                            op,
+                            operator,
                             place_holder,
                         )
                         self._query_params[place_holder] = val
@@ -579,7 +578,7 @@ class QueryBuilder(object):
         return []
 
 
-class BaseSet(object):
+class BaseSet:
     """
     Base class for all node sets.
 
@@ -614,8 +613,8 @@ class BaseSet(object):
             if hasattr(obj, "id"):
                 return self.query_cls(self).build_ast()._contains(int(obj.id))
             raise ValueError("Unsaved node: " + repr(obj))
-        else:
-            raise ValueError("Expecting StructuredNode instance")
+
+        raise ValueError("Expecting StructuredNode instance")
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -629,11 +628,13 @@ class BaseSet(object):
 
             return self
 
-        elif isinstance(key, int):
+        if isinstance(key, int):
             self.skip = key
             self.limit = 1
 
             return self.query_cls(self).build_ast()._execute()[0]
+
+        return None
 
 
 class NodeSet(BaseSet):
@@ -678,10 +679,9 @@ class NodeSet(BaseSet):
         result = self._get(limit=2, lazy=lazy, **kwargs)
         if len(result) > 1:
             raise MultipleNodesReturned(repr(kwargs))
-        elif not result:
+        if not result:
             raise self.source_class.DoesNotExist(repr(kwargs))
-        else:
-            return result[0]
+        return result[0]
 
     def get_or_none(self, **kwargs):
         """
@@ -693,7 +693,7 @@ class NodeSet(BaseSet):
         try:
             return self.get(**kwargs)
         except self.source_class.DoesNotExist:
-            pass
+            return None
 
     def first(self, **kwargs):
         """
@@ -719,6 +719,7 @@ class NodeSet(BaseSet):
             return self.first(**kwargs)
         except self.source_class.DoesNotExist:
             pass
+        return None
 
     def filter(self, *args, **kwargs):
         """

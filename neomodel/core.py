@@ -28,10 +28,16 @@ def drop_constraints(quiet=True, stdout=None):
     results_as_dict = [dict(zip(meta, row)) for row in results]
     for constraint in results_as_dict:
         db.cypher_query("DROP CONSTRAINT " + constraint["name"])
-        stdout.write(
-            f' - Dropping unique constraint and index on label {constraint["labelsOrTypes"][0]} with property {constraint["properties"][0]}.\n'
-        )
-    stdout.write("\n")
+        if not quiet:
+            stdout.write(
+                (
+                    " - Dropping unique constraint and index"
+                    f" on label {constraint['labelsOrTypes'][0]}"
+                    f" with property {constraint['properties'][0]}.\n"
+                )
+            )
+    if not quiet:
+        stdout.write("\n")
 
 
 def drop_indexes(quiet=True, stdout=None):
@@ -57,10 +63,12 @@ def drop_indexes(quiet=True, stdout=None):
                 )
             continue
         db.cypher_query("DROP INDEX " + index["name"])
-        stdout.write(
-            f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
-        )
-    stdout.write("\n")
+        if not quiet:
+            stdout.write(
+                f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
+            )
+    if not quiet:
+        stdout.write("\n")
 
 
 def remove_all_labels(stdout=None):
@@ -145,7 +153,7 @@ def install_labels(cls, quiet=True, stdout=None):
         # TODO : Add support for existence constraints
 
     # Create indexes and constraints for relationship properties
-    for rel_name, relationship in cls.defined_properties(
+    for _, relationship in cls.defined_properties(
         aliases=False, rels=True, properties=False
     ).items():
         relationship_cls = relationship.definition["model"]
@@ -208,7 +216,7 @@ def install_all_labels(stdout=None):
 class NodeMeta(type):
     def __new__(mcs, name, bases, namespace):
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
-        cls = super(NodeMeta, mcs).__new__(mcs, name, bases, namespace)
+        cls = super().__new__(mcs, name, bases, namespace)
         cls.DoesNotExist._model_class = cls
 
         if hasattr(cls, "__abstract_node__"):
@@ -282,7 +290,7 @@ class StructuredNode(NodeBase):
         for key, val in self.__all_relationships__:
             self.__dict__[key] = val.build_manager(self, key)
 
-        super(StructuredNode, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):

@@ -25,11 +25,11 @@ Mixins
 ------
 Mixins can be used to share functionality between nodes classes::
 
-    class UserMixin(object):
+    class UserMixin:
         name = StringProperty(unique_index=True)
         password = StringProperty()
 
-    class CreditMixin(object):
+    class CreditMixin:
         balance = IntegerProperty(index=True)
 
         def credit_account(self, amount):
@@ -67,7 +67,7 @@ a ``Product`` entity. One way to achieve this, would be to have ``Item``'s const
                 self.product = product
                 kwargs["uid"] = 'g.' + str(self.product.pk)
                 kwargs["name"] = self.product.product_name
-            super(Item, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
 Note here that it is impossible to automatically infer that ``product`` is a parameter that is only used in the
 derivation of ``Item``'s attributes and the objective is to preserve the ability to instantiate ``Item`` both via a

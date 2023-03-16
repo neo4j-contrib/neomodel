@@ -229,11 +229,11 @@ def test_inheritance():
 
 
 def test_mixins():
-    class UserMixin(object):
+    class UserMixin:
         name = StringProperty(unique_index=True)
         password = StringProperty()
 
-    class CreditMixin(object):
+    class CreditMixin:
         balance = IntegerProperty(index=True)
 
         def credit_account(self, amount):

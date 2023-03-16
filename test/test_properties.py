@@ -28,7 +28,7 @@ from neomodel.util import _get_node_properties
 config.AUTO_INSTALL_LABELS = True
 
 
-class FooBar(object):
+class FooBar:
     pass
 
 
@@ -214,7 +214,7 @@ def test_default_value_callable():
 def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
-        class Foo(object):
+        class Foo:
             def __str__(self):
                 return "123"
 
@@ -315,7 +315,7 @@ def test_regex_property():
 
         def normalize(self, value):
             self._called = True
-            return super(TestProperty, self).normalize(value)
+            return super().normalize(value)
 
     prop = TestProperty()
     result = prop.inflate("foo bar")

@@ -1,6 +1,3 @@
-import importlib
-
-
 class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
@@ -13,8 +10,6 @@ class AttemptedCardinalityViolation(NeomodelException):
 
     Example: a relationship of type `One` trying to connect a second node.
     """
-
-    pass
 
 
 class CardinalityViolation(NeomodelException):
@@ -122,9 +117,7 @@ class RelationshipClassRedefined(ModelDefinitionException):
         :param remapping_to_class: The relationship class the relationship type was attempted to be redefined to.
         :type remapping_to_class: class
         """
-        super(RelationshipClassRedefined, self).__init__(
-            db_rel_class_type, current_node_class_registry
-        )
+        super().__init__(db_rel_class_type, current_node_class_registry)
         self.remapping_to_class = remapping_to_class
 
     def __str__(self):
@@ -188,7 +181,7 @@ class DoesNotExist(NeomodelException):
         if self._model_class is None:
             raise RuntimeError("This class hasn't been setup properly.")
         self.message = msg
-        super(DoesNotExist, self).__init__(self, msg)
+        super().__init__(self, msg)
 
     def __reduce__(self):
         return _unpickle_does_not_exist, (self._model_class, self.message)
@@ -259,7 +252,7 @@ class NotConnected(NeomodelException):
     def __str__(self):
         return (
             "Error performing '{0}' - Node {1} of type '{2}' is not "
-            "connected to {2} of type '{3}'.".format(
+            "connected to {3} of type '{4}'.".format(
                 self.action,
                 self.node1.id,
                 self.node1.__class__.__name__,

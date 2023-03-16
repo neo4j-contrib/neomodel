@@ -4,25 +4,19 @@ import sys
 import time
 import warnings
 from threading import local
+from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.exceptions import ClientError, SessionExpired
 from neo4j.graph import Node, Relationship
 
-from . import config
-from .exceptions import (
+from neomodel import config, core
+from neomodel.exceptions import (
     ConstraintValidationFailed,
     NodeClassNotDefined,
     RelationshipClassNotDefined,
     UniqueProperty,
 )
-
-if sys.version_info >= (3, 0):
-    from urllib.parse import quote, unquote, urlparse
-else:
-    from urllib import quote, unquote  # noqa
-
-    from urlparse import urlparse  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +42,6 @@ def change_neo4j_password(db, new_password):
 
 
 def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
-    import neomodel.core as core
-
     db.cypher_query("MATCH (a) DETACH DELETE a")
     if clear_constraints:
         core.drop_constraints()
@@ -57,6 +49,7 @@ def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
         core.drop_indexes()
 
 
+# pylint:disable=too-few-public-methods
 class NodeClassRegistry:
     """
     A singleton class via which all instances share the same Node Class Registry.
@@ -105,7 +98,7 @@ class Database(local, NodeClassRegistry):
         p_end = url.rfind("@")
         password = url[p_start:p_end]
         url = url.replace(password, quote(password))
-        u = urlparse(url)
+        parsed_url = urlparse(url)
 
         valid_schemas = [
             "bolt",
@@ -117,34 +110,36 @@ class Database(local, NodeClassRegistry):
             "neo4j+ssc",
         ]
 
-        if u.netloc.find("@") > -1 and u.scheme in valid_schemas:
-            credentials, hostname = u.netloc.rsplit("@", 1)
+        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
+            credentials, hostname = parsed_url.netloc.rsplit("@", 1)
             username, password = credentials.split(":")
             password = unquote(password)
-            database_name = u.path.strip("/")
+            database_name = parsed_url.path.strip("/")
         else:
             raise ValueError(
                 "Expecting url format: bolt://user:password@localhost:7687"
                 " got {0}".format(url)
             )
 
-        options = dict(
-            auth=basic_auth(username, password),
-            connection_acquisition_timeout=config.CONNECTION_ACQUISITION_TIMEOUT,
-            connection_timeout=config.CONNECTION_TIMEOUT,
-            keep_alive=config.KEEP_ALIVE,
-            max_connection_lifetime=config.MAX_CONNECTION_LIFETIME,
-            max_connection_pool_size=config.MAX_CONNECTION_POOL_SIZE,
-            max_transaction_retry_time=config.MAX_TRANSACTION_RETRY_TIME,
-            resolver=config.RESOLVER,
-            user_agent=config.USER_AGENT,
-        )
+        options = {
+            "auth": basic_auth(username, password),
+            "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
+            "connection_timeout": config.CONNECTION_TIMEOUT,
+            "keep_alive": config.KEEP_ALIVE,
+            "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
+            "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
+            "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
+            "resolver": config.RESOLVER,
+            "user_agent": config.USER_AGENT,
+        }
 
-        if "+s" not in u.scheme:
+        if "+s" not in parsed_url.scheme:
             options["encrypted"] = config.ENCRYPTED
             options["trust"] = config.TRUST
 
-        self.driver = GraphDatabase.driver(u.scheme + "://" + hostname, **options)
+        self.driver = GraphDatabase.driver(
+            parsed_url.scheme + "://" + hostname, **options
+        )
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
@@ -190,8 +185,9 @@ class Database(local, NodeClassRegistry):
             self._active_transaction.commit()
             last_bookmark = self._session.last_bookmark()
         finally:
-            # In case when something went wrong during committing changes to the database, we have to close
-            # an active transaction and session.
+            # In case when something went wrong during
+            # committing changes to the database
+            # we have to close an active transaction and session.
             self._active_transaction = None
             self._session = None
 
@@ -205,8 +201,8 @@ class Database(local, NodeClassRegistry):
         try:
             self._active_transaction.rollback()
         finally:
-            # In case when something went wrong during changes rollback, we have to close an active transaction and
-            # session
+            # In case when something went wrong during changes rollback,
+            # we have to close an active transaction and session
             self._active_transaction = None
             self._session = None
 
@@ -230,13 +226,17 @@ class Database(local, NodeClassRegistry):
             for a_result_attribute in enumerate(a_result_item[1]):
                 try:
                     # Primitive types should remain primitive types,
-                    #  Nodes to be resolved to native objects
+                    # Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
-                    # For some reason, while the type of `a_result_attribute[1]` as reported by the neo4j driver is
-                    # `Node` for Node-type data retrieved from the database, when the retrieved data are
-                    # Relationship-Type, the returned type is `abc.[REL_LABEL]` which is however a descendant of
-                    # Relationship. Consequently, the type checking was changed for both Node, Relationship objects
+                    # For some reason, while the type of `a_result_attribute[1]`
+                    # as reported by the neo4j driver is `Node` for Node-type data
+                    # retrieved from the database.
+                    # When the retrieved data are Relationship-Type,
+                    # the returned type is `abc.[REL_LABEL]` which is however
+                    # a descendant of Relationship.
+                    # Consequently, the type checking was changed for both
+                    # Node, Relationship objects
                     if isinstance(a_result_attribute[1], Node):
                         resolved_object = self._NODE_CLASS_REGISTRY[
                             frozenset(a_result_attribute[1].labels)
@@ -247,7 +247,7 @@ class Database(local, NodeClassRegistry):
                             frozenset([a_result_attribute[1].type])
                         ].inflate(a_result_attribute[1])
 
-                    if type(a_result_attribute[1]) is list:
+                    if isinstance(a_result_attribute[1], list):
                         resolved_object = self._object_resolution(
                             [a_result_attribute[1]]
                         )
@@ -256,19 +256,19 @@ class Database(local, NodeClassRegistry):
                         a_result_attribute[0]
                     ] = resolved_object
 
-                except KeyError:
+                except KeyError as exc:
                     # Not being able to match the label set of a node with a known object results
                     # in a KeyError in the internal dictionary used for resolution. If it is impossible
                     # to match, then raise an exception with more details about the error.
                     if isinstance(a_result_attribute[1], Node):
                         raise NodeClassNotDefined(
                             a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        )
+                        ) from exc
 
                     if isinstance(a_result_attribute[1], Relationship):
                         raise RelationshipClassNotDefined(
                             a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        )
+                        ) from exc
 
         return result_list
 
@@ -315,18 +315,14 @@ class Database(local, NodeClassRegistry):
                 # Do any automatic resolution required
                 results = self._object_resolution(results)
 
-        except ClientError as ce:
-            if ce.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if "already exists with label" in ce.message and handle_unique:
-                    raise UniqueProperty(ce.message)
+        except ClientError as e:
+            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
+                if "already exists with label" in e.message and handle_unique:
+                    raise UniqueProperty(e.message) from e
 
-                raise ConstraintValidationFailed(ce.message)
-            else:
-                exc_info = sys.exc_info()
-                if sys.version_info >= (3, 0):
-                    raise exc_info[1].with_traceback(exc_info[2])
-                else:
-                    raise exc_info[1]
+                raise ConstraintValidationFailed(e.message) from e
+            exc_info = sys.exc_info()
+            raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
                 self.set_connection(self.url)
@@ -353,7 +349,7 @@ class Database(local, NodeClassRegistry):
         return results, meta
 
 
-class TransactionProxy(object):
+class TransactionProxy:
     bookmarks = None
 
     def __init__(self, db, access_mode=None):
@@ -412,6 +408,7 @@ class BookmarkingTransactionProxy(TransactionProxy):
 
 
 def deprecated(message):
+    # pylint:disable=invalid-name
     def f__(f):
         def f_(*args, **kwargs):
             warnings.warn(message, category=DeprecationWarning, stacklevel=2)
@@ -426,7 +423,7 @@ def deprecated(message):
 
 
 def classproperty(f):
-    class cpf(object):
+    class cpf:
         def __init__(self, getter):
             self.getter = getter
 
@@ -437,7 +434,7 @@ def classproperty(f):
 
 
 # Just used for error messages
-class _UnsavedNode(object):
+class _UnsavedNode:
     def __repr__(self):
         return "<unsaved node>"
 
@@ -446,10 +443,13 @@ class _UnsavedNode(object):
 
 
 def _get_node_properties(node):
-    """Get the properties from a neo4j.v1.types.graph.Node object."""
-    # 1.6.x and newer have it as `_properties`
-    if hasattr(node, "_properties"):
-        return node._properties
-    # 1.5.x and older have it as `properties`
-    else:
-        return node.properties
+    """Get the properties from a neo4j.vx.types.graph.Node object."""
+    return node._properties
+
+
+def enumerate_traceback(initial_frame):
+    depth, frame = 0, initial_frame
+    while frame is not None:
+        yield depth, frame
+        frame = frame.f_back
+        depth += 1

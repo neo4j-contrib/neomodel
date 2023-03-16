@@ -259,29 +259,27 @@ def test_prohibited_constructor_forms():
 
     # Absurd CRS
     with pytest.raises(ValueError, match=r"Invalid CRS\(blue_hotel\)"):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
-            (0, 0), crs="blue_hotel"
-        )
+        _ = neomodel.contrib.spatial_properties.NeomodelPoint((0, 0), crs="blue_hotel")
 
     # Absurd coord dimensionality
     with pytest.raises(
         ValueError,
         match="Invalid vector dimensions. Expected 2 or 3, received 7",
     ):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             (0, 0, 0, 0, 0, 0, 0), crs="cartesian"
         )
 
     # Absurd datatype passed to copy constructor
     with pytest.raises(TypeError, match="Invalid object passed to copy constructor"):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
-            "it don" "t mean a thing if it " "ain" "t got that swing",
+        _ = neomodel.contrib.spatial_properties.NeomodelPoint(
+            "it don't mean a thing if it ain't got that swing",
             crs="cartesian",
         )
 
     # Trying to instantiate a point with any of BOTH x,y,z or longitude, latitude, height
     with pytest.raises(ValueError, match="Invalid instantiation via arguments"):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             x=0.0,
             y=0.0,
             longitude=0.0,
@@ -292,7 +290,7 @@ def test_prohibited_constructor_forms():
 
     # Trying to instantiate a point with absolutely NO parameters
     with pytest.raises(ValueError, match="Invalid instantiation via no arguments"):
-        new_point = neomodel.contrib.spatial_properties.NeomodelPoint()
+        _ = neomodel.contrib.spatial_properties.NeomodelPoint()
 
 
 def test_property_accessors_depending_on_crs():

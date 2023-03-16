@@ -4,7 +4,6 @@ import re
 import sys
 import types
 import uuid
-import warnings
 from datetime import date, datetime
 
 import neo4j.time
@@ -14,7 +13,7 @@ from neomodel import config
 from neomodel.exceptions import DeflateError, InflateError, RequiredProperty
 
 if sys.version_info >= (3, 0):
-    unicode = str
+    Unicode = str
 
 
 def display_for(key):
@@ -24,7 +23,7 @@ def display_for(key):
     return display_choice
 
 
-class PropertyManager(object):
+class PropertyManager:
     """
     Common methods for handling properties on node and relationship objects.
     """
@@ -129,7 +128,7 @@ def validator(fn):
     elif fn_name == "deflate":
         exc_class = DeflateError
     else:
-        raise Exception("Unknown Property method " + fn_name)
+        raise ValueError("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
     def _validator(self, value, obj=None, rethrow=True):
@@ -137,7 +136,7 @@ def validator(fn):
             try:
                 return fn(self, value)
             except Exception as e:
-                raise exc_class(self.name, self.owner, str(e), obj)
+                raise exc_class(self.name, self.owner, str(e), obj) from e
         else:
             # For using with ArrayProperty where we don't want an Inflate/Deflate error.
             return fn(self, value)
@@ -145,7 +144,7 @@ def validator(fn):
     return _validator
 
 
-class Property(object):
+class Property:
     """
     Base class for object properties.
 
@@ -169,6 +168,7 @@ class Property(object):
 
     form_field_class = "CharField"
 
+    # pylint:disable=unused-argument
     def __init__(
         self,
         unique_index=False,
@@ -193,7 +193,7 @@ class Property(object):
         self.unique_index = unique_index
         self.index = index
         self.default = default
-        self.has_default = True if self.default is not None else False
+        self.has_default = self.default is not None
         self.db_property = db_property
         self.label = label
         self.help_text = help_text
@@ -207,10 +207,8 @@ class Property(object):
         if self.has_default:
             if hasattr(self.default, "__call__"):
                 return self.default()
-            else:
-                return self.default
-        else:
-            raise Exception("No default value specified")
+            return self.default
+        raise ValueError("No default value specified")
 
     @property
     def is_indexed(self):
@@ -232,42 +230,15 @@ class NormalizedProperty(Property):
         return self.normalize(value)
 
     def default_value(self):
-        default = super(NormalizedProperty, self).default_value()
+        default = super().default_value()
         return self.normalize(default)
 
     def normalize(self, value):
         raise NotImplementedError("Specialize normalize method")
 
 
-# TODO remove this with the next major release
-def _warn_NormalProperty_renamed():
-    warnings.warn(
-        "The class NormalProperty was renamed to NormalizedProperty. "
-        "Use that one as base class. The former will be removed in the next "
-        "major release.",
-        DeprecationWarning,
-    )
-
-
-if sys.version_info >= (3, 6):
-
-    class NormalProperty(NormalizedProperty):
-        def __init_subclass__(cls, **kwargs):
-            _warn_NormalProperty_renamed()
-
-else:
-
-    class NormalProperty(NormalizedProperty):
-        def __init__(self, *args, **kwargs):
-            _warn_NormalProperty_renamed()
-            super(NormalProperty, self).__init__(*args, **kwargs)
-
-
-##
-
-
 class RegexProperty(NormalizedProperty):
-    """
+    r"""
     Validates a property against a regular expression.
 
     If sub-classing set:
@@ -285,14 +256,14 @@ class RegexProperty(NormalizedProperty):
 
         :param str expression: regular expression validating this property
         """
-        super(RegexProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         actual_re = expression or self.expression
         if actual_re is None:
             raise ValueError("expression is undefined")
         self.expression = actual_re
 
     def normalize(self, value):
-        normal = unicode(value)
+        normal = Unicode(value)
         if not re.match(self.expression, normal):
             raise ValueError(
                 "{0!r} does not matches {1!r}".format(
@@ -333,7 +304,7 @@ class StringProperty(NormalizedProperty):
             if max_length < 1:
                 raise ValueError("`max_length` cannot be zero or take negative values.")
 
-        super(StringProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.max_length = max_length
         if choices is None:
@@ -341,15 +312,10 @@ class StringProperty(NormalizedProperty):
         else:
             try:
                 self.choices = dict(choices)
-            except Exception:
+            except Exception as exc:
                 raise ValueError(
-                    "The choices argument must be convertable to a dictionary."
-                )
-            # Python 3:
-            except Exception as e:
-                raise ValueError(
-                    "The choices argument must be convertable to " "a dictionary."
-                ) from e
+                    "The choices argument must be convertible to a dictionary."
+                ) from exc
             self.form_field_class = "TypedChoiceField"
 
     def normalize(self, value):
@@ -366,10 +332,10 @@ class StringProperty(NormalizedProperty):
                     self.max_length, len(value), value
                 )
             )
-        return unicode(value)
+        return Unicode(value)
 
     def default_value(self):
-        return self.normalize(super(StringProperty, self).default_value())
+        return self.normalize(super().default_value())
 
 
 class IntegerProperty(Property):
@@ -388,7 +354,7 @@ class IntegerProperty(Property):
         return int(value)
 
     def default_value(self):
-        return int(super(IntegerProperty, self).default_value())
+        return int(super().default_value())
 
 
 class ArrayProperty(Property):
@@ -427,7 +393,7 @@ class ArrayProperty(Property):
 
         self.base_property = base_property
 
-        super(ArrayProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
@@ -444,7 +410,7 @@ class ArrayProperty(Property):
         return list(value)
 
     def default_value(self):
-        return list(super(ArrayProperty, self).default_value())
+        return list(super().default_value())
 
 
 class FloatProperty(Property):
@@ -463,7 +429,7 @@ class FloatProperty(Property):
         return float(value)
 
     def default_value(self):
-        return float(super(FloatProperty, self).default_value())
+        return float(super().default_value())
 
 
 class BooleanProperty(Property):
@@ -482,7 +448,7 @@ class BooleanProperty(Property):
         return bool(value)
 
     def default_value(self):
-        return bool(super(BooleanProperty, self).default_value())
+        return bool(super().default_value())
 
 
 class DateProperty(Property):
@@ -499,7 +465,7 @@ class DateProperty(Property):
         elif isinstance(value, str):
             if "T" in value:
                 value = value[: value.find("T")]
-        return datetime.strptime(unicode(value), "%Y-%m-%d").date()
+        return datetime.strptime(Unicode(value), "%Y-%m-%d").date()
 
     @validator
     def deflate(self, value):
@@ -526,14 +492,14 @@ class DateTimeFormatProperty(Property):
         if default_now:
             if "default" in kwargs:
                 raise ValueError("too many defaults")
-            kwargs["default"] = lambda: datetime.now()
+            kwargs["default"] = datetime.now()
 
         self.format = format
-        super(DateTimeFormatProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(unicode(value), self.format)
+        return datetime.strptime(Unicode(value), self.format)
 
     @validator
     def deflate(self, value):
@@ -559,23 +525,23 @@ class DateTimeProperty(Property):
                 raise ValueError("too many defaults")
             kwargs["default"] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
 
-        super(DateTimeProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
         try:
             epoch = float(value)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 "Float or integer expected, got {0} can't inflate to "
                 "datetime.".format(type(value))
-            )
-        except TypeError:
+            ) from exc
+        except TypeError as exc:
             raise TypeError(
                 "Float or integer expected. Can't inflate {0} to datetime.".format(
                     type(value)
                 )
-            )
+            ) from exc
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
@@ -601,7 +567,7 @@ class JSONProperty(Property):
     """
 
     def __init__(self, *args, **kwargs):
-        super(JSONProperty, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @validator
     def inflate(self, value):
@@ -660,12 +626,12 @@ class UniqueIdProperty(Property):
 
         kwargs["unique_index"] = True
         kwargs["default"] = lambda: uuid.uuid4().hex
-        super(UniqueIdProperty, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @validator
     def inflate(self, value):
-        return unicode(value)
+        return Unicode(value)
 
     @validator
     def deflate(self, value):
-        return unicode(value)
+        return Unicode(value)

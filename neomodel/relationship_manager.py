@@ -1,7 +1,6 @@
 import functools
 import inspect
 import sys
-import warnings
 from importlib import import_module
 
 from .core import db
@@ -16,7 +15,7 @@ from .match import (
     _rel_merge_helper,
 )
 from .relationship import StructuredRel
-from .util import _get_node_properties, deprecated
+from .util import _get_node_properties, deprecated, enumerate_traceback
 
 # basestring python 3.x fallback
 try:
@@ -102,19 +101,19 @@ class RelationshipManager(object):
 
         params = {}
         rel_model = self.definition["model"]
-        rp = None  # rel_properties
+        rel_prop = None
 
         if rel_model:
-            rp = {}
+            rel_prop = {}
             # need to generate defaults etc to create fake instance
             tmp = rel_model(**properties) if properties else rel_model()
             # build params and place holders to pass to rel_helper
-            for p, v in rel_model.deflate(tmp.__properties__).items():
-                if v is not None:
-                    rp[p] = "$" + p
+            for prop, val in rel_model.deflate(tmp.__properties__).items():
+                if val is not None:
+                    rel_prop[prop] = "$" + prop
                 else:
-                    rp[p] = None
-                params[p] = v
+                    rel_prop[prop] = None
+                params[prop] = val
 
             if hasattr(tmp, "pre_save"):
                 tmp.pre_save()
@@ -123,7 +122,7 @@ class RelationshipManager(object):
             lhs="us",
             rhs="them",
             ident="r",
-            relation_properties=rp,
+            relation_properties=rel_prop,
             **self.definition,
         )
         q = (
@@ -230,7 +229,7 @@ class RelationshipManager(object):
         old_rel = _rel_helper(lhs="us", rhs="old", ident="r", **self.definition)
 
         # get list of properties on the existing rel
-        result, meta = self.source.cypher(
+        result, _ = self.source.cypher(
             "MATCH (us), (old) WHERE id(us)=$self and id(old)=$old "
             "MATCH " + old_rel + " RETURN r",
             {"old": old_node.id},
@@ -252,7 +251,7 @@ class RelationshipManager(object):
 
         # copy over properties if we have
         for p in existing_properties:
-            q += " SET r2.{0} = r.{1}".format(p, p)
+            q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
         q += " WITH r DELETE r"
 
         self.source.cypher(q, {"old": old_node.id, "new": new_node.id})
@@ -410,14 +409,9 @@ class RelationshipDefinition:
         manager=RelationshipManager,
         model=None,
     ):
-        current_frame = inspect.currentframe()
+        self._validate_class(cls_name, model)
 
-        def enumerate_traceback(initial_frame):
-            depth, frame = 0, initial_frame
-            while frame is not None:
-                yield depth, frame
-                frame = frame.f_back
-                depth += 1
+        current_frame = inspect.currentframe()
 
         frame_number = 3
         for i, frame in enumerate_traceback(current_frame):
@@ -429,20 +423,26 @@ class RelationshipDefinition:
             self.module_file = sys._getframe(frame_number).f_globals["__file__"]
         self._raw_class = cls_name
         self.manager = manager
-        self.definition = {}
-        self.definition["relation_type"] = relation_type
-        self.definition["direction"] = direction
-        self.definition["model"] = model
+        self.definition = {
+            "relation_type": relation_type,
+            "direction": direction,
+            "model": model,
+        }
 
         if model is not None:
-            # Relationships are easier to instantiate because (at the moment), they cannot have multiple labels. So, a
-            # relationship's type determines the class that should be instantiated uniquely. Here however, we still use
-            # a `frozenset([relation_type])` to preserve the mapping type.
+            # Relationships are easier to instantiate because
+            # they cannot have multiple labels.
+            # So, a relationship's type determines the class that should be
+            # instantiated uniquely.
+            # Here however, we still use a `frozenset([relation_type])`
+            # to preserve the mapping type.
             label_set = frozenset([relation_type])
             try:
-                # If the relationship mapping exists then it is attempted to be redefined so that it applies to the same
-                # label. In this case, it has to be ensured that the class that is overriding the relationship is a
-                # descendant of the already existing class
+                # If the relationship mapping exists then it is attempted
+                # to be redefined so that it applies to the same label.
+                # In this case, it has to be ensured that the class
+                # that is overriding the relationship is a descendant
+                # of the already existing class.
                 model_from_registry = db._NODE_CLASS_REGISTRY[label_set]
                 if not issubclass(model, model_from_registry):
                     is_parent = issubclass(model_from_registry, model)
@@ -455,6 +455,13 @@ class RelationshipDefinition:
             except KeyError:
                 # If the mapping does not exist then it is simply created.
                 db._NODE_CLASS_REGISTRY[label_set] = model
+
+    def _validate_class(self, cls_name, model):
+        if not isinstance(cls_name, (basestring, object)):
+            raise ValueError("Expected class name or class got " + repr(cls_name))
+
+        if model and not issubclass(model, (StructuredRel,)):
+            raise ValueError("model must be a StructuredRel")
 
     def _lookup_node_class(self):
         if not isinstance(self._raw_class, basestring):

@@ -1,5 +1,8 @@
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
-from neomodel.relationship_manager import RelationshipManager, ZeroOrMore  # noqa: F401
+from neomodel.relationship_manager import (  # pylint:disable=unused-import
+    RelationshipManager,
+    ZeroOrMore,
+)
 
 
 class ZeroOrOne(RelationshipManager):
@@ -13,11 +16,12 @@ class ZeroOrOne(RelationshipManager):
 
         :return: node
         """
-        nodes = super(ZeroOrOne, self).all()
+        nodes = super().all()
         if len(nodes) == 1:
             return nodes[0]
         if len(nodes) > 1:
             raise CardinalityViolation(self, len(nodes))
+        return None
 
     def all(self):
         node = self.single()
@@ -37,8 +41,7 @@ class ZeroOrOne(RelationshipManager):
             raise AttemptedCardinalityViolation(
                 f"Node already has {self} can't connect more"
             )
-        else:
-            return super(ZeroOrOne, self).connect(node, properties)
+        return super().connect(node, properties)
 
 
 class OneOrMore(RelationshipManager):
@@ -52,7 +55,7 @@ class OneOrMore(RelationshipManager):
 
         :return: Node
         """
-        nodes = super(OneOrMore, self).all()
+        nodes = super().all()
         if nodes:
             return nodes[0]
         raise CardinalityViolation(self, "none")
@@ -63,7 +66,7 @@ class OneOrMore(RelationshipManager):
 
         :return: [node1, node2...]
         """
-        nodes = super(OneOrMore, self).all()
+        nodes = super().all()
         if nodes:
             return nodes
         raise CardinalityViolation(self, "none")
@@ -74,9 +77,9 @@ class OneOrMore(RelationshipManager):
         :param node:
         :return:
         """
-        if super(OneOrMore, self).__len__() < 2:
+        if super().__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
-        return super(OneOrMore, self).disconnect(node)
+        return super().disconnect(node)
 
 
 class One(RelationshipManager):
@@ -92,14 +95,12 @@ class One(RelationshipManager):
 
         :return: node
         """
-        nodes = super(One, self).all()
+        nodes = super().all()
         if nodes:
             if len(nodes) == 1:
                 return nodes[0]
-            else:
-                raise CardinalityViolation(self, len(nodes))
-        else:
-            raise CardinalityViolation(self, "none")
+            raise CardinalityViolation(self, len(nodes))
+        raise CardinalityViolation(self, "none")
 
     def all(self):
         """
@@ -131,5 +132,4 @@ class One(RelationshipManager):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
-        else:
-            return super(One, self).connect(node, properties)
+        return super().connect(node, properties)

@@ -68,6 +68,10 @@ disable = 'missing-module-docstring,redefined-builtin,missing-class-docstring,mi
 [tool.pylint.'BASIC']
 good-names = 'i,j,k,ex,_,e,fn,x,y,z,id,db,q'
 
+[tool.pylint.'DESIGN']
+max-attributes = 10
+max-args = 8
+
 [project.scripts]
 neomodel_install_labels = "scripts.neomodel_install_labels:main"
 neomodel_remove_labels = "scripts.neomodel_remove_labels:main"
