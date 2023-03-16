@@ -1,14 +1,10 @@
 from pytest import raises
 
 from neomodel import (
-    EITHER,
-    INCOMING,
-    OUTGOING,
     IntegerProperty,
     One,
     Q,
     Relationship,
-    RelationshipDefinition,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
@@ -20,8 +16,8 @@ from neomodel import (
 class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
-    is_from = RelationshipDefinition("Country", "IS_FROM", OUTGOING)
-    knows = RelationshipDefinition("PersonWithRels", "KNOWS", EITHER)
+    is_from = RelationshipTo("Country", "IS_FROM")
+    knows = Relationship("PersonWithRels", "KNOWS")
 
     @property
     def special_name(self):
@@ -33,10 +29,8 @@ class PersonWithRels(StructuredNode):
 
 class Country(StructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = RelationshipDefinition(PersonWithRels, "IS_FROM", INCOMING)
-    president = RelationshipDefinition(
-        PersonWithRels, "PRESIDENT", OUTGOING, cardinality=One
-    )
+    inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
+    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)
 
 
 class SuperHero(PersonWithRels):
@@ -44,13 +38,6 @@ class SuperHero(PersonWithRels):
 
     def special_power(self):
         return "I have powers"
-
-
-class BackwardRelCompatibility(StructuredNode):
-    name = StringProperty()
-    is_from = RelationshipTo("Country", "IS_FROM")
-    knows = Relationship("PersonWithRels", "KNOWS")
-    saved_by = RelationshipFrom("SuperHero", "SAVED_BY")
 
 
 def test_actions_on_deleted_node():
@@ -209,19 +196,3 @@ def test_props_relationship():
 
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={"city": "Thessaloniki"})
-
-
-def test_backward_compatibility():
-    country = Country(code="DE").save()
-    person = PersonWithRels(name="Jim", age=3).save()
-    hero = SuperHero(name="Joe91", age=13, power="xxx").save()
-
-    backward_rel = BackwardRelCompatibility(name="Test")
-    backward_rel.is_from.connect(country)
-    assert len(backward_rel.is_from) == 1
-
-    backward_rel.knows.connect(person)
-    assert len(backward_rel.knows) == 1
-
-    backward_rel.saved_by.connect(hero)
-    assert len(backward_rel.saved_by) == 1

@@ -3,8 +3,7 @@ from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
 from six import StringIO
 
 from neomodel import (
-    OUTGOING,
-    RelationshipDefinition,
+    RelationshipTo,
     StringProperty,
     StructuredNode,
     StructuredRel,
@@ -31,8 +30,8 @@ class IndexedRelationship(StructuredRel):
 
 
 class OtherNodeWithRelationship(StructuredNode):
-    has_rel = RelationshipDefinition(
-        NodeWithRelationship, "INDEXED_REL", OUTGOING, model=IndexedRelationship
+    has_rel = RelationshipTo(
+        NodeWithRelationship, "INDEXED_REL", model=IndexedRelationship
     )
 
 

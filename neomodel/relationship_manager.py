@@ -404,10 +404,10 @@ class RelationshipManager(object):
 class RelationshipDefinition:
     def __init__(
         self,
-        cls_name,
         relation_type,
+        cls_name,
         direction,
-        cardinality=RelationshipManager,
+        manager=RelationshipManager,
         model=None,
     ):
         current_frame = inspect.currentframe()
@@ -419,7 +419,7 @@ class RelationshipDefinition:
                 frame = frame.f_back
                 depth += 1
 
-        frame_number = 4
+        frame_number = 3
         for i, frame in enumerate_traceback(current_frame):
             if cls_name in frame.f_globals:
                 frame_number = i
@@ -428,7 +428,7 @@ class RelationshipDefinition:
         if "__file__" in sys._getframe(frame_number).f_globals:
             self.module_file = sys._getframe(frame_number).f_globals["__file__"]
         self._raw_class = cls_name
-        self.manager = cardinality
+        self.manager = manager
         self.definition = {}
         self.definition["relation_type"] = relation_type
         self.definition["direction"] = direction
@@ -506,42 +506,40 @@ class ZeroOrMore(RelationshipManager):
     description = "zero or more relationships"
 
 
-# TODO : Remove these 4 methods in a major version after 5.0
-def _relate(cls_name, direction, rel_type, cardinality=None, model=None):
-    return RelationshipDefinition(
-        cls_name=cls_name,
-        relation_type=rel_type,
-        direction=direction,
-        cardinality=cardinality,
-        model=model,
-    )
+class RelationshipTo(RelationshipDefinition):
+    def __init__(
+        self,
+        cls_name,
+        relation_type,
+        cardinality=ZeroOrMore,
+        model=None,
+    ):
+        super().__init__(
+            relation_type, cls_name, OUTGOING, manager=cardinality, model=model
+        )
 
 
-def RelationshipTo(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    warnings.warn(
-        "As of version 5.0, you should use the RelationshipDefinition class"
-        "instead of RelationshipTo method."
-        "RelationshipTo will be removed in a future version.",
-        DeprecationWarning,
-    )
-    return _relate(cls_name, OUTGOING, rel_type, cardinality, model)
+class RelationshipFrom(RelationshipDefinition):
+    def __init__(
+        self,
+        cls_name,
+        relation_type,
+        cardinality=ZeroOrMore,
+        model=None,
+    ):
+        super().__init__(
+            relation_type, cls_name, INCOMING, manager=cardinality, model=model
+        )
 
 
-def RelationshipFrom(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    warnings.warn(
-        "As of version 5.0, you should use the RelationshipDefinition class"
-        "instead of RelationshipFrom method."
-        "RelationshipFrom will be removed in a future version.",
-        DeprecationWarning,
-    )
-    return _relate(cls_name, INCOMING, rel_type, cardinality, model)
-
-
-def Relationship(cls_name, rel_type, cardinality=ZeroOrMore, model=None):
-    warnings.warn(
-        "As of version 5.0, you should use the RelationshipDefinition class"
-        "instead of Relationship method."
-        "Relationship will be removed in a future version.",
-        DeprecationWarning,
-    )
-    return _relate(cls_name, EITHER, rel_type, cardinality, model)
+class Relationship(RelationshipDefinition):
+    def __init__(
+        self,
+        cls_name,
+        relation_type,
+        cardinality=ZeroOrMore,
+        model=None,
+    ):
+        super().__init__(
+            relation_type, cls_name, EITHER, manager=cardinality, model=model
+        )

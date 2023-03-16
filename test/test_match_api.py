@@ -4,11 +4,11 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
-    OUTGOING,
     DateTimeProperty,
     IntegerProperty,
     Q,
-    RelationshipDefinition,
+    RelationshipFrom,
+    RelationshipTo,
     StringProperty,
     StructuredNode,
     StructuredRel,
@@ -25,17 +25,13 @@ class SupplierRel(StructuredRel):
 class Supplier(StructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipDefinition(
-        "Coffee", "COFFEE SUPPLIERS", OUTGOING
-    )  # Space to check for escaping
+    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
 
 
 class Coffee(StructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
-    suppliers = RelationshipDefinition(
-        Supplier, "COFFEE SUPPLIERS", INCOMING, model=SupplierRel
-    )
+    suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
     id_ = IntegerProperty()
 
 
