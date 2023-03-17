@@ -19,3 +19,5 @@ bin
 lib
 .vscode
 pyvenv.cfg
+coverage_report/
+.coverage*

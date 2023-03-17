@@ -148,7 +148,7 @@ Other properties
 
 * `EmailProperty` - validate emails (via a regex).
 * `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
-* `NormalProperty` - use one method (normalize) to inflate and deflate.
+* `NormalizedProperty` - use one method (normalize) to inflate and deflate.
 * `PointProperty` - store and validate :ref:`spatial_properties`
 
 Aliasing properties
