@@ -73,7 +73,7 @@ class NodeClassNotDefined(ModelDefinitionException):
     """
 
     def __str__(self):
-        node_labels = ",".join(self.db_node_rel_class.labels())
+        node_labels = ",".join(self.db_node_rel_class.labels)
 
         return "Node with labels {} does not resolve to any of the known objects\n{}\n".format(
             node_labels, self._get_node_class_registry_formatted()
