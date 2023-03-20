@@ -51,9 +51,7 @@ class RelationshipManager(object):
         elif self.definition['direction'] == INCOMING:
             direction = 'a incoming'
 
-        return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
-            self.description, direction,
-            self.definition['relation_type'], self.source.id, self.source_class.__name__)
+        return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.id}) of class '{self.source_class.__name__}'"
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
@@ -214,7 +212,7 @@ class RelationshipManager(object):
 
         # copy over properties if we have
         for p in existing_properties:
-            q += " SET r2.{0} = r.{1}".format(p, p)
+            q += f" SET r2.{p} = r.{p}"
         q += " WITH r DELETE r"
 
         self.source.cypher(q, {'old': old_node.id, 'new': new_node.id})
@@ -426,7 +424,7 @@ class RelationshipDefinition(object):
                 # (i.e. to mean the same thing for both cases).
                 # For example in the comments below, namespace == myapp, always
                 if not hasattr(self, 'module_file'):
-                    raise ImportError("Couldn't lookup '{0}'".format(name))
+                    raise ImportError(f"Couldn't lookup '{name}'")
 
                 if '__init__.py' in self.module_file:
                     # e.g. myapp/__init__.py -[__name__]-> myapp

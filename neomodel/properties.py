@@ -45,7 +45,7 @@ class PropertyManager(object):
                 setattr(self, name, kwargs[name])
 
             if getattr(property, 'choices', None):
-                setattr(self, 'get_{0}_display'.format(name),
+                setattr(self, f'get_{name}_display',
                         types.MethodType(display_for(name), self))
 
             if name in kwargs:
@@ -268,10 +268,7 @@ class RegexProperty(NormalizedProperty):
         normal = unicode(value)
         if not re.match(self.expression, normal):
             raise ValueError(
-                '{0!r} does not matches {1!r}'.format(
-                    value,
-                    self.expression,
-                )
+                f'{value!r} does not matches {self.expression!r}'
             )
         return normal
 
@@ -326,10 +323,9 @@ class StringProperty(NormalizedProperty):
         # these two validation checks here will have to be coupled so that having set 
         # `choices` overrides having set the `max_length`.
         if self.choices is not None and value not in self.choices:
-            raise ValueError("Invalid choice: {}".format(value))
+            raise ValueError(f"Invalid choice: {value}")
         if self.max_length is not None and len(value) > self.max_length:
-            raise ValueError("Property max length exceeded. Expected {}, got {} == len('{}')".format(
-                             self.max_length, len(value), value))
+            raise ValueError(f"Property max length exceeded. Expected {self.max_length}, got {len(value)} == len('{value}')")
         return unicode(value)
 
     def default_value(self):
@@ -377,7 +373,7 @@ class ArrayProperty(Property):
 
             for ilegal_attr in ['default', 'index', 'unique_index', 'required']:
                 if getattr(base_property, ilegal_attr, None):
-                    raise ValueError('ArrayProperty base_property cannot have "{0}" set'.format(ilegal_attr))
+                    raise ValueError(f'ArrayProperty base_property cannot have "{ilegal_attr}" set')
 
         self.base_property = base_property
 
@@ -455,7 +451,7 @@ class DateProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, date):
-            msg = 'datetime.date object expected, got {0}'.format(repr(value))
+            msg = f'datetime.date object expected, got {repr(value)}'
             raise ValueError(msg)
         return value.isoformat()
 
@@ -487,7 +483,7 @@ class DateTimeFormatProperty(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+            raise ValueError(f'datetime object expected, got {type(value)}.')
         return datetime.strftime(value, self.format)
 
 
@@ -516,22 +512,20 @@ class DateTimeProperty(Property):
         try:
             epoch = float(value)
         except ValueError:
-            raise ValueError("Float or integer expected, got {0} can't inflate to "
-                             "datetime.".format(type(value)))
+            raise ValueError(f"Float or integer expected, got {type(value)} can't inflate to datetime.")
         except TypeError:
-            raise TypeError(
-                "Float or integer expected. Can't inflate {0} to datetime.".format(type(value)))
+            raise TypeError(f"Float or integer expected. Can't inflate {type(value)} to datetime.")
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+            raise ValueError(f'datetime object expected, got {type(value)}.')
         if value.tzinfo:
             value = value.astimezone(pytz.utc)
             epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
         elif config.FORCE_TIMEZONE:
-            raise ValueError("Error deflating {0}: No timezone provided.".format(value))
+            raise ValueError(f"Error deflating {value}: No timezone provided.")
         else:
             # No timezone specified on datetime object.. assuming UTC
             epoch_date = datetime(1970, 1, 1)
@@ -599,7 +593,7 @@ class UniqueIdProperty(Property):
     def __init__(self, **kwargs):
         for item in ['required', 'unique_index', 'index', 'default']:
             if item in kwargs:
-                raise ValueError('{0} argument ignored by {1}'.format(item, self.__class__.__name__))
+                raise ValueError(f'{item} argument ignored by {self.__class__.__name__}')
 
         kwargs['unique_index'] = True
         kwargs['default'] = lambda: uuid.uuid4().hex

@@ -27,8 +27,7 @@ class CardinalityViolation(NeomodelException):
         self.actual = str(actual)
 
     def __str__(self):
-        return "CardinalityViolation: Expected: {0}, got: {1}."\
-            .format(self.rel_manager, self.actual)
+        return f"CardinalityViolation: Expected: {self.rel_manager}, got: {self.actual}."
 
 
 class ModelDefinitionException(NeomodelException):
@@ -54,7 +53,7 @@ class ModelDefinitionException(NeomodelException):
 
         :return: str
         """
-        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+        ncr_items = list(map(lambda x: f"{','.join(x[0])} --> {x[1]}",
                              self.current_node_class_registry.items()))
         return "\n".join(ncr_items)
 
@@ -71,8 +70,7 @@ class NodeClassNotDefined(ModelDefinitionException):
     def __str__(self):
         node_labels = ",".join(self.db_node_rel_class.labels())
 
-        return "Node with labels {} does not resolve to any of the known objects\n{}\n".format(
-            node_labels, self._get_node_class_registry_formatted())
+        return f"Node with labels {node_labels} does not resolve to any of the known objects\n{self._get_node_class_registry_formatted()}\n"
 
 
 class RelationshipClassNotDefined(ModelDefinitionException):
@@ -82,8 +80,8 @@ class RelationshipClassNotDefined(ModelDefinitionException):
     """
     def __str__(self):
         relationship_type = self.db_node_rel_class.type
-        return "Relationship of type {} does not resolve to any of the known " \
-               "objects\n{}\n".format(relationship_type, self._get_node_class_registry_formatted())
+        return f"Relationship of type {relationship_type} does not resolve to any of the known " \
+               f"objects\n{self._get_node_class_registry_formatted()}\n"
 
 
 class RelationshipClassRedefined(ModelDefinitionException):
@@ -106,9 +104,7 @@ class RelationshipClassRedefined(ModelDefinitionException):
 
     def __str__(self):
         relationship_type = self.db_node_rel_class
-        return "Relationship of type {} redefined as {}.\n{}\n".format(
-            relationship_type, self.remapping_to_class, self._get_node_class_registry_formatted())
-
+        return f"Relationship of type {relationship_type} redefined as {self.remapping_to_class}.\n{self._get_node_class_registry_formatted()}\n"
 
 class NodeClassAlreadyDefined(ModelDefinitionException):
     """
@@ -118,10 +114,7 @@ class NodeClassAlreadyDefined(ModelDefinitionException):
     def __str__(self):
         node_class_labels = ",".join(self.db_node_rel_class.inherited_labels())
 
-        return "Class {}.{} with labels {} already defined:\n{}\n".format(
-            self.db_node_rel_class.__module__, self.db_node_rel_class.__name__,
-            node_class_labels, self._get_node_class_registry_formatted())
-
+        return f"Class {self.db_node_rel_class.__module__}.{self.db_node_rel_class.__name__} with labels {node_class_labels} already defined:\n{self._get_node_class_registry_formatted()}\n"
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
     def __init__(self, msg):
@@ -136,9 +129,7 @@ class DeflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to deflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return f"Attempting to deflate property '{self.property_name}' on {self.obj} of class '{self.node_class.__name__}': {self.msg}"
 
 
 class DoesNotExist(NeomodelException):
@@ -170,10 +161,7 @@ class InflateConflict(NeomodelException):
         self.nid = nid
 
     def __str__(self):
-        return """Found conflict with node {0}, has property '{1}' with value '{2}'
-            although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
-
+        return f"Found conflict with node {self.nid}, has property '{self.property_name}' with value '{self.value}' although class {self.cls_name} already has a property '{self.property_name}'"
 
 class InflateError(ValueError, NeomodelException):
     def __init__(self, key, cls, msg, obj=None):
@@ -183,9 +171,7 @@ class InflateError(ValueError, NeomodelException):
         self.obj = repr(obj)
 
     def __str__(self):
-        return ("Attempting to inflate property '{0}' on {1} of class '{2}': "
-                "{3}".format(self.property_name, self.obj,
-                             self.node_class.__name__, self.msg))
+        return f"Attempting to inflate property '{self.property_name}' on {self.obj} of class '{self.node_class.__name__}': {self.msg}"
 
 
 class DeflateConflict(InflateConflict):
@@ -196,9 +182,7 @@ class DeflateConflict(InflateConflict):
         self.nid = nid if nid else '(unsaved)'
 
     def __str__(self):
-        return """Found trying to set property '{1}' with value '{2}' on node {0}
-            although class {3} already has a property '{1}'""".format(
-            self.nid, self.property_name, self.value, self.cls_name)
+        return f"Found trying to set property '{self.property_name}' with value '{self.value}' on node {self.nid} although class {self.cls_name} already has a property '{1}'"
 
 
 class MultipleNodesReturned(ValueError, NeomodelException):
@@ -213,11 +197,7 @@ class NotConnected(NeomodelException):
         self.node2 = node2
 
     def __str__(self):
-        return ("Error performing '{0}' - Node {1} of type '{2}' is not "
-                "connected to {2} of type '{3}'."
-                .format(self.action, self.node1.id,
-                        self.node1.__class__.__name__, self.node2.id,
-                        self.node2.__class__.__name__))
+        return f"Error performing '{self.action, self.node1.id}' - Node {self.node1.__class__.__name__} of type '{self.node2.id}' is not connected to {self.node2.id} of type '{self.node2.__class__.__name__}'."
 
 
 class RequiredProperty(NeomodelException):
@@ -226,9 +206,7 @@ class RequiredProperty(NeomodelException):
         self.node_class = cls
 
     def __str__(self):
-        return "property '{0}' on objects of class {1}".format(
-            self.property_name, self.node_class.__name__)
-
+        return f"property '{self.property_name}' on objects of class {self.node_class.__name__}"
 
 class UniqueProperty(ConstraintValidationFailed):
     def __init__(self, msg):

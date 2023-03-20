@@ -65,7 +65,7 @@ class NodeClassRegistry:
         self.__dict__['_NODE_CLASS_REGISTRY'] = self._NODE_CLASS_REGISTRY
 
     def __str__(self):
-        ncr_items = list(map(lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+        ncr_items = list(map(lambda x: f"{','.join(x[0])} --> {x[1]}",
                              self._NODE_CLASS_REGISTRY.items()))
         return "\n".join(ncr_items)
 
@@ -103,8 +103,7 @@ class Database(local, NodeClassRegistry):
             password = unquote(password)
             database_name = u.path.strip("/")
         else:
-            raise ValueError("Expecting url format: bolt://user:password@localhost:7687"
-                             " got {0}".format(url))
+            raise ValueError(f"Expecting url format: bolt://user:password@localhost:7687 got {url}")
 
         options = dict(
             auth=basic_auth(username, password),
@@ -296,7 +295,7 @@ class Database(local, NodeClassRegistry):
 
         tte = (end - start)
         if os.environ.get('NEOMODEL_CYPHER_DEBUG', False) and tte > float(os.environ.get('NEOMODEL_SLOW_QUERIES', 0)):
-            logger.debug("query: " + query + "\nparams: " + repr(params) + "\ntook: {:.2g}s\n".format(tte))
+            logger.debug("query: " + query + "\nparams: " + repr(params) + f"\ntook: {tte:.2g}s\n")
 
         return results, meta
 
