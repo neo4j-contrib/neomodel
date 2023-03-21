@@ -69,11 +69,10 @@ class QBase:
         return obj
 
     def __str__(self):
-        template = "(NOT ({0}: {1}))" if self.negated else "({0}: {1})"
-        return template.format(self.connector, ", ".join(str(c) for c in self.children))
+        return f"(NOT ({self.connector}: {', '.join(str(c) for c in self.children)}))" if self.negated else f"({self.connector}: {', '.join(str(c) for c in self.children)})"
 
     def __repr__(self):
-        return "<{0}: {1}>".format(self.__class__.__name__, self)
+        return f"<{self.__class__.__name__}: {self}>"
 
     def __deepcopy__(self, memodict):
         obj = QBase(connector=self.connector, negated=self.negated)

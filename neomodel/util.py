@@ -68,7 +68,7 @@ class NodeClassRegistry:
     def __str__(self):
         ncr_items = list(
             map(
-                lambda x: "{} --> {}".format(",".join(x[0]), x[1]),
+                lambda x: f"{','.join(x[0])} --> {x[1]}",
                 self._NODE_CLASS_REGISTRY.items(),
             )
         )
@@ -117,8 +117,7 @@ class Database(local, NodeClassRegistry):
             database_name = parsed_url.path.strip("/")
         else:
             raise ValueError(
-                "Expecting url format: bolt://user:password@localhost:7687"
-                " got {0}".format(url)
+                f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
             )
 
         options = {
@@ -343,7 +342,7 @@ class Database(local, NodeClassRegistry):
                 + query
                 + "\nparams: "
                 + repr(params)
-                + "\ntook: {:.2g}s\n".format(tte)
+                + f"\ntook: {tte:.2g}s\n"
             )
 
         return results, meta

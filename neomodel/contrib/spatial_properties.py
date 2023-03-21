@@ -102,11 +102,7 @@ class NeomodelPoint(ShapelyPoint):
 
         # CRS validity check is common to both types of constructors that follow
         if crs is not None and crs not in ACCEPTABLE_CRS:
-            raise ValueError(
-                "Invalid CRS({}). Expected one of {}".format(
-                    crs, ",".join(ACCEPTABLE_CRS)
-                )
-            )
+            raise ValueError(f"Invalid CRS({crs}). Expected one of {','.join(ACCEPTABLE_CRS)}")
         self._crs = crs
 
         # If positional arguments have been supplied, then this is a possible call to the copy constructor or
@@ -116,11 +112,7 @@ class NeomodelPoint(ShapelyPoint):
             if isinstance(args[0], (tuple, list)):
                 # Check dimensionality of tuple
                 if len(args[0]) < 2 or len(args[0]) > 3:
-                    raise ValueError(
-                        "Invalid vector dimensions. Expected 2 or 3, received {}".format(
-                            len(args[0])
-                        )
-                    )
+                    raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0])}")
                 x = args[0][0]
                 y = args[0][1]
                 if len(args[0]) == 3:
@@ -148,20 +140,10 @@ class NeomodelPoint(ShapelyPoint):
                         if crs is None:
                             self._crs = "cartesian-3d"
                     else:
-                        raise ValueError(
-                            "Invalid vector dimensions. "
-                            "Expected 2 or 3, received {}".format(
-                                len(args[0].coords[0])
-                            )
-                        )
+                        raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0]}")
                 return
             else:
-                raise TypeError(
-                    "Invalid object passed to copy constructor. "
-                    "Expected NeomodelPoint or shapely Point, received {}".format(
-                        type(args[0])
-                    )
-                )
+                raise TypeError(f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0]}")
 
         # Initialisation is either via x,y[,z] XOR longitude,latitude[,height]. Specifying both leads to an error.
         if any(i is not None for i in [x, y, z]) and any(
@@ -208,16 +190,12 @@ class NeomodelPoint(ShapelyPoint):
             if "-3d" not in self._crs:
                 super().__init__((float(_x), float(_y)), **kwargs)
             else:
-                raise ValueError(
-                    "Invalid vector dimensions(2) for given CRS({}).".format(self._crs)
-                )
+                raise ValueError(f"Invalid vector dimensions(2) for given CRS({self._crs}).")
         else:
             if "-3d" in self._crs:
                 super().__init__((float(_x), float(_y), float(_z)), **kwargs)
             else:
-                raise ValueError(
-                    "Invalid vector dimensions(3) for given CRS({}).".format(self._crs)
-                )
+                raise ValueError(f"Invalid vector dimensions(3) for given CRS({self._crs}).")
 
     @property
     def crs(self):
@@ -227,7 +205,7 @@ class NeomodelPoint(ShapelyPoint):
     def x(self):
         if not self._crs.startswith("cartesian"):
             raise AttributeError(
-                'Invalid coordinate ("x") for points defined over {}'.format(self.crs)
+                f'Invalid coordinate ("x") for points defined over {self.crs}'
             )
         return super().x
 
@@ -235,7 +213,7 @@ class NeomodelPoint(ShapelyPoint):
     def y(self):
         if not self._crs.startswith("cartesian"):
             raise AttributeError(
-                'Invalid coordinate ("y") for points defined over {}'.format(self.crs)
+                f'Invalid coordinate ("y") for points defined over {self.crs}'
             )
         return super().y
 
@@ -243,7 +221,7 @@ class NeomodelPoint(ShapelyPoint):
     def z(self):
         if not self._crs == "cartesian-3d":
             raise AttributeError(
-                'Invalid coordinate ("z") for points defined over {}'.format(self.crs)
+                f'Invalid coordinate ("z") for points defined over {self.crs}'
             )
         return super().z
 
@@ -251,9 +229,7 @@ class NeomodelPoint(ShapelyPoint):
     def latitude(self):
         if not self._crs.startswith("wgs-84"):
             raise AttributeError(
-                'Invalid coordinate ("latitude") for points defined over {}'.format(
-                    self.crs
-                )
+                f'Invalid coordinate ("latitude") for points defined over {self.crs}'
             )
         return super().y
 
@@ -261,9 +237,7 @@ class NeomodelPoint(ShapelyPoint):
     def longitude(self):
         if not self._crs.startswith("wgs-84"):
             raise AttributeError(
-                'Invalid coordinate ("longitude") for points defined over {}'.format(
-                    self.crs
-                )
+                f'Invalid coordinate ("longitude") for points defined over {self.crs}'
             )
         return super().x
 
@@ -271,9 +245,7 @@ class NeomodelPoint(ShapelyPoint):
     def height(self):
         if not self._crs == "wgs-84-3d":
             raise AttributeError(
-                'Invalid coordinate ("height") for points defined over {}'.format(
-                    self.crs
-                )
+                f'Invalid coordinate ("height") for points defined over {self.crs}'
             )
         return super().z
 
@@ -312,22 +284,13 @@ class PointProperty(Property):
             crs = None
 
         if crs is None or (crs not in ACCEPTABLE_CRS):
-            raise ValueError(
-                "Invalid CRS({}). "
-                "Point properties require CRS to be one of {}".format(
-                    crs, ",".join(ACCEPTABLE_CRS)
-                )
-            )
+            raise ValueError(f"Invalid CRS({crs}). Point properties require CRS to be one of {','.join(ACCEPTABLE_CRS)}")
 
         # If a default value is passed and it is not a callable, then make sure it is in the right type
         if "default" in kwargs:
             if not hasattr(kwargs["default"], "__call__"):
                 if not isinstance(kwargs["default"], NeomodelPoint):
-                    raise TypeError(
-                        "Invalid default value. "
-                        "Expected NeomodelPoint, received {}".format(
-                            type(kwargs["default"])
-                        )
+                    raise TypeError(f"Invalid default value. Expected NeomodelPoint, received {type(kwargs['default'])}"
                     )
 
         super().__init__(*args, **kwargs)
@@ -344,26 +307,16 @@ class PointProperty(Property):
         """
         if not isinstance(value, neo4j.spatial.Point):
             raise TypeError(
-                "Invalid datatype to inflate. Expected POINT datatype, received {}".format(
-                    type(value)
-                )
+                f"Invalid datatype to inflate. Expected POINT datatype, received {type(value)}"
             )
 
         try:
             value_point_crs = SRID_TO_CRS[value.srid]
         except KeyError as e:
-            raise ValueError(
-                "Invalid SRID to inflate. "
-                "Expected one of {}, received {}".format(SRID_TO_CRS.keys(), value.srid)
-            ) from e
+            raise ValueError(f"Invalid SRID to inflate. Expected one of {SRID_TO_CRS.keys()}, received {value.srid}") from e
 
         if self._crs != value_point_crs:
-            raise ValueError(
-                "Invalid CRS. "
-                "Expected POINT defined over {}, received {}".format(
-                    self._crs, value_point_crs
-                )
-            )
+            raise ValueError(f"Invalid CRS. Expected POINT defined over {self._crs}, received {value_point_crs}")
         # cartesian
         if value.srid == 7203:
             return NeomodelPoint(x=value.x, y=value.y)
@@ -393,17 +346,11 @@ class PointProperty(Property):
         """
         if not isinstance(value, NeomodelPoint):
             raise TypeError(
-                "Invalid datatype to deflate. Expected NeomodelPoint, received {}".format(
-                    type(value)
-                )
+                f"Invalid datatype to deflate. Expected NeomodelPoint, received {type(value)}"
             )
 
         if not value.crs == self._crs:
-            raise ValueError(
-                "Invalid CRS. "
-                "Expected NeomodelPoint defined over {}, "
-                "received NeomodelPoint defined over {}".format(self._crs, value.crs)
-            )
+            raise ValueError(f"Invalid CRS. Expected NeomodelPoint defined over {self._crs}, received NeomodelPoint defined over {value.crs}")
 
         if value.crs == "cartesian-3d":
             return neo4j.spatial.CartesianPoint((value.x, value.y, value.z))
