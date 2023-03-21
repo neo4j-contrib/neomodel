@@ -32,6 +32,7 @@ Please look at the Issues page, and especially this thread for more information 
 
 *This repository now tracks release 5.0 of neomodel that works with Neo4j 5.x and Neo4j 4.4*.
 
+The last neomodel 4.x release was `neomodel 4.0.10 <https://pypi.org/project/neomodel/4.0.10/>`_.
 
 Requirements
 ============
