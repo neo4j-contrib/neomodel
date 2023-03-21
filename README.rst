@@ -38,8 +38,13 @@ Documentation
 Requirements
 ============
 
+For current state of the repo - and coming 5.x release :
 - Python 3.7+
-- Neo4j 4.4 and all 5.x versions
+- neo4j 5.x, 4.4 (LTS)
+
+For releases 4.x :
+- Python 3.7 -> 3.10
+- Neo4j 4.x (including 4.4 LTS for neomodel version 4.0.10)
 
 Installation
 ============
