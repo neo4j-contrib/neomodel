@@ -140,7 +140,7 @@ class NeomodelPoint(ShapelyPoint):
                         if crs is None:
                             self._crs = "cartesian-3d"
                     else:
-                        raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0]}")
+                        raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0])}")
                 return
             else:
                 raise TypeError(f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0]}")
