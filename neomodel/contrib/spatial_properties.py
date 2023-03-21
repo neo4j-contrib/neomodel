@@ -143,7 +143,7 @@ class NeomodelPoint(ShapelyPoint):
                         raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0])}")
                 return
             else:
-                raise TypeError(f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0]}")
+                raise TypeError(f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0])}")
 
         # Initialisation is either via x,y[,z] XOR longitude,latitude[,height]. Specifying both leads to an error.
         if any(i is not None for i in [x, y, z]) and any(
