@@ -358,7 +358,7 @@ class StructuredNode(NodeBase):
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
-                raise ValueError(f"relationship source [{repr(relationship.source}] is not a StructuredNode")
+                raise ValueError(f"relationship source [{repr(relationship.source)}] is not a StructuredNode")
             relation_type = relationship.definition.get("relation_type")
             if not relation_type:
                 raise ValueError(
