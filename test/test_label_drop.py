@@ -1,8 +1,9 @@
-from neomodel import StructuredNode, StringProperty, config
-from neomodel.core import db, remove_all_labels
+from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
+
 from neo4j.exceptions import ClientError
 
-from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
+from neomodel import StringProperty, StructuredNode, config
+from neomodel.core import db, remove_all_labels
 
 config.AUTO_INSTALL_LABELS = True
 
@@ -36,12 +37,16 @@ def test_drop_labels():
         elif constraint["type"] == "NODE_KEY":
             constraint_type_clause = "NODE KEY"
 
-        db.cypher_query(f'CREATE CONSTRAINT {constraint["name"]} FOR (n:{constraint["labelsOrTypes"][0]}) REQUIRE n.{constraint["properties"][0]} IS {constraint_type_clause}')
+        db.cypher_query(
+            f'CREATE CONSTRAINT {constraint["name"]} FOR (n:{constraint["labelsOrTypes"][0]}) REQUIRE n.{constraint["properties"][0]} IS {constraint_type_clause}'
+        )
     for index in indexes_before:
         try:
             # Ignore the automatically created LOOKUP indexes
             if index["labelsOrTypes"] is None or index["labelsOrTypes"] == []:
                 continue
-            db.cypher_query(f'CREATE INDEX {index["name"]} FOR (n:{index["labelsOrTypes"][0]}) ON (n.{index["properties"][0]})')
+            db.cypher_query(
+                f'CREATE INDEX {index["name"]} FOR (n:{index["labelsOrTypes"][0]}) ON (n.{index["properties"][0]})'
+            )
         except ClientError:
             pass

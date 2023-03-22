@@ -1,6 +1,6 @@
 import pickle
 
-from neomodel import StructuredNode, StringProperty, DoesNotExist
+from neomodel import DoesNotExist, StringProperty, StructuredNode
 
 
 class EPerson(StructuredNode):

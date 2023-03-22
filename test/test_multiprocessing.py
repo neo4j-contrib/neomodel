@@ -1,12 +1,15 @@
-from neomodel import StructuredNode, StringProperty, db
 from multiprocessing.pool import ThreadPool as Pool
+
+from neomodel import StringProperty, StructuredNode, db
+
 
 class ThingyMaBob(StructuredNode):
     name = StringProperty(unique_index=True, required=True)
 
+
 def thing_create(name):
     name = str(name)
-    thing, = ThingyMaBob.get_or_create({'name': name})
+    (thing,) = ThingyMaBob.get_or_create({"name": name})
     return thing.name, name
 
 

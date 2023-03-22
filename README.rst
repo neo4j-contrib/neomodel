@@ -25,8 +25,29 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
 Maintenance notice
 ==================
 
-This project didn't receive releases between December 2021 and early 2023. Active maintenance of the project is now being picked up again.
+This project did not receive releases between December 2021 and early 2023. Active maintenance of the project is now being picked up again.
 Please look at the Issues page, and especially this thread for more information about the current plan : https://github.com/neo4j-contrib/neomodel/issues/653
+
+**Please note:** 
+
+*This repository now tracks release 5.0 of neomodel that works with Neo4j 5.x and Neo4j 4.4*.
+
+The last neomodel 4.x release was `neomodel 4.0.10 <https://pypi.org/project/neomodel/4.0.10/>`_.
+
+Requirements
+============
+
+**For neomodel releases 5.x :**
+
+* Python 3.7+
+* Neo4j 5.x, 4.4 (LTS)
+
+
+**For neomodel releases 4.x :**
+
+* Python 3.7 -> 3.10
+* Neo4j 4.x (including 4.4 LTS for neomodel version 4.0.10)
+
 
 Documentation
 =============
@@ -35,11 +56,7 @@ Documentation
 
 .. _readthedocs: http://neomodel.readthedocs.org
 
-Requirements
-============
 
-- Python 3.7+
-- Neo4j 4.4 and all 5.x versions
 
 Installation
 ============

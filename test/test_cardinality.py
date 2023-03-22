@@ -1,8 +1,17 @@
 from pytest import raises
 
-from neomodel import (StructuredNode, StringProperty, IntegerProperty, OneOrMore, ZeroOrMore,
-                      RelationshipTo, AttemptedCardinalityViolation, CardinalityViolation,
-                      ZeroOrOne, One)
+from neomodel import (
+    AttemptedCardinalityViolation,
+    CardinalityViolation,
+    IntegerProperty,
+    One,
+    OneOrMore,
+    RelationshipTo,
+    StringProperty,
+    StructuredNode,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 
 
 class HairDryer(StructuredNode):
@@ -19,10 +28,10 @@ class Car(StructuredNode):
 
 class Monkey(StructuredNode):
     name = StringProperty()
-    dryers = RelationshipTo('HairDryer', 'OWNS_DRYER', cardinality=ZeroOrMore)
-    driver = RelationshipTo('ScrewDriver', 'HAS_SCREWDRIVER', cardinality=ZeroOrOne)
-    car = RelationshipTo('Car', 'HAS_CAR', cardinality=OneOrMore)
-    toothbrush = RelationshipTo('ToothBrush', 'HAS_TOOTHBRUSH', cardinality=One)
+    dryers = RelationshipTo("HairDryer", "OWNS_DRYER", cardinality=ZeroOrMore)
+    driver = RelationshipTo("ScrewDriver", "HAS_SCREWDRIVER", cardinality=ZeroOrOne)
+    car = RelationshipTo("Car", "HAS_CAR", cardinality=OneOrMore)
+    toothbrush = RelationshipTo("ToothBrush", "HAS_TOOTHBRUSH", cardinality=One)
 
 
 class ToothBrush(StructuredNode):
@@ -30,7 +39,7 @@ class ToothBrush(StructuredNode):
 
 
 def test_cardinality_zero_or_more():
-    m = Monkey(name='tim').save()
+    m = Monkey(name="tim").save()
     assert m.dryers.all() == []
     assert m.dryers.single() is None
     h = HairDryer(version=1).save()
@@ -52,7 +61,7 @@ def test_cardinality_zero_or_more():
 
 
 def test_cardinality_zero_or_one():
-    m = Monkey(name='bob').save()
+    m = Monkey(name="bob").save()
     assert m.driver.all() == []
     assert m.driver.single() is None
     h = ScrewDriver(version=1).save()
@@ -70,7 +79,7 @@ def test_cardinality_zero_or_one():
 
 
 def test_cardinality_one_or_more():
-    m = Monkey(name='jerry').save()
+    m = Monkey(name="jerry").save()
 
     with raises(CardinalityViolation):
         m.car.all()
@@ -87,7 +96,7 @@ def test_cardinality_one_or_more():
 
 
 def test_cardinality_one():
-    m = Monkey(name='jerry').save()
+    m = Monkey(name="jerry").save()
 
     with raises(CardinalityViolation):
         m.toothbrush.all()
@@ -95,11 +104,11 @@ def test_cardinality_one():
     with raises(CardinalityViolation):
         m.toothbrush.single()
 
-    b = ToothBrush(name='Jim').save()
+    b = ToothBrush(name="Jim").save()
     m.toothbrush.connect(b)
-    assert m.toothbrush.single().name == 'Jim'
+    assert m.toothbrush.single().name == "Jim"
 
-    x = ToothBrush(name='Jim').save
+    x = ToothBrush(name="Jim").save
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
 

@@ -1,8 +1,8 @@
-from neomodel import StructuredNode, RelationshipTo
+from neomodel import RelationshipTo, StructuredNode
 
 
 class SomeModel(StructuredNode):
-    test = RelationshipTo('SomeModel', 'SELF')
+    test = RelationshipTo("SomeModel", "SELF")
 
 
 def test_len_relationship():
