@@ -43,33 +43,33 @@ def _rel_helper(
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
     :returns: string
-    """
-
-    if direction == OUTGOING:
-        stmt = "-{0}->"
-    elif direction == INCOMING:
-        stmt = "<-{0}-"
-    else:
-        stmt = "-{0}-"
-
+    """ 
     rel_props = ""
 
     if relation_properties:
         rel_props_str = ', '.join((f"{key}: {value}" for key, value in relation_properties.items()))
         rel_props = f" {{{rel_props_str}}}"
 
+    
+    rel_def = ""
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
-        stmt = stmt.format("")
+        rel_def = ""
     # all("*" wildcard) relation_type
     elif relation_type == "*":
-        stmt = stmt.format("[*]")
+        rel_def = "[*]"
     else:
         # explicit relation_type
-        stmt = stmt.format(
-            f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
-        )
+        rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
 
+    stmt = ""
+    if direction == OUTGOING:
+        stmt = f"-{rel_def}->"
+    elif direction == INCOMING:
+        stmt = f"<-{rel_def}-"
+    else:
+        stmt = f"-{rel_def}-"
+        
     return f"({lhs}){stmt}({rhs})"
 
 
