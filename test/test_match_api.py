@@ -402,6 +402,9 @@ def test_qbase():
 
     assert ("price", 5) in (Q(price=5) | Q(price=10))
 
+    test_hash = set([Q(price_lt=30) | ~Q(price=5), Q(price_lt=30) | ~Q(price=5)])
+    assert len(test_hash) == 1
+
 
 def test_traversal_filter_left_hand_statement():
     nescafe = Coffee(name="Nescafe2", price=99).save()
