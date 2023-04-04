@@ -33,10 +33,10 @@ The following cardinality constraints are available:
 :class:`~neomodel.cardinality.ZeroOrMore` (default)  :class:`~neomodel.cardinality.OneOrMore`
 ===================================================  ========================================
 
-If a cardinality constrain is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
+If a cardinality constraint is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
 
-On attempting to violate a cardinality constrain a 
+On attempting to violate a cardinality constraint a 
 :class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
 
 Properties
