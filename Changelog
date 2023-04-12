@@ -1,3 +1,6 @@
+Version 5.0.1 2023-xx
+* Removed deprecated methods StructuredRel.delete and RelationshipManager.search
+
 Version 5.0.0 2023-03
 * Confirmed support of Neo4j versions 5.x and 4.4 (LTS)
 * Dropped support of EOL Neo4j versions (4.3 and below)

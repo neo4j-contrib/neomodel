@@ -306,16 +306,6 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).get_or_none(**kwargs)
 
-    @deprecated("search() is now deprecated please use filter() and exclude()")
-    def search(self, **kwargs):
-        """
-        Retrieve related nodes matching the provided properties.
-
-        :param kwargs: same syntax as `NodeSet.filter()`
-        :return: NodeSet
-        """
-        return self.filter(**kwargs).all()
-
     def filter(self, *args, **kwargs):
         """
         Retrieve related nodes matching the provided properties.
