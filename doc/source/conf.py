@@ -121,7 +121,7 @@ html_theme_options = {
     "github_user": "neo4j-contrib",
     "github_repo": "neomodel",
     # 'github_branch': 'master',
-    "travis_button": True,
+    "travis_button": False,
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
