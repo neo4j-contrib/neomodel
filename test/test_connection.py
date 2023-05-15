@@ -19,6 +19,12 @@ def test_connect_to_aura():
     assert len(neo4j_ssc_result) > 0
     assert neo4j_ssc_result[0][0] == cypher_return
 
+    _set_connection(protocol="bolt+s")
+    bolt_ssc_result, _ = db.cypher_query(default_cypher_query)
+
+    assert len(bolt_ssc_result) > 0
+    assert bolt_ssc_result[0][0] == cypher_return
+
     _set_connection(protocol="bolt+ssc")
     bolt_ssc_result, _ = db.cypher_query(default_cypher_query)
 
