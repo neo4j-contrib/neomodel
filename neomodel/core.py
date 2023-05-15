@@ -56,17 +56,12 @@ def drop_indexes(quiet=True, stdout=None):
         # Neo4j 4.3 introduced token lookup indexes
         # Two are created automatically so should not be dropped
         # They can be recognized because their labelsOrTypes and properties arrays are empty
-        if not index["labelsOrTypes"]:
-            if index["properties"]:
-                raise ValueError(
-                    f'Index {index["name"]} has no labels but has properties({",".join(index["properties"])}). Unknown index'
+        if index["labelsOrTypes"] and index["properties"]:
+            db.cypher_query("DROP INDEX " + index["name"])
+            if not quiet:
+                stdout.write(
+                    f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
                 )
-            continue
-        db.cypher_query("DROP INDEX " + index["name"])
-        if not quiet:
-            stdout.write(
-                f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
-            )
     if not quiet:
         stdout.write("\n")
 
@@ -185,7 +180,7 @@ def install_labels(cls, quiet=True, stdout=None):
 def install_all_labels(stdout=None):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-    Note: code most be loaded (imported) in order for a class to be discovered.
+    Note: code must be loaded (imported) in order for a class to be discovered.
 
     :param stdout: output stream
     :return: None

@@ -33,10 +33,10 @@ The following cardinality constraints are available:
 :class:`~neomodel.cardinality.ZeroOrMore` (default)  :class:`~neomodel.cardinality.OneOrMore`
 ===================================================  ========================================
 
-If a cardinality constrain is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
+If a cardinality constraint is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
 
-On attempting to violate a cardinality constrain a 
+On attempting to violate a cardinality constraint a 
 :class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
 
 Properties
@@ -251,7 +251,7 @@ that are directly related to another ``Person``, through all relationships::
                                     definition)
     all_jims_relations = relations_traversal.all()
 
-The ``defintion`` argument is a :term:`py3:mapping` with these items:
+The ``definition`` argument is a :term:`py3:mapping` with these items:
 
 =================  ===============================================================
 ``node_class``     The class of the traversal target node.

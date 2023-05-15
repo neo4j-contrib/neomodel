@@ -266,7 +266,7 @@ class RegexProperty(NormalizedProperty):
         normal = Unicode(value)
         if not re.match(self.expression, normal):
             raise ValueError(
-                f"{value!r} does not matches {self.expression!r}"
+                f"{value!r} does not match {self.expression!r}"
             )
         return normal
 

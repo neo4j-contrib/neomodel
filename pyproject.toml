@@ -56,7 +56,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--resetdb --cov=neomodel --cov-report=html:coverage_report"
+addopts = "--resetdb"
 testpaths = "test"
 
 [tool.isort]
