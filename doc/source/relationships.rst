@@ -251,7 +251,7 @@ that are directly related to another ``Person``, through all relationships::
                                     definition)
     all_jims_relations = relations_traversal.all()
 
-The ``defintion`` argument is a :term:`py3:mapping` with these items:
+The ``definition`` argument is a :term:`py3:mapping` with these items:
 
 =================  ===============================================================
 ``node_class``     The class of the traversal target node.

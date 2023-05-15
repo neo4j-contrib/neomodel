@@ -180,7 +180,7 @@ def install_labels(cls, quiet=True, stdout=None):
 def install_all_labels(stdout=None):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-    Note: code most be loaded (imported) in order for a class to be discovered.
+    Note: code must be loaded (imported) in order for a class to be discovered.
 
     :param stdout: output stream
     :return: None

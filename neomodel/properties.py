@@ -266,7 +266,7 @@ class RegexProperty(NormalizedProperty):
         normal = Unicode(value)
         if not re.match(self.expression, normal):
             raise ValueError(
-                "{0!r} does not matches {1!r}".format(
+                "{0!r} does not match {1!r}".format(
                     value,
                     self.expression,
                 )
