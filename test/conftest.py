@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import sys
 import warnings
 
 import pytest
@@ -24,6 +23,18 @@ def pytest_addoption(parser):
         help="Ensures that the database is clear prior to running tests for neomodel",
         default=False,
     )
+
+
+# content of conftest.py
+def pytest_collection_modifyitems(items):
+    for item in items:
+        if item.name == "test_connect_to_aura":
+            # Ensure this test is run last because it changes the database_url
+            # remove the test from its current position
+            items.remove(item)
+            # append it to the end of the list
+            items.append(item)
+            break
 
 
 def pytest_sessionstart(session):

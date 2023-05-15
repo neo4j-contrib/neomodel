@@ -95,6 +95,12 @@ Setup a virtual environment, install neomodel for development and run the test s
     $ pip install -e '.[dev]'
     $ pytest
 
+The tests in "test_connection.py" will fail locally if you don't specify the following environment variables::
+
+    $ export AURA_TEST_DB_USER=username
+    $ export AURA_TEST_DB_PASSWORD=password
+    $ export AURA_TEST_DB_HOSTNAME=url
+
 If you are running a neo4j database for the first time the test suite will set the password to 'test'.
 If the database is already populated, the test suite will abort with an error message and ask you to re-run it with the
 ``--resetdb`` switch. This is a safeguard to ensure that the test suite does not accidentally wipe out a database if you happen 
