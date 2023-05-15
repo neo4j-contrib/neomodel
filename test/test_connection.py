@@ -7,6 +7,12 @@ def test_connect_to_aura():
     cypher_return = "hello world"
     default_cypher_query = f"RETURN '{cypher_return}'"
 
+    _set_connection(protocol="neo4j+s")
+    result, _ = db.cypher_query(default_cypher_query)
+
+    assert len(result) > 0
+    assert result[0][0] == cypher_return
+
     _set_connection(protocol="neo4j+ssc")
     result, _ = db.cypher_query(default_cypher_query)
 
