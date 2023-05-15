@@ -35,6 +35,6 @@ jobs:
         pip install -e '.[dev]'
     - name: Test with pytest
       run: |
-        pytest
+        pytest --cov=neomodel --cov-report=html:coverage_report
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3

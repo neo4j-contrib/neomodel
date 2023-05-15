@@ -317,6 +317,7 @@ def test_empty_filters():
 
 
 def test_q_filters():
+    # Test where no children and self.connector != conn ?
     for c in Coffee.nodes:
         c.delete()
 
@@ -371,6 +372,38 @@ def test_q_filters():
         Q(price__gt=5) & ~Q(name="Japans finest")
     ).all()
     assert c3 not in coffees_5_not_japans
+
+    empty_Q_condition = Coffee.nodes.filter(Q(price=5) | Q()).all()
+    assert (
+        len(empty_Q_condition) == 1
+    ), "undefined Q leading to unexpected number of results"
+    assert c1 in empty_Q_condition
+
+    combined_coffees = Coffee.nodes.filter(
+        Q(price=35), Q(name="Latte") | Q(name="Cappuccino")
+    )
+    assert len(combined_coffees) == 2
+    assert c5 in combined_coffees
+    assert c6 in combined_coffees
+    assert c3 not in combined_coffees
+
+    class QQ:
+        pass
+
+    with raises(TypeError):
+        wrong_Q = Coffee.nodes.filter(Q(price=5) | QQ()).all()
+
+
+def test_qbase():
+    test_print_out = str(Q(price=5) | Q(price=10))
+    test_repr = repr(Q(price=5) | Q(price=10))
+    assert test_print_out == "(OR: ('price', 5), ('price', 10))"
+    assert test_repr == "<Q: (OR: ('price', 5), ('price', 10))>"
+
+    assert ("price", 5) in (Q(price=5) | Q(price=10))
+
+    test_hash = set([Q(price_lt=30) | ~Q(price=5), Q(price_lt=30) | ~Q(price=5)])
+    assert len(test_hash) == 1
 
 
 def test_traversal_filter_left_hand_statement():

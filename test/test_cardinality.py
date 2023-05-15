@@ -11,6 +11,7 @@ from neomodel import (
     StructuredNode,
     ZeroOrMore,
     ZeroOrOne,
+    db,
 )
 
 
@@ -77,6 +78,21 @@ def test_cardinality_zero_or_one():
     m.driver.reconnect(h, j)
     assert m.driver.single().version == 2
 
+    # Forcing creation of a second ToothBrush to go around
+    # AttemptedCardinalityViolation
+    db.cypher_query(
+        """
+        MATCH (m:Monkey WHERE m.name="bob")
+        CREATE (s:ScrewDriver {version:3})
+        WITH m, s
+        CREATE (m)-[:HAS_SCREWDRIVER]->(s)
+    """
+    )
+    with raises(
+        CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
+    ):
+        m.driver.all()
+
 
 def test_cardinality_one_or_more():
     m = Monkey(name="jerry").save()
@@ -91,14 +107,28 @@ def test_cardinality_one_or_more():
     m.car.connect(c)
     assert m.car.single().version == 2
 
+    cars = m.car.all()
+    assert len(cars) == 1
+
     with raises(AttemptedCardinalityViolation):
         m.car.disconnect(c)
+
+    d = Car(version=3).save()
+    m.car.connect(d)
+    cars = m.car.all()
+    assert len(cars) == 2
+
+    m.car.disconnect(d)
+    cars = m.car.all()
+    assert len(cars) == 1
 
 
 def test_cardinality_one():
     m = Monkey(name="jerry").save()
 
-    with raises(CardinalityViolation):
+    with raises(
+        CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: none."
+    ):
         m.toothbrush.all()
 
     with raises(CardinalityViolation):
@@ -114,3 +144,25 @@ def test_cardinality_one():
 
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect(b)
+
+    with raises(AttemptedCardinalityViolation):
+        m.toothbrush.disconnect_all()
+
+    # Forcing creation of a second ToothBrush to go around
+    # AttemptedCardinalityViolation
+    db.cypher_query(
+        """
+        MATCH (m:Monkey WHERE m.name="jerry")
+        CREATE (t:ToothBrush {name:"Jim"})
+        WITH m, t
+        CREATE (m)-[:HAS_TOOTHBRUSH]->(t)
+    """
+    )
+    with raises(
+        CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
+    ):
+        m.toothbrush.all()
+
+    jp = Monkey(name="Jean-Pierre")
+    with raises(ValueError, match="Node has not been saved cannot connect!"):
+        jp.toothbrush.connect(b)

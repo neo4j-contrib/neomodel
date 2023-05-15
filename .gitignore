@@ -21,3 +21,4 @@ lib
 pyvenv.cfg
 coverage_report/
 .coverage*
+cov.xml
