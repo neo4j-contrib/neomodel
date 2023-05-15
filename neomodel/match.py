@@ -1,5 +1,7 @@
 import inspect
 import re
+from collections import defaultdict
+from dataclasses import dataclass
 
 from .core import StructuredNode, db
 from .exceptions import MultipleNodesReturned
@@ -76,7 +78,13 @@ def _rel_helper(
             "[{0}:`{1}`{2}]".format(ident if ident else "", relation_type, rel_props)
         )
 
-    return "({0}){1}({2})".format(lhs, stmt, rhs)
+    # Make sure not to add parenthesis when they are already present
+    if lhs[-1] != ")":
+        lhs = f"({lhs})"
+    if rhs[-1] != ")":
+        rhs = f"({rhs})"
+
+    return "{0}{1}{2}".format(lhs, stmt, rhs)
 
 
 def _rel_merge_helper(
@@ -310,12 +318,17 @@ def process_has_args(cls, kwargs):
 class QueryBuilder:
     def __init__(self, node_set):
         self.node_set = node_set
-        self._ast = {"match": [], "where": []}
+        self._ast = {"match": [], "where": [], "optional match": []}
         self._query_params = {}
         self._place_holder_registry = {}
         self._ident_count = 0
+        self._node_counters = defaultdict(int)
 
     def build_ast(self):
+        if hasattr(self.node_set, "relations_to_fetch"):
+            for relation in self.node_set.relations_to_fetch:
+                self.build_traversal_from_path(relation, self.node_set.source)
+
         self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
@@ -394,6 +407,61 @@ class QueryBuilder:
 
         return traversal.name
 
+    def _additional_return(self, name):
+        key = "additional_return"
+        if key not in self._ast:
+            self._ast[key] = []
+        if name not in self._ast[key] and name != self._ast.get("return"):
+            self._ast[key].append(name)
+
+    def build_traversal_from_path(self, relation: dict, source_class) -> str:
+        path: str = relation["path"]
+        stmt: str = ""
+        source_class_iterator = source_class
+        for index, part in enumerate(path.split("__")):
+            relationship = getattr(source_class_iterator, part)
+            # build source
+            if "node_class" not in relationship.definition:
+                relationship._lookup_node_class()
+            rhs_label = relationship.definition["node_class"].__label__
+            rel_reference = f'{relationship.definition["node_class"]}_{part}'
+            self._node_counters[rel_reference] += 1
+            rhs_name = (
+                f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
+            )
+            rhs_ident = f"{rhs_name}:{rhs_label}"
+            self._additional_return(rhs_name)
+            if not stmt:
+                lhs_label = source_class_iterator.__label__
+                lhs_name = lhs_label.lower()
+                lhs_ident = f"{lhs_name}:{lhs_label}"
+                if not index:
+                    # This is the first one, we make sure that 'return'
+                    # contains the primary node so _contains() works
+                    # as usual
+                    self._ast["return"] = lhs_name
+                else:
+                    self._additional_return(lhs_name)
+            else:
+                lhs_ident = stmt
+
+            rel_ident = self.create_ident()
+            self._additional_return(rel_ident)
+            stmt = _rel_helper(
+                lhs=lhs_ident,
+                rhs=rhs_ident,
+                ident=rel_ident,
+                direction=relationship.definition["direction"],
+                relation_type=relationship.definition["relation_type"],
+            )
+            source_class_iterator = relationship.definition["node_class"]
+
+        if relation.get("optional"):
+            self._ast["optional match"].append(stmt)
+        else:
+            self._ast["match"].append(stmt)
+        return rhs_name
+
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
         place_holder = self._register_place_holder(ident)
@@ -415,9 +483,15 @@ class QueryBuilder:
         match nodes by a label
         """
         ident_w_label = ident + ":" + cls.__label__
-        self._ast["match"].append("({0})".format(ident_w_label))
-        self._ast["return"] = ident
-        self._ast["result_class"] = cls
+        # Avoid the generation of useless/duplicate MATCH and RETURN
+        # statements
+        if not self._ast.get("return") and (
+            "additional_return" not in self._ast
+            or ident not in self._ast["additional_return"]
+        ):
+            self._ast["match"].append("({0})".format(ident_w_label))
+            self._ast["return"] = ident
+            self._ast["result_class"] = cls
         return ident
 
     def build_additional_match(self, ident, node_set):
@@ -522,8 +596,16 @@ class QueryBuilder:
         if "lookup" in self._ast:
             query += self._ast["lookup"]
 
-        query += " MATCH "
-        query += ", ".join(["({0})".format(i) for i in self._ast["match"]])
+        # Instead of using only one MATCH statement for every relation
+        # to follow, we use one MATCH per relation (to avoid cartesian
+        # product issues...). This part will need some refinement!
+        if len(self._ast["match"]) > 0:
+            query += " MATCH "
+            query += " MATCH ".join(i for i in self._ast["match"])
+
+        if len(self._ast["optional match"]):
+            query += " OPTIONAL MATCH "
+            query += " OPTIONAL MATCH ".join(i for i in self._ast["optional match"])
 
         if "where" in self._ast and self._ast["where"]:
             query += " WHERE "
@@ -533,7 +615,13 @@ class QueryBuilder:
             query += " WITH "
             query += self._ast["with"]
 
-        query += " RETURN " + self._ast["return"]
+        query += " RETURN "
+        if "return" in self._ast:
+            query += self._ast["return"]
+        if "additional_return" in self._ast:
+            if "return" in self._ast:
+                query += ", "
+            query += ", ".join(self._ast["additional_return"])
 
         if "order_by" in self._ast and self._ast["order_by"]:
             query += " ORDER BY "
@@ -551,12 +639,17 @@ class QueryBuilder:
         self._ast["return"] = "count({0})".format(self._ast["return"])
         # drop order_by, results in an invalid query
         self._ast.pop("order_by", None)
+        # drop additional_return to avoid unexpected result
+        self._ast.pop("additional_return", None)
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
 
     def _contains(self, node_id):
         # inject id = into ast
+        if "return" not in self._ast:
+            print(self._ast["additional_return"])
+            self._ast["return"] = self._ast["additional_return"][0]
         ident = self._ast["return"]
         place_holder = self._register_place_holder(ident + "_contains")
         self._ast["where"].append("id({0}) = ${1}".format(ident, place_holder))
@@ -565,17 +658,22 @@ class QueryBuilder:
 
     def _execute(self, lazy=False):
         if lazy:
-            # inject id = into ast
-            self._ast["return"] = "id({})".format(self._ast["return"])
+            # inject id() into return or return_set
+            if "return" in self._ast:
+                self._ast["return"] = f"id({self._ast['return']})"
+            else:
+                self._ast["additional_return"] = [
+                    f"id({item})" for item in self._ast["additional_return"]
+                ]
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
-        if results:
+        if results and len(results[0]) == 1:
             return [n[0] for n in results]
-        return []
+        return results
 
 
 class BaseSet:
@@ -637,6 +735,13 @@ class BaseSet:
         return None
 
 
+@dataclass
+class Optional:
+    """Simple relation qualifier."""
+
+    relation: str
+
+
 class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
@@ -662,6 +767,8 @@ class NodeSet(BaseSet):
         # used by has()
         self.must_match = {}
         self.dont_match = {}
+
+        self.relations_to_fetch: list = []
 
     def _get(self, limit=None, lazy=False, **kwargs):
         self.filter(**kwargs)
@@ -811,6 +918,18 @@ class NodeSet(BaseSet):
 
                 self._order_by.append(prop + (" DESC" if desc else ""))
 
+        return self
+
+    def fetch_relations(self, *relation_names):
+        """Specify a set of relations to return."""
+        relations = []
+        for relation_name in relation_names:
+            if isinstance(relation_name, Optional):
+                item = {"path": relation_name.relation, "optional": True}
+            else:
+                item = {"path": relation_name}
+            relations.append(item)
+        self.relations_to_fetch = relations
         return self
 
 
