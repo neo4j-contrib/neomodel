@@ -14,9 +14,7 @@ from neomodel import (
     StructuredRel,
 )
 from neomodel.exceptions import MultipleNodesReturned
-from neomodel.match import (
-    NodeSet, Optional, QueryBuilder, Traversal
-)
+from neomodel.match import NodeSet, Optional, QueryBuilder, Traversal
 
 
 class SupplierRel(StructuredRel):
@@ -32,13 +30,14 @@ class Supplier(StructuredNode):
 
 class Species(StructuredNode):
     name = StringProperty()
-    coffees = RelationshipFrom('Coffee', 'COFFEE SPECIES', model=StructuredRel)
+    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
 
 
 class Coffee(StructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
+    species = RelationshipTo(Species, "COFFEE SPECIES", model=StructuredRel)
     id_ = IntegerProperty()
 
 
@@ -401,19 +400,19 @@ def test_traversal_filter_left_hand_statement():
 
 
 def test_fetch_relations():
-    arabica = Species(name='Arabica').save()
-    robusta = Species(name='Robusta').save()
-    nescafe = Coffee(name='Nescafe 1000', price=99).save()
-    nescafe_gold = Coffee(name='Nescafe 1001', price=11).save()
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe 1000", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
 
-    tesco = Supplier(name='Sainsburys', delivery_cost=3).save()
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
 
     result = (
-        Supplier.nodes.filter(name='Sainsburys')
-        .fetch_relations('coffees__species')
+        Supplier.nodes.filter(name="Sainsburys")
+        .fetch_relations("coffees__species")
         .all()
     )
     assert arabica in result[0]
@@ -423,18 +422,20 @@ def test_fetch_relations():
     assert nescafe_gold not in result[0]
 
     result = (
-        Species.nodes.filter(name='Robusta')
-        .fetch_relations(Optional('coffees__suppliers'))
+        Species.nodes.filter(name="Robusta")
+        .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
     assert result[0][0] is None
 
     # len() should only consider Suppliers
     count = len(
-        Supplier.nodes.filter(name='Sainsburys')
-        .fetch_relations('coffees__species')
+        Supplier.nodes.filter(name="Sainsburys")
+        .fetch_relations("coffees__species")
         .all()
     )
     assert count == 1
 
-    assert tesco in Supplier.nodes.fetch_relations('coffees__species').filter(name='Sainsburys')
+    assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
+        name="Sainsburys"
+    )
