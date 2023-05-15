@@ -260,3 +260,8 @@ The ``definition`` argument is a :term:`py3:mapping` with these items:
                    or an explicit name of a relation type (the edge's label).
 ``model``          The class of the relation model, ``None`` for such without one.
 =================  ===============================================================
+
+.. note::
+
+    The ``RelationshipTo`` and ``RelationshipFrom`` objects are simply a proxy
+    for defining Traversal objects at the class level.
