@@ -1,7 +1,6 @@
 from .core import db
 from .hooks import hooks
 from .properties import Property, PropertyManager
-from .util import deprecated
 
 
 class RelationshipMeta(type):
