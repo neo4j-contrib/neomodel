@@ -194,7 +194,7 @@ Working with relationships::
     jim.country.replace(germany)
 
 
- Retrieving additional relations
+Retrieving additional relations
 ===============================
 
 To avoid queries multiplication, you have the possibility to retrieve
@@ -207,9 +207,10 @@ additional relations with a single call::
         print(result[0]) # Person
         print(result[1]) # associated Country
 
-You can traverse more than one hop in you relations using the
+You can traverse more than one hop in your relations using the
 following syntax::
 
+    # Go from person to City then Country
     Person.nodes.all().fetch_relations('city__country')
 
 You can also force the use of an ``OPTIONAL MATCH`` statement using
@@ -219,8 +220,21 @@ the following syntax::
 
     results = Person.nodes.all().fetch_relations(Optional('country'))
 
+.. note::
+
+   You can fetch one or more relations within the same call
+   to `.fetch_relations()` and you can mix optional and non-optional
+   relations, like::
+
+    Person.nodes.all().fetch_relations('city__country', Optional('country'))
+
 .. warning::
 
-   Note that you can fetch one or more relations within the same call
-   to `.fetch_relations()` and you can mix optional and non-optional
-   relations.
+   This feature is still a work in progress for extending path traversal and fecthing.
+   It currently stops at returning the resolved objects as they are returned in Cypher.
+   So for instance, if your path looks like ``(startNode:Person)-[r1]->(middleNode:City)<-[r2]-(endNode:Country)``,
+   then you will get a list of results, where each result is a list of ``(startNode, r1, middleNode, r2, endNode)``.
+   These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
+
+   If you want to go further in the resolution process, you have to develop your own parser (for now).
+
