@@ -25,16 +25,25 @@ def pytest_addoption(parser):
     )
 
 
-# content of conftest.py
 def pytest_collection_modifyitems(items):
+    connect_to_aura_items = []
+    normal_items = []
+
+    # Separate all tests into two groups: those with "connect_to_aura" in their name, and all others
     for item in items:
-        if item.name == "test_connect_to_aura":
-            # Ensure this test is run last because it changes the database_url
-            # remove the test from its current position
-            items.remove(item)
-            # append it to the end of the list
-            items.append(item)
-            break
+        if "connect_to_aura" in item.name:
+            connect_to_aura_items.append(item)
+        else:
+            normal_items.append(item)
+
+    # Add all normal tests back to the front of the list
+    new_order = normal_items
+
+    # Add all connect_to_aura tests to the end of the list
+    new_order.extend(connect_to_aura_items)
+
+    # Replace the original items list with the new order
+    items[:] = new_order
 
 
 def pytest_sessionstart(session):
