@@ -8,22 +8,22 @@ def test_connect_to_aura():
     default_cypher_query = f"RETURN '{cypher_return}'"
 
     _set_connection(protocol="neo4j+s")
-    result, _ = db.cypher_query(default_cypher_query)
+    neo4j_s_result, _ = db.cypher_query(default_cypher_query)
 
-    assert len(result) > 0
-    assert result[0][0] == cypher_return
+    assert len(neo4j_s_result) > 0
+    assert neo4j_s_result[0][0] == cypher_return
 
     _set_connection(protocol="neo4j+ssc")
-    result, _ = db.cypher_query(default_cypher_query)
+    neo4j_ssc_result, _ = db.cypher_query(default_cypher_query)
 
-    assert len(result) > 0
-    assert result[0][0] == cypher_return
+    assert len(neo4j_ssc_result) > 0
+    assert neo4j_ssc_result[0][0] == cypher_return
 
     _set_connection(protocol="bolt+ssc")
-    result, _ = db.cypher_query(default_cypher_query)
+    bolt_ssc_result, _ = db.cypher_query(default_cypher_query)
 
-    assert len(result) > 0
-    assert result[0][0] == cypher_return
+    assert len(bolt_ssc_result) > 0
+    assert bolt_ssc_result[0][0] == cypher_return
 
 
 def _set_connection(protocol, port=None):
