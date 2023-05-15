@@ -15,7 +15,7 @@ from .match import (
     _rel_merge_helper,
 )
 from .relationship import StructuredRel
-from .util import _get_node_properties, deprecated, enumerate_traceback
+from .util import _get_node_properties, enumerate_traceback
 
 # basestring python 3.x fallback
 try:
