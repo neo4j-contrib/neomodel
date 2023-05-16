@@ -4,9 +4,11 @@ import sys
 import time
 import warnings
 from threading import local
+from typing import Optional
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
+from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, SessionExpired
 from neo4j.graph import Node, Relationship
 
@@ -134,7 +136,7 @@ class Database(local, NodeClassRegistry):
 
         if "+s" not in parsed_url.scheme:
             options["encrypted"] = config.ENCRYPTED
-            options["trust"] = config.TRUST
+            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
         self.driver = GraphDatabase.driver(
             parsed_url.scheme + "://" + hostname, **options
@@ -164,7 +166,7 @@ class Database(local, NodeClassRegistry):
         """
         Begins a new transaction, raises SystemError exception if a transaction is in progress
         """
-        if self._active_transaction:
+        if hasattr(self, "_transaction"):
             raise SystemError("Transaction in progress")
         self._session = self.driver.session(
             default_access_mode=access_mode,
@@ -176,32 +178,34 @@ class Database(local, NodeClassRegistry):
     @ensure_connection
     def commit(self):
         """
-        Commits the current transaction
+        Commits the current transaction and closes its session
 
-        :return: last_bookmark
+        :return: last_bookmarks
         """
         try:
             self._active_transaction.commit()
-            last_bookmark = self._session.last_bookmark()
+            last_bookmarks = self._session.last_bookmarks()
         finally:
             # In case when something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
+            self._active_transaction.close()
             self._active_transaction = None
             self._session = None
 
-        return last_bookmark
+        return last_bookmarks
 
     @ensure_connection
     def rollback(self):
         """
-        Rolls back the current transaction
+        Rolls back the current transaction and closes its session
         """
         try:
             self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
+            self._active_transaction.close()
             self._active_transaction = None
             self._session = None
 
@@ -295,14 +299,42 @@ class Database(local, NodeClassRegistry):
         :type: bool
         """
 
-        if self._pid != os.getpid():
+        if self.driver is None:
             self.set_connection(self.url)
 
         if self._active_transaction:
-            session = self._active_transaction
+            # Use current session is a transaction is currently active
+            results, meta = self._run_cypher_query(
+                self._active_transaction,
+                query,
+                params,
+                handle_unique,
+                retry_on_session_expire,
+                resolve_objects,
+            )
         else:
-            session = self.driver.session(database=self._database_name)
+            # Otherwise create a new session in a with to dispose of it
+            with self.driver.session(database=self._database_name) as session:
+                results, meta = self._run_cypher_query(
+                    session,
+                    query,
+                    params,
+                    handle_unique,
+                    retry_on_session_expire,
+                    resolve_objects,
+                )
 
+        return results, meta
+
+    def _run_cypher_query(
+        self,
+        session,
+        query,
+        params,
+        handle_unique,
+        retry_on_session_expire,
+        resolve_objects,
+    ):
         try:
             # Retrieve the data
             start = time.time()
@@ -349,7 +381,7 @@ class Database(local, NodeClassRegistry):
 
 
 class TransactionProxy:
-    bookmarks = None
+    bookmarks: Optional[Bookmarks] = None
 
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -357,16 +389,8 @@ class TransactionProxy:
 
     @ensure_connection
     def __enter__(self):
-        if self.bookmarks is None:
-            self.db.begin(access_mode=self.access_mode)
-        else:
-            bookmarks = (
-                (self.bookmarks,)
-                if isinstance(self.bookmarks, (str, bytes))
-                else tuple(self.bookmarks)
-            )
-            self.db.begin(access_mode=self.access_mode, bookmarks=bookmarks)
-            self.bookmarks = None
+        self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
+        self.bookmarks = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

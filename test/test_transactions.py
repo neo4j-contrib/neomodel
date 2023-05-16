@@ -1,4 +1,5 @@
 import pytest
+from neo4j.api import Bookmarks
 from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db, install_labels
@@ -95,9 +96,9 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
         p.delete()
 
     # should work
-    result, bookmark = in_a_tx("Ruth", bookmarks=None)
+    result, bookmarks = in_a_tx("Ruth", bookmarks=None)
     assert result is None
-    assert isinstance(bookmark, str)
+    assert isinstance(bookmarks, Bookmarks)
 
     # should bail but raise correct error
     with raises(UniqueProperty):
@@ -109,7 +110,7 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
 def test_bookmark_transaction_as_a_context(skip_neo4j_before_330):
     with db.transaction as transaction:
         APerson(name="Tanya").save()
-    assert isinstance(transaction.last_bookmark, str)
+    assert isinstance(transaction.last_bookmark, Bookmarks)
 
     assert APerson.nodes.filter(name="Tanya")
 
@@ -137,7 +138,7 @@ def test_bookmark_passed_in_to_context(skip_neo4j_before_330, spy_on_db_begin):
     with transaction:
         pass
 
-    assert spy_on_db_begin[-1] == ((), {"access_mode": None})
+    assert spy_on_db_begin[-1] == ((), {"access_mode": None, "bookmarks": None})
     last_bookmark = transaction.last_bookmark
 
     transaction.bookmarks = last_bookmark
@@ -145,15 +146,7 @@ def test_bookmark_passed_in_to_context(skip_neo4j_before_330, spy_on_db_begin):
         pass
     assert spy_on_db_begin[-1] == (
         (),
-        {"access_mode": None, "bookmarks": (last_bookmark,)},
-    )
-
-    transaction.bookmarks = [last_bookmark]
-    with transaction:
-        pass
-    assert spy_on_db_begin[-1] == (
-        (),
-        {"access_mode": None, "bookmarks": (last_bookmark,)},
+        {"access_mode": None, "bookmarks": last_bookmark},
     )
 
 
@@ -167,4 +160,4 @@ def test_query_inside_bookmark_transaction(skip_neo4j_before_330):
 
         assert len([p.name for p in APerson.nodes]) == 2
 
-    assert isinstance(transaction.last_bookmark, str)
+    assert isinstance(transaction.last_bookmark, Bookmarks)
