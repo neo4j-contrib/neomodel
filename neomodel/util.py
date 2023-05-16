@@ -190,6 +190,7 @@ class Database(local, NodeClassRegistry):
             # committing changes to the database
             # we have to close an active transaction and session.
             self._active_transaction.close()
+            self._session.close()
             self._active_transaction = None
             self._session = None
 
@@ -206,6 +207,7 @@ class Database(local, NodeClassRegistry):
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
             self._active_transaction.close()
+            self._session.close()
             self._active_transaction = None
             self._session = None
 
@@ -313,7 +315,7 @@ class Database(local, NodeClassRegistry):
                 resolve_objects,
             )
         else:
-            # Otherwise create a new session in a with to dispose of it
+            # Otherwise create a new session in a with to dispose of it after it has been run
             with self.driver.session(database=self._database_name) as session:
                 results, meta = self._run_cypher_query(
                     session,
