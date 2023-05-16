@@ -1,7 +1,6 @@
 from .core import db
 from .hooks import hooks
 from .properties import Property, PropertyManager
-from .util import deprecated
 
 
 class RelationshipMeta(type):
@@ -47,12 +46,6 @@ class StructuredRel(StructuredRelBase):
         db.cypher_query(query, props)
 
         return self
-
-    @deprecated("This method will be removed in neomodel 4")
-    def delete(self):
-        raise NotImplementedError(
-            "Can not delete relationships please use 'disconnect'"
-        )
 
     def start_node(self):
         """

@@ -21,4 +21,5 @@ lib
 pyvenv.cfg
 coverage_report/
 .coverage*
+.DS_STORE
 cov.xml

@@ -15,7 +15,7 @@ from .match import (
     _rel_merge_helper,
 )
 from .relationship import StructuredRel
-from .util import _get_node_properties, deprecated, enumerate_traceback
+from .util import _get_node_properties, enumerate_traceback
 
 # basestring python 3.x fallback
 try:
@@ -299,16 +299,6 @@ class RelationshipManager(object):
         :return: node
         """
         return NodeSet(self._new_traversal()).get_or_none(**kwargs)
-
-    @deprecated("search() is now deprecated please use filter() and exclude()")
-    def search(self, **kwargs):
-        """
-        Retrieve related nodes matching the provided properties.
-
-        :param kwargs: same syntax as `NodeSet.filter()`
-        :return: NodeSet
-        """
-        return self.filter(**kwargs).all()
 
     def filter(self, *args, **kwargs):
         """
