@@ -92,6 +92,9 @@ class Database(local, NodeClassRegistry):
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.driver.close()
+
     def set_connection(self, url):
         """
         Sets the connection URL to the address a Neo4j server is set up at
@@ -138,15 +141,13 @@ class Database(local, NodeClassRegistry):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
-            self.driver = GraphDatabase.driver(
-                parsed_url.scheme + "://" + hostname, **options
-            )
-            self.url = url
-            self._pid = os.getpid()
-            self._active_transaction = None
-            self._database_name = (
-                DEFAULT_DATABASE if database_name == "" else database_name
-            )
+        self.driver = GraphDatabase.driver(
+            parsed_url.scheme + "://" + hostname, **options
+        )
+        self.url = url
+        self._pid = os.getpid()
+        self._active_transaction = None
+        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
     @property
     def transaction(self):
