@@ -92,9 +92,6 @@ class Database(local, NodeClassRegistry):
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.driver.close()
-
     def set_connection(self, url):
         """
         Sets the connection URL to the address a Neo4j server is set up at
