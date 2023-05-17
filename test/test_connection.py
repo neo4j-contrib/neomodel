@@ -1,14 +1,12 @@
 import os
 
 import pytest
-from neo4j.debug import watch
 
 from neomodel import config, db
 
 
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])
 def test_connect_to_aura(protocol):
-    watch("neo4j")
     cypher_return = "hello world"
     default_cypher_query = f"RETURN '{cypher_return}'"
     db.driver.close()

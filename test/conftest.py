@@ -25,6 +25,7 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.hookimpl
 def pytest_collection_modifyitems(items):
     connect_to_aura_items = []
     normal_items = []
@@ -46,6 +47,7 @@ def pytest_collection_modifyitems(items):
     items[:] = new_order
 
 
+@pytest.hookimpl
 def pytest_sessionstart(session):
     """
     Provides initial connection to the database and sets up the rest of the test suite

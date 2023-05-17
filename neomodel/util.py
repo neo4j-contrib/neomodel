@@ -138,13 +138,16 @@ class Database(local, NodeClassRegistry):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
-        self.driver = GraphDatabase.driver(
+        with GraphDatabase.driver(
             parsed_url.scheme + "://" + hostname, **options
-        )
-        self.url = url
-        self._pid = os.getpid()
-        self._active_transaction = None
-        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
+        ) as driver:
+            self.driver = driver
+            self.url = url
+            self._pid = os.getpid()
+            self._active_transaction = None
+            self._database_name = (
+                DEFAULT_DATABASE if database_name == "" else database_name
+            )
 
     @property
     def transaction(self):
