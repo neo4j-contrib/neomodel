@@ -55,7 +55,7 @@ def test_labels_were_not_installed():
     bob = NodeWithConstraint(name="bob").save()
     bob2 = NodeWithConstraint(name="bob").save()
     bob3 = NodeWithConstraint(name="bob").save()
-    assert bob.id != bob3.id
+    assert bob.element_id != bob3.element_id
 
     for n in NodeWithConstraint.nodes.all():
         n.delete()

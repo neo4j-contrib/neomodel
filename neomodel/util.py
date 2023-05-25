@@ -91,6 +91,7 @@ class Database(local, NodeClassRegistry):
         self._pid = None
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
+        self.database_version = None
 
     def set_connection(self, url):
         """
@@ -145,6 +146,11 @@ class Database(local, NodeClassRegistry):
         self._pid = os.getpid()
         self._active_transaction = None
         self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
+
+        results = self.cypher_query(
+            "CALL dbms.components() yield versions return versions[0]"
+        )
+        self.database_version = results[0][0][0]
 
     @property
     def transaction(self):
@@ -380,6 +386,12 @@ class Database(local, NodeClassRegistry):
             )
 
         return results, meta
+
+    def get_id_method(self) -> str:
+        if self.database_version.startswith("4"):
+            return "id"
+        else:
+            return "elementId"
 
 
 class TransactionProxy:

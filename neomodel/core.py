@@ -1,4 +1,3 @@
-import re
 import sys
 import warnings
 
@@ -290,8 +289,8 @@ class StructuredNode(NodeBase):
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             return False
-        if hasattr(self, "id") and hasattr(other, "id"):
-            return self.id == other.id
+        if hasattr(self, "element_id") and hasattr(other, "element_id"):
+            return self.element_id == other.element_id
         return False
 
     def __ne__(self, other):
@@ -316,6 +315,19 @@ class StructuredNode(NodeBase):
 
         return NodeSet(cls)
 
+    @property
+    def id(self):
+        warnings.warn(
+            "the id property is deprecated please use element_id",
+            category=DeprecationWarning,
+            stacklevel=1,
+        )
+        if hasattr(self, "element_id") and self.element_id:
+            return self.element_id
+        else:
+            self.element_id = self.id
+            return self.element_id
+
     # methods
 
     @classmethod
@@ -333,7 +345,12 @@ class StructuredNode(NodeBase):
         """
         query_params = dict(merge_params=merge_params)
         n_merge_labels = ":".join(cls.inherited_labels())
-        n_merge_prm = ", ".join((f"{getattr(cls, p).db_property or p}: params.create.{getattr(cls, p).db_property or p}" for p in cls.__required_properties__))
+        n_merge_prm = ", ".join(
+            (
+                f"{getattr(cls, p).db_property or p}: params.create.{getattr(cls, p).db_property or p}"
+                for p in cls.__required_properties__
+            )
+        )
         n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
@@ -341,7 +358,9 @@ class StructuredNode(NodeBase):
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
-                raise ValueError(f"relationship source [{repr(relationship.source)}] is not a StructuredNode")
+                raise ValueError(
+                    f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
+                )
             relation_type = relationship.definition.get("relation_type")
             if not relation_type:
                 raise ValueError(
@@ -350,8 +369,8 @@ class StructuredNode(NodeBase):
 
             from .match import _rel_helper
 
-            query_params["source_id"] = relationship.source.id
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE ID(source) = $source_id\n "
+            query_params["source_id"] = relationship.source.element_id
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -369,7 +388,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += "RETURN id(n)"
+            query += f"RETURN {db.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
@@ -377,7 +396,9 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def category(cls):
-        raise NotImplementedError(f"Category was deprecated and has now been removed, the functionality is now achieved using the {cls.__name__}.nodes attribute")
+        raise NotImplementedError(
+            f"Category was deprecated and has now been removed, the functionality is now achieved using the {cls.__name__}.nodes attribute"
+        )
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -404,7 +425,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += " RETURN id(n)"
+            query += f" RETURN {db.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -484,23 +505,23 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        params.update({"self": self.id})
+        params.update({"self": self.element_id})
         return db.cypher_query(query, params)
 
     @hooks
     def delete(self):
         """
-        Delete a node and it's relationships
+        Delete a node and its relationships
 
         :return: True
         """
         self._pre_action_check("delete")
         self.cypher(
-            "MATCH (self) WHERE id(self)=$self "
+            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self "
             "OPTIONAL MATCH (self)-[r]-()"
             " DELETE r, self"
         )
-        delattr(self, "id")
+        delattr(self, "element_id")
         self.deleted = True
         return True
 
@@ -550,9 +571,10 @@ class StructuredNode(NodeBase):
         :return: node object
         """
         # support lazy loading
-        if isinstance(node, int):
+        # TODO : Check how lazy is used and if it can be safely replace with element_id
+        if isinstance(node, str):
             snode = cls()
-            snode.id = node
+            snode.element_id = node
         else:
             node_properties = _get_node_properties(node)
             props = {}
@@ -568,7 +590,10 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            snode.id = node.id
+            if hasattr(node, "element_id"):
+                snode.element_id = node.element_id
+            elif hasattr(node, "id"):
+                snode.element_id = node.id
 
         return snode
 
@@ -593,14 +618,16 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check("labels")
-        return self.cypher("MATCH (n) WHERE id(n)=$self " "RETURN labels(n)")[0][0][0]
+        return self.cypher(
+            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
+        )[0][0][0]
 
     def _pre_action_check(self, action):
         if hasattr(self, "deleted") and self.deleted:
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on deleted node"
             )
-        if not hasattr(self, "id"):
+        if not hasattr(self, "element_id"):
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
@@ -610,8 +637,10 @@ class StructuredNode(NodeBase):
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
-        if hasattr(self, "id"):
-            request = self.cypher("MATCH (n) WHERE id(n)=$self" " RETURN n")[0]
+        if hasattr(self, "element_id"):
+            request = self.cypher(
+                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
+            )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])
@@ -629,13 +658,19 @@ class StructuredNode(NodeBase):
         """
 
         # create or update instance node
-        if hasattr(self, "id"):
+        if hasattr(self, "element_id"):
+            # TODO Get Neo4j version at creation time, and use method accordingly
+            # Node will now always have element_id, and deprecated id for users to call for a while
+            # Calling id now returns element_id value instead though
+            # For Neo4j version 5 : element_id=id=Neo elementId
+            # For Neo4j version 4 : element_id_id=Neo id
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)=$self \n"
-            query += "\n".join(
-                [f"SET n.{key} = ${key}" + "\n" for key in params.keys()]
-            )
+            query = f"""
+                MATCH (n) WHERE {db.get_id_method()}(n)=$self
+                SET 
+            """
+            query += ", ".join([f"n.{key} = ${key}" + "\n" for key in params.keys()])
             for label in self.inherited_labels():
                 query += f"SET n:`{label}`\n"
             self.cypher(query, params)
@@ -644,5 +679,6 @@ class StructuredNode(NodeBase):
                 f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            self.id = self.create(self.__properties__)[0].id
+            created_node = self.create(self.__properties__)[0]
+            self.element_id = created_node.element_id
         return self

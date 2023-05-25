@@ -1,3 +1,5 @@
+import warnings
+
 from .core import db
 from .hooks import hooks
 from .properties import Property, PropertyManager
@@ -27,9 +29,21 @@ class StructuredRel(StructuredRelBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._start_node_id = 0
-        self._end_node_id = 0
-        self.id = 0
+        self._start_node_element_id = 0
+        self._end_node_element_id = 0
+
+    @property
+    def id(self):
+        warnings.warn(
+            "the id property is deprecated please use element_id",
+            category=DeprecationWarning,
+            stacklevel=1,
+        )
+        if hasattr(self, "element_id") and self.element_id:
+            return self.element_id
+        else:
+            self.element_id = self.id
+            return self.element_id
 
     @hooks
     def save(self):
@@ -39,9 +53,9 @@ class StructuredRel(StructuredRelBase):
         :return: self
         """
         props = self.deflate(self.__properties__)
-        query = "MATCH ()-[r]->() WHERE id(r)=$self "
+        query = f"MATCH ()-[r]->() WHERE {db.get_id_method()}(r)=$self "
         query += "".join([f" SET r.{key} = ${key}" for key in props])
-        props["self"] = self.id
+        props["self"] = self.element_id
 
         db.cypher_query(query, props)
 
@@ -56,9 +70,10 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE id(aNode)={self._start_node_id}
+            WHERE {db.get_id_method()}(aNode)=$start_node_element_id
             RETURN aNode
             """,
+            {"start_node_element_id": self._start_node_element_id},
             resolve_objects=True,
         )[0][0][0]
 
@@ -71,9 +86,10 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE id(aNode)={self._end_node_id}
+            WHERE {db.get_id_method()}(aNode)=$end_node_element_id
             RETURN aNode
             """,
+            {"end_node_element_id": self._end_node_element_id},
             resolve_objects=True,
         )[0][0][0]
 
@@ -93,7 +109,10 @@ class StructuredRel(StructuredRelBase):
             else:
                 props[key] = None
         srel = cls(**props)
-        srel._start_node_id = rel.start_node.id
-        srel._end_node_id = rel.end_node.id
-        srel.id = rel.id
+        srel._start_node_element_id = rel.start_node.element_id
+        srel._end_node_element_id = rel.end_node.element_id
+        if hasattr(rel, "element_id"):
+            srel.element_id = rel.element_id
+        elif hasattr(rel, "id"):
+            srel.element_id = rel.id
         return srel

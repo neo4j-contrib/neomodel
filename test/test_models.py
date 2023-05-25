@@ -95,7 +95,7 @@ def test_first_and_first_or_none():
 def test_save_to_model():
     u = User(email="jim@test.com", age=3)
     assert u.save()
-    assert u.id > 0
+    assert u.element_id != ""
     assert u.email == "jim@test.com"
     assert u.age == 3
 
@@ -184,13 +184,13 @@ def test_refresh():
     assert c.age == 20
     assert c.my_custom_prop == "value"
 
-    c = Customer2.inflate(c.id)
+    c = Customer2.inflate(c.element_id)
     c.age = 30
     c.refresh()
 
     assert c.age == 20
 
-    c = Customer2.inflate(999)
+    c = Customer2.inflate("999:xxxxxx:1")
     with raises(Customer2.DoesNotExist):
         c.refresh()
 

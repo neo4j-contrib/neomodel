@@ -43,14 +43,15 @@ def _rel_helper(
     :param direction: None or EITHER for all OUTGOING,INCOMING,EITHER. Otherwise OUTGOING or INCOMING.
     :param relation_properties: dictionary of relationship properties to match
     :returns: string
-    """ 
+    """
     rel_props = ""
 
     if relation_properties:
-        rel_props_str = ', '.join((f"{key}: {value}" for key, value in relation_properties.items()))
+        rel_props_str = ", ".join(
+            (f"{key}: {value}" for key, value in relation_properties.items())
+        )
         rel_props = f" {{{rel_props_str}}}"
 
-    
     rel_def = ""
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
@@ -69,7 +70,7 @@ def _rel_helper(
         stmt = f"<-{rel_def}-"
     else:
         stmt = f"-{rel_def}-"
-        
+
     return f"({lhs}){stmt}({rhs})"
 
 
@@ -113,11 +114,25 @@ def _rel_merge_helper(
     rel_none_props = ""
 
     if relation_properties:
-        rel_props_str = ", ".join((f"{key}: {value}" for key, value in relation_properties.items() if value is not None))
+        rel_props_str = ", ".join(
+            (
+                f"{key}: {value}"
+                for key, value in relation_properties.items()
+                if value is not None
+            )
+        )
         rel_props = f" {{{rel_props_str}}}"
         if None in relation_properties.values():
-            rel_prop_val_str = ", ".join((f"{ident}.{key}=${key!s}" for key, value in relation_properties.items() if value is None))
-            rel_none_props = f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
+            rel_prop_val_str = ", ".join(
+                (
+                    f"{ident}.{key}=${key!s}"
+                    for key, value in relation_properties.items()
+                    if value is None
+                )
+            )
+            rel_none_props = (
+                f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
+            )
     # direct, relation_type=None is unspecified, relation_type
     if relation_type is None:
         stmt = stmt.format("")
@@ -187,9 +202,7 @@ def install_traversals(cls, node_set):
 
     for key in rels.keys():
         if hasattr(node_set, key):
-            raise ValueError(
-                f"Cannot install traversal '{key}' exists on NodeSet"
-            )
+            raise ValueError(f"Cannot install traversal '{key}' exists on NodeSet")
 
         rel = getattr(cls, key)
         rel._lookup_node_class()
@@ -265,9 +278,7 @@ def process_has_args(cls, kwargs):
 
     for key, value in kwargs.items():
         if key not in rel_definitions:
-            raise ValueError(
-                f"No such relation {key} defined on a {cls.__name__}"
-            )
+            raise ValueError(f"No such relation {key} defined on a {cls.__name__}")
 
         rhs_ident = key
 
@@ -341,9 +352,7 @@ class QueryBuilder:
             self._ast["with"] = f"{ident}, rand() as r"
             self._ast["order_by"] = "r"
         else:
-            self._ast["order_by"] = [
-                f"{ident}.{p}" for p in source._order_by
-            ]
+            self._ast["order_by"] = [f"{ident}.{p}" for p in source._order_by]
 
     def build_traversal(self, traversal):
         """
@@ -377,10 +386,10 @@ class QueryBuilder:
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = f"MATCH ({ident}) WHERE id({ident})=${place_holder} WITH {ident}"
+        _node_lookup = f"MATCH ({ident}) WHERE {db.get_id_method()}({ident})=${place_holder} WITH {ident}"
         self._ast["lookup"] = _node_lookup
 
-        self._query_params[place_holder] = node.id
+        self._query_params[place_holder] = node.element_id
 
         self._ast["return"] = ident
         self._ast["result_class"] = node.__class__
@@ -473,7 +482,9 @@ class QueryBuilder:
                     operator, val = operator_and_val
                     if operator in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
+                        statement = (
+                            f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
+                        )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
                         statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
@@ -521,18 +532,18 @@ class QueryBuilder:
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
 
-    def _contains(self, node_id):
+    def _contains(self, node_element_id):
         # inject id = into ast
         ident = self._ast["return"]
         place_holder = self._register_place_holder(ident + "_contains")
-        self._ast["where"].append(f"id({ident}) = ${place_holder}")
-        self._query_params[place_holder] = node_id
+        self._ast["where"].append(f"{db.get_id_method()}({ident}) = ${place_holder}")
+        self._query_params[place_holder] = node_element_id
         return self._count() >= 1
 
     def _execute(self, lazy=False):
         if lazy:
             # inject id = into ast
-            self._ast["return"] = f"id({self._ast['return']})"
+            self._ast["return"] = f"{db.get_id_method()}({self._ast['return']})"
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
@@ -576,8 +587,8 @@ class BaseSet:
 
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):
-            if hasattr(obj, "id"):
-                return self.query_cls(self).build_ast()._contains(int(obj.id))
+            if hasattr(obj, "element_id"):
+                return self.query_cls(self).build_ast()._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")
@@ -818,9 +829,7 @@ class Traversal(BaseSet):
             "relation_type",
         }
         if invalid_keys:
-            raise ValueError(
-                f"Unallowed keys in Traversal definition: {invalid_keys}"
-            )
+            raise ValueError(f"Unallowed keys in Traversal definition: {invalid_keys}")
 
         self.definition = definition
         self.target_class = definition["node_class"]
