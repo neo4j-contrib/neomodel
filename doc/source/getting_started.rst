@@ -53,7 +53,7 @@ with something like: ::
 Defining Node Entities and Relationships
 ========================================
 
-Below is a definition of two related nodes `Person` and `Country`: ::
+Below is a definition of three related nodes `Person`, `City` and `Country`: ::
 
     from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
         UniqueIdProperty, RelationshipTo)
@@ -63,6 +63,10 @@ Below is a definition of two related nodes `Person` and `Country`: ::
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)
 
+    class City(StructuredNode):
+        name = StringProperty(required=True)
+        country = RelationshipTo(Country, 'FROM_COUNTRY')
+
     class Person(StructuredNode):
         uid = UniqueIdProperty()
         name = StringProperty(unique_index=True)
@@ -70,6 +74,9 @@ Below is a definition of two related nodes `Person` and `Country`: ::
 
         # traverse outgoing IS_FROM relations, inflate to Country objects
         country = RelationshipTo(Country, 'IS_FROM')
+
+        # traverse outgoing LIVES_IN relations, inflate to City objects
+        city = RelationshipTo(City, 'LIVES_IN')
 
 Nodes are defined in the same way classes are defined in Python with the only difference that data members of those
 classes that are intended to be stored to the database must be defined as ``neomodel`` property objects. For more
@@ -154,6 +161,9 @@ Working with relationships::
 
     germany = Country(code='DE').save()
     jim.country.connect(germany)
+    berlin = City(name='Berlin').save()
+    berlin.country.connect(germany)
+    jim.city.connect(berlin)
 
     if jim.country.is_connected(germany):
         print("Jim's from Germany")
@@ -182,4 +192,49 @@ Working with relationships::
     jim.country.connect(usa)
     # Replace Jim's country relationship with a new one
     jim.country.replace(germany)
+
+
+Retrieving additional relations
+===============================
+
+To avoid queries multiplication, you have the possibility to retrieve
+additional relations with a single call::
+
+    # The following call will generate one MATCH with traversal per
+    # item in .fetch_relations() call
+    results = Person.nodes.all().fetch_relations('country')
+    for result in results:
+        print(result[0]) # Person
+        print(result[1]) # associated Country
+
+You can traverse more than one hop in your relations using the
+following syntax::
+
+    # Go from person to City then Country
+    Person.nodes.all().fetch_relations('city__country')
+
+You can also force the use of an ``OPTIONAL MATCH`` statement using
+the following syntax::
+
+    from neomodel.match import Optional
+
+    results = Person.nodes.all().fetch_relations(Optional('country'))
+
+.. note::
+
+   You can fetch one or more relations within the same call
+   to `.fetch_relations()` and you can mix optional and non-optional
+   relations, like::
+
+    Person.nodes.all().fetch_relations('city__country', Optional('country'))
+
+.. warning::
+
+   This feature is still a work in progress for extending path traversal and fecthing.
+   It currently stops at returning the resolved objects as they are returned in Cypher.
+   So for instance, if your path looks like ``(startNode:Person)-[r1]->(middleNode:City)<-[r2]-(endNode:Country)``,
+   then you will get a list of results, where each result is a list of ``(startNode, r1, middleNode, r2, endNode)``.
+   These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
+
+   If you want to go further in the resolution process, you have to develop your own parser (for now).
 

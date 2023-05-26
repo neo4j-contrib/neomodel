@@ -5,9 +5,9 @@ name: Integration tests
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "rc/**" ]
   pull_request:
-    branches: [ "master", "rc/*" ]
+    branches: [ "master", "rc/**" ]
 
 jobs:
   build:
