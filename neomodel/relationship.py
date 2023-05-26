@@ -29,21 +29,60 @@ class StructuredRel(StructuredRelBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._start_node_element_id = 0
-        self._end_node_element_id = 0
 
     @property
-    def id(self):
-        warnings.warn(
-            "the id property is deprecated please use element_id",
-            category=DeprecationWarning,
-            stacklevel=1,
+    def element_id(self):
+        return (
+            int(self.element_id_property)
+            if db.database_version.startswith("4")
+            else self.element_id_property
         )
-        if hasattr(self, "element_id") and self.element_id:
-            return self.element_id
-        else:
-            self.element_id = self.id
-            return self.element_id
+
+    @property
+    def _start_node_element_id(self):
+        return (
+            int(self._start_node_element_id_property)
+            if db.database_version.startswith("4")
+            else self._start_node_element_id_property
+        )
+
+    @property
+    def _end_node_element_id(self):
+        return (
+            int(self._end_node_element_id_property)
+            if db.database_version.startswith("4")
+            else self._end_node_element_id_property
+        )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def id(self):
+        try:
+            return int(self.element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def _start_node_id(self):
+        try:
+            return int(self._start_node_element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def _end_node_id(self):
+        try:
+            return int(self._end_node_element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
 
     @hooks
     def save(self):
@@ -67,7 +106,7 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        return db.cypher_query(
+        test = db.cypher_query(
             f"""
             MATCH (aNode)
             WHERE {db.get_id_method()}(aNode)=$start_node_element_id
@@ -75,7 +114,8 @@ class StructuredRel(StructuredRelBase):
             """,
             {"start_node_element_id": self._start_node_element_id},
             resolve_objects=True,
-        )[0][0][0]
+        )
+        return test[0][0][0]
 
     def end_node(self):
         """
@@ -109,10 +149,7 @@ class StructuredRel(StructuredRelBase):
             else:
                 props[key] = None
         srel = cls(**props)
-        srel._start_node_element_id = rel.start_node.element_id
-        srel._end_node_element_id = rel.end_node.element_id
-        if hasattr(rel, "element_id"):
-            srel.element_id = rel.element_id
-        elif hasattr(rel, "id"):
-            srel.element_id = rel.id
+        srel._start_node_element_id_property = rel.start_node.element_id
+        srel._end_node_element_id_property = rel.end_node.element_id
+        srel.element_id_property = rel.element_id
         return srel

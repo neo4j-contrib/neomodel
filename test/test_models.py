@@ -11,6 +11,7 @@ from neomodel import (
     StructuredNode,
     install_labels,
 )
+from neomodel.core import db
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
@@ -190,7 +191,10 @@ def test_refresh():
 
     assert c.age == 20
 
-    c = Customer2.inflate("999:xxxxxx:1")
+    if db.database_version.startswith("4"):
+        c = Customer2.inflate(999)
+    else:
+        c = Customer2.inflate("4:xxxxxx:999")
     with raises(Customer2.DoesNotExist):
         c.refresh()
 

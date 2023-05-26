@@ -28,7 +28,7 @@ class SemiStructuredNode(StructuredNode):
         # support lazy loading
         if isinstance(node, str) or isinstance(node, int):
             snode = cls()
-            snode.element_id = node
+            snode.element_id_property = node
         else:
             props = {}
             node_properties = {}
@@ -49,10 +49,7 @@ class SemiStructuredNode(StructuredNode):
                 props[free_key] = node_properties[free_key]
 
             snode = cls(**props)
-            if hasattr(node, "element_id"):
-                snode.element_id = node.element_id
-            elif hasattr(node, "id"):
-                snode.element_id = node.id
+            snode.element_id_property = node.element_id
 
         return snode
 

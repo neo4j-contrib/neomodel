@@ -316,17 +316,22 @@ class StructuredNode(NodeBase):
         return NodeSet(cls)
 
     @property
-    def id(self):
-        warnings.warn(
-            "the id property is deprecated please use element_id",
-            category=DeprecationWarning,
-            stacklevel=1,
+    def element_id(self):
+        return (
+            int(self.element_id_property)
+            if db.database_version.startswith("4")
+            else self.element_id_property
         )
-        if hasattr(self, "element_id") and self.element_id:
-            return self.element_id
-        else:
-            self.element_id = self.id
-            return self.element_id
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def id(self):
+        try:
+            return int(self.element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
 
     # methods
 
@@ -519,7 +524,7 @@ class StructuredNode(NodeBase):
         self.cypher(
             f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
         )
-        delattr(self, "element_id")
+        delattr(self, "element_id_property")
         self.deleted = True
         return True
 
@@ -569,10 +574,9 @@ class StructuredNode(NodeBase):
         :return: node object
         """
         # support lazy loading
-        # TODO : Check how lazy is used and if it can be safely replace with element_id
         if isinstance(node, str) or isinstance(node, int):
             snode = cls()
-            snode.element_id = node
+            snode.element_id_property = node
         else:
             node_properties = _get_node_properties(node)
             props = {}
@@ -588,10 +592,7 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            if hasattr(node, "element_id"):
-                snode.element_id = node.element_id
-            elif hasattr(node, "id"):
-                snode.element_id = node.id
+            snode.element_id_property = node.element_id
 
         return snode
 
@@ -678,5 +679,5 @@ class StructuredNode(NodeBase):
             )
         else:  # create
             created_node = self.create(self.__properties__)[0]
-            self.element_id = created_node.element_id
+            self.element_id_property = created_node.element_id
         return self
