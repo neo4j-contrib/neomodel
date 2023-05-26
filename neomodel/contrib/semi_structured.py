@@ -26,7 +26,7 @@ class SemiStructuredNode(StructuredNode):
     @classmethod
     def inflate(cls, node):
         # support lazy loading
-        if isinstance(node, str):
+        if isinstance(node, str) or isinstance(node, int):
             snode = cls()
             snode.element_id = node
         else:

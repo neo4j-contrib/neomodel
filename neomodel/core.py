@@ -517,9 +517,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("delete")
         self.cypher(
-            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self "
-            "OPTIONAL MATCH (self)-[r]-()"
-            " DELETE r, self"
+            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
         )
         delattr(self, "element_id")
         self.deleted = True
@@ -572,7 +570,7 @@ class StructuredNode(NodeBase):
         """
         # support lazy loading
         # TODO : Check how lazy is used and if it can be safely replace with element_id
-        if isinstance(node, str):
+        if isinstance(node, str) or isinstance(node, int):
             snode = cls()
             snode.element_id = node
         else:
