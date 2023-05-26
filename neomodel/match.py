@@ -72,14 +72,14 @@ def _rel_helper(
         stmt = f"<-{rel_def}-"
     else:
         stmt = f"-{rel_def}-"
-        
+
     # Make sure not to add parenthesis when they are already present
     if lhs[-1] != ")":
         lhs = f"({lhs})"
     if rhs[-1] != ")":
         rhs = f"({rhs})"
 
-    return f"({lhs}){stmt}({rhs})"
+    return f"{lhs}{stmt}{rhs}"
 
 
 def _rel_merge_helper(
@@ -475,7 +475,7 @@ class QueryBuilder:
             self._ast["match"].append(f"({ident_w_label})")
             self._ast["return"] = ident
             self._ast["result_class"] = cls
-            
+
         return ident
 
     def build_additional_match(self, ident, node_set):
@@ -639,7 +639,8 @@ class QueryBuilder:
                 self._ast["return"] = f"{db.get_id_method()}({self._ast['return']})"
             else:
                 self._ast["additional_return"] = [
-                    f"{db.get_id_method()}({item})" for item in self._ast["additional_return"]
+                    f"{db.get_id_method()}({item})"
+                    for item in self._ast["additional_return"]
                 ]
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
