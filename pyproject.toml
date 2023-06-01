@@ -38,7 +38,7 @@ dependencies = [
     "neobolt==1.7.17",
     "six==1.16.0",
 ]
-version='5.0.0'
+version='5.0.1'
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
