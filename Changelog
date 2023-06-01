@@ -1,5 +1,7 @@
-Version 5.0.1 2023-xx
+Version 5.0.1 2023-06
 * Removed deprecated methods StructuredRel.delete and RelationshipManager.search
+* Extended test coverage, fixed some typos, improve linting
+* Upcoming breaking change notice : Version 5.1.0 will introduce a breaking change for users targeting a Neo4j database in version 5. This release will introduce Neo4j's new element_id, which replaces id. The breaking change will happen if you have custom Cypher queries that do things like "WHERE id(n)=$id" => you will have to use Cypher's elementId() function instead starting from neomodel 5.1.0
 
 Version 5.0.0 2023-03
 * Confirmed support of Neo4j versions 5.x and 4.4 (LTS)
