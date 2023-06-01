@@ -7,7 +7,7 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "rc/*" ]
 
 jobs:
   build:
@@ -34,7 +34,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e '.[dev]'
     - name: Test with pytest
+      env:
+        AURA_TEST_DB_USER: ${{ secrets.AURA_TEST_DB_USER }}
+        AURA_TEST_DB_PASSWORD: ${{ secrets.AURA_TEST_DB_PASSWORD }}
+        AURA_TEST_DB_HOSTNAME: ${{ secrets.AURA_TEST_DB_HOSTNAME }}
       run: |
-        pytest
+        pytest --cov=neomodel --cov-report=html:coverage_report
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3

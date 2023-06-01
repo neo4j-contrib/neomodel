@@ -15,7 +15,7 @@ from .match import (
     _rel_merge_helper,
 )
 from .relationship import StructuredRel
-from .util import _get_node_properties, deprecated, enumerate_traceback
+from .util import _get_node_properties, enumerate_traceback
 
 # basestring python 3.x fallback
 try:
@@ -64,13 +64,7 @@ class RelationshipManager(object):
         elif self.definition["direction"] == INCOMING:
             direction = "a incoming"
 
-        return "{0} in {1} direction of type {2} on node ({3}) of class '{4}'".format(
-            self.description,
-            direction,
-            self.definition["relation_type"],
-            self.source.id,
-            self.source_class.__name__,
-        )
+        return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.id}) of class '{self.source_class.__name__}'"
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
@@ -306,16 +300,6 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).get_or_none(**kwargs)
 
-    @deprecated("search() is now deprecated please use filter() and exclude()")
-    def search(self, **kwargs):
-        """
-        Retrieve related nodes matching the provided properties.
-
-        :param kwargs: same syntax as `NodeSet.filter()`
-        :return: NodeSet
-        """
-        return self.filter(**kwargs).all()
-
     def filter(self, *args, **kwargs):
         """
         Retrieve related nodes matching the provided properties.
@@ -482,7 +466,7 @@ class RelationshipDefinition:
                 # (i.e. to mean the same thing for both cases).
                 # For example in the comments below, namespace == myapp, always
                 if not hasattr(self, "module_file"):
-                    raise ImportError("Couldn't lookup '{0}'".format(name))
+                    raise ImportError(f"Couldn't lookup '{name}'")
 
                 if "__init__.py" in self.module_file:
                     # e.g. myapp/__init__.py -[__name__]-> myapp

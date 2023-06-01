@@ -13,7 +13,6 @@ def test_unique_error():
     try:
         Human(name="j1m", age=14).save()
     except UniqueProperty as e:
-        assert True
         assert str(e).find("j1m")
         assert str(e).find("name")
         assert str(e).find("FooBarr")
@@ -34,10 +33,11 @@ def test_optional_properties_dont_get_indexed():
 
 
 def test_escaped_chars():
-    Human(name="sarah:test", age=3).save()
-    r = Human.nodes.filter(name="sarah:test")
+    _name = "sarah:test"
+    Human(name=_name, age=3).save()
+    r = Human.nodes.filter(name=_name)
     assert r
-    assert r[0].name == "sarah:test"
+    assert r[0].name == _name
 
 
 def test_does_not_exist():

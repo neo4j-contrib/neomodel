@@ -17,6 +17,10 @@ from neomodel.core import db, drop_constraints
 config.AUTO_INSTALL_LABELS = False
 
 
+class NodeWithIndex(StructuredNode):
+    name = StringProperty(index=True)
+
+
 class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
 
@@ -76,9 +80,27 @@ def test_install_all():
     _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
 
 
-def test_install_label_twice():
+def test_install_label_twice(capsys):
+    expected_std_out = (
+        "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
+    )
     install_labels(AbstractNode)
     install_labels(AbstractNode)
+
+    install_labels(NodeWithIndex)
+    install_labels(NodeWithIndex, quiet=False)
+    captured = capsys.readouterr()
+    assert expected_std_out in captured.out
+
+    install_labels(NodeWithConstraint)
+    install_labels(NodeWithConstraint, quiet=False)
+    captured = capsys.readouterr()
+    assert expected_std_out in captured.out
+
+    install_labels(OtherNodeWithRelationship)
+    install_labels(OtherNodeWithRelationship, quiet=False)
+    captured = capsys.readouterr()
+    assert expected_std_out in captured.out
 
 
 def test_install_labels_db_property():
