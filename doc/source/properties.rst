@@ -54,7 +54,7 @@ Setting ``required=True`` makes the property mandatory. Mandatory properties can
 both ``required=True, default`` will result in a ``ValueError`` exception.
 
 It is worth noting here that ``required=False`` means that the property's value can also be ``None`` **in addition** to
-a valid valud. A value of ``None`` is **different** than a value of ``""`` and this can sometimes lead to logical
+a valid value. A value of ``None`` is **different** than a value of ``""`` and this can sometimes lead to logical
 errors.
 
 For example::
