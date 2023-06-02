@@ -468,6 +468,7 @@ class QueryBuilder:
         match nodes by a label
         """
         ident_w_label = ident + ":" + cls.__label__
+
         if not self._ast.get("return") and (
             "additional_return" not in self._ast
             or ident not in self._ast["additional_return"]
@@ -475,7 +476,6 @@ class QueryBuilder:
             self._ast["match"].append(f"({ident_w_label})")
             self._ast["return"] = ident
             self._ast["result_class"] = cls
-
         return ident
 
     def build_additional_match(self, ident, node_set):
