@@ -39,12 +39,18 @@ def ensure_connection(func):
     return wrapper
 
 
-def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword($password)", {"password": new_password})
+def change_neo4j_password(db, user, new_password):
+    db.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 
 
 def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
-    db.cypher_query("MATCH (a) DETACH DELETE a")
+    db.cypher_query(
+        """
+        MATCH (a)
+        CALL { WITH a DETACH DELETE a }
+        IN TRANSACTIONS OF 5000 rows
+    """
+    )
     if clear_constraints:
         core.drop_constraints()
     if clear_indexes:

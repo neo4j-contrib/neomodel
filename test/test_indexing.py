@@ -1,6 +1,12 @@
 from pytest import raises
 
-from neomodel import IntegerProperty, StringProperty, StructuredNode, UniqueProperty
+from neomodel import (
+    IntegerProperty,
+    StringProperty,
+    StructuredNode,
+    UniqueProperty,
+    install_labels,
+)
 
 
 class Human(StructuredNode):
@@ -9,13 +15,13 @@ class Human(StructuredNode):
 
 
 def test_unique_error():
+    install_labels(Human)
     Human(name="j1m", age=13).save()
     try:
         Human(name="j1m", age=14).save()
     except UniqueProperty as e:
         assert str(e).find("j1m")
         assert str(e).find("name")
-        assert str(e).find("FooBarr")
     else:
         assert False, "UniqueProperty not raised."
 
