@@ -150,10 +150,8 @@ class Database(local):
     @ensure_connection
     def begin(self, access_mode=None, **parameters):
         """
-        Begins a new transaction, raises SystemError exception if a transaction is in progress
+        Begins a new transaction.
         """
-        if hasattr(self, "_transaction"):
-            raise SystemError("Transaction in progress")
         self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,

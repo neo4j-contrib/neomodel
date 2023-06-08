@@ -1,5 +1,6 @@
 import pytest
 from neo4j.api import Bookmarks
+from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db, install_labels
@@ -70,6 +71,28 @@ def test_query_inside_transaction():
         APerson(name="Bob").save()
 
         assert len([p.name for p in APerson.nodes]) == 2
+
+
+def test_read_transaction():
+    APerson(name="Johnny").save()
+
+    with db.read_transaction:
+        people = APerson.nodes.all()
+        assert people
+
+    with pytest.raises(TransactionError):
+        with db.read_transaction:
+            with pytest.raises(ClientError) as e:
+                APerson(name="Gina").save()
+            assert e.value.code == "Neo.ClientError.Statement.AccessMode"
+
+
+def test_write_transaction():
+    with db.write_transaction:
+        APerson(name="Amelia").save()
+
+    amelia = APerson.nodes.get(name="Amelia")
+    assert amelia
 
 
 def test_set_connection_works():
