@@ -57,39 +57,13 @@ def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
         core.drop_indexes()
 
 
-# pylint:disable=too-few-public-methods
-class NodeClassRegistry:
-    """
-    A singleton class via which all instances share the same Node Class Registry.
-    """
-
-    # Maintains a lookup directory that is used by cypher_query
-    # to infer which class to instantiate by examining the labels of the
-    # node in the resultset.
-    # _NODE_CLASS_REGISTRY is populated automatically by the constructor
-    # of the NodeMeta type.
-    _NODE_CLASS_REGISTRY = {}
-
-    def __init__(self):
-        self.__dict__["_NODE_CLASS_REGISTRY"] = self._NODE_CLASS_REGISTRY
-
-    def __str__(self):
-        ncr_items = list(
-            map(
-                lambda x: f"{','.join(x[0])} --> {x[1]}",
-                self._NODE_CLASS_REGISTRY.items(),
-            )
-        )
-        return "\n".join(ncr_items)
-
-
-class Database(local, NodeClassRegistry):
+class Database(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
     def __init__(self):
-        """ """
+        self._NODE_CLASS_REGISTRY = {}
         self._active_transaction = None
         self.url = None
         self.driver = None
