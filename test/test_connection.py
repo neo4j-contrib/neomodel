@@ -18,6 +18,11 @@ def test_connect_to_aura(protocol):
     assert len(result) > 0
     assert result[0][0] == cypher_return
 
+    # Finally, reconnect to base URL for subsequent tests
+    db.set_connection(
+        os.environ.get("NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687")
+    )
+
 
 def _set_connection(protocol):
     AURA_TEST_DB_USER = os.environ["AURA_TEST_DB_USER"]
@@ -26,3 +31,19 @@ def _set_connection(protocol):
 
     config.DATABASE_URL = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
     db.set_connection(config.DATABASE_URL)
+
+
+@pytest.mark.parametrize(
+    "url", ["bolt://user:password", "http://user:password@localhost:7687"]
+)
+def test_wrong_url_format(url):
+    with pytest.raises(
+        ValueError,
+        match=rf"Expecting url format: bolt://user:password@localhost:7687 got {url}",
+    ):
+        db.set_connection(url)
+
+    # Finally, reconnect to base URL for subsequent tests
+    db.set_connection(
+        os.environ.get("NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687")
+    )
