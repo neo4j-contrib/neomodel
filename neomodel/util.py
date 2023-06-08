@@ -4,7 +4,7 @@ import sys
 import time
 import warnings
 from threading import local
-from typing import Optional
+from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
@@ -398,6 +398,36 @@ class Database(local, NodeClassRegistry):
             return "id"
         else:
             return "elementId"
+
+    def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
+        """Returns all indexes existing in the database
+
+        Arguments:
+            exclude_token_lookup[bool]: Exclude automatically create token lookup indexes
+
+        Returns:
+            Sequence[dict]: List of dictionaries, each entry being an index definition
+        """
+        indexes, meta_indexes = self.cypher_query("SHOW INDEXES")
+        indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
+
+        if exclude_token_lookup:
+            indexes_as_dict = [
+                obj for obj in indexes_as_dict if obj["type"] != "LOOKUP"
+            ]
+
+        return indexes_as_dict
+
+    def list_constraints(self) -> Sequence[dict]:
+        """Returns all constraints existing in the database
+
+        Returns:
+            Sequence[dict]: List of dictionaries, each entry being a constraint definition
+        """
+        constraints, meta_constraints = self.cypher_query("SHOW CONSTRAINTS")
+        constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
+
+        return constraints_as_dict
 
 
 class TransactionProxy:

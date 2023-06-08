@@ -41,7 +41,7 @@ def drop_constraints(quiet=True, stdout=None):
 
 def drop_indexes(quiet=True, stdout=None):
     """
-    Discover and drop all indexes.
+    Discover and drop all indexes, except the automatically created token lookup indexes.
 
     :type: bool
     :return: None
@@ -49,18 +49,13 @@ def drop_indexes(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("SHOW INDEXES")
-    results_as_dict = [dict(zip(meta, row)) for row in results]
-    for index in results_as_dict:
-        # Neo4j 4.3 introduced token lookup indexes
-        # Two are created automatically so should not be dropped
-        # They can be recognized because their labelsOrTypes and properties arrays are empty
-        if index["labelsOrTypes"] and index["properties"]:
-            db.cypher_query("DROP INDEX " + index["name"])
-            if not quiet:
-                stdout.write(
-                    f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
-                )
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    for index in indexes:
+        db.cypher_query("DROP INDEX " + index["name"])
+        if not quiet:
+            stdout.write(
+                f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
+            )
     if not quiet:
         stdout.write("\n")
 

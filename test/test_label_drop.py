@@ -1,5 +1,3 @@
-from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
-
 from neo4j.exceptions import ClientError
 
 from neomodel import StringProperty, StructuredNode, config
@@ -14,20 +12,19 @@ class ConstraintAndIndex(StructuredNode):
 
 
 def test_drop_labels():
-    constraints_before = get_db_constraints_as_dict()
-    indexes_before = get_db_indexes_as_dict()
+    constraints_before = db.list_constraints()
+    indexes_before = db.list_indexes(exclude_token_lookup=True)
 
     assert len(constraints_before) > 0
     assert len(indexes_before) > 0
 
     remove_all_labels()
 
-    constraints = get_db_constraints_as_dict()
-    indexes = get_db_indexes_as_dict()
+    constraints = db.list_constraints()
+    indexes = db.list_indexes(exclude_token_lookup=True)
 
     assert len(constraints) == 0
-    # Ignore the automatically created LOOKUP indexes
-    assert len([index for index in indexes if index["labelsOrTypes"]]) == 0
+    assert len(indexes) == 0
 
     # Recreating all old constraints and indexes
     for constraint in constraints_before:
@@ -42,9 +39,6 @@ def test_drop_labels():
         )
     for index in indexes_before:
         try:
-            # Ignore the automatically created LOOKUP indexes
-            if index["labelsOrTypes"] is None or index["labelsOrTypes"] == []:
-                continue
             db.cypher_query(
                 f'CREATE INDEX {index["name"]} FOR (n:{index["labelsOrTypes"][0]}) ON (n.{index["properties"][0]})'
             )

@@ -1,5 +1,3 @@
-from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
-
 import pytest
 from neo4j.exceptions import AuthError
 
@@ -41,16 +39,16 @@ def test_clear_database():
 
     assert database_is_populated[0][0] is False
 
-    indexes = get_db_indexes_as_dict()
-    constraints = get_db_constraints_as_dict()
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    constraints = db.list_constraints()
     assert len(indexes) > 0
     assert len(constraints) > 0
 
     # Clear constraints and indexes too
     util.clear_neo4j_database(db, clear_constraints=True, clear_indexes=True)
 
-    indexes = get_db_indexes_as_dict()
-    constraints = get_db_constraints_as_dict()
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    constraints = db.list_constraints()
     assert len(indexes) == 0
     assert len(constraints) == 0
 

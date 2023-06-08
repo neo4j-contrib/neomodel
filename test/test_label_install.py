@@ -1,5 +1,3 @@
-from test.utils import get_db_constraints_as_dict, get_db_indexes_as_dict
-
 from six import StringIO
 
 from neomodel import (
@@ -67,11 +65,11 @@ def test_install_all():
     # run install all labels
     install_all_labels()
 
-    indexes = get_db_indexes_as_dict()
+    indexes = db.list_indexes()
     index_names = [index["name"] for index in indexes]
     assert "index_INDEXED_REL_indexed_rel_prop" in index_names
 
-    constraints = get_db_constraints_as_dict()
+    constraints = db.list_constraints()
     constraint_names = [constraint["name"] for constraint in constraints]
     assert "constraint_unique_NodeWithConstraint_name" in constraint_names
     assert "constraint_unique_SomeNotUniqueNode_id" in constraint_names
