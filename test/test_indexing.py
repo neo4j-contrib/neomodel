@@ -7,6 +7,8 @@ from neomodel import (
     UniqueProperty,
     install_labels,
 )
+from neomodel.core import db
+from neomodel.exceptions import ConstraintValidationFailed
 
 
 class Human(StructuredNode):
@@ -24,6 +26,16 @@ def test_unique_error():
         assert str(e).find("name")
     else:
         assert False, "UniqueProperty not raised."
+
+
+def test_existence_constraint_error():
+    db.cypher_query(
+        "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
+    )
+    with raises(ConstraintValidationFailed, match=r"must have the property"):
+        Human(name="Scarlett").save()
+
+    db.cypher_query("DROP CONSTRAINT test_existence_constraint")
 
 
 def test_optional_properties_dont_get_indexed():

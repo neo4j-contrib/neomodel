@@ -95,6 +95,14 @@ def test_write_transaction():
     assert amelia
 
 
+def double_transaction():
+    db.begin()
+    with pytest.raises(SystemError, match=r"Transaction in progress"):
+        db.begin()
+
+    db.rollback()
+
+
 def test_set_connection_works():
     assert APerson(name="New guy 1").save()
     from socket import gaierror

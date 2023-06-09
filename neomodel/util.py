@@ -150,8 +150,13 @@ class Database(local):
     @ensure_connection
     def begin(self, access_mode=None, **parameters):
         """
-        Begins a new transaction.
+        Begins a new transaction. Raises SystemError if a transaction is already active.
         """
+        if (
+            hasattr(self, "_active_transaction")
+            and self._active_transaction is not None
+        ):
+            raise SystemError("Transaction in progress")
         self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
@@ -284,9 +289,6 @@ class Database(local):
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
         """
-
-        if self.driver is None:
-            self.set_connection(self.url)
 
         if self._active_transaction:
             # Use current session is a transaction is currently active
