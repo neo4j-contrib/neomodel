@@ -6,7 +6,7 @@
 # at: https://neomodel.readthedocs.io/en/latest
 
 # Required
-version: 3
+version: 2
 
 # Set the version of Python and other tools you might need
 build:
