@@ -1,7 +1,8 @@
+import warnings
+
 from .core import db
 from .hooks import hooks
 from .properties import Property, PropertyManager
-from .util import deprecated
 
 
 class RelationshipMeta(type):
@@ -28,9 +29,60 @@ class StructuredRel(StructuredRelBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._start_node_id = 0
-        self._end_node_id = 0
-        self.id = 0
+
+    @property
+    def element_id(self):
+        return (
+            int(self.element_id_property)
+            if db.database_version.startswith("4")
+            else self.element_id_property
+        )
+
+    @property
+    def _start_node_element_id(self):
+        return (
+            int(self._start_node_element_id_property)
+            if db.database_version.startswith("4")
+            else self._start_node_element_id_property
+        )
+
+    @property
+    def _end_node_element_id(self):
+        return (
+            int(self._end_node_element_id_property)
+            if db.database_version.startswith("4")
+            else self._end_node_element_id_property
+        )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def id(self):
+        try:
+            return int(self.element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def _start_node_id(self):
+        try:
+            return int(self._start_node_element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
+
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def _end_node_id(self):
+        try:
+            return int(self._end_node_element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
 
     @hooks
     def save(self):
@@ -40,19 +92,13 @@ class StructuredRel(StructuredRelBase):
         :return: self
         """
         props = self.deflate(self.__properties__)
-        query = "MATCH ()-[r]->() WHERE id(r)=$self "
+        query = f"MATCH ()-[r]->() WHERE {db.get_id_method()}(r)=$self "
         query += "".join([f" SET r.{key} = ${key}" for key in props])
-        props["self"] = self.id
+        props["self"] = self.element_id
 
         db.cypher_query(query, props)
 
         return self
-
-    @deprecated("This method will be removed in neomodel 4")
-    def delete(self):
-        raise NotImplementedError(
-            "Can not delete relationships please use 'disconnect'"
-        )
 
     def start_node(self):
         """
@@ -60,14 +106,16 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        return db.cypher_query(
+        test = db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE id(aNode)={self._start_node_id}
+            WHERE {db.get_id_method()}(aNode)=$start_node_element_id
             RETURN aNode
             """,
+            {"start_node_element_id": self._start_node_element_id},
             resolve_objects=True,
-        )[0][0][0]
+        )
+        return test[0][0][0]
 
     def end_node(self):
         """
@@ -78,9 +126,10 @@ class StructuredRel(StructuredRelBase):
         return db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE id(aNode)={self._end_node_id}
+            WHERE {db.get_id_method()}(aNode)=$end_node_element_id
             RETURN aNode
             """,
+            {"end_node_element_id": self._end_node_element_id},
             resolve_objects=True,
         )[0][0][0]
 
@@ -100,7 +149,7 @@ class StructuredRel(StructuredRelBase):
             else:
                 props[key] = None
         srel = cls(**props)
-        srel._start_node_id = rel.start_node.id
-        srel._end_node_id = rel.end_node.id
-        srel.id = rel.id
+        srel._start_node_element_id_property = rel.start_node.element_id
+        srel._end_node_element_id_property = rel.end_node.element_id
+        srel.element_id_property = rel.element_id
         return srel

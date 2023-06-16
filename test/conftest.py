@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import sys
 import warnings
 
 import pytest
@@ -26,6 +25,29 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.hookimpl
+def pytest_collection_modifyitems(items):
+    connect_to_aura_items = []
+    normal_items = []
+
+    # Separate all tests into two groups: those with "connect_to_aura" in their name, and all others
+    for item in items:
+        if "connect_to_aura" in item.name:
+            connect_to_aura_items.append(item)
+        else:
+            normal_items.append(item)
+
+    # Add all normal tests back to the front of the list
+    new_order = normal_items
+
+    # Add all connect_to_aura tests to the end of the list
+    new_order.extend(connect_to_aura_items)
+
+    # Replace the original items list with the new order
+    items[:] = new_order
+
+
+@pytest.hookimpl
 def pytest_sessionstart(session):
     """
     Provides initial connection to the database and sets up the rest of the test suite
@@ -41,47 +63,16 @@ def pytest_sessionstart(session):
     )
     config.AUTO_INSTALL_LABELS = True
 
-    try:
-        # Clear the database if required
-        database_is_populated, _ = db.cypher_query(
-            "MATCH (a) return count(a)>0 as database_is_populated"
+    # Clear the database if required
+    database_is_populated, _ = db.cypher_query(
+        "MATCH (a) return count(a)>0 as database_is_populated"
+    )
+    if database_is_populated[0][0] and not session.config.getoption("resetdb"):
+        raise SystemError(
+            "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
         )
-        if database_is_populated[0][0] and not session.config.getoption("resetdb"):
-            raise SystemError(
-                "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
-            )
-        else:
-            clear_neo4j_database(db, clear_constraints=True, clear_indexes=True)
-    except (CypherError, ClientError) as ce:
-        # Handle instance without password being changed
-        if (
-            "The credentials you provided were valid, but must be changed before you can use this instance"
-            in str(ce)
-        ):
-            warnings.warn(
-                "New database with no password set, setting password to 'test'"
-            )
-            try:
-                change_neo4j_password(db, "test")
-                # Ensures that multiprocessing tests can use the new password
-                config.DATABASE_URL = "bolt://neo4j:test@localhost:7687"
-                db.set_connection("bolt://neo4j:test@localhost:7687")
-                warnings.warn(
-                    "Please 'export NEO4J_BOLT_URL=bolt://neo4j:test@localhost:7687' for subsequent test runs"
-                )
-            except (CypherError, ClientError) as e:
-                if (
-                    "The credentials you provided were valid, but must be changed before you can use this instance"
-                    in str(e)
-                ):
-                    warnings.warn(
-                        "You appear to be running on version 4.0+ of Neo4j, without having changed the password."
-                        "Please manually log in, change your password, then update the config.DATABASE_URL call at line 32 in this file"
-                    )
-                else:
-                    raise e
-        else:
-            raise ce
+    else:
+        clear_neo4j_database(db, clear_constraints=True, clear_indexes=True)
 
 
 def version_to_dec(a_version_string):

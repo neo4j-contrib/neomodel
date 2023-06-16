@@ -1,4 +1,3 @@
-import re
 import sys
 import warnings
 
@@ -42,7 +41,7 @@ def drop_constraints(quiet=True, stdout=None):
 
 def drop_indexes(quiet=True, stdout=None):
     """
-    Discover and drop all indexes.
+    Discover and drop all indexes, except the automatically created token lookup indexes.
 
     :type: bool
     :return: None
@@ -50,18 +49,8 @@ def drop_indexes(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("SHOW INDEXES")
-    results_as_dict = [dict(zip(meta, row)) for row in results]
-    for index in results_as_dict:
-        # Neo4j 4.3 introduced token lookup indexes
-        # Two are created automatically so should not be dropped
-        # They can be recognized because their labelsOrTypes and properties arrays are empty
-        if not index["labelsOrTypes"]:
-            if index["properties"]:
-                raise ValueError(
-                    f'Index {index["name"]} has no labels but has properties({",".join(index["properties"])}). Unknown index'
-                )
-            continue
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    for index in indexes:
         db.cypher_query("DROP INDEX " + index["name"])
         if not quiet:
             stdout.write(
@@ -185,7 +174,7 @@ def install_labels(cls, quiet=True, stdout=None):
 def install_all_labels(stdout=None):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-    Note: code most be loaded (imported) in order for a class to be discovered.
+    Note: code must be loaded (imported) in order for a class to be discovered.
 
     :param stdout: output stream
     :return: None
@@ -295,8 +284,8 @@ class StructuredNode(NodeBase):
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             return False
-        if hasattr(self, "id") and hasattr(other, "id"):
-            return self.id == other.id
+        if hasattr(self, "element_id") and hasattr(other, "element_id"):
+            return self.element_id == other.element_id
         return False
 
     def __ne__(self, other):
@@ -322,16 +311,22 @@ class StructuredNode(NodeBase):
         return NodeSet(cls)
 
     @property
-    def _id(self, val):
-        warnings.warn(
-            "the _id property is deprecated please use .id",
-            category=DeprecationWarning,
-            stacklevel=1,
+    def element_id(self):
+        return (
+            int(self.element_id_property)
+            if db.database_version.startswith("4")
+            else self.element_id_property
         )
-        if val:
-            self.id = val
 
-        return self.id
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def id(self):
+        try:
+            return int(self.element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
 
     # methods
 
@@ -349,23 +344,22 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{0} {{{1}}}".format(
-            ":".join(cls.inherited_labels()),
-            ", ".join(
-                "{0}: params.create.{0}".format(getattr(cls, p).db_property or p)
+        n_merge_labels = ":".join(cls.inherited_labels())
+        n_merge_prm = ", ".join(
+            (
+                f"{getattr(cls, p).db_property or p}: params.create.{getattr(cls, p).db_property or p}"
                 for p in cls.__required_properties__
-            ),
+            )
         )
+        n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND $merge_params as params\n MERGE ({0})\n ".format(n_merge)
+            query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
                 raise ValueError(
-                    "relationship source [{0}] is not a StructuredNode".format(
-                        repr(relationship.source)
-                    )
+                    f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
                 )
             relation_type = relationship.definition.get("relation_type")
             if not relation_type:
@@ -375,10 +369,8 @@ class StructuredNode(NodeBase):
 
             from .match import _rel_helper
 
-            query_params["source_id"] = relationship.source.id
-            query = "MATCH (source:{0}) WHERE ID(source) = $source_id\n ".format(
-                relationship.source.__label__
-            )
+            query_params["source_id"] = relationship.source.element_id
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -396,7 +388,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += "RETURN id(n)"
+            query += f"RETURN {db.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
@@ -405,10 +397,7 @@ class StructuredNode(NodeBase):
     @classmethod
     def category(cls):
         raise NotImplementedError(
-            "Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {0}.nodes attribute".format(
-                cls.__name__
-            )
+            f"Category was deprecated and has now been removed, the functionality is now achieved using the {cls.__name__}.nodes attribute"
         )
 
     @classmethod
@@ -432,11 +421,11 @@ class StructuredNode(NodeBase):
 
         lazy = kwargs.get("lazy", False)
         # create mapped query
-        query = "CREATE (n:{0} $create_params)".format(":".join(cls.inherited_labels()))
+        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
 
         # close query
         if lazy:
-            query += " RETURN id(n)"
+            query += f" RETURN {db.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -516,23 +505,21 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        params.update({"self": self.id})
+        params.update({"self": self.element_id})
         return db.cypher_query(query, params)
 
     @hooks
     def delete(self):
         """
-        Delete a node and it's relationships
+        Delete a node and its relationships
 
         :return: True
         """
         self._pre_action_check("delete")
         self.cypher(
-            "MATCH (self) WHERE id(self)=$self "
-            "OPTIONAL MATCH (self)-[r]-()"
-            " DELETE r, self"
+            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
         )
-        delattr(self, "id")
+        delattr(self, "element_id_property")
         self.deleted = True
         return True
 
@@ -582,9 +569,9 @@ class StructuredNode(NodeBase):
         :return: node object
         """
         # support lazy loading
-        if isinstance(node, int):
+        if isinstance(node, str) or isinstance(node, int):
             snode = cls()
-            snode.id = node
+            snode.element_id_property = node
         else:
             node_properties = _get_node_properties(node)
             props = {}
@@ -600,7 +587,7 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            snode.id = node.id
+            snode.element_id_property = node.element_id
 
         return snode
 
@@ -625,20 +612,18 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check("labels")
-        return self.cypher("MATCH (n) WHERE id(n)=$self " "RETURN labels(n)")[0][0][0]
+        return self.cypher(
+            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
+        )[0][0][0]
 
     def _pre_action_check(self, action):
         if hasattr(self, "deleted") and self.deleted:
             raise ValueError(
-                "{0}.{1}() attempted on deleted node".format(
-                    self.__class__.__name__, action
-                )
+                f"{self.__class__.__name__}.{action}() attempted on deleted node"
             )
-        if not hasattr(self, "id"):
+        if not hasattr(self, "element_id"):
             raise ValueError(
-                "{0}.{1}() attempted on unsaved node".format(
-                    self.__class__.__name__, action
-                )
+                f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
 
     def refresh(self):
@@ -646,8 +631,10 @@ class StructuredNode(NodeBase):
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
-        if hasattr(self, "id"):
-            request = self.cypher("MATCH (n) WHERE id(n)=$self" " RETURN n")[0]
+        if hasattr(self, "element_id"):
+            request = self.cypher(
+                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
+            )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])
@@ -665,20 +652,27 @@ class StructuredNode(NodeBase):
         """
 
         # create or update instance node
-        if hasattr(self, "id"):
+        if hasattr(self, "element_id"):
+            # TODO Get Neo4j version at creation time, and use method accordingly
+            # Node will now always have element_id, and deprecated id for users to call for a while
+            # Calling id now returns element_id value instead though
+            # For Neo4j version 5 : element_id=id=Neo elementId
+            # For Neo4j version 4 : element_id_id=Neo id
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)=$self \n"
-            query += "\n".join(
-                ["SET n.{0} = ${1}".format(key, key) + "\n" for key in params.keys()]
-            )
+            query = f"""
+                MATCH (n) WHERE {db.get_id_method()}(n)=$self
+                SET 
+            """
+            query += ", ".join([f"n.{key} = ${key}" + "\n" for key in params.keys()])
             for label in self.inherited_labels():
-                query += "SET n:`{0}`\n".format(label)
+                query += f"SET n:`{label}`\n"
             self.cypher(query, params)
         elif hasattr(self, "deleted") and self.deleted:
             raise ValueError(
-                "{0}.save() attempted on deleted node".format(self.__class__.__name__)
+                f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            self.id = self.create(self.__properties__)[0].id
+            created_node = self.create(self.__properties__)[0]
+            self.element_id_property = created_node.element_id
         return self

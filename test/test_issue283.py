@@ -265,7 +265,10 @@ def test_failed_object_resolution():
 
     # Now try to instantiate a RandomPerson
     A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
-    with pytest.raises(neomodel.exceptions.NodeClassNotDefined):
+    with pytest.raises(
+        neomodel.exceptions.NodeClassNotDefined,
+        match=r"Node with labels .* does not resolve to any of the known objects.*",
+    ):
         for some_friend in A.friends_with:
             print(some_friend.name)
 
@@ -324,7 +327,10 @@ def test_attempted_class_redefinition():
         class SomePerson(BaseOtherPerson):
             uid = neomodel.UniqueIdProperty()
 
-    with pytest.raises(neomodel.exceptions.NodeClassAlreadyDefined):
+    with pytest.raises(
+        neomodel.exceptions.NodeClassAlreadyDefined,
+        match=r"Class .* with labels .* already defined:.*",
+    ):
         redefine_class_locally()
 
 
@@ -400,7 +406,10 @@ def test_improperly_inherited_relationship():
     class NewRelationship(neomodel.StructuredRel):
         profile_match_factor = neomodel.FloatProperty()
 
-    with pytest.raises(neomodel.RelationshipClassRedefined):
+    with pytest.raises(
+        neomodel.RelationshipClassRedefined,
+        match=r"Relationship of type .* redefined as .*",
+    ):
 
         class NewSomePerson(SomePerson):
             friends_with = neomodel.RelationshipTo(
@@ -417,7 +426,10 @@ def test_resolve_inexistent_relationship():
     # Forget about the FRIENDS_WITH Relationship.
     del neomodel.db._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
 
-    with pytest.raises(neomodel.RelationshipClassNotDefined):
+    with pytest.raises(
+        neomodel.RelationshipClassNotDefined,
+        match=r"Relationship of type .* does not resolve to any of the known objects.*",
+    ):
         query_data = neomodel.db.cypher_query(
             "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
             "RETURN DISTINCT r",

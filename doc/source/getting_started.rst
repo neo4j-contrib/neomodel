@@ -125,7 +125,7 @@ Using convenience methods such as::
     jim.save() # Update, (with validation)
     jim.delete()
     jim.refresh() # reload properties from the database
-    jim.id # neo4j internal id
+    jim.element_id # neo4j internal element id
 
 Retrieving nodes
 ================

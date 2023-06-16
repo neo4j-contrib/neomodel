@@ -26,9 +26,9 @@ class SemiStructuredNode(StructuredNode):
     @classmethod
     def inflate(cls, node):
         # support lazy loading
-        if isinstance(node, int):
+        if isinstance(node, str) or isinstance(node, int):
             snode = cls()
-            snode.id = node
+            snode.element_id_property = node
         else:
             props = {}
             node_properties = {}
@@ -44,12 +44,12 @@ class SemiStructuredNode(StructuredNode):
             for free_key in (x for x in node_properties if x not in props):
                 if hasattr(cls, free_key):
                     raise InflateConflict(
-                        cls, free_key, node_properties[free_key], node.id
+                        cls, free_key, node_properties[free_key], node.element_id
                     )
                 props[free_key] = node_properties[free_key]
 
             snode = cls(**props)
-            snode.id = node.id
+            snode.element_id_property = node.element_id
 
         return snode
 
@@ -58,6 +58,7 @@ class SemiStructuredNode(StructuredNode):
         deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
             if hasattr(cls, key) and (getattr(cls,key).required or not skip_empty):
-                raise DeflateConflict(cls, key, deflated[key], obj.id)
+                raise DeflateConflict(cls, key, deflated[key], obj.element_id)
+
         node_props.update(deflated)
         return node_props

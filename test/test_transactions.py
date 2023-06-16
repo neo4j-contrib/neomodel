@@ -1,4 +1,6 @@
 import pytest
+from neo4j.api import Bookmarks
+from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db, install_labels
@@ -71,6 +73,36 @@ def test_query_inside_transaction():
         assert len([p.name for p in APerson.nodes]) == 2
 
 
+def test_read_transaction():
+    APerson(name="Johnny").save()
+
+    with db.read_transaction:
+        people = APerson.nodes.all()
+        assert people
+
+    with pytest.raises(TransactionError):
+        with db.read_transaction:
+            with pytest.raises(ClientError) as e:
+                APerson(name="Gina").save()
+            assert e.value.code == "Neo.ClientError.Statement.AccessMode"
+
+
+def test_write_transaction():
+    with db.write_transaction:
+        APerson(name="Amelia").save()
+
+    amelia = APerson.nodes.get(name="Amelia")
+    assert amelia
+
+
+def double_transaction():
+    db.begin()
+    with pytest.raises(SystemError, match=r"Transaction in progress"):
+        db.begin()
+
+    db.rollback()
+
+
 def test_set_connection_works():
     assert APerson(name="New guy 1").save()
     from socket import gaierror
@@ -95,9 +127,9 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
         p.delete()
 
     # should work
-    result, bookmark = in_a_tx("Ruth", bookmarks=None)
+    result, bookmarks = in_a_tx("Ruth", bookmarks=None)
     assert result is None
-    assert isinstance(bookmark, str)
+    assert isinstance(bookmarks, Bookmarks)
 
     # should bail but raise correct error
     with raises(UniqueProperty):
@@ -109,7 +141,7 @@ def test_bookmark_transaction_decorator(skip_neo4j_before_330):
 def test_bookmark_transaction_as_a_context(skip_neo4j_before_330):
     with db.transaction as transaction:
         APerson(name="Tanya").save()
-    assert isinstance(transaction.last_bookmark, str)
+    assert isinstance(transaction.last_bookmark, Bookmarks)
 
     assert APerson.nodes.filter(name="Tanya")
 
@@ -137,7 +169,7 @@ def test_bookmark_passed_in_to_context(skip_neo4j_before_330, spy_on_db_begin):
     with transaction:
         pass
 
-    assert spy_on_db_begin[-1] == ((), {"access_mode": None})
+    assert spy_on_db_begin[-1] == ((), {"access_mode": None, "bookmarks": None})
     last_bookmark = transaction.last_bookmark
 
     transaction.bookmarks = last_bookmark
@@ -145,15 +177,7 @@ def test_bookmark_passed_in_to_context(skip_neo4j_before_330, spy_on_db_begin):
         pass
     assert spy_on_db_begin[-1] == (
         (),
-        {"access_mode": None, "bookmarks": (last_bookmark,)},
-    )
-
-    transaction.bookmarks = [last_bookmark]
-    with transaction:
-        pass
-    assert spy_on_db_begin[-1] == (
-        (),
-        {"access_mode": None, "bookmarks": (last_bookmark,)},
+        {"access_mode": None, "bookmarks": last_bookmark},
     )
 
 
@@ -167,4 +191,4 @@ def test_query_inside_bookmark_transaction(skip_neo4j_before_330):
 
         assert len([p.name for p in APerson.nodes]) == 2
 
-    assert isinstance(transaction.last_bookmark, str)
+    assert isinstance(transaction.last_bookmark, Bookmarks)
