@@ -685,7 +685,7 @@ class StructuredNode(NodeBase):
             # Node will now always have element_id, and deprecated id for users to call for a while
             # Calling id now returns element_id value instead though
             # For Neo4j version 5 : element_id=id=Neo elementId
-            # For Neo4j version 4 : element_id_id=Neo id
+            # For Neo4j version 4 : element_id=Neo id
             # update
             params = self.deflate(self.__properties__, self)
             query = f"""
