@@ -231,6 +231,28 @@ def test_inheritance():
     assert len(jim.labels()) == 1
     assert jim.labels()[0] == "Shopper"
 
+def test_inherited_optional_labels():
+    class BaseOptional(StructuredNode):
+        __optional_labels__ = ["Alive"]
+        name = StringProperty(unique_index=True)
+
+    class ExtendedOptional(BaseOptional):
+        __optional_labels__ = ["RewardsMember"]
+        balance = IntegerProperty(index=True)
+
+        def credit_account(self, amount):
+            self.balance = self.balance + int(amount)
+            self.save()
+
+    henry = ExtendedOptional(name='henry', balance=300).save()
+    henry.credit_account(50)
+
+    assert ExtendedOptional.__label__ == 'ExtendedOptional'
+    assert henry.balance == 350
+    assert len(henry.inherited_labels()) == 2
+    assert len(henry.labels()) == 2
+
+    assert set(henry.inherited_optional_labels()) == {"Alive", "RewardsMember"}
 
 def test_mixins():
     class UserMixin:
