@@ -683,13 +683,16 @@ class StructuredNode(NodeBase):
         if hasattr(self, "element_id"):
             # update
             params = self.deflate(self.__properties__, self)
-            query = f"""
-                MATCH (n) WHERE {db.get_id_method()}(n)=$self
-                SET 
-            """
-            query += ", ".join([f"n.{key} = ${key}" + "\n" for key in params.keys()])
-            for label in self.inherited_labels():
-                query += f"SET n:`{label}`\n"
+            query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"
+
+            if params:
+                query += "SET "
+                query += ",\n".join([f"n.{key} = ${key}" for key in params])
+                query += "\n"
+            if self.inherited_labels():
+                query += "\n".join(
+                    [f"SET n:`{label}`" for label in self.inherited_labels()]
+                )
             self.cypher(query, params)
         elif hasattr(self, "deleted") and self.deleted:
             raise ValueError(
