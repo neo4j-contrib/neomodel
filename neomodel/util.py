@@ -12,6 +12,7 @@ from neo4j.api import Bookmarks
 from neo4j.debug import watch
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Relationship
+from neo4j.graph import Path as NeoPath
 
 from neomodel import config, core
 from neomodel.exceptions import (
@@ -61,6 +62,18 @@ def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
         core.drop_indexes()
 
 
+class Path(NeoPath):
+    def __init__(self, nodes, *relationships):
+        for i, relationship in enumerate(relationships, start=1):
+            start = relationship.start_node()
+            end = relationship.end_node()
+            if start not in nodes and end not in nodes:
+                raise ValueError(
+                    "Relationship %d does not connect to all of the nodes" % i
+                )
+        self._nodes = tuple(nodes)
+        self._relationships = relationships
+
 class Database(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
@@ -100,7 +113,10 @@ class Database(local):
             "neo4j+ssc",
         ]
 
-        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
+        if (
+            parsed_url.netloc.find("@") > -1
+            and parsed_url.scheme in valid_schemas
+        ):
             credentials, hostname = parsed_url.netloc.rsplit("@", 1)
             username, password = credentials.split(":")
             password = unquote(password)
@@ -132,7 +148,9 @@ class Database(local):
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
-        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
+        self._database_name = (
+            DEFAULT_DATABASE if database_name == "" else database_name
+        )
 
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
@@ -251,7 +269,58 @@ class Database(local):
             # The database server is not running yet
             pass
 
-    def _object_resolution(self, result_list):
+    def _object_resolution(self, object_to_resolve):
+        """
+        Performs in place automatic object resolution on a result
+        returned by cypher_query.
+
+        The function operates recursively in order to be able to resolve Nodes
+        within nested list structures and Path objects. Not meant to be called 
+        directly, used primarily by _result_resolution.
+
+        :param object_to_resolve: A result as returned by cypher_query.
+        :type Any:
+
+        :return: An instantiated object.
+        """
+        # Below is the original comment that came with the code extracted in
+        # this method. It is not very clear but I decided to keep it just in
+        # case 
+        #
+        #
+        # For some reason, while the type of `a_result_attribute[1]`
+        # as reported by the neo4j driver is `Node` for Node-type data
+        # retrieved from the database.
+        # When the retrieved data are Relationship-Type,
+        # the returned type is `abc.[REL_LABEL]` which is however
+        # a descendant of Relationship.
+        # Consequently, the type checking was changed for both
+        # Node, Relationship objects
+        if isinstance(object_to_resolve, Node):
+            return self._NODE_CLASS_REGISTRY[
+                frozenset(object_to_resolve.labels)
+            ].inflate(object_to_resolve)
+
+        if isinstance(object_to_resolve, Relationship):
+            return self._NODE_CLASS_REGISTRY[
+                frozenset([object_to_resolve.type])
+            ].inflate(object_to_resolve)
+
+        if isinstance(object_to_resolve, NeoPath):
+            new_nodes = []
+            for node in object_to_resolve.nodes:
+                new_nodes.append(self._object_resolution(node))
+            new_relationships = []
+            for relationship in object_to_resolve.relationships:
+                new_rel = self._object_resolution(relationship)
+                new_relationships.append(new_rel)
+            return Path(new_nodes, *new_relationships)
+
+        if isinstance(object_to_resolve, list):
+            return self._result_resolution([object_to_resolve])
+        return object_to_resolve
+
+    def _result_resolution(self, result_list):
         """
         Performs in place automatic object resolution on a set of results
         returned by cypher_query.
@@ -274,28 +343,7 @@ class Database(local):
                     # Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
-                    # For some reason, while the type of `a_result_attribute[1]`
-                    # as reported by the neo4j driver is `Node` for Node-type data
-                    # retrieved from the database.
-                    # When the retrieved data are Relationship-Type,
-                    # the returned type is `abc.[REL_LABEL]` which is however
-                    # a descendant of Relationship.
-                    # Consequently, the type checking was changed for both
-                    # Node, Relationship objects
-                    if isinstance(a_result_attribute[1], Node):
-                        resolved_object = self._NODE_CLASS_REGISTRY[
-                            frozenset(a_result_attribute[1].labels)
-                        ].inflate(a_result_attribute[1])
-
-                    if isinstance(a_result_attribute[1], Relationship):
-                        resolved_object = self._NODE_CLASS_REGISTRY[
-                            frozenset([a_result_attribute[1].type])
-                        ].inflate(a_result_attribute[1])
-
-                    if isinstance(a_result_attribute[1], list):
-                        resolved_object = self._object_resolution(
-                            [a_result_attribute[1]]
-                        )
+                    resolved_object = self._object_resolution(resolved_object)
 
                     result_list[a_result_item[0]][
                         a_result_attribute[0]
@@ -380,12 +428,14 @@ class Database(local):
             # Retrieve the data
             start = time.time()
             response = session.run(query, params)
-            results, meta = [list(r.values()) for r in response], response.keys()
+            results, meta = [
+                list(r.values()) for r in response
+            ], response.keys()
             end = time.time()
 
             if resolve_objects:
                 # Do any automatic resolution required
-                results = self._object_resolution(results)
+                results = self._result_resolution(results)
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
@@ -452,7 +502,9 @@ class Database(local):
             Sequence[dict]: List of dictionaries, each entry being a constraint definition
         """
         constraints, meta_constraints = self.cypher_query("SHOW CONSTRAINTS")
-        constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
+        constraints_as_dict = [
+            dict(zip(meta_constraints, row)) for row in constraints
+        ]
 
         return constraints_as_dict
 
@@ -475,7 +527,10 @@ class TransactionProxy:
             self.db.rollback()
 
         if exc_type is ClientError:
-            if exc_value.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
+            if (
+                exc_value.code
+                == "Neo.ClientError.Schema.ConstraintValidationFailed"
+            ):
                 raise UniqueProperty(exc_value.message)
 
         if not exc_value:
