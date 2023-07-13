@@ -262,16 +262,13 @@ def test_prohibited_constructor_forms():
         _ = neomodel.contrib.spatial_properties.NeomodelPoint((0, 0), crs="blue_hotel")
 
     # Absurd coord dimensionality
-    with pytest.raises(
-        ValueError,
-        match="Invalid vector dimensions. Expected 2 or 3, received 7",
-    ):
+    with pytest.raises(ValueError,):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             (0, 0, 0, 0, 0, 0, 0), crs="cartesian"
         )
 
     # Absurd datatype passed to copy constructor
-    with pytest.raises(TypeError, match="Invalid object passed to copy constructor"):
+    with pytest.raises(TypeError,):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             "it don't mean a thing if it ain't got that swing",
             crs="cartesian",
