@@ -456,11 +456,11 @@ else:
             # Geographical Point Initialisation
             if latitude is not None and longitude is not None:
                 if height is not None:
-                    if self.crs[id(self)] is None:
+                    if self.crs is None:
                         self._crs[id(self)] = "wgs-84-3d"
                     _z = height
                 else:
-                    if self._crs[id(self)] is None:
+                    if self.crs is None:
                         self._crs[id(self)] = "wgs-84"
                 _x = longitude
                 _y = latitude
@@ -468,23 +468,22 @@ else:
             # Geometrical Point Initialisation
             if x is not None and y is not None:
                 if z is not None:
-                    if self._crs[id(self)] is None:
+                    if self.crs is None:
                         self._crs[id(self)] = "cartesian-3d"
                     _z = z
                 else:
-                    if self._crs[id(self)] is None:
+                    if self.crs is None:
                         self._crs[id(self)] = "cartesian"
                 _x = x
                 _y = y
 
-
             # Common way of checking the CRS validity of both geometrical and geographical points    
             if _z is None:
-                if "-3d" in self._crs[id(self)]:
-                    raise ValueError(f"Invalid vector dimensions(2) for given CRS({self._crs[id(self)]}).")
+                if "-3d" in self.crs:
+                    raise ValueError(f"Invalid vector dimensions(2) for given CRS({self.crs}).")
             else:
-                if "-3d" not in self._crs[id(self)]:
-                    raise ValueError(f"Invalid vector dimensions(3) for given CRS({self._crs[id(self)]}).")
+                if "-3d" not in self.crs:
+                    raise ValueError(f"Invalid vector dimensions(3) for given CRS({self.crs}).")
     
         @property
         def crs(self):
@@ -493,7 +492,7 @@ else:
     
         @property
         def x(self):
-            if not self._crs[id(self)].startswith("cartesian"):
+            if not self.crs.startswith("cartesian"):
                 raise AttributeError(
                     f'Invalid coordinate ("x") for points defined over {self.crs}'
                 )
@@ -501,7 +500,7 @@ else:
     
         @property
         def y(self):
-            if not self._crs[id(self)].startswith("cartesian"):
+            if not self.crs.startswith("cartesian"):
                 raise AttributeError(
                     f'Invalid coordinate ("y") for points defined over {self.crs}'
                 )
@@ -509,7 +508,7 @@ else:
     
         @property
         def z(self):
-            if not self._crs[id(self)] == "cartesian-3d":
+            if not self.crs == "cartesian-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("z") for points defined over {self.crs}'
                 )
@@ -517,7 +516,7 @@ else:
     
         @property
         def latitude(self):
-            if not self._crs[id(self)].startswith("wgs-84"):
+            if not self.crs.startswith("wgs-84"):
                 raise AttributeError(
                     f'Invalid coordinate ("latitude") for points defined over {self.crs}'
                 )
@@ -525,7 +524,7 @@ else:
     
         @property
         def longitude(self):
-            if not self._crs[id(self)].startswith("wgs-84"):
+            if not self.crs.startswith("wgs-84"):
                 raise AttributeError(
                     f'Invalid coordinate ("longitude") for points defined over {self.crs}'
                 )
@@ -533,7 +532,7 @@ else:
     
         @property
         def height(self):
-            if not self._crs[id(self)] == "wgs-84-3d":
+            if not self.crs == "wgs-84-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("height") for points defined over {self.crs}'
                 )
