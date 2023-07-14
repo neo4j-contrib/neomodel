@@ -263,3 +263,20 @@ def test_simple_storage_retrieval():
     )
 
     assert a_restaurant.description == a_property.description
+
+def test_equality_with_other_objects():
+    """
+    Performs equality tests and ensures tha ``NeomodelPoint`` can be compared with ShapelyPoint and NeomodelPoint only.
+    """
+    try:
+        import shapely.geometry
+        from shapely import __version__
+    except ImportError:
+        pytest.skip("Shapely module not present")
+
+    if int(__version__.replace(".", "")) < 200:
+        pytest.skip(f"Shapely 2.0 not present (Current version is {__version__}")
+
+    assert neomodel.contrib.spatial_properties.NeomodelPoint((0,0)) == neomodel.contrib.spatial_properties.NeomodelPoint(x=0, y=0)
+    assert neomodel.contrib.spatial_properties.NeomodelPoint((0,0)) == shapely.geometry.Point((0,0))
+

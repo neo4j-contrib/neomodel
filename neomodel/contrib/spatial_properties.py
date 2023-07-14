@@ -486,7 +486,10 @@ else:
             if not isinstance(other, (ShapelyPoint, NeomodelPoint)):
                 raise ValueException(f"NeomodelPoint equality comparison expected NeomodelPoint or Shapely Point, received {type(other)}")
             else:
-                return self.coords[0] == other.coords[0] and self.crs == other.crs
+                if isinstance(other, ShapelyPoint):
+                    return self.coords[0] == other.coords[0]
+                else:
+                    return self.coords[0] == other.coords[0] and self.crs == other.crs
 
 
 class PointProperty(Property):
