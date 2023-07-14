@@ -261,7 +261,7 @@ if int(shapely_version.replace(".", "")) <= 200:
             return NeomodelPoint(self)
 
 else:
-    class NeomodelPoint(ShapelyPoint):
+    class NeomodelPoint:
         """
         Abstracts the Point spatial data type of Neo4j.
     
@@ -272,88 +272,8 @@ else:
             2. A generic point defined over the WGS84 ellipsoid
                 * The minimum data to define a point is longitude, latitude [,Height] and the crs is then assumed
                   to be "wgs-84".
-
-        :param args: Positional arguments to emulate the behaviour of Shapely's Point (and specifically the copy constructor)
-        :type args: list
-        :param crs: Coordinate Reference System, must be one of ['cartesian', 'cartesian-3d', 'wgs-84', 'wgs-84-3d']
-        :type crs: str
-        :param x: x coordinate of point
-        :type x: float
-        :param y: y coordinate of point
-        :type y: float
-        :param z: z coordinate of point if the crs is cartesian-3d
-        :type z: float
-        :param latitude: Latitude of point
-        :type latitude: float
-        :param longitude: Longitude of point
-        :type longitude: float
-        :param height: Height of point if the crs is wgs-84-3d
-        :type height: float
-        :param kwargs: Dictionary of keyword arguments
-        :type kwargs: dict
         """
-
-        __slots__ = ShapelyPoint.__slots__
-
-        # Shapely's Point is immutable. Neomodel needs to assign its own _crs during construction.
-        # It is impossible to "change the profile" of ShapelyPoint, therefore we are adding a dictionary
-        # that maps the ID of the constructed object to the value of _crs *for that object*.
-        # 
-        # It might not be obvious why at first, but basically, the value of _crs itself cannot be changed
-        # once it has been "assigned" under NeomodelPoint. This is the source of many cumbersome ways of 
-        # doing things below.
-        _crs = {}
-
-        def __new__(cls, *args, **kwargs):
-            """
-            Create a new NeomodelPoint.
-
-            This constructor takes into account the additional constraints imposed by NeomodelPoint.
-            """
-
-            crs = kwargs.pop("crs", None)
-            x = kwargs.pop("x", None)
-            y = kwargs.pop("y", None)
-            z = kwargs.pop("z", None)
-            longitude = kwargs.pop("longitude", None)
-            latitude = kwargs.pop("latitude", None)
-            height = kwargs.pop("height", None)
     
-            # In what follows, the underlying ShapelyPoint is still constructed via an iterrable of 2 or 3 functions.
-            new_args = []
-
-            # Decide here how many parameters the underlying point needs to have, construct the object and return it   
-            # The following cases are ULTRA simplified just to get the super() object initialised.
-            # The ACTUAL parameter checking / etc for **NeomodelPoint** still happens at the level of __init__
-            # 
-            # NOTE: This might be **relatively** slow because it still triggers the creation of an underlying point even though it 
-            # might eventually be rejected because it does not pass the parameter validation.
-            if len(args) > 0:
-                # Copy constructors
-                #
-                # NeomodelPoint is initialised from ShapelyPoint and NeomodelPoint
-                new_args = args                    
-            else: 
-                # Cartesian Point constructor
-                if x is not None and y is not None:
-                    new_args = [float(x), float(y)]
-                    if z is not None:
-                        new_args.append(float(z))
-
-                # Geographic Point constructor
-                if latitude is not None and longitude is not None:
-                    new_args = [float(longitude), float(latitude)]
-                    if height is not None:
-                        new_args.append(height)
-                # NOTE: The above checks are "loose" at this point because all we are trying to do 
-                #       is construct the point. Further constraint checking will occur at __init__.
-
-            # Create the point
-            neomodel_point = super().__new__(cls,*new_args, **kwargs)
-            # "Rename" the ShapelyPoint to NeomodelPoint
-            neomodel_point.__class__ = cls
-            return neomodel_point
-
         # def __init__(self, *args, crs=None, x=None, y=None, z=None, latitude=None, longitude=None, height=None, **kwargs):
         def __init__(self, *args, **kwargs):
             """
@@ -380,6 +300,7 @@ else:
             :type kwargs: dict
             """
     
+            # Python2.7 Workaround for the order that the arguments get passed to the functions
             crs = kwargs.pop("crs", None)
             x = kwargs.pop("x", None)
             y = kwargs.pop("y", None)
@@ -387,15 +308,15 @@ else:
             longitude = kwargs.pop("longitude", None)
             latitude = kwargs.pop("latitude", None)
             height = kwargs.pop("height", None)
-
+    
             _x, _y, _z = None, None, None
 
-            # This __init__ is almost identical to the Shapely<2.0 one except the point of assigning `_crs`.
-
+            self._shapely_point = None
+    
             # CRS validity check is common to both types of constructors that follow
             if crs is not None and crs not in ACCEPTABLE_CRS:
                 raise ValueError(f"Invalid CRS({crs}). Expected one of {','.join(ACCEPTABLE_CRS)}")
-            self._crs[id(self)] = crs
+            self._crs = crs
     
             # If positional arguments have been supplied, then this is a possible call to the copy constructor or
             # initialisation by a coordinate iterable as per ShapelyPoint constructor.
@@ -411,10 +332,11 @@ else:
                         z = args[0][2]
                 # If another "Point" was passed, then this is a call to the copy constructor
                 elif isinstance(args[0], ShapelyPoint):
+                    self._shapely_point = ShapelyPoint(args[0])
                     # If the other Point was a NeomodelPoint then it bears the CRS that is used to
                     # interpret the points and this has to be carried over.
-                    if isinstance(args[0], NeomodelPoint) and args[0].crs is not None:
-                        self._crs[id(self)] = args[0].crs
+                    if isinstance(args[0], NeomodelPoint):
+                        self._crs = args[0]._crs
                     else:
                         # This allows NeomodelPoint((0,0),crs="wgs-84") which will interpret the tuple as
                         # (longitude,latitude) even though it was not specified as such with the named arguments.
@@ -426,10 +348,10 @@ else:
                         #
                         if len(args[0].coords[0]) == 2:
                             if crs is None:
-                                self._crs[id(self)] = "cartesian"
+                                self._crs = "cartesian"
                         elif len(args[0].coords[0]) == 3:
                             if crs is None:
-                                self._crs[id(self)] = "cartesian-3d"
+                                self._crs = "cartesian-3d"
                         else:
                             raise ValueError(f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0])}")
                     return
@@ -456,96 +378,104 @@ else:
             # Geographical Point Initialisation
             if latitude is not None and longitude is not None:
                 if height is not None:
-                    if self.crs is None:
-                        self._crs[id(self)] = "wgs-84-3d"
+                    if self._crs is None:
+                        self._crs = "wgs-84-3d"
                     _z = height
                 else:
-                    if self.crs is None:
-                        self._crs[id(self)] = "wgs-84"
+                    if self._crs is None:
+                        self._crs = "wgs-84"
                 _x = longitude
                 _y = latitude
     
             # Geometrical Point Initialisation
             if x is not None and y is not None:
                 if z is not None:
-                    if self.crs is None:
-                        self._crs[id(self)] = "cartesian-3d"
+                    if self._crs is None:
+                        self._crs = "cartesian-3d"
                     _z = z
                 else:
-                    if self.crs is None:
-                        self._crs[id(self)] = "cartesian"
+                    if self._crs is None:
+                        self._crs = "cartesian"
                 _x = x
                 _y = y
-
-            # Common way of checking the CRS validity of both geometrical and geographical points    
+    
             if _z is None:
-                if "-3d" in self.crs:
-                    raise ValueError(f"Invalid vector dimensions(2) for given CRS({self.crs}).")
+                if "-3d" not in self._crs:
+                    self._shapely_point = ShapelyPoint((float(_x), float(_y)))
+                else:
+                    raise ValueError(f"Invalid vector dimensions(2) for given CRS({self._crs}).")
             else:
-                if "-3d" not in self.crs:
-                    raise ValueError(f"Invalid vector dimensions(3) for given CRS({self.crs}).")
+                if "-3d" in self._crs:
+                    self._shapely_point = ShapelyPoint((float(_x), float(_y), float(_z)))
+                else:
+                    raise ValueError(f"Invalid vector dimensions(3) for given CRS({self._crs}).")
     
         @property
         def crs(self):
-            # This makes _crs "assignable"
-            return self._crs[id(self)]
+            return self._crs
     
         @property
         def x(self):
-            if not self.crs.startswith("cartesian"):
+            if not self._crs.startswith("cartesian"):
                 raise AttributeError(
                     f'Invalid coordinate ("x") for points defined over {self.crs}'
                 )
-            return super().x
+            return self._shapely_point.x
     
         @property
         def y(self):
-            if not self.crs.startswith("cartesian"):
+            if not self._crs.startswith("cartesian"):
                 raise AttributeError(
                     f'Invalid coordinate ("y") for points defined over {self.crs}'
                 )
-            return super().y
+            return self._shapely_point.y
     
         @property
         def z(self):
-            if not self.crs == "cartesian-3d":
+            if not self._crs == "cartesian-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("z") for points defined over {self.crs}'
                 )
-            return super().z
+            return self._shapely_point.z
     
         @property
         def latitude(self):
-            if not self.crs.startswith("wgs-84"):
+            if not self._crs.startswith("wgs-84"):
                 raise AttributeError(
                     f'Invalid coordinate ("latitude") for points defined over {self.crs}'
                 )
-            return super().y
+            return self._shapely_point.y
     
         @property
         def longitude(self):
-            if not self.crs.startswith("wgs-84"):
+            if not self._crs.startswith("wgs-84"):
                 raise AttributeError(
                     f'Invalid coordinate ("longitude") for points defined over {self.crs}'
                 )
-            return super().x
+            return self._shapely_point.x
     
         @property
         def height(self):
-            if not self.crs == "wgs-84-3d":
+            if not self._crs == "wgs-84-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("height") for points defined over {self.crs}'
                 )
-            return super().z
+            return self._shapely_point.z
     
         # The following operations are necessary here due to the way queries (and more importantly their parameters) get
         # combined and evaluated in neomodel. Specifically, query expressions get duplicated with deep copies and any valid
         # datatype values should also implement these operations.
         def __copy__(self):
             return NeomodelPoint(self)
-
+    
         def __deepcopy__(self, memo):
             return NeomodelPoint(self)
+
+        def __getattr__(self, attr):
+            """
+            Route messages to the right underlying object.
+            """
+            return getattr(self._shapely_point, attr)
 
 
 class PointProperty(Property):
