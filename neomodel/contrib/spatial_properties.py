@@ -419,7 +419,7 @@ else:
         @property
         def x(self):
             if not self._crs.startswith("cartesian"):
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("x") for points defined over {self.crs}'
                 )
             return self._shapely_point.x
@@ -427,7 +427,7 @@ else:
         @property
         def y(self):
             if not self._crs.startswith("cartesian"):
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("y") for points defined over {self.crs}'
                 )
             return self._shapely_point.y
@@ -435,7 +435,7 @@ else:
         @property
         def z(self):
             if not self._crs == "cartesian-3d":
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("z") for points defined over {self.crs}'
                 )
             return self._shapely_point.z
@@ -443,7 +443,7 @@ else:
         @property
         def latitude(self):
             if not self._crs.startswith("wgs-84"):
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("latitude") for points defined over {self.crs}'
                 )
             return self._shapely_point.y
@@ -451,7 +451,7 @@ else:
         @property
         def longitude(self):
             if not self._crs.startswith("wgs-84"):
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("longitude") for points defined over {self.crs}'
                 )
             return self._shapely_point.x
@@ -459,7 +459,7 @@ else:
         @property
         def height(self):
             if not self._crs == "wgs-84-3d":
-                raise AttributeError(
+                raise TypeError(
                     f'Invalid coordinate ("height") for points defined over {self.crs}'
                 )
             return self._shapely_point.z

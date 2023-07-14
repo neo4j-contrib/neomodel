@@ -306,22 +306,22 @@ def test_property_accessors_depending_on_crs():
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
         (0.0, 0.0, 0.0), crs="cartesian-3d"
     )
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("longitude"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("longitude"\)'):
         new_point.longitude
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("latitude"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("latitude"\)'):
         new_point.latitude
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("height"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("height"\)'):
         new_point.height
 
     # Geographical points only have longitude, latitude, height coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
         (0.0, 0.0, 0.0), crs="wgs-84-3d"
     )
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("x"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("x"\)'):
         new_point.x
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("y"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("y"\)'):
         new_point.y
-    with pytest.raises(AttributeError, match=r'Invalid coordinate \("z"\)'):
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("z"\)'):
         new_point.z
 
 
