@@ -52,7 +52,7 @@ SRID_TO_CRS = {
 }
 
 # Taking into account the Shapely 2.0.0 changes in the way POINT objects are initialisd.
-if int(shapely_version.replace(".", "")) <= 200:
+if int("".join(shapely_version.split(".")[0:3])) < 200:
     class NeomodelPoint(ShapelyPoint):
         """
         Abstracts the Point spatial data type of Neo4j.
