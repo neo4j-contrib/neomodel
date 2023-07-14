@@ -480,8 +480,11 @@ else:
             return getattr(self._shapely_point, attr)
 
         def __eq__(self, other):
+            """
+            Compare objects by value
+            """
             if not isinstance(other, (ShapelyPoint, NeomodelPoint)):
-                raise ValueException("No")
+                raise ValueException(f"NeomodelPoint equality comparison expected NeomodelPoint or Shapely Point, received {type(other)}")
             else:
                 return self.coords[0] == other.coords[0] and self.crs == other.crs
 
