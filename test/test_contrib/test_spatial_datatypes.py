@@ -290,7 +290,7 @@ def test_prohibited_constructor_forms():
         _ = neomodel.contrib.spatial_properties.NeomodelPoint()
 
 
-def test_property_accessors_depending_on_crs():
+def test_property_accessors_depending_on_crs_shapely_lt_2():
     """
     Tests that points are accessed via their respective accessors.
 
@@ -302,6 +302,58 @@ def test_property_accessors_depending_on_crs():
         340, "This version does not support spatial data types."
     )
 
+    # Check the version of Shapely installed to run the appropriate tests:
+    try:
+        from shapely import __version__
+    except ImportError:
+        pytest.skip("Shapely not installed")
+
+    if int("".join(__version__.split(".")[0:3])) >= 200:
+        pytest.skip("Shapely 2 is installed, skipping earlier version test")
+
+    # Geometrical points only have x,y,z coordinates
+    new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0.0, 0.0, 0.0), crs="cartesian-3d"
+    )
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("longitude"\)'):
+        new_point.longitude
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("latitude"\)'):
+        new_point.latitude
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("height"\)'):
+        new_point.height
+
+    # Geographical points only have longitude, latitude, height coordinates
+    new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0.0, 0.0, 0.0), crs="wgs-84-3d"
+    )
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("x"\)'):
+        new_point.x
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("y"\)'):
+        new_point.y
+    with pytest.raises(AttributeError, match=r'Invalid coordinate \("z"\)'):
+        new_point.z
+
+    
+def test_property_accessors_depending_on_crs_shapely_gte_2():
+    """
+    Tests that points are accessed via their respective accessors.
+
+    :return:
+    """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(
+        340, "This version does not support spatial data types."
+    )
+
+    # Check the version of Shapely installed to run the appropriate tests:
+    try:
+        from shapely import __version__
+    except ImportError:
+        pytest.skip("Shapely not installed")
+
+    if int("".join(__version__.split(".")[0:3])) < 200:
+        pytest.skip("Shapely < 2.0.0 is installed, skipping test")
     # Geometrical points only have x,y,z coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
         (0.0, 0.0, 0.0), crs="cartesian-3d"
