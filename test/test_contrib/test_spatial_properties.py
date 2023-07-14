@@ -274,7 +274,7 @@ def test_equality_with_other_objects():
     except ImportError:
         pytest.skip("Shapely module not present")
 
-    if int(__version__.replace(".", "")) < 200:
+    if int("".join(__version__.split(".")[0:3])) < 200:
         pytest.skip(f"Shapely 2.0 not present (Current version is {__version__}")
 
     assert neomodel.contrib.spatial_properties.NeomodelPoint((0,0)) == neomodel.contrib.spatial_properties.NeomodelPoint(x=0, y=0)
