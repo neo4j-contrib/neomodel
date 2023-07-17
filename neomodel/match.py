@@ -401,8 +401,8 @@ class QueryBuilder:
         if name not in self._ast[key] and name != self._ast.get("return"):
             self._ast[key].append(name)
 
-    def build_traversal_from_path(self, path: dict, source_class) -> str:
-        path: str = path["path"]
+    def build_traversal_from_path(self, relation: dict, source_class) -> str:
+        path: str = relation["path"]
         stmt: str = ""
         source_class_iterator = source_class
         for index, part in enumerate(path.split("__")):
@@ -443,7 +443,7 @@ class QueryBuilder:
             )
             source_class_iterator = relationship.definition["node_class"]
 
-        if path.get("optional"):
+        if relation.get("optional"):
             self._ast["optional match"].append(stmt)
         else:
             self._ast["match"].append(stmt)
