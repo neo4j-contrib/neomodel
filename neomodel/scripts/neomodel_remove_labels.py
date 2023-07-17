@@ -4,7 +4,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from os import environ
 
-from neomodel import db, remove_all_labels
+from .. import db, remove_all_labels
 
 
 def main():
