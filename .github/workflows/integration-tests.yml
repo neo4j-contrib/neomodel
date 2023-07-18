@@ -26,8 +26,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Creating Neo4j Container
       run: |
-        chmod +x ./scripts/docker-neo4j.sh
-        sh ./scripts/docker-neo4j.sh ${{ matrix.neo4j-version }}
+        chmod +x ./docker-scripts/docker-neo4j.sh
+        sh ./docker-scripts/docker-neo4j.sh ${{ matrix.neo4j-version }}
         sleep 30s
     - name: Install dependencies
       run: |
