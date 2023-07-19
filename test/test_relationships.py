@@ -11,6 +11,7 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
 )
+from neomodel.core import db
 
 
 class PersonWithRels(StructuredNode):
@@ -90,10 +91,10 @@ def test_either_direction_connect():
     sakis.knows.connect(rey)
 
     result, _ = sakis.cypher(
-        """MATCH (us), (them)
-            WHERE id(us)=$self and id(them)=$them
+        f"""MATCH (us), (them)
+            WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
-        {"them": rey.id},
+        {"them": rey.element_id},
     )
     assert int(result[0][0]) == 1
 

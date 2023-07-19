@@ -123,11 +123,11 @@ def test_multiple_rels_exist_issue_223():
 
     rel_a = phill.hates.connect(ian, {"reason": "a"})
     rel_b = phill.hates.connect(ian, {"reason": "b"})
-    assert rel_a.id != rel_b.id
+    assert rel_a.element_id != rel_b.element_id
 
     ian_a = phill.hates.match(reason="a")[0]
     ian_b = phill.hates.match(reason="b")[0]
-    assert ian_a.id == ian_b.id
+    assert ian_a.element_id == ian_b.element_id
 
 
 def test_retrieve_all_rels():
@@ -139,8 +139,8 @@ def test_retrieve_all_rels():
 
     rels = tom.hates.all_relationships(ian)
     assert len(rels) == 2
-    assert rels[0].id in [rel_a.id, rel_b.id]
-    assert rels[1].id in [rel_a.id, rel_b.id]
+    assert rels[0].element_id in [rel_a.element_id, rel_b.element_id]
+    assert rels[1].element_id in [rel_a.element_id, rel_b.element_id]
 
 
 def test_save_hook_on_rel_model():

@@ -1,7 +1,12 @@
+Version 5.1.0 2023-07
+* Bumped neo4j-driver version to 5.10.0
+* Breaking change : When using neomodel along with Neo4j version 5, use StructuredNode and StructuredRel's element_id property instead of id. If you have Cypher queries which currently use the id() function, migrate them to elementId() instead.
+If you use Neo4j version 4.4, this change should be transparent to you, and you should keep using id() function in Cypher since elementId() is not implemented in 4.4.
+* Removed custom __str__ method, part of NodeClassRegistry, from Database() (db) object.
+
 Version 5.0.1 2023-06
 * Removed deprecated methods StructuredRel.delete and RelationshipManager.search
 * Extended test coverage, fixed some typos, improve linting
-* Upcoming breaking change notice : Version 5.1.0 will introduce a breaking change for users targeting a Neo4j database in version 5. This release will introduce Neo4j's new element_id, which replaces id. The breaking change will happen if you have custom Cypher queries that do things like "WHERE id(n)=$id" => you will have to use Cypher's elementId() function instead starting from neomodel 5.1.0
 
 Version 5.0.0 2023-03
 * Confirmed support of Neo4j versions 5.x and 4.4 (LTS)

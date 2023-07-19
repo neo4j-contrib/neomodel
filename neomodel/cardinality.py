@@ -128,7 +128,7 @@ class One(RelationshipManager):
         :param properties: relationship properties
         :return: True / rel instance
         """
-        if not hasattr(self.source, "id"):
+        if not hasattr(self.source, "element_id"):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
