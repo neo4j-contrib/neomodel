@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from importlib import import_module
 from os import environ, path
 
-from neomodel import db, install_all_labels
+from .. import db, install_all_labels
 
 
 def load_python_module_or_file(name):

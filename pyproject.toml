@@ -74,5 +74,5 @@ max-attributes = 10
 max-args = 8
 
 [project.scripts]
-neomodel_install_labels = "scripts.neomodel_install_labels:main"
-neomodel_remove_labels = "scripts.neomodel_remove_labels:main"
+neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
+neomodel_remove_labels = "neomodel.scripts.neomodel_remove_labels:main"
