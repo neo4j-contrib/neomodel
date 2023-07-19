@@ -33,12 +33,12 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j-driver==4.4.10",
+    "neo4j==5.10.0",
     "pytz>=2021.1",
     "neobolt==1.7.17",
     "six==1.16.0",
 ]
-version='5.0.1'
+version='5.1.0'
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
@@ -52,7 +52,7 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=1.8.1,<1.9"
+    "Shapely>=2.0.0"
 ]
 
 [tool.pytest.ini_options]
@@ -74,5 +74,5 @@ max-attributes = 10
 max-args = 8
 
 [project.scripts]
-neomodel_install_labels = "scripts.neomodel_install_labels:main"
-neomodel_remove_labels = "scripts.neomodel_remove_labels:main"
+neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
+neomodel_remove_labels = "neomodel.scripts.neomodel_remove_labels:main"

@@ -4,9 +4,11 @@ import sys
 import time
 import warnings
 from threading import local
+from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
+from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, SessionExpired
 from neo4j.graph import Node, Relationship
 
@@ -37,51 +39,32 @@ def ensure_connection(func):
     return wrapper
 
 
-def change_neo4j_password(db, new_password):
-    db.cypher_query("CALL dbms.changePassword($password)", {"password": new_password})
+def change_neo4j_password(db, user, new_password):
+    db.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 
 
 def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
-    db.cypher_query("MATCH (a) DETACH DELETE a")
+    db.cypher_query(
+        """
+        MATCH (a)
+        CALL { WITH a DETACH DELETE a }
+        IN TRANSACTIONS OF 5000 rows
+    """
+    )
     if clear_constraints:
         core.drop_constraints()
     if clear_indexes:
         core.drop_indexes()
 
 
-# pylint:disable=too-few-public-methods
-class NodeClassRegistry:
-    """
-    A singleton class via which all instances share the same Node Class Registry.
-    """
-
-    # Maintains a lookup directory that is used by cypher_query
-    # to infer which class to instantiate by examining the labels of the
-    # node in the resultset.
-    # _NODE_CLASS_REGISTRY is populated automatically by the constructor
-    # of the NodeMeta type.
-    _NODE_CLASS_REGISTRY = {}
-
-    def __init__(self):
-        self.__dict__["_NODE_CLASS_REGISTRY"] = self._NODE_CLASS_REGISTRY
-
-    def __str__(self):
-        ncr_items = list(
-            map(
-                lambda x: f"{','.join(x[0])} --> {x[1]}",
-                self._NODE_CLASS_REGISTRY.items(),
-            )
-        )
-        return "\n".join(ncr_items)
-
-
-class Database(local, NodeClassRegistry):
+class Database(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
+    _NODE_CLASS_REGISTRY = {}
+
     def __init__(self):
-        """ """
         self._active_transaction = None
         self.url = None
         self.driver = None
@@ -89,6 +72,7 @@ class Database(local, NodeClassRegistry):
         self._pid = None
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
+        self.database_version = None
 
     def set_connection(self, url):
         """
@@ -134,7 +118,7 @@ class Database(local, NodeClassRegistry):
 
         if "+s" not in parsed_url.scheme:
             options["encrypted"] = config.ENCRYPTED
-            options["trust"] = config.TRUST
+            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
         self.driver = GraphDatabase.driver(
             parsed_url.scheme + "://" + hostname, **options
@@ -143,6 +127,11 @@ class Database(local, NodeClassRegistry):
         self._pid = os.getpid()
         self._active_transaction = None
         self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
+
+        results = self.cypher_query(
+            "CALL dbms.components() yield versions return versions[0]"
+        )
+        self.database_version = results[0][0][0]
 
     @property
     def transaction(self):
@@ -162,9 +151,12 @@ class Database(local, NodeClassRegistry):
     @ensure_connection
     def begin(self, access_mode=None, **parameters):
         """
-        Begins a new transaction, raises SystemError exception if a transaction is in progress
+        Begins a new transaction. Raises SystemError if a transaction is already active.
         """
-        if self._active_transaction:
+        if (
+            hasattr(self, "_active_transaction")
+            and self._active_transaction is not None
+        ):
             raise SystemError("Transaction in progress")
         self._session = self.driver.session(
             default_access_mode=access_mode,
@@ -176,32 +168,36 @@ class Database(local, NodeClassRegistry):
     @ensure_connection
     def commit(self):
         """
-        Commits the current transaction
+        Commits the current transaction and closes its session
 
-        :return: last_bookmark
+        :return: last_bookmarks
         """
         try:
             self._active_transaction.commit()
-            last_bookmark = self._session.last_bookmark()
+            last_bookmarks = self._session.last_bookmarks()
         finally:
             # In case when something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
+            self._active_transaction.close()
+            self._session.close()
             self._active_transaction = None
             self._session = None
 
-        return last_bookmark
+        return last_bookmarks
 
     @ensure_connection
     def rollback(self):
         """
-        Rolls back the current transaction
+        Rolls back the current transaction and closes its session
         """
         try:
             self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
+            self._active_transaction.close()
+            self._session.close()
             self._active_transaction = None
             self._session = None
 
@@ -295,14 +291,39 @@ class Database(local, NodeClassRegistry):
         :type: bool
         """
 
-        if self._pid != os.getpid():
-            self.set_connection(self.url)
-
         if self._active_transaction:
-            session = self._active_transaction
+            # Use current session is a transaction is currently active
+            results, meta = self._run_cypher_query(
+                self._active_transaction,
+                query,
+                params,
+                handle_unique,
+                retry_on_session_expire,
+                resolve_objects,
+            )
         else:
-            session = self.driver.session(database=self._database_name)
+            # Otherwise create a new session in a with to dispose of it after it has been run
+            with self.driver.session(database=self._database_name) as session:
+                results, meta = self._run_cypher_query(
+                    session,
+                    query,
+                    params,
+                    handle_unique,
+                    retry_on_session_expire,
+                    resolve_objects,
+                )
 
+        return results, meta
+
+    def _run_cypher_query(
+        self,
+        session,
+        query,
+        params,
+        handle_unique,
+        retry_on_session_expire,
+        resolve_objects,
+    ):
         try:
             # Retrieve the data
             start = time.time()
@@ -347,9 +368,45 @@ class Database(local, NodeClassRegistry):
 
         return results, meta
 
+    def get_id_method(self) -> str:
+        if self.database_version.startswith("4"):
+            return "id"
+        else:
+            return "elementId"
+
+    def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
+        """Returns all indexes existing in the database
+
+        Arguments:
+            exclude_token_lookup[bool]: Exclude automatically create token lookup indexes
+
+        Returns:
+            Sequence[dict]: List of dictionaries, each entry being an index definition
+        """
+        indexes, meta_indexes = self.cypher_query("SHOW INDEXES")
+        indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
+
+        if exclude_token_lookup:
+            indexes_as_dict = [
+                obj for obj in indexes_as_dict if obj["type"] != "LOOKUP"
+            ]
+
+        return indexes_as_dict
+
+    def list_constraints(self) -> Sequence[dict]:
+        """Returns all constraints existing in the database
+
+        Returns:
+            Sequence[dict]: List of dictionaries, each entry being a constraint definition
+        """
+        constraints, meta_constraints = self.cypher_query("SHOW CONSTRAINTS")
+        constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
+
+        return constraints_as_dict
+
 
 class TransactionProxy:
-    bookmarks = None
+    bookmarks: Optional[Bookmarks] = None
 
     def __init__(self, db, access_mode=None):
         self.db = db
@@ -357,16 +414,8 @@ class TransactionProxy:
 
     @ensure_connection
     def __enter__(self):
-        if self.bookmarks is None:
-            self.db.begin(access_mode=self.access_mode)
-        else:
-            bookmarks = (
-                (self.bookmarks,)
-                if isinstance(self.bookmarks, (str, bytes))
-                else tuple(self.bookmarks)
-            )
-            self.db.begin(access_mode=self.access_mode, bookmarks=bookmarks)
-            self.bookmarks = None
+        self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
+        self.bookmarks = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

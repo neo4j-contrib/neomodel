@@ -64,7 +64,7 @@ class RelationshipManager(object):
         elif self.definition["direction"] == INCOMING:
             direction = "a incoming"
 
-        return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.id}) of class '{self.source_class.__name__}'"
+        return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
@@ -72,7 +72,7 @@ class RelationshipManager(object):
             raise ValueError(
                 "Expected node of class " + self.definition["node_class"].__name__
             )
-        if not hasattr(obj, "id"):
+        if not hasattr(obj, "element_id"):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
@@ -120,11 +120,11 @@ class RelationshipManager(object):
             **self.definition,
         )
         q = (
-            "MATCH (them), (us) WHERE id(them)=$them and id(us)=$self "
+            f"MATCH (them), (us) WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self "
             "MERGE" + new_rel
         )
 
-        params["them"] = node.id
+        params["them"] = node.element_id
 
         if not rel_model:
             self.source.cypher(q, params)
@@ -164,9 +164,9 @@ class RelationshipManager(object):
         q = (
             "MATCH "
             + my_rel
-            + " WHERE id(them)=$them and id(us)=$self RETURN r LIMIT 1"
+            + f" WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        rels = self.source.cypher(q, {"them": node.id})[0]
+        rels = self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
             return
 
@@ -185,8 +185,8 @@ class RelationshipManager(object):
         self._check_node(node)
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
-        q = "MATCH " + my_rel + " WHERE id(them)=$them and id(us)=$self RETURN r "
-        rels = self.source.cypher(q, {"them": node.id})[0]
+        q = f"MATCH {my_rel} WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r "
+        rels = self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
             return []
 
@@ -218,15 +218,17 @@ class RelationshipManager(object):
 
         self._check_node(old_node)
         self._check_node(new_node)
-        if old_node.id == new_node.id:
+        if old_node.element_id == new_node.element_id:
             return
         old_rel = _rel_helper(lhs="us", rhs="old", ident="r", **self.definition)
 
         # get list of properties on the existing rel
         result, _ = self.source.cypher(
-            "MATCH (us), (old) WHERE id(us)=$self and id(old)=$old "
-            "MATCH " + old_rel + " RETURN r",
-            {"old": old_node.id},
+            f"""
+                MATCH (us), (old) WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(old)=$old
+                MATCH {old_rel} RETURN r
+            """,
+            {"old": old_node.element_id},
         )
         if result:
             node_properties = _get_node_properties(result[0][0])
@@ -238,7 +240,7 @@ class RelationshipManager(object):
         new_rel = _rel_merge_helper(lhs="us", rhs="new", ident="r2", **self.definition)
         q = (
             "MATCH (us), (old), (new) "
-            "WHERE id(us)=$self and id(old)=$old and id(new)=$new "
+            f"WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(old)=$old and {db.get_id_method()}(new)=$new "
             "MATCH " + old_rel
         )
         q += " MERGE" + new_rel
@@ -248,7 +250,7 @@ class RelationshipManager(object):
             q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
         q += " WITH r DELETE r"
 
-        self.source.cypher(q, {"old": old_node.id, "new": new_node.id})
+        self.source.cypher(q, {"old": old_node.element_id, "new": new_node.element_id})
 
     @check_source
     def disconnect(self, node):
@@ -259,11 +261,11 @@ class RelationshipManager(object):
         :return:
         """
         rel = _rel_helper(lhs="a", rhs="b", ident="r", **self.definition)
-        q = (
-            "MATCH (a), (b) WHERE id(a)=$self and id(b)=$them "
-            "MATCH " + rel + " DELETE r"
-        )
-        self.source.cypher(q, {"them": node.id})
+        q = f"""
+                MATCH (a), (b) WHERE {db.get_id_method()}(a)=$self and {db.get_id_method()}(b)=$them
+                MATCH {rel} DELETE r
+            """
+        self.source.cypher(q, {"them": node.element_id})
 
     @check_source
     def disconnect_all(self):
@@ -274,7 +276,7 @@ class RelationshipManager(object):
         """
         rhs = "b:" + self.definition["node_class"].__label__
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
-        q = "MATCH (a) WHERE id(a)=$self MATCH " + rel + " DELETE r"
+        q = f"MATCH (a) WHERE {db.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
         self.source.cypher(q)
 
     @check_source

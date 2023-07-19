@@ -33,7 +33,9 @@ Utilities
 =========
 The following utility functions are available::
 
-    clear_neo4j_database(db)  # deletes all nodes and relationships
+    # Deletes all nodes and relationships.
+    # Optionally, can drop all constraints and/or indexes. It preserves the default lookup indexes
+    clear_neo4j_database(db, clear_constraints=False, clear_indexes=False)
 
-    # Change database password (you will need to call db.set_connection(...) after
-    change_neo4j_password(db, new_password)
+    # Change database password (you will need to call db.set_connection(...) to reset connection)
+    change_neo4j_password(db, user, new_password)

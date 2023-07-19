@@ -2,6 +2,7 @@ class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
     """
+
     pass
 
 
@@ -11,6 +12,7 @@ class AttemptedCardinalityViolation(NeomodelException):
 
     Example: a relationship of type `One` trying to connect a second node.
     """
+
     pass
 
 
@@ -26,7 +28,9 @@ class CardinalityViolation(NeomodelException):
         self.actual = str(actual)
 
     def __str__(self):
-        return f"CardinalityViolation: Expected: {self.rel_manager}, got: {self.actual}."
+        return (
+            f"CardinalityViolation: Expected: {self.rel_manager}, got: {self.actual}."
+        )
 
 
 class ModelDefinitionException(NeomodelException):
@@ -88,6 +92,7 @@ class RelationshipClassNotDefined(ModelDefinitionException):
         relationship_type = self.db_node_rel_class.type
         return f"Relationship of type {relationship_type} does not resolve to any of the known objects\n{self._get_node_class_registry_formatted()}\n"
 
+
 class RelationshipClassRedefined(ModelDefinitionException):
     """
     Raised when an attempt is made to re-map a relationship label to a relationship model of an entirely different type
@@ -127,6 +132,7 @@ class NodeClassAlreadyDefined(ModelDefinitionException):
         node_class_labels = ",".join(self.db_node_rel_class.inherited_labels())
 
         return f"Class {self.db_node_rel_class.__module__}.{self.db_node_rel_class.__name__} with labels {node_class_labels} already defined:\n{self._get_node_class_registry_formatted()}\n"
+
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
     def __init__(self, msg):
@@ -186,6 +192,7 @@ class InflateError(ValueError, NeomodelException):
     def __str__(self):
         return f"Attempting to inflate property '{self.property_name}' on {self.obj} of class '{self.node_class.__name__}': {self.msg}"
 
+
 class DeflateConflict(InflateConflict):
     def __init__(self, cls, key, value, nid):
         self.cls_name = cls.__name__
@@ -195,6 +202,7 @@ class DeflateConflict(InflateConflict):
 
     def __str__(self):
         return f"Found trying to set property '{self.property_name}' with value '{self.value}' on node {self.nid} although class {self.cls_name} already has a property '{self.property_name}'"
+
 
 class MultipleNodesReturned(ValueError, NeomodelException):
     def __init__(self, msg):
@@ -208,7 +216,8 @@ class NotConnected(NeomodelException):
         self.node2 = node2
 
     def __str__(self):
-        return f"Error performing '{self.action}' - Node {self.node1.id} of type '{self.node1.__class__.__name__}' is not connected to {self.node2.id} of type '{self.node2.__class__.__name__}'."
+        return f"Error performing '{self.action}' - Node {self.node1.element_id} of type '{self.node1.__class__.__name__}' is not connected to {self.node2.element_id} of type '{self.node2.__class__.__name__}'."
+
 
 class RequiredProperty(NeomodelException):
     def __init__(self, key, cls):
