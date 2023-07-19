@@ -408,12 +408,6 @@ class StructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
-    def category(cls):
-        raise NotImplementedError(
-            f"Category was deprecated and has now been removed, the functionality is now achieved using the {cls.__name__}.nodes attribute"
-        )
-
-    @classmethod
     def create(cls, *props, **kwargs):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.

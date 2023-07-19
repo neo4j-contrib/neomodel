@@ -574,7 +574,9 @@ class QueryBuilder:
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
-        # product issues...). This part will need some refinement!
+        # product issues...).
+        # There might be optimizations to be done, using projections,
+        # or pusing patterns instead of a chain of OPTIONAL MATCH.
         if len(self._ast["match"]) > 0:
             query += " MATCH "
             query += " MATCH ".join(i for i in self._ast["match"])
@@ -948,7 +950,7 @@ class Traversal(BaseSet):
             "relation_type",
         }
         if invalid_keys:
-            raise ValueError(f"Unallowed keys in Traversal definition: {invalid_keys}")
+            raise ValueError(f"Prohibited keys in Traversal definition: {invalid_keys}")
 
         self.definition = definition
         self.target_class = definition["node_class"]
