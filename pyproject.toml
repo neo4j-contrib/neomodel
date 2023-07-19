@@ -52,7 +52,7 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=1.8.1,<1.9"
+    "Shapely>=2.0.0"
 ]
 
 [tool.pytest.ini_options]
