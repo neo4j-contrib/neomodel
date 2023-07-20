@@ -12,6 +12,11 @@ from neomodel.util import Database, _get_node_properties, _UnsavedNode, classpro
 
 db = Database()
 
+RULE_ALREADY_EXISTS = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
+INDEX_ALREADY_EXISTS = "Neo.ClientError.Schema.IndexAlreadyExists"
+CONSTRAINT_ALREADY_EXISTS = "Neo.ClientError.Schema.ConstraintAlreadyExists"
+STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg"
+
 
 def drop_constraints(quiet=True, stdout=None):
     """
@@ -100,76 +105,102 @@ def install_labels(cls, quiet=True, stdout=None):
             )
         return
 
-    # Create indexes and constraints for node properties
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
-        db_property = property.db_property or name
-        if property.index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
-            try:
-                db.cypher_query(
-                    f"CREATE INDEX index_{cls.__label__}_{db_property} FOR (n:{cls.__label__}) ON (n.{db_property}); "
-                )
-            except ClientError as e:
-                if e.code in (
-                    "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                    "Neo.ClientError.Schema.IndexAlreadyExists",
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
+        _install_node(cls, name, property, quiet, stdout)
 
-        elif property.unique_index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
-            try:
-                db.cypher_query(
-                    f"""CREATE CONSTRAINT constraint_unique_{cls.__label__}_{db_property} 
-                                FOR (n:{cls.__label__}) REQUIRE n.{db_property} IS UNIQUE"""
-                )
-            except ClientError as e:
-                if e.code in (
-                    "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                    "Neo.ClientError.Schema.ConstraintAlreadyExists",
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-
-        # TODO : Add support for existence constraints
-
-    # Create indexes and constraints for relationship properties
     for _, relationship in cls.defined_properties(
         aliases=False, rels=True, properties=False
     ).items():
-        relationship_cls = relationship.definition["model"]
-        if relationship_cls is not None:
-            relationship_type = relationship.definition["relation_type"]
-            for prop_name, property in relationship_cls.defined_properties(
-                aliases=False, rels=False
-            ).items():
-                db_property = property.db_property or prop_name
-                if property.index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
-                    try:
-                        db.cypher_query(
-                            f"CREATE INDEX index_{relationship_type}_{db_property} FOR ()-[r:{relationship_type}]-() ON (r.{db_property}); "
-                        )
-                    except ClientError as e:
-                        if e.code in (
-                            "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                            "Neo.ClientError.Schema.IndexAlreadyExists",
-                        ):
-                            stdout.write(f"{str(e)}\n")
-                        else:
-                            raise
+        _install_relationship(cls, relationship, quiet, stdout)
+
+
+def _create_node_index(label: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"CREATE INDEX index_{label}_{property_name} FOR (n:{label}) ON (n.{property_name}); "
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            INDEX_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _create_node_constraint(label: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"""CREATE CONSTRAINT constraint_unique_{label}_{property_name} 
+                        FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            CONSTRAINT_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _create_relationship_index(relationship_type: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"CREATE INDEX index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            INDEX_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _install_node(cls, name, property, quiet, stdout):
+    # Create indexes and constraints for node property
+    db_property = property.db_property or name
+    if property.index:
+        if not quiet:
+            stdout.write(
+                f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
+            )
+        _create_node_index(
+            label=cls.__label__, property_name=db_property, stdout=stdout
+        )
+
+    elif property.unique_index:
+        if not quiet:
+            stdout.write(
+                f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
+            )
+        _create_node_constraint(
+            label=cls.__label__, property_name=db_property, stdout=stdout
+        )
+
+
+def _install_relationship(cls, relationship, quiet, stdout):
+    # Create indexes and constraints for relationship property
+    relationship_cls = relationship.definition["model"]
+    if relationship_cls is not None:
+        relationship_type = relationship.definition["relation_type"]
+        for prop_name, property in relationship_cls.defined_properties(
+            aliases=False, rels=False
+        ).items():
+            db_property = property.db_property or prop_name
+            if property.index:
+                if not quiet:
+                    stdout.write(
+                        f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
+                    )
+                _create_relationship_index(
+                    relationship_type=relationship_type,
+                    property_name=db_property,
+                    stdout=stdout,
+                )
 
 
 def install_all_labels(stdout=None):
@@ -249,24 +280,28 @@ class NodeMeta(type):
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls, quiet=False)
 
-            base_label_set = frozenset(cls.inherited_labels())
-            optional_label_set = set(cls.inherited_optional_labels())
-
-            # Construct all possible combinations of labels + optional labels
-            possible_label_combinations = [
-                frozenset(set(x).union(base_label_set))
-                for i in range(1, len(optional_label_set) + 1)
-                for x in combinations(optional_label_set, i)
-            ]
-            possible_label_combinations.append(base_label_set)
-
-            for label_set in possible_label_combinations:
-                if label_set not in db._NODE_CLASS_REGISTRY:
-                    db._NODE_CLASS_REGISTRY[label_set] = cls
-                else:
-                    raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+            build_class_registry(cls)
 
         return cls
+
+
+def build_class_registry(cls):
+    base_label_set = frozenset(cls.inherited_labels())
+    optional_label_set = set(cls.inherited_optional_labels())
+
+    # Construct all possible combinations of labels + optional labels
+    possible_label_combinations = [
+        frozenset(set(x).union(base_label_set))
+        for i in range(1, len(optional_label_set) + 1)
+        for x in combinations(optional_label_set, i)
+    ]
+    possible_label_combinations.append(base_label_set)
+
+    for label_set in possible_label_combinations:
+        if label_set not in db._NODE_CLASS_REGISTRY:
+            db._NODE_CLASS_REGISTRY[label_set] = cls
+        else:
+            raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
 
 
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
@@ -422,7 +457,7 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
@@ -491,7 +526,7 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
@@ -560,7 +595,7 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
