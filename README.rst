@@ -19,7 +19,7 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
 
 .. image:: https://sonarcloud.io/images/project_badges/sonarcloud-black.svg
     :alt: Scanned on SonarCloud
-    :scale: 100%
+    :scale: 50%
     :target: https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel
 
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
