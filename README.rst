@@ -17,7 +17,10 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
 .. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
-[![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-black.svg)](https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel)
+.. image:: https://sonarcloud.io/images/project_badges/sonarcloud-black.svg
+    :alt: Scanned on SonarCloud
+    :scale: 100%
+    :target: https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel
 
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
