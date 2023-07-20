@@ -49,8 +49,8 @@ def test_filter_exclude_via_labels():
 
     results = qb._execute()
 
-    assert "(coffee:Coffee)" in qb._ast["match"]
-    assert "result_class" in qb._ast
+    assert "(coffee:Coffee)" in qb._ast.match
+    assert qb._ast.result_class
     assert len(results) == 1
     assert isinstance(results[0], Coffee)
     assert results[0].name == "Java"
@@ -61,8 +61,8 @@ def test_filter_exclude_via_labels():
     qb = QueryBuilder(node_set).build_ast()
 
     results = qb._execute()
-    assert "(coffee:Coffee)" in qb._ast["match"]
-    assert "NOT" in qb._ast["where"][0]
+    assert "(coffee:Coffee)" in qb._ast.match
+    assert "NOT" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Kenco"
 
@@ -75,7 +75,7 @@ def test_simple_has_via_label():
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
-    assert "COFFEE SUPPLIERS" in qb._ast["where"][0]
+    assert "COFFEE SUPPLIERS" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Nescafe"
 
@@ -84,7 +84,7 @@ def test_simple_has_via_label():
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
     assert len(results) > 0
-    assert "NOT" in qb._ast["where"][0]
+    assert "NOT" in qb._ast.where[0]
 
 
 def test_get():
@@ -109,9 +109,9 @@ def test_simple_traverse_with_filter():
 
     results = qb.build_ast()._execute()
 
-    assert "lookup" in qb._ast
-    assert "match" in qb._ast
-    assert qb._ast["return"] == "suppliers"
+    assert qb._ast.lookup
+    assert qb._ast.match
+    assert qb._ast.return_clause == "suppliers"
     assert len(results) == 1
     assert results[0].name == "Sainsburys"
 
@@ -209,14 +209,14 @@ def test_order_by():
 
     ns = Coffee.nodes.order_by("-price")
     qb = QueryBuilder(ns).build_ast()
-    assert qb._ast["order_by"]
+    assert qb._ast.order_by
     ns = ns.order_by(None)
     qb = QueryBuilder(ns).build_ast()
-    assert not qb._ast["order_by"]
+    assert not qb._ast.order_by
     ns = ns.order_by("?")
     qb = QueryBuilder(ns).build_ast()
-    assert qb._ast["with"] == "coffee, rand() as r"
-    assert qb._ast["order_by"] == "r"
+    assert qb._ast.with_clause == "coffee, rand() as r"
+    assert qb._ast.order_by == "r"
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()

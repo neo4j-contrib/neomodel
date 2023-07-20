@@ -246,8 +246,7 @@ class RelationshipManager(object):
         q += " MERGE" + new_rel
 
         # copy over properties if we have
-        for p in existing_properties:
-            q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
+        q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
         q += " WITH r DELETE r"
 
         self.source.cypher(q, {"old": old_node.element_id, "new": new_node.element_id})
