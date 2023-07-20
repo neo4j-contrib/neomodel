@@ -185,9 +185,10 @@ def install_all_labels(stdout=None):
         stdout = sys.stdout
 
     def subsub(cls):  # recursively return all subclasses
-        return cls.__subclasses__() + [
-            g for s in cls.__subclasses__() for g in subsub(s)
-        ]
+        subclasses = cls.__subclasses__()
+        if not subclasses:  # base case: no more subclasses
+            return []
+        return subclasses + [g for s in cls.__subclasses__() for g in subsub(s)]
 
     stdout.write("Setting up indexes and constraints...\n\n")
 
