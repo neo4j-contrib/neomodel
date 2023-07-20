@@ -222,7 +222,7 @@ if int("".join(shapely_version.split(".")[0:3])) < 200:
     
         @property
         def z(self):
-            if not self._crs == "cartesian-3d":
+            if self._crs != "cartesian-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("z") for points defined over {self.crs}'
                 )
@@ -246,7 +246,7 @@ if int("".join(shapely_version.split(".")[0:3])) < 200:
     
         @property
         def height(self):
-            if not self._crs == "wgs-84-3d":
+            if self._crs != "wgs-84-3d":
                 raise AttributeError(
                     f'Invalid coordinate ("height") for points defined over {self.crs}'
                 )
@@ -434,7 +434,7 @@ else:
     
         @property
         def z(self):
-            if not self._crs == "cartesian-3d":
+            if self._crs != "cartesian-3d":
                 raise TypeError(
                     f'Invalid coordinate ("z") for points defined over {self.crs}'
                 )
@@ -458,7 +458,7 @@ else:
     
         @property
         def height(self):
-            if not self._crs == "wgs-84-3d":
+            if self._crs != "wgs-84-3d":
                 raise TypeError(
                     f'Invalid coordinate ("height") for points defined over {self.crs}'
                 )
@@ -520,9 +520,7 @@ class PointProperty(Property):
             raise ValueError(f"Invalid CRS({crs}). Point properties require CRS to be one of {','.join(ACCEPTABLE_CRS)}")
 
         # If a default value is passed and it is not a callable, then make sure it is in the right type
-        if "default" in kwargs:
-            if not hasattr(kwargs["default"], "__call__"):
-                if not isinstance(kwargs["default"], NeomodelPoint):
+        if "default" in kwargs and not hasattr(kwargs["default"], "__call__") and not isinstance(kwargs["default"], NeomodelPoint):
                     raise TypeError(f"Invalid default value. Expected NeomodelPoint, received {type(kwargs['default'])}"
                     )
 
@@ -582,7 +580,7 @@ class PointProperty(Property):
                 f"Invalid datatype to deflate. Expected NeomodelPoint, received {type(value)}"
             )
 
-        if not value.crs == self._crs:
+        if value.crs != self._crs:
             raise ValueError(f"Invalid CRS. Expected NeomodelPoint defined over {self._crs}, received NeomodelPoint defined over {value.crs}")
 
         if value.crs == "cartesian-3d":
