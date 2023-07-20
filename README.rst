@@ -17,6 +17,8 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
 .. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
+[![SonarCloud](https://sonarcloud.io/images/project_badges/sonarcloud-black.svg)](https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel)
+
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
     :scale: 100%
@@ -30,7 +32,7 @@ Please look at the Issues page, and especially this thread for more information 
 
 **Please note:** 
 
-*This repository now tracks release 5.0 of neomodel that works with Neo4j 5.x and Neo4j 4.4*.
+*This repository now tracks release 5.1 of neomodel that works with Neo4j 5.x and Neo4j 4.4*.
 
 The last neomodel 4.x release was `neomodel 4.0.10 <https://pypi.org/project/neomodel/4.0.10/>`_.
 
