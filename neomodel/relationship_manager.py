@@ -449,7 +449,7 @@ class RelationshipDefinition:
         if model and not issubclass(model, (StructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
-    def _lookup_node_class(self):
+    def lookup_node_class(self):
         if not isinstance(self._raw_class, basestring):
             self.definition["node_class"] = self._raw_class
         else:
@@ -487,7 +487,7 @@ class RelationshipDefinition:
             self.definition["node_class"] = getattr(sys.modules[module], name)
 
     def build_manager(self, source, name):
-        self._lookup_node_class()
+        self.lookup_node_class()
         return self.manager(source, name, self.definition)
 
 

@@ -11,13 +11,6 @@ from .properties import AliasProperty
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
 def _rel_helper(
     lhs,
     rhs,
@@ -25,7 +18,6 @@ def _rel_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs,
 ):
     """
     Generate a relationship matching string, with specified parameters.
@@ -55,7 +47,7 @@ def _rel_helper(
         rel_props = f" {{{rel_props_str}}}"
 
     rel_def = ""
-    # direct, relation_type=None is unspecified, relation_type
+    # relation_type is unspecified
     if relation_type is None:
         rel_def = ""
     # all("*" wildcard) relation_type
@@ -89,7 +81,6 @@ def _rel_merge_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs,
 ):
     """
     Generate a relationship merging string, with specified parameters.
@@ -141,7 +132,7 @@ def _rel_merge_helper(
             rel_none_props = (
                 f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
             )
-    # direct, relation_type=None is unspecified, relation_type
+    # relation_type is unspecified
     if relation_type is None:
         stmt = stmt.format("")
     # all("*" wildcard) relation_type
@@ -213,7 +204,7 @@ def install_traversals(cls, node_set):
             raise ValueError(f"Cannot install traversal '{key}' exists on NodeSet")
 
         rel = getattr(cls, key)
-        rel._lookup_node_class()
+        rel.lookup_node_class()
 
         traversal = Traversal(source=node_set, name=key, definition=rel.definition)
         setattr(node_set, key, traversal)
@@ -259,7 +250,7 @@ def process_filter_args(cls, kwargs):
                 deflated_value = None
             elif operator in _REGEX_OPERATOR_TABLE.values():
                 deflated_value = property_obj.deflate(value)
-                if not isinstance(deflated_value, basestring):
+                if not isinstance(deflated_value, str):
                     raise ValueError(f"Must be a string value for {key}")
                 if operator in _STRING_REGEX_OPERATOR_TABLE.values():
                     deflated_value = re.escape(deflated_value)
@@ -290,7 +281,7 @@ def process_has_args(cls, kwargs):
 
         rhs_ident = key
 
-        rel_definitions[key]._lookup_node_class()
+        rel_definitions[key].lookup_node_class()
 
         if value is True:
             match[rhs_ident] = rel_definitions[key].definition
@@ -409,7 +400,7 @@ class QueryBuilder:
             relationship = getattr(source_class_iterator, part)
             # build source
             if "node_class" not in relationship.definition:
-                relationship._lookup_node_class()
+                relationship.lookup_node_class()
             rhs_label = relationship.definition["node_class"].__label__
             rel_reference = f'{relationship.definition["node_class"]}_{part}'
             self._node_counters[rel_reference] += 1
