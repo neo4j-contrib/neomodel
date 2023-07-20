@@ -2,6 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Optional
 
 from .core import StructuredNode, db
 from .exceptions import MultipleNodesReturned
@@ -309,31 +310,31 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: list | None
-    optional_match: list | None
-    where: list | None
-    with_clause: str | None
-    return_clause: str | None
-    order_by: str | None
-    skip: int | None
-    limit: int | None
-    result_class: type | None
-    lookup: str | None
-    additional_return: list | None
+    match: Optional[list]
+    optional_match: Optional[list]
+    where: Optional[list]
+    with_clause: Optional[str]
+    return_clause: Optional[str]
+    order_by: Optional[str]
+    skip: Optional[int]
+    limit: Optional[int]
+    result_class: Optional[type]
+    lookup: Optional[str]
+    additional_return: Optional[list]
 
     def __init__(
         self,
-        match: list | None = None,
-        optional_match: list | None = None,
-        where: list | None = None,
-        with_clause: str | None = None,
-        return_clause: str | None = None,
-        order_by: str | None = None,
-        skip: int | None = None,
-        limit: int | None = None,
-        result_class: type | None = None,
-        lookup: str | None = None,
-        additional_return: list | None = None,
+        match: Optional[list] = None,
+        optional_match: Optional[list] = None,
+        where: Optional[list] = None,
+        with_clause: Optional[str] = None,
+        return_clause: Optional[str] = None,
+        order_by: Optional[str] = None,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        result_class: Optional[type] = None,
+        lookup: Optional[str] = None,
+        additional_return: Optional[list] = None,
     ):
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
