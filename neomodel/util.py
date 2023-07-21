@@ -149,7 +149,15 @@ class Database(local):
     def read_transaction(self):
         return TransactionProxy(self, access_mode="READ")
 
-    def impersonate(self, user: str):
+    def impersonate(self, user: str) -> "ImpersonationHandler":
+        """All queries executed within this context manager will be executed as impersonated user
+
+        Args:
+            user (str): User to impersonate
+
+        Returns:
+            ImpersonationHandler: Context manager to set/unset the user to impersonate
+        """
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
