@@ -52,19 +52,14 @@ def test_issue_72():
 
 
 def test_required():
-    try:
+    with raises(RequiredProperty):
         User(age=3).save()
-    except RequiredProperty:
-        assert True
-    else:
-        assert False
 
 
 def test_repr_and_str():
     u = User(email="robin@test.com", age=3)
-    print(repr(u))
-    print(str(u))
-    assert True
+    assert repr(u) == "<User: {'email': 'robin@test.com', 'age': 3}>"
+    assert str(u) == "{'email': 'robin@test.com', 'age': 3}"
 
 
 def test_get_and_get_or_none():

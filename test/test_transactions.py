@@ -42,7 +42,6 @@ def test_transaction_decorator():
 
     # should work
     in_a_tx("Roger")
-    assert True
 
     # should bail but raise correct error
     with raises(UniqueProperty):

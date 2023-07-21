@@ -81,20 +81,11 @@ def test_deflate_inflate():
     prop.name = "age"
     prop.owner = FooBar
 
-    try:
+    with raises(InflateError, match=r"inflate property"):
         prop.inflate("six")
-    except InflateError as e:
-        assert True
-        assert "inflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
 
-    try:
+    with raises(DeflateError, match=r"deflate property"):
         prop.deflate("six")
-    except DeflateError as e:
-        assert "deflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
 
 
 def test_datetimes_timezones():
