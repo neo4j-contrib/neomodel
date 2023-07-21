@@ -465,7 +465,7 @@ class QueryBuilder:
                 lhs_name = lhs_label.lower()
                 lhs_ident = f"{lhs_name}:{lhs_label}"
                 if not index:
-                    # This is the first one, we make sure that 'return'
+                    # This is the first one, we make sure that 'return_clause'
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
