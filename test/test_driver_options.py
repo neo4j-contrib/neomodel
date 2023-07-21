@@ -13,7 +13,7 @@ def test_impersonate():
 def test_impersonate_unauthorized():
     with db.impersonate(user="unknownuser"):
         with raises(ClientError):
-            _ = db.cypher_query("RETURN 'Doo Wacko !'")
+            _ = db.cypher_query("RETURN 'Gabagool'")
 
 
 def test_impersonate_multiple_transactions():
