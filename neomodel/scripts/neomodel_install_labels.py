@@ -1,15 +1,47 @@
 #!/usr/bin/env python
+"""
+.. _neomodel_install_labels:
+
+``neomodel_install_labels``
+---------------------------
+
+::
+
+    Usage: neomodel_install_labels [OPTIONS] [APPS]...
+    
+      Setup indexes and constraints on labels in Neo4j for your neomodel schema.
+    
+      APPS specifies python modules or files with neomodel schema declarations.
+    
+      If a connection URL is not specified, the tool will look up the environment
+      variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
+      will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+    
+    Options:
+      --neo4j-bolt-url, --db TEXT  Neo4j server URL
+      --help                       Show this message and exit.
+
+"""
 from __future__ import print_function
 
 import sys
-from argparse import ArgumentParser
 from importlib import import_module
 from os import environ, path
 
 from .. import db, install_all_labels
+import click
 
 
 def load_python_module_or_file(name):
+    """
+    Imports an existing python module or file into the current workspace.
+
+    In both cases, *the resource must exist*.
+
+    :param name: A string that refers either to a Python module or a source coe
+                 file to load in the current workspace.
+    :type name: str
+    """
     # Is a file
     if name.lower().endswith(".py"):
         basedir = path.dirname(path.abspath(name))
@@ -29,50 +61,33 @@ def load_python_module_or_file(name):
         pkg = None
 
     import_module(module_name, package=pkg)
-    print("Loaded {}.".format(name))
+    click.echo(f"Loaded {name}")
 
+@click.command()
+@click.argument("apps", type=str, nargs=-1)
+@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL")
+def neomodel_install_labels(apps, neo4j_bolt_url):
+    """
+    Setup indexes and constraints on labels in Neo4j for your neomodel schema.
 
-def main():
-    parser = ArgumentParser(
-        description="""
-        Setup indexes and constraints on labels in Neo4j for your neomodel schema.
+    APPS specifies python modules or files with neomodel schema declarations.
+    
+    If a connection URL is not specified, the tool will look up the environment 
+    variable NEO4J_BOLT_URL. If that environment variable is not set, the tool 
+    will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+    """
+    if neo4j_bolt_url is None:
+        neo4j_bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
 
-        Database credentials can be set by the environment variable NEO4J_BOLT_URL.
-        """
-    )
-
-    parser.add_argument(
-        "apps",
-        metavar="<someapp.models/app.py>",
-        type=str,
-        nargs="+",
-        help="python modules or files to load schema from.",
-    )
-
-    parser.add_argument(
-        "--db",
-        metavar="bolt://neo4j:neo4j@localhost:7687",
-        dest="neo4j_bolt_url",
-        type=str,
-        default="",
-        help="address of your neo4j database",
-    )
-
-    args = parser.parse_args()
-
-    bolt_url = args.neo4j_bolt_url
-    if len(bolt_url) == 0:
-        bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
-
-    for app in args.apps:
+    for app in apps:
         load_python_module_or_file(app)
 
-    # Connect after to override any code in the module that may set the connection
-    print("Connecting to {}\n".format(bolt_url))
-    db.set_connection(bolt_url)
+    # Connect to override any code in the module that may be resetting the connection
+    click.echo("Connecting to {neo4j_bolt_url}")
+    db.set_connection(neo4j_bolt_url)
 
     install_all_labels()
 
 
 if __name__ == "__main__":
-    main()
+    neomodel_install_labels()

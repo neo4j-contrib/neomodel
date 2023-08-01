@@ -1,42 +1,51 @@
 #!/usr/bin/env python
+"""
+.. _neomodel_remove_labels:
+    
+``neomodel_remove_labels``
+--------------------------
+
+::
+
+    Usage: neomodel_remove_labels [OPTIONS]
+    
+      Drop all indexes and constraints on labels from schema in Neo4j database.
+    
+      If a connection URL is not specified, the tool will look up the environment
+      variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
+      will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+    
+    Options:
+      --neo4j-bolt-url, --db TEXT  Neo4j server URL
+      --help                       Show this message and exit.
+
+"""
 from __future__ import print_function
-
-from argparse import ArgumentParser
 from os import environ
-
 from .. import db, remove_all_labels
+import click
 
+@click.command()
+@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL")
+def neomodel_remove_labels(neo4j_bolt_url):
+    """
+    Drop all indexes and constraints on labels from schema in Neo4j database.
+    
+    If a connection URL is not specified, the tool will look up the environment 
+    variable NEO4J_BOLT_URL. If that environment variable is not set, the tool 
+    will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+    """
+    # If no parameter is passed, get the connection from the environment variable and
+    # if that is not set too, assume a common default one.
+    if neo4j_bolt_url is None:
+        neo4j_bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
 
-def main():
-    parser = ArgumentParser(
-        description="""
-        Drop all indexes and constraints on labels from schema in Neo4j database.
-
-        Database credentials can be set by the environment variable NEO4J_BOLT_URL.
-        """
-    )
-
-    parser.add_argument(
-        "--db",
-        metavar="bolt://neo4j:neo4j@localhost:7687",
-        dest="neo4j_bolt_url",
-        type=str,
-        default="",
-        help="address of your neo4j database",
-    )
-
-    args = parser.parse_args()
-
-    bolt_url = args.neo4j_bolt_url
-    if len(bolt_url) == 0:
-        bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
-
-    # Connect after to override any code in the module that may set the connection
-    print("Connecting to {}\n".format(bolt_url))
-    db.set_connection(bolt_url)
+    # Connect to override any code in the module that may be resetting the connection
+    click.echo(f"Connecting to {neo4j_bolt_url}\n")
+    db.set_connection(neo4j_bolt_url)
 
     remove_all_labels()
 
 
 if __name__ == "__main__":
-    main()
+    neomodel_remove_labels()
