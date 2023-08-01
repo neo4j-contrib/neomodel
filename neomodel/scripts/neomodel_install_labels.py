@@ -65,7 +65,7 @@ def load_python_module_or_file(name):
 
 @click.command()
 @click.argument("apps", type=str, nargs=-1)
-@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL")
+@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL", default=lambda: environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687"))
 def neomodel_install_labels(apps, neo4j_bolt_url):
     """
     Setup indexes and constraints on labels in Neo4j for your neomodel schema.
@@ -76,14 +76,12 @@ def neomodel_install_labels(apps, neo4j_bolt_url):
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool 
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
     """
-    if neo4j_bolt_url is None:
-        neo4j_bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
-
     for app in apps:
         load_python_module_or_file(app)
 
     # Connect to override any code in the module that may be resetting the connection
-    click.echo("Connecting to {neo4j_bolt_url}")
+    click.echo(f"Connecting to {neo4j_bolt_url}")
+
     db.set_connection(neo4j_bolt_url)
 
     install_all_labels()

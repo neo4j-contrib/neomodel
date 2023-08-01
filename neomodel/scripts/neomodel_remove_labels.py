@@ -26,7 +26,7 @@ from .. import db, remove_all_labels
 import click
 
 @click.command()
-@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL")
+@click.option("--neo4j-bolt-url", "--db", type=str, help="Neo4j server URL", default=lambda: environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687"))
 def neomodel_remove_labels(neo4j_bolt_url):
     """
     Drop all indexes and constraints on labels from schema in Neo4j database.
@@ -34,12 +34,7 @@ def neomodel_remove_labels(neo4j_bolt_url):
     If a connection URL is not specified, the tool will look up the environment 
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool 
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
-    """
-    # If no parameter is passed, get the connection from the environment variable and
-    # if that is not set too, assume a common default one.
-    if neo4j_bolt_url is None:
-        neo4j_bolt_url = environ.get("NEO4J_BOLT_URL", "bolt://neo4j:neo4j@localhost:7687")
-
+    """  
     # Connect to override any code in the module that may be resetting the connection
     click.echo(f"Connecting to {neo4j_bolt_url}\n")
     db.set_connection(neo4j_bolt_url)
