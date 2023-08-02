@@ -3,6 +3,7 @@ from neo4j.exceptions import ClientError
 from pytest import raises
 
 from neomodel import db
+from neomodel.exceptions import FeatureNotSupported
 
 
 @pytest.mark.skipif(
@@ -38,3 +39,12 @@ def test_impersonate_multiple_transactions():
 
     results, _ = db.cypher_query("SHOW CURRENT USER")
     assert results[0][0] == "neo4j"
+
+
+@pytest.mark.skipif(
+    db.database_edition == "enterprise", reason="Skipping test for enterprise edition"
+)
+def test_impersonate_community():
+    with raises(FeatureNotSupported):
+        with db.impersonate(user="troygreene"):
+            _ = db.cypher_query("RETURN 'Gabagoogoo'")
