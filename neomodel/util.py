@@ -503,8 +503,8 @@ class ImpersonationHandler:
     def __exit__(self, exception_type, exception_value, exception_traceback):
         self.db.impersonated_user = None
 
-        print("\Exception type:", exception_type)
-        print("\Exception value:", exception_value)
+        print("\nException type:", exception_type)
+        print("\nException value:", exception_value)
         print("\nTraceback:", exception_traceback)
 
     def __call__(self, func):
