@@ -233,6 +233,11 @@ class UniqueProperty(ConstraintValidationFailed):
         self.message = msg
 
 
+class FeatureNotSupported(NeomodelException):
+    def __init__(self, msg):
+        self.message = msg
+
+
 __all__ = (
     AttemptedCardinalityViolation.__name__,
     CardinalityViolation.__name__,
@@ -251,4 +256,5 @@ __all__ = (
     NodeClassAlreadyDefined.__name__,
     RelationshipClassNotDefined.__name__,
     RelationshipClassRedefined.__name__,
+    FeatureNotSupported.__name__,
 )

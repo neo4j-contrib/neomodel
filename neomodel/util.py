@@ -15,6 +15,7 @@ from neo4j.graph import Node, Relationship
 from neomodel import config, core
 from neomodel.exceptions import (
     ConstraintValidationFailed,
+    FeatureNotSupported,
     NodeClassNotDefined,
     RelationshipClassNotDefined,
     UniqueProperty,
@@ -174,6 +175,10 @@ class Database(local):
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
+        if self.database_edition != "enterprise":
+            raise FeatureNotSupported(
+                "Impersonation is only available in Neo4j Enterprise edition"
+            )
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
