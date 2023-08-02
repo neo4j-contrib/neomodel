@@ -9,7 +9,7 @@ from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
-from neo4j.exceptions import ClientError, SessionExpired
+from neo4j.exceptions import ClientError, SessionExpired, ServiceUnavailable
 from neo4j.graph import Node, Relationship
 
 from neomodel import config, core
@@ -34,6 +34,7 @@ def ensure_connection(func):
 
         if not _db.url:
             _db.set_connection(config.DATABASE_URL)
+
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -72,7 +73,7 @@ class Database(local):
         self._pid = None
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
-        self.database_version = None
+        self._database_version = None
         self.impersonated_user = None
 
     def set_connection(self, url):
@@ -129,10 +130,16 @@ class Database(local):
         self._active_transaction = None
         self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
-        results = self.cypher_query(
-            "CALL dbms.components() yield versions return versions[0]"
-        )
-        self.database_version = results[0][0][0]
+        # Getting the information about the database version requires a connection to the database
+        self._database_version = None
+        self._update_database_version()
+
+    @property
+    def database_version(self):
+        if self._database_version is None:
+            self._update_database_version()
+
+        return self._database_version
 
     @property
     def transaction(self):
@@ -213,6 +220,17 @@ class Database(local):
             self._session.close()
             self._active_transaction = None
             self._session = None
+
+    def _update_database_version(self):
+        """
+        Updates the database server information when it is required
+        """
+        try:
+            results = self.cypher_query("CALL dbms.components() yield versions return versions[0]")
+            self._database_version = results[0][0][0]
+        except ServiceUnavailable:
+            # The database server is not running yet
+            pass
 
     def _object_resolution(self, result_list):
         """
