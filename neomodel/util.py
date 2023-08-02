@@ -74,6 +74,7 @@ class Database(local):
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
         self._database_version = None
+        self.impersonated_user = None
 
     def set_connection(self, url):
         """
@@ -155,6 +156,17 @@ class Database(local):
     def read_transaction(self):
         return TransactionProxy(self, access_mode="READ")
 
+    def impersonate(self, user: str) -> "ImpersonationHandler":
+        """All queries executed within this context manager will be executed as impersonated user
+
+        Args:
+            user (str): User to impersonate
+
+        Returns:
+            ImpersonationHandler: Context manager to set/unset the user to impersonate
+        """
+        return ImpersonationHandler(self, impersonated_user=user)
+
     @ensure_connection
     def begin(self, access_mode=None, **parameters):
         """
@@ -168,6 +180,7 @@ class Database(local):
         self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
+            impersonated_user=self.impersonated_user,
             **parameters,
         )
         self._active_transaction = self._session.begin_transaction()
@@ -321,7 +334,9 @@ class Database(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with self.driver.session(database=self._database_name) as session:
+            with self.driver.session(
+                database=self._database_name, impersonated_user=self.impersonated_user
+            ) as session:
                 results, meta = self._run_cypher_query(
                     session,
                     query,
@@ -457,6 +472,30 @@ class TransactionProxy:
     @property
     def with_bookmark(self):
         return BookmarkingTransactionProxy(self.db, self.access_mode)
+
+
+class ImpersonationHandler:
+    def __init__(self, db, impersonated_user: str):
+        self.db = db
+        self.impersonated_user = impersonated_user
+
+    def __enter__(self):
+        self.db.impersonated_user = self.impersonated_user
+        return self
+
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        self.db.impersonated_user = None
+
+        print("\Exception type:", exception_type)
+        print("\Exception value:", exception_value)
+        print("\nTraceback:", exception_traceback)
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper
 
 
 class BookmarkingTransactionProxy(TransactionProxy):

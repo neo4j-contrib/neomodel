@@ -162,3 +162,37 @@ or manually::
         bookmark = db.commit()
     except Exception as e:
         db.rollback()
+
+Impersonation
+-------------
+
+Impersonation (`see Neo4j driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#impersonated-user-ref>``)
+can be enabled via a context manager::
+
+    from neomodel import db
+
+    with db.impersonate(user="writeuser"):
+        Person(name='Bob').save()
+
+or as a function decorator::
+
+    @db.impersonate(user="writeuser")
+    def update_user_name(uid, name):
+        user = Person.nodes.filter(uid=uid)[0]
+        user.name = name
+        user.save()
+
+This can be mixed with other context manager like transactions::
+
+    from neomodel import db
+
+    @db.impersonate(user="tempuser")
+    # Both transactions will be run as the same impersonated user
+    def func0():
+        @db.transaction()
+        def func1():
+            ...
+
+        @db.transaction()
+        def func2():
+            ...

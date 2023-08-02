@@ -1,3 +1,7 @@
+Version 5.1.1 2023-08
+* Add impersonation
+* Improve code quality and tooling
+
 Version 5.1.0 2023-07
 * Bumped neo4j-driver version to 5.10.0
 * Breaking change : When using neomodel along with Neo4j version 5, use StructuredNode and StructuredRel's element_id property instead of id. If you have Cypher queries which currently use the id() function, migrate them to elementId() instead.
