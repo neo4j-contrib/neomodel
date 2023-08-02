@@ -38,7 +38,7 @@ constraints and indexes at compile time. However this method is only recommended
     # before loading your node definitions
     config.AUTO_INSTALL_LABELS = True
 
-Neomodel also provides the `neomodel_install_labels` script for this task,
+Neomodel also provides the :ref:`neomodel_install_labels` script for this task,
 however if you want to handle this manually see below.
 
 Install indexes and constraints for a single class::

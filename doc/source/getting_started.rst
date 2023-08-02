@@ -99,8 +99,8 @@ and constraints.
 
 Applying constraints and indexes
 ================================
-After creating a model in Python, any constraints or indexes need must be applied to Neo4j and ``neomodel`` provides a
-script to automate this: ::
+After creating a model in Python, any constraints or indexes must be applied to Neo4j and ``neomodel`` provides a
+script (:ref:`neomodel_install_labels`) to automate this: ::
 
     $ neomodel_install_labels yourapp.py someapp.models --db bolt://neo4j:neo4j@localhost:7687
 
@@ -108,7 +108,7 @@ It is important to execute this after altering the schema and observe the number
 
 Remove existing constraints and indexes
 =======================================
-Similarly, ``neomodel`` provides a script to automate the removal of all existing constraints and indexes from
+Similarly, ``neomodel`` provides a script (:ref:`neomodel_remove_labels`) to automate the removal of all existing constraints and indexes from
 the database, when this is required: ::
 
     $ neomodel_remove_labels --db bolt://neo4j:neo4j@localhost:7687
