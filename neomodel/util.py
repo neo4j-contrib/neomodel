@@ -9,7 +9,7 @@ from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
-from neo4j.exceptions import ClientError, SessionExpired, ServiceUnavailable
+from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Relationship
 
 from neomodel import config, core
@@ -74,6 +74,7 @@ class Database(local):
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
         self._database_version = None
+        self._database_edition = None
         self.impersonated_user = None
 
     def set_connection(self, url):
@@ -132,6 +133,7 @@ class Database(local):
 
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
+        self._database_edition = None
         self._update_database_version()
 
     @property
@@ -140,6 +142,13 @@ class Database(local):
             self._update_database_version()
 
         return self._database_version
+
+    @property
+    def database_edition(self):
+        if self._database_edition is None:
+            self._update_database_version()
+
+        return self._database_edition
 
     @property
     def transaction(self):
@@ -226,8 +235,11 @@ class Database(local):
         Updates the database server information when it is required
         """
         try:
-            results = self.cypher_query("CALL dbms.components() yield versions return versions[0]")
+            results = self.cypher_query(
+                "CALL dbms.components() yield versions, edition return versions[0], edition"
+            )
             self._database_version = results[0][0][0]
+            self._database_edition = results[0][0][1]
         except ServiceUnavailable:
             # The database server is not running yet
             pass
