@@ -6,10 +6,10 @@ from neomodel import db
 from neomodel.exceptions import FeatureNotSupported
 
 
+@db.impersonate(user="troygreene")
 @pytest.mark.skipif(
     db.database_edition != "enterprise", reason="Skipping test for community edition"
 )
-@db.impersonate(user="troygreene")
 def test_impersonate():
     results, _ = db.cypher_query("RETURN 'Doo Wacko !'")
     assert results[0][0] == "Doo Wacko !"
