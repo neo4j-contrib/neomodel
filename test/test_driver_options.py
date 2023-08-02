@@ -10,15 +10,9 @@ from neomodel.exceptions import FeatureNotSupported
     db.database_edition != "enterprise", reason="Skipping test for community edition"
 )
 def test_impersonate():
-    expected = "Doo Wacko !"
-    results = impersonated_query(expected)
-    assert results[0][0] == expected
-
-
-@db.impersonate(user="troygreene")
-def impersonated_query(expected: str):
-    results, _ = db.cypher_query(f"RETURN '{expected}'")
-    return results
+    with db.impersonate(user="troygreene"):
+        results, _ = db.cypher_query("RETURN 'Doo Wacko !'")
+        assert results[0][0] == "Doo Wacko !"
 
 
 @pytest.mark.skipif(
