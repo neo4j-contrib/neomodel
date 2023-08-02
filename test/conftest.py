@@ -77,8 +77,9 @@ def pytest_sessionstart(session):
     db.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
     )
-    db.cypher_query("GRANT ROLE publisher TO troygreene")
-    db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
+    if db.database_edition == "enterprise":
+        db.cypher_query("GRANT ROLE publisher TO troygreene")
+        db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
 
 def version_to_dec(a_version_string):
