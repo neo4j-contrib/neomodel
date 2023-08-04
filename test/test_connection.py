@@ -4,10 +4,19 @@ import pytest
 
 from neomodel import config, db
 
+INITIAL_URL = db.url
+
+
+@pytest.fixture(autouse=True)
+def setup_teardown():
+    yield
+    # Teardown actions after tests have run
+    # Reconnect to initial URL for potential subsequent tests
+    db.set_connection(INITIAL_URL)
+
 
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])
 def test_connect_to_aura(protocol):
-    prev_url = db.url
     cypher_return = "hello world"
     default_cypher_query = f"RETURN '{cypher_return}'"
     db.driver.close()
@@ -18,9 +27,6 @@ def test_connect_to_aura(protocol):
 
     assert len(result) > 0
     assert result[0][0] == cypher_return
-
-    # Finally, reconnect to base URL for subsequent tests
-    db.set_connection(prev_url)
 
 
 def _set_connection(protocol):
@@ -42,6 +48,3 @@ def test_wrong_url_format(url):
         match=rf"Expecting url format: bolt://user:password@localhost:7687 got {url}",
     ):
         db.set_connection(url)
-
-    # Finally, reconnect to base URL for subsequent tests
-    db.set_connection(prev_url)
