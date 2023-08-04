@@ -166,6 +166,8 @@ or manually::
 Impersonation
 -------------
 
+*Neo4j Enterprise feature*
+
 Impersonation (`see Neo4j driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#impersonated-user-ref>``)
 can be enabled via a context manager::
 

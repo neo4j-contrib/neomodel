@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.10", "3.9", "3.8", "3.7"]
-        neo4j-version: ["enterprise", "5.5-enterprise", "4.4-enterprise"]
+        neo4j-version: ["community", "enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
 
     steps:
     - uses: actions/checkout@v3
