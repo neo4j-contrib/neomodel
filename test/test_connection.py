@@ -12,6 +12,7 @@ def setup_teardown():
     yield
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
+    db.driver.close()
     db.set_connection(INITIAL_URL)
 
 
@@ -23,7 +24,6 @@ def test_connect_to_aura(protocol):
 
     _set_connection(protocol=protocol)
     result, _ = db.cypher_query(default_cypher_query)
-    db.driver.close()
 
     assert len(result) > 0
     assert result[0][0] == cypher_return
