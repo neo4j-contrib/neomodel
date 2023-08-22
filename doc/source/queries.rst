@@ -186,3 +186,57 @@ For random ordering simply pass '?' to the order_by method::
 
     Coffee.nodes.order_by('?')
 
+Retrieving paths
+================
+
+You can retrieve a whole path of already instantiated objects corresponding to 
+the nodes and relationship classes with a single query.
+
+Suppose the following schema:
+
+::
+
+    class PersonLivesInCity(StructuredRel):
+        some_num = IntegerProperty(index=True, 
+                                   default=12)
+    
+    class CountryOfOrigin(StructuredNode):
+        code = StringProperty(unique_index=True, 
+                              required=True)
+    
+    class CityOfResidence(StructuredNode):
+        name = StringProperty(required=True)
+        country = RelationshipTo(CountryOfOrigin, 
+                                 'FROM_COUNTRY')
+    
+    class PersonOfInterest(StructuredNode):
+        uid = UniqueIdProperty()
+        name = StringProperty(unique_index=True)
+        age = IntegerProperty(index=True, 
+                              default=0)
+    
+        country = RelationshipTo(CountryOfOrigin, 
+                                 'IS_FROM')
+        city = RelationshipTo(CityOfResidence, 
+                              'LIVES_IN', 
+                              model=PersonLivesInCity)
+
+Then, paths can be retrieved with:
+
+::
+   
+    q = db.cypher_query("MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1", 
+                        resolve_objects = True)
+
+Notice here that ``resolve_objects`` is set to ``True``. This results in ``q`` being a 
+list of ``result, result_name`` and ``q[0][0][0]`` being a ``Path`` object.
+
+Path's ``nodes, relationships`` attributes contain already instantiated objects of the 
+nodes and relationships in the query, *in order of appearance*.
+
+It would be particularly useful to note here that each object is read exactly once from 
+the database. Therefore, nodes will be instantiated to their neomodel node objects and 
+relationships to their relationship models *if such a model exists*. In other words, 
+relationships with data (such as ``PersonLivesInCity`` above) will be instantiated to their
+respective objects or ``StrucuredRel`` otherwise. Relationships do not "reload" their 
+end-points (unless this is required).

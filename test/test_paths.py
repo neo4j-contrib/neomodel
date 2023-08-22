@@ -20,7 +20,6 @@ class PersonOfInterest(StructuredNode):
     age = IntegerProperty(index=True, default=0)
 
     country = RelationshipTo(CountryOfOrigin, 'IS_FROM')
-
     city = RelationshipTo(CityOfResidence, 'LIVES_IN', model=PersonLivesInCity)
 
 
