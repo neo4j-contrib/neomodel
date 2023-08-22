@@ -153,3 +153,4 @@ class StructuredRel(StructuredRelBase):
         srel._end_node_element_id_property = rel.end_node.element_id
         srel.element_id_property = rel.element_id
         return srel
+

@@ -64,14 +64,9 @@ def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
 
 class Path(NeoPath):
     def __init__(self, nodes, *relationships):
-        for i, relationship in enumerate(relationships, start=1):
-            start = relationship.start_node()
-            end = relationship.end_node()
-            if start not in nodes and end not in nodes:
-                raise ValueError(
-                    "Relationship %d does not connect to all of the nodes" % i
-                )
+        # Resolve node objects
         self._nodes = tuple(nodes)
+        # Resolve relationship objects
         self._relationships = relationships
 
 class Database(local):
@@ -302,15 +297,24 @@ class Database(local):
             ].inflate(object_to_resolve)
 
         if isinstance(object_to_resolve, Relationship):
-            return self._NODE_CLASS_REGISTRY[
-                frozenset([object_to_resolve.type])
-            ].inflate(object_to_resolve)
+            rel_type = frozenset([object_to_resolve.type])
+            # This check is required here because if the relationship does not bear data
+            # then it does not have an entry in the registry. In that case, we instantiate
+            # an "unspecified" StructuredRel.
+            if rel_type in self._NODE_CLASS_REGISTRY:
+                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+            else:
+                # TODO: HIGH, if this import is moved to the header, it causes a circular import
+                from .relationship import StructuredRel
+                return StructuredRel.inflate(object_to_resolve)
 
         if isinstance(object_to_resolve, NeoPath):
             new_nodes = []
+            new_relationships = []
+
             for node in object_to_resolve.nodes:
                 new_nodes.append(self._object_resolution(node))
-            new_relationships = []
+
             for relationship in object_to_resolve.relationships:
                 new_rel = self._object_resolution(relationship)
                 new_relationships.append(new_rel)
