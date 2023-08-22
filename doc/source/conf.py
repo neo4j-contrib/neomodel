@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.abspath("../../"))
 
 import alabaster
 
-from neomodel import __author__, __package__, __version__
+from neomodel import __author__, __package__
+from neomodel._version import __version__
 
 #
 # neomodel documentation build configuration file, created by
