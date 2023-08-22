@@ -22,6 +22,7 @@ from neomodel.exceptions import (
     RelationshipClassNotDefined,
     UniqueProperty,
 )
+from .path import Path
 
 logger = logging.getLogger(__name__)
 watch("neo4j")
@@ -61,13 +62,6 @@ def clear_neo4j_database(db, clear_constraints=False, clear_indexes=False):
     if clear_indexes:
         core.drop_indexes()
 
-
-class Path(NeoPath):
-    def __init__(self, nodes, *relationships):
-        # Resolve node objects
-        self._nodes = tuple(nodes)
-        # Resolve relationship objects
-        self._relationships = relationships
 
 class Database(local):
     """
