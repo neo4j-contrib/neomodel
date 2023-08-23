@@ -8,8 +8,22 @@ class NeomodelPath(Path):
     """
     Represents paths within neomodel.
 
-    Paths reference their nodes and relationships, each of which is already 
+    This object is instantiated when you include whole paths in your ``cypher_query()`` 
+    result sets and turn ``resolve_objects`` to True.
+
+    That is, any query of the form:
+    ::
+
+        MATCH p=(:SOME_NODE_LABELS)-[:SOME_REL_LABELS]-(:SOME_OTHER_NODE_LABELS) return p
+
+    ``NeomodelPath`` are simple objects that reference their nodes and relationships, each of which is already 
     resolved to their neomodel objects if such mapping is possible.
+
+
+    :param nodes: Neomodel nodes appearing in the path in order of appearance.
+    :param relationships: Neomodel relationships appearing in the path in order of appearance.
+    :type nodes: List[StructuredNode]
+    :type relationships: List[StructuredRel]
     """
     def __init__(self, a_neopath):
         self._nodes=[]
@@ -35,4 +49,12 @@ class NeomodelPath(Path):
             #     new_rel = StructuredRel.inflate(a_relationship)
             #                
             self._relationships.append(new_rel)
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @property
+    def relationships(self):
+        return self._relationships
+
 

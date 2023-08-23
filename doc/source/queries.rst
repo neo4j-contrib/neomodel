@@ -229,9 +229,9 @@ Then, paths can be retrieved with:
                         resolve_objects = True)
 
 Notice here that ``resolve_objects`` is set to ``True``. This results in ``q`` being a 
-list of ``result, result_name`` and ``q[0][0][0]`` being a ``Path`` object.
+list of ``result, result_name`` and ``q[0][0][0]`` being a ``NeomodelPath`` object.
 
-Path's ``nodes, relationships`` attributes contain already instantiated objects of the 
+``NeomodelPath`` ``nodes, relationships`` attributes contain already instantiated objects of the 
 nodes and relationships in the query, *in order of appearance*.
 
 It would be particularly useful to note here that each object is read exactly once from 

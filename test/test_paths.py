@@ -1,5 +1,5 @@
 from neomodel import (StringProperty, StructuredNode, UniqueIdProperty, 
-                      db, RelationshipTo, IntegerProperty, Path, StructuredRel)
+                      db, RelationshipTo, IntegerProperty, NeomodelPath, StructuredRel)
 
 class PersonLivesInCity(StructuredRel):
     """
@@ -60,7 +60,7 @@ def test_path_instantiation():
     path_nodes = path_object.nodes
     path_rels = path_object.relationships
 
-    assert type(path_object) is Path
+    assert type(path_object) is NeomodelPath
     assert type(path_nodes[0]) is CityOfResidence
     assert type(path_nodes[1]) is PersonOfInterest
     assert type(path_nodes[2]) is CountryOfOrigin
