@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from neo4j.debug import watch
 
 from neomodel import config, db
 
@@ -14,6 +15,12 @@ def setup_teardown():
     # Reconnect to initial URL for potential subsequent tests
     db.driver.close()
     db.set_connection(INITIAL_URL)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def neo4j_logging():
+    with watch("neo4j"):
+        yield
 
 
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])

@@ -9,7 +9,6 @@ from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
-from neo4j.debug import watch
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Relationship
 from neo4j.graph import Path
@@ -23,6 +22,8 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 
+
+logger = logging.getLogger(__name__)
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
