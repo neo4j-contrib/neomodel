@@ -12,7 +12,7 @@ from neo4j.api import Bookmarks
 from neo4j.debug import watch
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Relationship
-from neo4j.graph import Path as NeoPath
+from neo4j.graph import Path
 
 from neomodel import config, core
 from neomodel.exceptions import (
@@ -22,10 +22,9 @@ from neomodel.exceptions import (
     RelationshipClassNotDefined,
     UniqueProperty,
 )
-from .path import Path
 
-logger = logging.getLogger(__name__)
-watch("neo4j")
+#logger = logging.getLogger(__name__)
+#watch("neo4j")
 
 
 # make sure the connection url has been set prior to executing the wrapped function
@@ -292,30 +291,15 @@ class Database(local):
 
         if isinstance(object_to_resolve, Relationship):
             rel_type = frozenset([object_to_resolve.type])
-            # This check is required here because if the relationship does not bear data
-            # then it does not have an entry in the registry. In that case, we instantiate
-            # an "unspecified" StructuredRel.
-            if rel_type in self._NODE_CLASS_REGISTRY:
-                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
-            else:
-                # TODO: HIGH, if this import is moved to the header, it causes a circular import
-                from .relationship import StructuredRel
-                return StructuredRel.inflate(object_to_resolve)
+            return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
 
-        if isinstance(object_to_resolve, NeoPath):
-            new_nodes = []
-            new_relationships = []
-
-            for node in object_to_resolve.nodes:
-                new_nodes.append(self._object_resolution(node))
-
-            for relationship in object_to_resolve.relationships:
-                new_rel = self._object_resolution(relationship)
-                new_relationships.append(new_rel)
-            return Path(new_nodes, *new_relationships)
+        if isinstance(object_to_resolve, Path):
+            from .path import NeomodelPath
+            return NeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
             return self._result_resolution([object_to_resolve])
+        
         return object_to_resolve
 
     def _result_resolution(self, result_list):
