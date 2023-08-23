@@ -23,9 +23,6 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 
-#logger = logging.getLogger(__name__)
-#watch("neo4j")
-
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):

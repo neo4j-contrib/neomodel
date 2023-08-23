@@ -41,13 +41,6 @@ class NeomodelPath(Path):
                 new_rel = db._object_resolution(a_relationship)
             else:
                 new_rel = StructuredRel.inflate(a_relationship)
-            # import pdb
-            # pdb.set_trace()
-            # try:
-            #     new_rel = db._object_resolution(a_relationship)
-            # except RelationshipClassNotDefined:
-            #     new_rel = StructuredRel.inflate(a_relationship)
-            #                
             self._relationships.append(new_rel)
     @property
     def nodes(self):
