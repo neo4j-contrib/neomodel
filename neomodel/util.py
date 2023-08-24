@@ -10,8 +10,7 @@ from urllib.parse import quote, unquote, urlparse
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
-from neo4j.graph import Node, Relationship
-from neo4j.graph import Path
+from neo4j.graph import Node, Path, Relationship
 
 from neomodel import config, core
 from neomodel.exceptions import (
@@ -22,8 +21,8 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 
-
 logger = logging.getLogger(__name__)
+
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
@@ -99,10 +98,7 @@ class Database(local):
             "neo4j+ssc",
         ]
 
-        if (
-            parsed_url.netloc.find("@") > -1
-            and parsed_url.scheme in valid_schemas
-        ):
+        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
             credentials, hostname = parsed_url.netloc.rsplit("@", 1)
             username, password = credentials.split(":")
             password = unquote(password)
@@ -134,9 +130,7 @@ class Database(local):
         self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
-        self._database_name = (
-            DEFAULT_DATABASE if database_name == "" else database_name
-        )
+        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
@@ -261,7 +255,7 @@ class Database(local):
         returned by cypher_query.
 
         The function operates recursively in order to be able to resolve Nodes
-        within nested list structures and Path objects. Not meant to be called 
+        within nested list structures and Path objects. Not meant to be called
         directly, used primarily by _result_resolution.
 
         :param object_to_resolve: A result as returned by cypher_query.
@@ -271,7 +265,7 @@ class Database(local):
         """
         # Below is the original comment that came with the code extracted in
         # this method. It is not very clear but I decided to keep it just in
-        # case 
+        # case
         #
         #
         # For some reason, while the type of `a_result_attribute[1]`
@@ -293,11 +287,12 @@ class Database(local):
 
         if isinstance(object_to_resolve, Path):
             from .path import NeomodelPath
+
             return NeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
             return self._result_resolution([object_to_resolve])
-        
+
         return object_to_resolve
 
     def _result_resolution(self, result_list):
@@ -408,9 +403,7 @@ class Database(local):
             # Retrieve the data
             start = time.time()
             response = session.run(query, params)
-            results, meta = [
-                list(r.values()) for r in response
-            ], response.keys()
+            results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
 
             if resolve_objects:
@@ -482,9 +475,7 @@ class Database(local):
             Sequence[dict]: List of dictionaries, each entry being a constraint definition
         """
         constraints, meta_constraints = self.cypher_query("SHOW CONSTRAINTS")
-        constraints_as_dict = [
-            dict(zip(meta_constraints, row)) for row in constraints
-        ]
+        constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
 
         return constraints_as_dict
 
@@ -506,12 +497,11 @@ class TransactionProxy:
         if exc_value:
             self.db.rollback()
 
-        if exc_type is ClientError:
-            if (
-                exc_value.code
-                == "Neo.ClientError.Schema.ConstraintValidationFailed"
-            ):
-                raise UniqueProperty(exc_value.message)
+        if (
+            exc_type is ClientError
+            and exc_value.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
+        ):
+            raise UniqueProperty(exc_value.message)
 
         if not exc_value:
             self.last_bookmark = self.db.commit()
