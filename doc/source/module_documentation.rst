@@ -46,6 +46,16 @@ Relationships
   :members:
   :show-inheritance:
 
+Paths
+=====
+
+.. automodule:: neomodel.path
+  :members:
+  :show-inheritance:
+
+
+
+
 Match
 =====
 .. module:: neomodel.match
