@@ -74,6 +74,13 @@ def pytest_sessionstart(session):
     else:
         clear_neo4j_database(db, clear_constraints=True, clear_indexes=True)
 
+    db.cypher_query(
+        "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
+    )
+    if db.database_edition == "enterprise":
+        db.cypher_query("GRANT ROLE publisher TO troygreene")
+        db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
+
 
 def version_to_dec(a_version_string):
     """

@@ -80,7 +80,7 @@ def basic_type_assertions(
         )
         assert len(tested_object) == len(
             ground_truth
-        ), "{} dimensionality mismatch. Expected {}, had {}".format(
+        ), "Dimensionality mismatch. Expected {}, had {}".format(
             len(ground_truth.coords), len(tested_object.coords)
         )
     else:
@@ -94,7 +94,7 @@ def basic_type_assertions(
         )
         assert len(tested_object.coords[0]) == len(
             ground_truth.coords[0]
-        ), "{} dimensionality mismatch. Expected {}, had {}".format(
+        ), "Dimensionality mismatch. Expected {}, had {}".format(
             len(ground_truth.coords[0]), len(tested_object.coords[0])
         )
 
@@ -262,13 +262,17 @@ def test_prohibited_constructor_forms():
         _ = neomodel.contrib.spatial_properties.NeomodelPoint((0, 0), crs="blue_hotel")
 
     # Absurd coord dimensionality
-    with pytest.raises(ValueError,):
+    with pytest.raises(
+        ValueError,
+    ):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             (0, 0, 0, 0, 0, 0, 0), crs="cartesian"
         )
 
     # Absurd datatype passed to copy constructor
-    with pytest.raises(TypeError,):
+    with pytest.raises(
+        TypeError,
+    ):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             "it don't mean a thing if it ain't got that swing",
             crs="cartesian",
@@ -333,7 +337,7 @@ def test_property_accessors_depending_on_crs_shapely_lt_2():
     with pytest.raises(AttributeError, match=r'Invalid coordinate \("z"\)'):
         new_point.z
 
-    
+
 def test_property_accessors_depending_on_crs_shapely_gte_2():
     """
     Tests that points are accessed via their respective accessors.

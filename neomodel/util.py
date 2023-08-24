@@ -9,12 +9,13 @@ from urllib.parse import quote, unquote, urlparse
 
 from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
-from neo4j.exceptions import ClientError, SessionExpired
-from neo4j.graph import Node, Relationship
+from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
+from neo4j.graph import Node, Path, Relationship
 
 from neomodel import config, core
 from neomodel.exceptions import (
     ConstraintValidationFailed,
+    FeatureNotSupported,
     NodeClassNotDefined,
     RelationshipClassNotDefined,
     UniqueProperty,
@@ -34,6 +35,7 @@ def ensure_connection(func):
 
         if not _db.url:
             _db.set_connection(config.DATABASE_URL)
+
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -72,7 +74,9 @@ class Database(local):
         self._pid = None
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
-        self.database_version = None
+        self._database_version = None
+        self._database_edition = None
+        self.impersonated_user = None
 
     def set_connection(self, url):
         """
@@ -128,10 +132,24 @@ class Database(local):
         self._active_transaction = None
         self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
-        results = self.cypher_query(
-            "CALL dbms.components() yield versions return versions[0]"
-        )
-        self.database_version = results[0][0][0]
+        # Getting the information about the database version requires a connection to the database
+        self._database_version = None
+        self._database_edition = None
+        self._update_database_version()
+
+    @property
+    def database_version(self):
+        if self._database_version is None:
+            self._update_database_version()
+
+        return self._database_version
+
+    @property
+    def database_edition(self):
+        if self._database_edition is None:
+            self._update_database_version()
+
+        return self._database_edition
 
     @property
     def transaction(self):
@@ -148,6 +166,21 @@ class Database(local):
     def read_transaction(self):
         return TransactionProxy(self, access_mode="READ")
 
+    def impersonate(self, user: str) -> "ImpersonationHandler":
+        """All queries executed within this context manager will be executed as impersonated user
+
+        Args:
+            user (str): User to impersonate
+
+        Returns:
+            ImpersonationHandler: Context manager to set/unset the user to impersonate
+        """
+        if self.database_edition != "enterprise":
+            raise FeatureNotSupported(
+                "Impersonation is only available in Neo4j Enterprise edition"
+            )
+        return ImpersonationHandler(self, impersonated_user=user)
+
     @ensure_connection
     def begin(self, access_mode=None, **parameters):
         """
@@ -161,6 +194,7 @@ class Database(local):
         self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
+            impersonated_user=self.impersonated_user,
             **parameters,
         )
         self._active_transaction = self._session.begin_transaction()
@@ -201,7 +235,67 @@ class Database(local):
             self._active_transaction = None
             self._session = None
 
-    def _object_resolution(self, result_list):
+    def _update_database_version(self):
+        """
+        Updates the database server information when it is required
+        """
+        try:
+            results = self.cypher_query(
+                "CALL dbms.components() yield versions, edition return versions[0], edition"
+            )
+            self._database_version = results[0][0][0]
+            self._database_edition = results[0][0][1]
+        except ServiceUnavailable:
+            # The database server is not running yet
+            pass
+
+    def _object_resolution(self, object_to_resolve):
+        """
+        Performs in place automatic object resolution on a result
+        returned by cypher_query.
+
+        The function operates recursively in order to be able to resolve Nodes
+        within nested list structures and Path objects. Not meant to be called
+        directly, used primarily by _result_resolution.
+
+        :param object_to_resolve: A result as returned by cypher_query.
+        :type Any:
+
+        :return: An instantiated object.
+        """
+        # Below is the original comment that came with the code extracted in
+        # this method. It is not very clear but I decided to keep it just in
+        # case
+        #
+        #
+        # For some reason, while the type of `a_result_attribute[1]`
+        # as reported by the neo4j driver is `Node` for Node-type data
+        # retrieved from the database.
+        # When the retrieved data are Relationship-Type,
+        # the returned type is `abc.[REL_LABEL]` which is however
+        # a descendant of Relationship.
+        # Consequently, the type checking was changed for both
+        # Node, Relationship objects
+        if isinstance(object_to_resolve, Node):
+            return self._NODE_CLASS_REGISTRY[
+                frozenset(object_to_resolve.labels)
+            ].inflate(object_to_resolve)
+
+        if isinstance(object_to_resolve, Relationship):
+            rel_type = frozenset([object_to_resolve.type])
+            return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+
+        if isinstance(object_to_resolve, Path):
+            from .path import NeomodelPath
+
+            return NeomodelPath(object_to_resolve)
+
+        if isinstance(object_to_resolve, list):
+            return self._result_resolution([object_to_resolve])
+
+        return object_to_resolve
+
+    def _result_resolution(self, result_list):
         """
         Performs in place automatic object resolution on a set of results
         returned by cypher_query.
@@ -224,28 +318,7 @@ class Database(local):
                     # Nodes to be resolved to native objects
                     resolved_object = a_result_attribute[1]
 
-                    # For some reason, while the type of `a_result_attribute[1]`
-                    # as reported by the neo4j driver is `Node` for Node-type data
-                    # retrieved from the database.
-                    # When the retrieved data are Relationship-Type,
-                    # the returned type is `abc.[REL_LABEL]` which is however
-                    # a descendant of Relationship.
-                    # Consequently, the type checking was changed for both
-                    # Node, Relationship objects
-                    if isinstance(a_result_attribute[1], Node):
-                        resolved_object = self._NODE_CLASS_REGISTRY[
-                            frozenset(a_result_attribute[1].labels)
-                        ].inflate(a_result_attribute[1])
-
-                    if isinstance(a_result_attribute[1], Relationship):
-                        resolved_object = self._NODE_CLASS_REGISTRY[
-                            frozenset([a_result_attribute[1].type])
-                        ].inflate(a_result_attribute[1])
-
-                    if isinstance(a_result_attribute[1], list):
-                        resolved_object = self._object_resolution(
-                            [a_result_attribute[1]]
-                        )
+                    resolved_object = self._object_resolution(resolved_object)
 
                     result_list[a_result_item[0]][
                         a_result_attribute[0]
@@ -303,7 +376,9 @@ class Database(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with self.driver.session(database=self._database_name) as session:
+            with self.driver.session(
+                database=self._database_name, impersonated_user=self.impersonated_user
+            ) as session:
                 results, meta = self._run_cypher_query(
                     session,
                     query,
@@ -333,7 +408,7 @@ class Database(local):
 
             if resolve_objects:
                 # Do any automatic resolution required
-                results = self._object_resolution(results)
+                results = self._result_resolution(results)
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
@@ -422,9 +497,11 @@ class TransactionProxy:
         if exc_value:
             self.db.rollback()
 
-        if exc_type is ClientError:
-            if exc_value.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                raise UniqueProperty(exc_value.message)
+        if (
+            exc_type is ClientError
+            and exc_value.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
+        ):
+            raise UniqueProperty(exc_value.message)
 
         if not exc_value:
             self.last_bookmark = self.db.commit()
@@ -439,6 +516,30 @@ class TransactionProxy:
     @property
     def with_bookmark(self):
         return BookmarkingTransactionProxy(self.db, self.access_mode)
+
+
+class ImpersonationHandler:
+    def __init__(self, db, impersonated_user: str):
+        self.db = db
+        self.impersonated_user = impersonated_user
+
+    def __enter__(self):
+        self.db.impersonated_user = self.impersonated_user
+        return self
+
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        self.db.impersonated_user = None
+
+        print("\nException type:", exception_type)
+        print("\nException value:", exception_value)
+        print("\nTraceback:", exception_traceback)
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper
 
 
 class BookmarkingTransactionProxy(TransactionProxy):

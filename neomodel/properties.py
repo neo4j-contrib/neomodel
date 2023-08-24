@@ -265,9 +265,7 @@ class RegexProperty(NormalizedProperty):
     def normalize(self, value):
         normal = Unicode(value)
         if not re.match(self.expression, normal):
-            raise ValueError(
-                f"{value!r} does not match {self.expression!r}"
-            )
+            raise ValueError(f"{value!r} does not match {self.expression!r}")
         return normal
 
 
@@ -324,7 +322,9 @@ class StringProperty(NormalizedProperty):
         if self.choices is not None and value not in self.choices:
             raise ValueError(f"Invalid choice: {value}")
         if self.max_length is not None and len(value) > self.max_length:
-            raise ValueError(f"Property max length exceeded. Expected {self.max_length}, got {len(value)} == len('{value}')")
+            raise ValueError(
+                f"Property max length exceeded. Expected {self.max_length}, got {len(value)} == len('{value}')"
+            )
         return Unicode(value)
 
     def default_value(self):
@@ -453,9 +453,8 @@ class DateProperty(Property):
     def inflate(self, value):
         if isinstance(value, neo4j.time.DateTime):
             value = date(value.year, value.month, value.day)
-        elif isinstance(value, str):
-            if "T" in value:
-                value = value[: value.find("T")]
+        elif isinstance(value, str) and "T" in value:
+            value = value[: value.find("T")]
         return datetime.strptime(Unicode(value), "%Y-%m-%d").date()
 
     @validator
@@ -523,9 +522,13 @@ class DateTimeProperty(Property):
         try:
             epoch = float(value)
         except ValueError as exc:
-            raise ValueError(f"Float or integer expected, got {type(value)} cannot inflate to datetime.") from exc
+            raise ValueError(
+                f"Float or integer expected, got {type(value)} cannot inflate to datetime."
+            ) from exc
         except TypeError as exc:
-            raise TypeError(f"Float or integer expected. Can't inflate {type(value)} to datetime.") from exc
+            raise TypeError(
+                f"Float or integer expected. Can't inflate {type(value)} to datetime."
+            ) from exc
         return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
 
     @validator

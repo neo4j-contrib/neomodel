@@ -33,9 +33,9 @@ from .properties import (
 )
 from .relationship import StructuredRel
 from .util import change_neo4j_password, clear_neo4j_database
+from .path import NeomodelPath
 
 __author__ = "Robin Edwards"
 __email__ = "robin.ge@gmail.com"
 __license__ = "MIT"
 __package__ = "neomodel"
-__version__ = "5.1.0"

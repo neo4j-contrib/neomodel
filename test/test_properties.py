@@ -192,12 +192,6 @@ def test_default_value():
     a = DefaultTestValue()
     assert a.name_xx == "jim"
     a.save()
-    return
-    b = DefaultTestValue.index.get(name="jim")
-    assert b.name == "jim"
-
-    c = DefaultTestValue(name=None)
-    assert c.name == "jim"
 
 
 def test_default_value_callable():

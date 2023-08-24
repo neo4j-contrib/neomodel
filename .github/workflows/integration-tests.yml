@@ -16,14 +16,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.10", "3.9", "3.8", "3.7"]
-        neo4j-version: ["enterprise", "5.5-enterprise", "4.4-enterprise"]
+        neo4j-version: ["community", "enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
 
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
     - name: Creating Neo4j Container
       run: |
         chmod +x ./docker-scripts/docker-neo4j.sh

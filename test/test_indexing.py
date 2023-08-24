@@ -1,3 +1,4 @@
+import pytest
 from pytest import raises
 
 from neomodel import (
@@ -28,6 +29,9 @@ def test_unique_error():
         assert False, "UniqueProperty not raised."
 
 
+@pytest.mark.skipif(
+    db.database_edition != "enterprise", reason="Skipping test for community edition"
+)
 def test_existence_constraint_error():
     db.cypher_query(
         "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
