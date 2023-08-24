@@ -17,22 +17,20 @@ If you need assistance with neomodel, please create an issue on the GitHub repo 
 .. _neo4j: https://neo4j.com/
 .. _neo4j_driver: https://github.com/neo4j/neo4j-python-driver
 
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=neo4j-contrib_neomodel&metric=reliability_rating
+    :alt: Reliability Rating
+    :scale: 100%
+    :target: https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel
+
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=neo4j-contrib_neomodel&metric=security_rating
+    :alt: Security Rating
+    :scale: 100%
+    :target: https://sonarcloud.io/summary/new_code?id=neo4j-contrib_neomodel
+
 .. image:: https://readthedocs.org/projects/neomodel/badge/?version=latest
     :alt: Documentation Status
     :scale: 100%
     :target: https://neomodel.readthedocs.io/en/latest/?badge=latest
-
-Maintenance notice
-==================
-
-This project did not receive releases between December 2021 and early 2023. Active maintenance of the project is now being picked up again.
-Please look at the Issues page, and especially this thread for more information about the current plan : https://github.com/neo4j-contrib/neomodel/issues/653
-
-**Please note:** 
-
-*This repository now tracks release 5.1 of neomodel that works with Neo4j 5.x and Neo4j 4.4*.
-
-The last neomodel 4.x release was `neomodel 4.0.10 <https://pypi.org/project/neomodel/4.0.10/>`_.
 
 Requirements
 ============
@@ -56,6 +54,21 @@ Documentation
 
 .. _readthedocs: http://neomodel.readthedocs.org
 
+
+Upcoming breaking changes notice - >=5.2
+========================================
+
+As part of the current quality improvement efforts, we are planning a rework of neomodel's main Database object, which will lead to breaking changes.
+
+The full scope is not drawn out yet, but here are the main points :
+
+* Extracting driver creation and management out of the library => then for operations such as transaction creation, you would need to pass along a driver that you maintain yourself, like below. See issue https://github.com/neo4j-contrib/neomodel/issues/742 for more information, breaking changes, and fixes::
+
+    @db.transaction(driver=my_driver)
+
+* Refactoring standalone methods that depend on the Database singleton into the class itself. See issue https://github.com/neo4j-contrib/neomodel/issues/739
+   
+We are aiming to release this in neomodel 5.2
 
 
 Installation
