@@ -3,7 +3,14 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
-from neomodel import StringProperty, StructuredNode, UniqueProperty, db, install_labels
+from neomodel import (
+    StringProperty,
+    StructuredNode,
+    UniqueProperty,
+    config,
+    db,
+    install_labels,
+)
 
 
 class APerson(StructuredNode):
@@ -80,9 +87,9 @@ def test_read_transaction():
         people = APerson.nodes.all()
         assert people
 
-    with pytest.raises(TransactionError):
+    with raises(TransactionError):
         with db.read_transaction:
-            with pytest.raises(ClientError) as e:
+            with raises(ClientError) as e:
                 APerson(name="Gina").save()
             assert e.value.code == "Neo.ClientError.Statement.AccessMode"
 
@@ -97,7 +104,7 @@ def test_write_transaction():
 
 def double_transaction():
     db.begin()
-    with pytest.raises(SystemError, match=r"Transaction in progress"):
+    with raises(SystemError, match=r"Transaction in progress"):
         db.begin()
 
     db.rollback()
@@ -105,13 +112,11 @@ def double_transaction():
 
 def test_set_connection_works():
     assert APerson(name="New guy 1").save()
-    from socket import gaierror
 
-    old_url = db.url
     with raises(ValueError):
-        db.set_connection("bolt://user:password@6.6.6.6.6.6.6.6:7687")
+        db.set_connection(url="bolt://user:password@6.6.6.6.6.6.6.6:7687")
         APerson(name="New guy 2").save()
-    db.set_connection(old_url)
+    db.set_connection(url=config.DATABASE_URL)
     # set connection back
     assert APerson(name="New guy 3").save()
 

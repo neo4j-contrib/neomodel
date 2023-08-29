@@ -61,11 +61,11 @@ def test_change_password():
 
     util.change_neo4j_password(db, "neo4j", new_password)
 
-    db.set_connection(new_url)
+    db.set_connection(url=new_url)
 
     with pytest.raises(AuthError):
-        db.set_connection(prev_url)
+        db.set_connection(url=prev_url)
 
-    db.set_connection(new_url)
+    db.set_connection(url=new_url)
     util.change_neo4j_password(db, "neo4j", prev_password)
-    db.set_connection(prev_url)
+    db.set_connection(url=prev_url)

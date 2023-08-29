@@ -7,7 +7,7 @@ from threading import local
 from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
 
-from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
+from neo4j import DEFAULT_DATABASE, Driver, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
@@ -33,8 +33,11 @@ def ensure_connection(func):
         else:
             _db = self
 
-        if not _db.url:
-            _db.set_connection(config.DATABASE_URL)
+        if not _db.driver:
+            if config.DRIVER:
+                _db.set_connection(driver=config.DRIVER)
+            elif config.DATABASE_URL:
+                _db.set_connection(url=config.DATABASE_URL)
 
         return func(self, *args, **kwargs)
 
@@ -78,64 +81,84 @@ class Database(local):
         self._database_edition = None
         self.impersonated_user = None
 
-    def set_connection(self, url):
+    def set_connection(self, url: str = None, driver: Driver = None):
         """
         Sets the connection URL to the address a Neo4j server is set up at
         """
-        p_start = url.replace(":", "", 1).find(":") + 2
-        p_end = url.rfind("@")
-        password = url[p_start:p_end]
-        url = url.replace(password, quote(password))
-        parsed_url = urlparse(url)
+        if driver:
+            self.driver = driver
+            if hasattr(config, "DATABASE_NAME"):
+                self._database_name = config.DATABASE_NAME
+        elif url:
+            p_start = url.replace(":", "", 1).find(":") + 2
+            p_end = url.rfind("@")
+            password = url[p_start:p_end]
+            url = url.replace(password, quote(password))
+            parsed_url = urlparse(url)
 
-        valid_schemas = [
-            "bolt",
-            "bolt+s",
-            "bolt+ssc",
-            "bolt+routing",
-            "neo4j",
-            "neo4j+s",
-            "neo4j+ssc",
-        ]
+            valid_schemas = [
+                "bolt",
+                "bolt+s",
+                "bolt+ssc",
+                "bolt+routing",
+                "neo4j",
+                "neo4j+s",
+                "neo4j+ssc",
+            ]
 
-        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
-            credentials, hostname = parsed_url.netloc.rsplit("@", 1)
-            username, password = credentials.split(":")
-            password = unquote(password)
-            database_name = parsed_url.path.strip("/")
-        else:
-            raise ValueError(
-                f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
+            if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
+                credentials, hostname = parsed_url.netloc.rsplit("@", 1)
+                username, password = credentials.split(":")
+                password = unquote(password)
+                database_name = parsed_url.path.strip("/")
+            else:
+                raise ValueError(
+                    f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
+                )
+
+            options = {
+                "auth": basic_auth(username, password),
+                "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
+                "connection_timeout": config.CONNECTION_TIMEOUT,
+                "keep_alive": config.KEEP_ALIVE,
+                "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
+                "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
+                "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
+                "resolver": config.RESOLVER,
+                "user_agent": config.USER_AGENT,
+            }
+
+            if "+s" not in parsed_url.scheme:
+                options["encrypted"] = config.ENCRYPTED
+                options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
+
+            self.driver = GraphDatabase.driver(
+                parsed_url.scheme + "://" + hostname, **options
+            )
+            self.url = url
+            self._database_name = (
+                DEFAULT_DATABASE if database_name == "" else database_name
             )
 
-        options = {
-            "auth": basic_auth(username, password),
-            "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
-            "connection_timeout": config.CONNECTION_TIMEOUT,
-            "keep_alive": config.KEEP_ALIVE,
-            "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
-            "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
-            "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
-            "resolver": config.RESOLVER,
-            "user_agent": config.USER_AGENT,
-        }
-
-        if "+s" not in parsed_url.scheme:
-            options["encrypted"] = config.ENCRYPTED
-            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
-
-        self.driver = GraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options
-        )
-        self.url = url
         self._pid = os.getpid()
         self._active_transaction = None
-        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
 
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
         self._database_edition = None
         self._update_database_version()
+
+    def close_connection(self):
+        """
+        Closes the currently open driver.
+        The driver should always be called at the end of the application's lifecyle.
+        If you pass your own driver to neomodel, you can also close it yourself without this method.
+        """
+        self._database_version = None
+        self._database_edition = None
+        self._database_name = None
+        self.driver.close()
+        self.driver = None
 
     @property
     def database_version(self):
@@ -420,6 +443,7 @@ class Database(local):
             raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
+                # TODO : What about if config passes driver instead of url ?
                 self.set_connection(self.url)
                 return self.cypher_query(
                     query=query,

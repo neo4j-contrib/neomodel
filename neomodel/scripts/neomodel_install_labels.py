@@ -27,8 +27,8 @@
 from __future__ import print_function
 
 import sys
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import textwrap
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from importlib import import_module
 from os import environ, path
 
@@ -70,14 +70,16 @@ def load_python_module_or_file(name):
 def main():
     parser = ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
-        description=textwrap.dedent("""
+        description=textwrap.dedent(
+            """
                                     Setup indexes and constraints on labels in Neo4j for your neomodel schema.
 
                                     If a connection URL is not specified, the tool will look up the environment 
                                     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
                                     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
                                     """
-                                   ))
+        ),
+    )
 
     parser.add_argument(
         "apps",
@@ -107,7 +109,7 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print(f"Connecting to {bolt_url}")
-    db.set_connection(bolt_url)
+    db.set_connection(url=bolt_url)
 
     install_all_labels()
 
