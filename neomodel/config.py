@@ -3,6 +3,9 @@ import neo4j
 from ._version import __version__
 
 AUTO_INSTALL_LABELS = False
+
+# Use this to connect with automatically created driver
+# The following options are the default ones that will be used as driver config
 DATABASE_URL = "bolt://neo4j:foobarbaz@localhost:7687"
 FORCE_TIMEZONE = False
 
@@ -17,8 +20,10 @@ RESOLVER = None
 TRUSTED_CERTIFICATES = neo4j.TrustSystemCAs()
 USER_AGENT = f"neomodel/v{__version__}"
 
-DRIVER = neo4j.GraphDatabase().driver(
-    "bolt://localhost:7687", auth=("neo4j", "foobarbaz")
-)
+# Use this to connect with your self-managed driver instead
+# DRIVER = neo4j.GraphDatabase().driver(
+#     "bolt://localhost:7687", auth=("neo4j", "foobarbaz")
+# )
+
 # TODO : Try passing a different database name
 # DATABASE_NAME = "testdatabase"

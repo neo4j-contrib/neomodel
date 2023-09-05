@@ -34,7 +34,7 @@ def ensure_connection(func):
             _db = self
 
         if not _db.driver:
-            if config.DRIVER:
+            if hasattr(config, "DRIVER") and config.DRIVER:
                 _db.set_connection(driver=config.DRIVER)
             elif config.DATABASE_URL:
                 _db.set_connection(url=config.DATABASE_URL)

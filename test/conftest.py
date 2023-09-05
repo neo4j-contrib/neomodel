@@ -4,10 +4,12 @@ import os
 import warnings
 
 import pytest
-from neo4j.exceptions import ClientError as CypherError
-from neobolt.exceptions import ClientError
 
-from neomodel import change_neo4j_password, clear_neo4j_database, config, db
+from neomodel import clear_neo4j_database, config, db
+
+NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "foobarbaz")
 
 
 def pytest_addoption(parser):
@@ -83,7 +85,7 @@ def pytest_sessionstart(session):
 
 
 @pytest.hookimpl
-def pytest_unconfigure(config):
+def pytest_unconfigure():
     db.close_connection()
 
 
