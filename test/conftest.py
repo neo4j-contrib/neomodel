@@ -82,6 +82,11 @@ def pytest_sessionstart(session):
         db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
 
+@pytest.hookimpl
+def pytest_unconfigure(config):
+    db.close_connection()
+
+
 def version_to_dec(a_version_string):
     """
     Converts a version string to a number to allow for quick checks on the versions of specific components.

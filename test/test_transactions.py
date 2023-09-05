@@ -112,10 +112,13 @@ def double_transaction():
 
 def test_set_connection_works():
     assert APerson(name="New guy 1").save()
+    db.close_connection()
 
     with raises(ValueError):
         db.set_connection(url="bolt://user:password@6.6.6.6.6.6.6.6:7687")
         APerson(name="New guy 2").save()
+
+    db.close_connection()
     db.set_connection(url=config.DATABASE_URL)
     # set connection back
     assert APerson(name="New guy 3").save()

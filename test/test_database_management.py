@@ -60,12 +60,18 @@ def test_change_password():
     new_url = f"bolt://neo4j:{new_password}@localhost:7687"
 
     util.change_neo4j_password(db, "neo4j", new_password)
+    db.close_connection()
 
     db.set_connection(url=new_url)
+    db.close_connection()
 
     with pytest.raises(AuthError):
         db.set_connection(url=prev_url)
 
+    db.close_connection()
+
     db.set_connection(url=new_url)
     util.change_neo4j_password(db, "neo4j", prev_password)
+    db.close_connection()
+
     db.set_connection(url=prev_url)
