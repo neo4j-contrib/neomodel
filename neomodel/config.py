@@ -24,6 +24,3 @@ USER_AGENT = f"neomodel/v{__version__}"
 # DRIVER = neo4j.GraphDatabase().driver(
 #     "bolt://localhost:7687", auth=("neo4j", "foobarbaz")
 # )
-
-# TODO : Try passing a different database name
-# DATABASE_NAME = "testdatabase"

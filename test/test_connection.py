@@ -24,6 +24,19 @@ def neo4j_logging():
         yield
 
 
+def get_current_database_name() -> str:
+    """
+    Fetches the name of the currently active database from the Neo4j database.
+
+    Returns:
+    - str: The name of the current database.
+    """
+    results, meta = db.cypher_query("CALL db.info")
+    results_as_dict = [dict(zip(meta, row)) for row in results]
+
+    return results_as_dict[0]["name"]
+
+
 class Pastry(StructuredNode):
     name = StringProperty(unique_index=True)
 
@@ -38,6 +51,37 @@ def test_set_connection_driver_works():
         driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     )
     assert Pastry(name="Croissant").save()
+
+
+def test_connect_to_non_default_database():
+    database_name = "pastries"
+    db.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
+    db.close_connection()
+
+    # Set database name in url - for url init only
+    db.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
+    assert get_current_database_name() == "pastries"
+
+    db.close_connection()
+
+    # Set database name in config - for both url and driver init
+    config.DATABASE_NAME = database_name
+
+    # url init
+    db.set_connection(url=config.DATABASE_URL)
+    assert get_current_database_name() == "pastries"
+
+    db.close_connection()
+
+    # driver init
+    db.set_connection(
+        driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    )
+    assert get_current_database_name() == "pastries"
+
+    # Clear config
+    # No need to close connection - pytest teardown will do it
+    config.DATABASE_NAME = None
 
 
 @pytest.mark.parametrize(

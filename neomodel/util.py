@@ -87,7 +87,7 @@ class Database(local):
         """
         if driver:
             self.driver = driver
-            if hasattr(config, "DATABASE_NAME"):
+            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
                 self._database_name = config.DATABASE_NAME
         elif url:
             p_start = url.replace(":", "", 1).find(":") + 2
@@ -136,12 +136,18 @@ class Database(local):
                 parsed_url.scheme + "://" + hostname, **options
             )
             self.url = url
-            self._database_name = (
-                DEFAULT_DATABASE if database_name == "" else database_name
-            )
+            # The database name can be provided through the url or the config
+            if database_name == "":
+                if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
+                    self._database_name = config.DATABASE_NAME
+            else:
+                self._database_name = database_name
 
         self._pid = os.getpid()
         self._active_transaction = None
+        # Set to default database if it hasn't been set before
+        if self._database_name is None:
+            self._database_name = DEFAULT_DATABASE
 
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
