@@ -12,6 +12,8 @@ Before executing any neomodel code, set the connection url::
 
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
+See the Configuration page (:ref:`connection_options_doc`) for config options.
+
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: ``http://localhost:7474`` ).
 

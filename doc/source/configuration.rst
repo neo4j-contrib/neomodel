@@ -3,6 +3,8 @@ Configuration
 
 This section is covering the Neomodel 'config' module and its variables.
 
+.. _connection_options_doc:
+
 Connection
 ----------
 
