@@ -62,11 +62,9 @@ As part of the current quality improvement efforts, we are planning a rework of 
 
 The full scope is not drawn out yet, but here are the main points :
 
-* Extracting driver creation and management out of the library => then for operations such as transaction creation, you would need to pass along a driver that you maintain yourself, like below. See issue https://github.com/neo4j-contrib/neomodel/issues/742 for more information, breaking changes, and fixes::
-
-    @db.transaction(driver=my_driver)
-
 * Refactoring standalone methods that depend on the Database singleton into the class itself. See issue https://github.com/neo4j-contrib/neomodel/issues/739
+
+* Adding an option to pass your own driver to neomodel instead of relying on the one that the library creates for you. This will not be a breaking change.
    
 We are aiming to release this in neomodel 5.2
 
