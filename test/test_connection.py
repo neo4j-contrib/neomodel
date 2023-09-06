@@ -1,4 +1,5 @@
 import os
+import time
 
 import pytest
 from neo4j import GraphDatabase
@@ -60,6 +61,7 @@ def test_config_driver_works():
 
     # Test connection using a driver defined in config
     driver = GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+
     config.DRIVER = driver
     assert Pastry(name="Grignette").save()
 

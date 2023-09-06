@@ -387,7 +387,8 @@ class Database(local):
         :type: dict
         :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
         :type: bool
-        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
+        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired.
+        If you use neomodel with your own driver, you must catch SessionExpired exceptions yourself and retry with a new driver instance.
         :type: bool
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
@@ -449,8 +450,7 @@ class Database(local):
             raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
-                # TODO : What about if config passes driver instead of url ?
-                self.set_connection(self.url)
+                self.set_connection(url=self.url)
                 return self.cypher_query(
                     query=query,
                     params=params,
