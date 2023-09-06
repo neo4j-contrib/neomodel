@@ -53,6 +53,10 @@ def test_set_connection_driver_works():
     assert Pastry(name="Croissant").save()
 
 
+@pytest.mark.skipif(
+    db.database_edition != "enterprise",
+    reason="Skipping test for community edition - no multi database in CE",
+)
 def test_connect_to_non_default_database():
     database_name = "pastries"
     db.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
