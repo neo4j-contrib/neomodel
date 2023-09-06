@@ -55,20 +55,6 @@ Documentation
 .. _readthedocs: http://neomodel.readthedocs.org
 
 
-Upcoming breaking changes notice - >=5.2
-========================================
-
-As part of the current quality improvement efforts, we are planning a rework of neomodel's main Database object, which will lead to breaking changes.
-
-The full scope is not drawn out yet, but here are the main points :
-
-* Refactoring standalone methods that depend on the Database singleton into the class itself. See issue https://github.com/neo4j-contrib/neomodel/issues/739
-
-* Adding an option to pass your own driver to neomodel instead of relying on the one that the library creates for you. This will not be a breaking change.
-   
-We are aiming to release this in neomodel 5.2
-
-
 Installation
 ============
 
