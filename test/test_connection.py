@@ -53,6 +53,21 @@ def test_set_connection_driver_works():
     assert Pastry(name="Croissant").save()
 
 
+def test_config_driver_works():
+    # Verify that current connection is up
+    assert Pastry(name="Chausson aux pommes").save()
+    db.close_connection()
+
+    # Test connection using a driver defined in config
+    driver = GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    config.DRIVER = driver
+    assert Pastry(name="Grignette").save()
+
+    # Clear config
+    # No need to close connection - pytest teardown will do it
+    config.DRIVER = None
+
+
 @pytest.mark.skipif(
     db.database_edition != "enterprise",
     reason="Skipping test for community edition - no multi database in CE",
