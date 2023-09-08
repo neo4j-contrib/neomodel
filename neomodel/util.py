@@ -90,58 +90,7 @@ class Database(local):
             if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
                 self._database_name = config.DATABASE_NAME
         elif url:
-            p_start = url.replace(":", "", 1).find(":") + 2
-            p_end = url.rfind("@")
-            password = url[p_start:p_end]
-            url = url.replace(password, quote(password))
-            parsed_url = urlparse(url)
-
-            valid_schemas = [
-                "bolt",
-                "bolt+s",
-                "bolt+ssc",
-                "bolt+routing",
-                "neo4j",
-                "neo4j+s",
-                "neo4j+ssc",
-            ]
-
-            if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
-                credentials, hostname = parsed_url.netloc.rsplit("@", 1)
-                username, password = credentials.split(":")
-                password = unquote(password)
-                database_name = parsed_url.path.strip("/")
-            else:
-                raise ValueError(
-                    f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
-                )
-
-            options = {
-                "auth": basic_auth(username, password),
-                "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
-                "connection_timeout": config.CONNECTION_TIMEOUT,
-                "keep_alive": config.KEEP_ALIVE,
-                "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
-                "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
-                "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
-                "resolver": config.RESOLVER,
-                "user_agent": config.USER_AGENT,
-            }
-
-            if "+s" not in parsed_url.scheme:
-                options["encrypted"] = config.ENCRYPTED
-                options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
-
-            self.driver = GraphDatabase.driver(
-                parsed_url.scheme + "://" + hostname, **options
-            )
-            self.url = url
-            # The database name can be provided through the url or the config
-            if database_name == "":
-                if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
-                    self._database_name = config.DATABASE_NAME
-            else:
-                self._database_name = database_name
+            self._parse_driver_from_url(url=url)
 
         self._pid = os.getpid()
         self._active_transaction = None
@@ -153,6 +102,71 @@ class Database(local):
         self._database_version = None
         self._database_edition = None
         self._update_database_version()
+
+    def _parse_driver_from_url(self, url: str) -> None:
+        """Parse the driver information from the given URL and initialize the driver.
+
+        Args:
+            url (str): The URL to parse.
+
+        Raises:
+            ValueError: If the URL format is not as expected.
+
+        Returns:
+            None - Sets the driver and database_name as class properties
+        """
+        p_start = url.replace(":", "", 1).find(":") + 2
+        p_end = url.rfind("@")
+        password = url[p_start:p_end]
+        url = url.replace(password, quote(password))
+        parsed_url = urlparse(url)
+
+        valid_schemas = [
+            "bolt",
+            "bolt+s",
+            "bolt+ssc",
+            "bolt+routing",
+            "neo4j",
+            "neo4j+s",
+            "neo4j+ssc",
+        ]
+
+        if parsed_url.netloc.find("@") > -1 and parsed_url.scheme in valid_schemas:
+            credentials, hostname = parsed_url.netloc.rsplit("@", 1)
+            username, password = credentials.split(":")
+            password = unquote(password)
+            database_name = parsed_url.path.strip("/")
+        else:
+            raise ValueError(
+                f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
+            )
+
+        options = {
+            "auth": basic_auth(username, password),
+            "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
+            "connection_timeout": config.CONNECTION_TIMEOUT,
+            "keep_alive": config.KEEP_ALIVE,
+            "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
+            "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
+            "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
+            "resolver": config.RESOLVER,
+            "user_agent": config.USER_AGENT,
+        }
+
+        if "+s" not in parsed_url.scheme:
+            options["encrypted"] = config.ENCRYPTED
+            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
+
+        self.driver = GraphDatabase.driver(
+            parsed_url.scheme + "://" + hostname, **options
+        )
+        self.url = url
+        # The database name can be provided through the url or the config
+        if database_name == "":
+            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
+                self._database_name = config.DATABASE_NAME
+        else:
+            self._database_name = database_name
 
     def close_connection(self):
         """
