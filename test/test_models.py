@@ -7,8 +7,10 @@ from pytest import raises
 from neomodel import (
     DateProperty,
     IntegerProperty,
+    Relationship,
     StringProperty,
     StructuredNode,
+    StructuredRel,
     install_labels,
 )
 from neomodel.core import db
@@ -296,3 +298,32 @@ def test_date_property():
         birthdate = DateProperty()
 
     user = DateTest(birthdate=datetime.now()).save()
+
+
+def test_reserved_property_keys():
+    error_match = r".*is not allowed as it conflicts with neomodel internals.*"
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesDeletedNode(StructuredNode):
+            deleted = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdNode(StructuredNode):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdNode(StructuredNode):
+            element_id = StringProperty()
+
+    error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesSourceRel(StructuredRel):
+            source = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesTargetRel(StructuredRel):
+            target = StringProperty()

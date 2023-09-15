@@ -246,8 +246,21 @@ class NodeMeta(type):
         else:
             if "deleted" in namespace:
                 raise ValueError(
-                    "Class property called 'deleted' conflicts "
-                    "with neomodel internals."
+                    "Property name 'deleted' is not allowed as it conflicts with neomodel internals."
+                )
+            elif "id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as id is also a Neo4j internal.
+                    """
+                )
+            elif "element_id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'element_id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as element_id is also a Neo4j internal.
+                    """
                 )
             for key, value in (
                 (x, y) for x, y in namespace.items() if isinstance(y, Property)
