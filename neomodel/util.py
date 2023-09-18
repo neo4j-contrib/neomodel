@@ -83,7 +83,14 @@ class Database(local):
 
     def set_connection(self, url: str = None, driver: Driver = None):
         """
-        Sets the connection URL to the address a Neo4j server is set up at
+        Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
+
+        Args:
+            url (str): Optionally, Neo4j URL in the form protocol://username:password@hostname:port/dbname.
+            When provided, a Neo4j driver instance will be created by neomodel.
+
+            driver (neo4j.Driver): Optionally, a pre-created driver instance.
+            When provided, neomodel will not create a driver instance but use this one instead.
         """
         if driver:
             self.driver = driver
