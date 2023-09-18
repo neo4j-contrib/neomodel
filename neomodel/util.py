@@ -178,8 +178,7 @@ class Database(local):
     def close_connection(self):
         """
         Closes the currently open driver.
-        The driver should always be called at the end of the application's lifecyle.
-        If you pass your own driver to neomodel, you can also close it yourself without this method.
+        The driver should always be closed at the end of the application's lifecyle.
         """
         self._database_version = None
         self._database_edition = None
