@@ -179,6 +179,19 @@ This is useful when hiding graph properties behind a python property::
         def name(self, value):
             self.name_ = value
 
+Reserved properties
+===================
+
+To prevent conflicts with neomodel / Neo4j internals, the following properties are reserved, and will throw a ValueError if you try to define them in elements.
+
+* Nodes :
+    * deleted - used to mark an object for deletion by neomodel
+* Relationships :
+    * source - id of the source node for a relationship
+    * target - id of the target node
+* Both :
+    * id - internal Neo4j id of elements in version 4 ; deprecated in 5
+    * element_id - internal Neo4j id of elements in version 5
 
 .. _properties_notes:
 

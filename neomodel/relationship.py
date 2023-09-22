@@ -14,6 +14,20 @@ class RelationshipMeta(type):
                     raise ValueError(
                         "Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
                     )
+                elif key == "id":
+                    raise ValueError(
+                        """
+                            Property name 'id' is not allowed as it conflicts with neomodel internals.
+                            Consider using 'uid' or 'identifier' as id is also a Neo4j internal.
+                        """
+                    )
+                elif key == "element_id":
+                    raise ValueError(
+                        """
+                            Property name 'element_id' is not allowed as it conflicts with neomodel internals.
+                            Consider using 'uid' or 'identifier' as element_id is also a Neo4j internal.
+                        """
+                    )
                 value.name = key
                 value.owner = inst
 

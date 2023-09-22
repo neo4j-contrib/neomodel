@@ -317,6 +317,16 @@ def test_reserved_property_keys():
         class ReservedPropertiesElementIdNode(StructuredNode):
             element_id = StringProperty()
 
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdRel(StructuredRel):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdRel(StructuredRel):
+            element_id = StringProperty()
+
     error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
     with raises(ValueError, match=error_match):
 
