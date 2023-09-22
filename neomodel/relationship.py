@@ -10,6 +10,10 @@ class RelationshipMeta(type):
         inst = super().__new__(mcs, name, bases, dct)
         for key, value in dct.items():
             if issubclass(value.__class__, Property):
+                if key == "source" or key == "target":
+                    raise ValueError(
+                        "Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
+                    )
                 value.name = key
                 value.owner = inst
 
@@ -153,4 +157,3 @@ class StructuredRel(StructuredRelBase):
         srel._end_node_element_id_property = rel.end_node.element_id
         srel.element_id_property = rel.element_id
         return srel
-
