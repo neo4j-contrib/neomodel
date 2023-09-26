@@ -229,6 +229,12 @@ def test_order_by():
     assert qb._ast.with_clause == "coffee, rand() as r"
     assert qb._ast.order_by == "r"
 
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or elementId are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.order_by("id")
+
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
     l.coffees.connect(c1)
@@ -269,6 +275,12 @@ def test_extra_filters():
     assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
+
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or elementId are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.filter(elementId="4:xxx:111").all()
 
 
 def test_traversal_definition_keys_are_valid():
