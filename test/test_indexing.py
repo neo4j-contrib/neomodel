@@ -30,7 +30,7 @@ def test_unique_error():
 
 
 @pytest.mark.skipif(
-    db.database_edition != "enterprise", reason="Skipping test for community edition"
+    not db.edition_is_enterprise(), reason="Skipping test for community edition"
 )
 def test_existence_constraint_error():
     db.cypher_query(

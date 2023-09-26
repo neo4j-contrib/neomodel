@@ -1,3 +1,4 @@
+import pytest
 from six import StringIO
 
 from neomodel import (
@@ -11,6 +12,7 @@ from neomodel import (
     install_labels,
 )
 from neomodel.core import db, drop_constraints
+from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
 
 config.AUTO_INSTALL_LABELS = False
 
@@ -100,6 +102,21 @@ def test_install_label_twice(capsys):
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
+    if db.version_is_higher_than("5.7"):
+
+        class UniqueIndexRelationship(StructuredRel):
+            unique_index_rel_prop = StringProperty(unique_index=True)
+
+        class OtherNodeWithUniqueIndexRelationship(StructuredNode):
+            has_rel = RelationshipTo(
+                NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
+            )
+
+        install_labels(OtherNodeWithUniqueIndexRelationship)
+        install_labels(OtherNodeWithUniqueIndexRelationship, quiet=False)
+        captured = capsys.readouterr()
+        assert expected_std_out in captured.out
+
 
 def test_install_labels_db_property():
     stdout = StringIO()
@@ -113,6 +130,54 @@ def test_install_labels_db_property():
     assert constraint_names == []
     # make sure the id constraint exists and can be removed
     _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
+
+
+@pytest.mark.skipif(db.version_is_higher_than("5.7"), reason="Not supported before 5.7")
+def test_relationship_unique_index_not_supported():
+    class UniqueIndexRelationship(StructuredRel):
+        name = StringProperty(unique_index=True)
+
+    class TargetNodeForUniqueIndexRelationship(StructuredNode):
+        pass
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
+    ):
+
+        class NodeWithUniqueIndexRelationship(StructuredNode):
+            has_rel = RelationshipTo(
+                TargetNodeForUniqueIndexRelationship,
+                "UNIQUE_INDEX_REL",
+                model=UniqueIndexRelationship,
+            )
+
+
+@pytest.mark.skipif(not db.version_is_higher_than("5.7"), reason="Supported from 5.7")
+def test_relationship_unique_index():
+    class UniqueIndexRelationshipBis(StructuredRel):
+        name = StringProperty(unique_index=True)
+
+    class TargetNodeForUniqueIndexRelationship(StructuredNode):
+        pass
+
+    class NodeWithUniqueIndexRelationship(StructuredNode):
+        has_rel = RelationshipTo(
+            TargetNodeForUniqueIndexRelationship,
+            "UNIQUE_INDEX_REL_BIS",
+            model=UniqueIndexRelationshipBis,
+        )
+
+    install_labels(UniqueIndexRelationshipBis)
+    node1 = NodeWithUniqueIndexRelationship().save()
+    node2 = TargetNodeForUniqueIndexRelationship().save()
+    node3 = TargetNodeForUniqueIndexRelationship().save()
+    rel1 = node1.has_rel.connect(node2, {"name": "rel1"})
+
+    with pytest.raises(
+        ConstraintValidationFailed,
+        match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
+    ):
+        rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):

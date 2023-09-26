@@ -7,7 +7,6 @@ from pytest import raises
 from neomodel import (
     DateProperty,
     IntegerProperty,
-    Relationship,
     StringProperty,
     StructuredNode,
     StructuredRel,
