@@ -102,6 +102,21 @@ def test_install_label_twice(capsys):
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
+    if db.version_is_higher_than("5.7"):
+
+        class UniqueIndexRelationship(StructuredRel):
+            unique_index_rel_prop = StringProperty(unique_index=True)
+
+        class OtherNodeWithUniqueIndexRelationship(StructuredNode):
+            has_rel = RelationshipTo(
+                NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
+            )
+
+        install_labels(OtherNodeWithUniqueIndexRelationship)
+        install_labels(OtherNodeWithUniqueIndexRelationship, quiet=False)
+        captured = capsys.readouterr()
+        assert expected_std_out in captured.out
+
 
 def test_install_labels_db_property():
     stdout = StringIO()
@@ -139,7 +154,7 @@ def test_relationship_unique_index_not_supported():
 
 @pytest.mark.skipif(not db.version_is_higher_than("5.7"), reason="Supported from 5.7")
 def test_relationship_unique_index():
-    class UniqueIndexRelationship(StructuredRel):
+    class UniqueIndexRelationshipBis(StructuredRel):
         name = StringProperty(unique_index=True)
 
     class TargetNodeForUniqueIndexRelationship(StructuredNode):
@@ -148,11 +163,11 @@ def test_relationship_unique_index():
     class NodeWithUniqueIndexRelationship(StructuredNode):
         has_rel = RelationshipTo(
             TargetNodeForUniqueIndexRelationship,
-            "UNIQUE_INDEX_REL",
-            model=UniqueIndexRelationship,
+            "UNIQUE_INDEX_REL_BIS",
+            model=UniqueIndexRelationshipBis,
         )
 
-    install_labels(UniqueIndexRelationship)
+    install_labels(UniqueIndexRelationshipBis)
     node1 = NodeWithUniqueIndexRelationship().save()
     node2 = TargetNodeForUniqueIndexRelationship().save()
     node3 = TargetNodeForUniqueIndexRelationship().save()
@@ -160,7 +175,7 @@ def test_relationship_unique_index():
 
     with pytest.raises(
         ConstraintValidationFailed,
-        match=r".*already exists with type `UNIQUE_INDEX_REL` and property `name`.*",
+        match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
     ):
         rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
 
