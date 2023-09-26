@@ -41,6 +41,10 @@ class Coffee(StructuredNode):
     id_ = IntegerProperty()
 
 
+class Extension(StructuredNode):
+    extension = RelationshipTo("Extension", "extension")
+
+
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
 
@@ -111,7 +115,7 @@ def test_simple_traverse_with_filter():
 
     assert qb._ast.lookup
     assert qb._ast.match
-    assert qb._ast.return_clause == "suppliers"
+    assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
     assert results[0].name == "Sainsburys"
 
@@ -178,6 +182,13 @@ def test_issue_208():
 
     assert len(b.suppliers.match(courier="fedex"))
     assert len(b.suppliers.match(courier="dhl"))
+
+
+def test_issue_589():
+    node1 = Extension().save()
+    node2 = Extension().save()
+    node1.extension.connect(node2)
+    assert node2 in node1.extension.all()
 
 
 def test_contains():
