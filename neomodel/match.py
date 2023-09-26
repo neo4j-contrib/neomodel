@@ -422,12 +422,13 @@ class QueryBuilder:
         rhs_label = ":" + traversal.target_class.__label__
 
         # build source
+        rel_ident = self.create_ident()
         lhs_ident = self.build_source(traversal.source)
-        rhs_ident = traversal.name + rhs_label
-        self._ast.return_clause = traversal.name
+        traversal_ident = f"{traversal.name}_{rel_ident}"
+        rhs_ident = traversal_ident + rhs_label
+        self._ast.return_clause = traversal_ident
         self._ast.result_class = traversal.target_class
 
-        rel_ident = self.create_ident()
         stmt = _rel_helper(
             lhs=lhs_ident,
             rhs=rhs_ident,
@@ -439,7 +440,7 @@ class QueryBuilder:
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
 
-        return traversal.name
+        return traversal_ident
 
     def _additional_return(self, name):
         if name not in self._ast.additional_return and name != self._ast.return_clause:
