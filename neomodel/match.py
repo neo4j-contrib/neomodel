@@ -230,7 +230,9 @@ def process_filter_args(cls, kwargs):
             operator = "="
 
         if prop not in cls.defined_properties(rels=False):
-            raise ValueError(f"No such property {prop} on {cls.__name__}")
+            raise ValueError(
+                f"No such property {prop} on {cls.__name__}. Note that Neo4j internals like id or elementId are not allowed for use in this operation."
+            )
 
         property_obj = getattr(cls, prop)
         if isinstance(property_obj, AliasProperty):
