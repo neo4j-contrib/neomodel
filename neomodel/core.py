@@ -165,19 +165,24 @@ def _create_relationship_index(relationship_type: str, property_name: str, stdou
 
 
 def _create_relationship_constraint(relationship_type: str, property_name: str, stdout):
-    try:
-        db.cypher_query(
-            f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
-                        FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
+    if db.version_is_higher_than("5.7"):
+        try:
+            db.cypher_query(
+                f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
+                            FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
+            )
+        except ClientError as e:
+            if e.code in (
+                RULE_ALREADY_EXISTS,
+                CONSTRAINT_ALREADY_EXISTS,
+            ):
+                stdout.write(f"{str(e)}\n")
+            else:
+                raise
+    else:
+        raise FeatureNotSupported(
+            f"Unique indexes on relationships are not supported in Neo4j version {db.database_version}. Please upgrade to Neo4j 5.7 or higher."
         )
-    except ClientError as e:
-        if e.code in (
-            RULE_ALREADY_EXISTS,
-            CONSTRAINT_ALREADY_EXISTS,
-        ):
-            stdout.write(f"{str(e)}\n")
-        else:
-            raise
 
 
 def _install_node(cls, name, property, quiet, stdout):
@@ -222,20 +227,15 @@ def _install_relationship(cls, relationship, quiet, stdout):
                     stdout=stdout,
                 )
             elif property.unique_index:
-                if db.version_is_higher_than("5.7"):
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
-                    _create_relationship_constraint(
-                        relationship_type=relationship_type,
-                        property_name=db_property,
-                        stdout=stdout,
+                if not quiet:
+                    stdout.write(
+                        f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
                     )
-                else:
-                    raise FeatureNotSupported(
-                        f"Unique indexes on relationships are not supported in Neo4j version {db.database_version}. Please upgrade to Neo4j 5.7 or higher."
-                    )
+                _create_relationship_constraint(
+                    relationship_type=relationship_type,
+                    property_name=db_property,
+                    stdout=stdout,
+                )
 
 
 def install_all_labels(stdout=None):
