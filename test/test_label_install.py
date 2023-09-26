@@ -1,3 +1,4 @@
+import pytest
 from six import StringIO
 
 from neomodel import (
@@ -11,6 +12,7 @@ from neomodel import (
     install_labels,
 )
 from neomodel.core import db, drop_constraints
+from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
 
 config.AUTO_INSTALL_LABELS = False
 
@@ -113,6 +115,45 @@ def test_install_labels_db_property():
     assert constraint_names == []
     # make sure the id constraint exists and can be removed
     _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
+
+
+@pytest.mark.skipif(db.version_is_higher_than("5.7"), reason="Not supported before 5.7")
+def test_relationship_unique_index_not_supported():
+    class UniqueIndexRelationship(StructuredRel):
+        name = StringProperty(unique_index=True)
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
+    ):
+        install_labels(UniqueIndexRelationship)
+
+
+@pytest.mark.skipif(not db.version_is_higher_than("5.7"), reason="Supported from 5.7")
+def test_relationship_unique_index():
+    class UniqueIndexRelationship(StructuredRel):
+        name = StringProperty(unique_index=True)
+
+    class TargetNodeForUniqueIndexRelationship(StructuredNode):
+        pass
+
+    class NodeWithUniqueIndexRelationship(StructuredNode):
+        has_rel = RelationshipTo(
+            TargetNodeForUniqueIndexRelationship,
+            "UNIQUE_INDEX_REL",
+            model=UniqueIndexRelationship,
+        )
+
+    install_labels(UniqueIndexRelationship)
+    node1 = NodeWithUniqueIndexRelationship().save()
+    node2 = TargetNodeForUniqueIndexRelationship().save()
+    node3 = TargetNodeForUniqueIndexRelationship().save()
+    rel1 = node1.has_rel.connect(node2, {"name": "rel1"})
+
+    with pytest.raises(
+        ConstraintValidationFailed,
+        match=r".*already exists with type `UNIQUE_INDEX_REL` and property `name`.*",
+    ):
+        rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
