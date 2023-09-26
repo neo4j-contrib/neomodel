@@ -122,10 +122,19 @@ def test_relationship_unique_index_not_supported():
     class UniqueIndexRelationship(StructuredRel):
         name = StringProperty(unique_index=True)
 
+    class TargetNodeForUniqueIndexRelationship(StructuredNode):
+        pass
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
     ):
-        install_labels(UniqueIndexRelationship)
+
+        class NodeWithUniqueIndexRelationship(StructuredNode):
+            has_rel = RelationshipTo(
+                TargetNodeForUniqueIndexRelationship,
+                "UNIQUE_INDEX_REL",
+                model=UniqueIndexRelationship,
+            )
 
 
 @pytest.mark.skipif(not db.version_is_higher_than("5.7"), reason="Supported from 5.7")
