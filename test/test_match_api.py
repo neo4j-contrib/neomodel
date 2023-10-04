@@ -231,7 +231,7 @@ def test_order_by():
 
     with raises(
         ValueError,
-        match=r".*Neo4j internals like id or elementId are not allowed for use in this operation.",
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
         Coffee.nodes.order_by("id")
 
@@ -278,7 +278,7 @@ def test_extra_filters():
 
     with raises(
         ValueError,
-        match=r".*Neo4j internals like id or elementId are not allowed for use in this operation.",
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
         Coffee.nodes.filter(elementId="4:xxx:111").all()
 
