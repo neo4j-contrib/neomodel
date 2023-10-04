@@ -230,7 +230,9 @@ def process_filter_args(cls, kwargs):
             operator = "="
 
         if prop not in cls.defined_properties(rels=False):
-            raise ValueError(f"No such property {prop} on {cls.__name__}")
+            raise ValueError(
+                f"No such property {prop} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
+            )
 
         property_obj = getattr(cls, prop)
         if isinstance(property_obj, AliasProperty):
@@ -420,12 +422,13 @@ class QueryBuilder:
         rhs_label = ":" + traversal.target_class.__label__
 
         # build source
+        rel_ident = self.create_ident()
         lhs_ident = self.build_source(traversal.source)
-        rhs_ident = traversal.name + rhs_label
-        self._ast.return_clause = traversal.name
+        traversal_ident = f"{traversal.name}_{rel_ident}"
+        rhs_ident = traversal_ident + rhs_label
+        self._ast.return_clause = traversal_ident
         self._ast.result_class = traversal.target_class
 
-        rel_ident = self.create_ident()
         stmt = _rel_helper(
             lhs=lhs_ident,
             rhs=rhs_ident,
@@ -437,7 +440,7 @@ class QueryBuilder:
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
 
-        return traversal.name
+        return traversal_ident
 
     def _additional_return(self, name):
         if name not in self._ast.additional_return and name != self._ast.return_clause:
@@ -929,7 +932,7 @@ class NodeSet(BaseSet):
 
                 if prop not in self.source_class.defined_properties(rels=False):
                     raise ValueError(
-                        f"No such property {prop} on {self.source_class.__name__}"
+                        f"No such property {prop} on {self.source_class.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
                     )
 
                 property_obj = getattr(self.source_class, prop)

@@ -41,6 +41,10 @@ class Coffee(StructuredNode):
     id_ = IntegerProperty()
 
 
+class Extension(StructuredNode):
+    extension = RelationshipTo("Extension", "extension")
+
+
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
 
@@ -111,7 +115,7 @@ def test_simple_traverse_with_filter():
 
     assert qb._ast.lookup
     assert qb._ast.match
-    assert qb._ast.return_clause == "suppliers"
+    assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
     assert results[0].name == "Sainsburys"
 
@@ -180,6 +184,13 @@ def test_issue_208():
     assert len(b.suppliers.match(courier="dhl"))
 
 
+def test_issue_589():
+    node1 = Extension().save()
+    node2 = Extension().save()
+    node1.extension.connect(node2)
+    assert node2 in node1.extension.all()
+
+
 def test_contains():
     expensive = Coffee(price=1000, name="Pricey").save()
     asda = Coffee(name="Asda", price=1).save()
@@ -217,6 +228,12 @@ def test_order_by():
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast.with_clause == "coffee, rand() as r"
     assert qb._ast.order_by == "r"
+
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.order_by("id")
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
@@ -258,6 +275,12 @@ def test_extra_filters():
     assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
+
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.filter(elementId="4:xxx:111").all()
 
 
 def test_traversal_definition_keys_are_valid():

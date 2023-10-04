@@ -7,7 +7,7 @@ from neomodel.exceptions import FeatureNotSupported
 
 
 @pytest.mark.skipif(
-    db.database_edition != "enterprise", reason="Skipping test for community edition"
+    not db.edition_is_enterprise(), reason="Skipping test for community edition"
 )
 def test_impersonate():
     with db.impersonate(user="troygreene"):
@@ -16,7 +16,7 @@ def test_impersonate():
 
 
 @pytest.mark.skipif(
-    db.database_edition != "enterprise", reason="Skipping test for community edition"
+    not db.edition_is_enterprise(), reason="Skipping test for community edition"
 )
 def test_impersonate_unauthorized():
     with db.impersonate(user="unknownuser"):
@@ -25,7 +25,7 @@ def test_impersonate_unauthorized():
 
 
 @pytest.mark.skipif(
-    db.database_edition != "enterprise", reason="Skipping test for community edition"
+    not db.edition_is_enterprise(), reason="Skipping test for community edition"
 )
 def test_impersonate_multiple_transactions():
     with db.impersonate(user="troygreene"):
@@ -42,7 +42,7 @@ def test_impersonate_multiple_transactions():
 
 
 @pytest.mark.skipif(
-    db.database_edition == "enterprise", reason="Skipping test for enterprise edition"
+    db.edition_is_enterprise(), reason="Skipping test for enterprise edition"
 )
 def test_impersonate_community():
     with raises(FeatureNotSupported):

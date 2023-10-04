@@ -5,7 +5,11 @@ from itertools import combinations
 from neo4j.exceptions import ClientError
 
 from neomodel import config
-from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
+from neomodel.exceptions import (
+    DoesNotExist,
+    FeatureNotSupported,
+    NodeClassAlreadyDefined,
+)
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, _get_node_properties, _UnsavedNode, classproperty
@@ -160,6 +164,27 @@ def _create_relationship_index(relationship_type: str, property_name: str, stdou
             raise
 
 
+def _create_relationship_constraint(relationship_type: str, property_name: str, stdout):
+    if db.version_is_higher_than("5.7"):
+        try:
+            db.cypher_query(
+                f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
+                            FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
+            )
+        except ClientError as e:
+            if e.code in (
+                RULE_ALREADY_EXISTS,
+                CONSTRAINT_ALREADY_EXISTS,
+            ):
+                stdout.write(f"{str(e)}\n")
+            else:
+                raise
+    else:
+        raise FeatureNotSupported(
+            f"Unique indexes on relationships are not supported in Neo4j version {db.database_version}. Please upgrade to Neo4j 5.7 or higher."
+        )
+
+
 def _install_node(cls, name, property, quiet, stdout):
     # Create indexes and constraints for node property
     db_property = property.db_property or name
@@ -197,6 +222,16 @@ def _install_relationship(cls, relationship, quiet, stdout):
                         f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
                     )
                 _create_relationship_index(
+                    relationship_type=relationship_type,
+                    property_name=db_property,
+                    stdout=stdout,
+                )
+            elif property.unique_index:
+                if not quiet:
+                    stdout.write(
+                        f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
+                    )
+                _create_relationship_constraint(
                     relationship_type=relationship_type,
                     property_name=db_property,
                     stdout=stdout,
@@ -246,8 +281,21 @@ class NodeMeta(type):
         else:
             if "deleted" in namespace:
                 raise ValueError(
-                    "Class property called 'deleted' conflicts "
-                    "with neomodel internals."
+                    "Property name 'deleted' is not allowed as it conflicts with neomodel internals."
+                )
+            elif "id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as id is also a Neo4j internal.
+                    """
+                )
+            elif "element_id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'element_id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as element_id is also a Neo4j internal.
+                    """
                 )
             for key, value in (
                 (x, y) for x, y in namespace.items() if isinstance(y, Property)
