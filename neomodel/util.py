@@ -638,6 +638,6 @@ def version_tag_to_integer(version_tag):
     while len(components) < 3:
         components.append("0")
     num = 0
-    for a_component in enumerate(components):
-        num += (10 ** ((len(components) - 1) - a_component[0])) * int(a_component[1])
+    for index, component in enumerate(components):
+        num += (10 ** ((len(components) - 1) - index)) * int(component)
     return num
