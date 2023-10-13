@@ -54,6 +54,7 @@ dev = [
     "isort",
     "Shapely>=2.0.0"
 ]
+pandas = ["pandas"]
 
 [tool.pytest.ini_options]
 addopts = "--resetdb"

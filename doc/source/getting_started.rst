@@ -50,6 +50,14 @@ with something like: ::
 
     config.DATABASE_URL = os.environ["NEO4J_BOLT_URL"]
 
+Querying the graph
+==================
+
+neomodel is mainly used as an OGM (see next section), but you also use it for direct Cypher queries : ::
+
+    results, meta = db.cypher_query("RETURN 'Hello World' as message")
+
+
 Defining Node Entities and Relationships
 ========================================
 

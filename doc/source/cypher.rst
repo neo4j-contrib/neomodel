@@ -24,6 +24,21 @@ Outside of a `StructuredNode`::
 
 The ``resolve_objects`` parameter automatically inflates the returned nodes to their defined classes (this is turned **off** by default). See :ref:`automatic_class_resolution` for details and possible pitfalls.
 
+Integrations
+============
+
+Pandas
+------
+
+You can use the `pandas` library to return a `DataFrame` or `Series` object::
+
+    from neomodel import db
+    from neomodel.integration.pandas import to_dataframe, to_series
+    import pandas as pd
+
+    df = to_dataframe(db.cypher_query("MATCH (a:Person) RETURN a.name AS name, a.born AS born"))
+    series = to_series(db.cypher_query("MATCH (a:Person) RETURN a.name AS name"))
+
 Logging
 =======
 
