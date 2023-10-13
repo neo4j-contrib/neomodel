@@ -10,7 +10,7 @@ Example:
     >>> from neomodel import db
     >>> from neomodel.integration.pandas import to_dataframe
     >>> db.set_connection('bolt://neo4j:secret@localhost:7687')
-    >>> df = to_dataframe(db.cypher_query("MATCH (a:Person) RETURN a.name AS name, a.born AS born"))
+    >>> df = to_dataframe(db.cypher_query("MATCH (u:User) RETURN u.email AS email, u.name AS name"))
     >>> df
                        email    name
     0         jimla@test.com   jimla
