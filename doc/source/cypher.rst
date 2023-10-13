@@ -30,6 +30,14 @@ Integrations
 Pandas
 ------
 
+First, you need to install pandas by yourself. We do not include it by default to keep that package size controlled::
+
+    # When installing neomodel
+    pip install neomodel[pandas]
+
+    # Or separately
+    pip install pandas
+
 You can use the `pandas` library to return a `DataFrame` or `Series` object::
 
     from neomodel import db
