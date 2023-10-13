@@ -30,7 +30,7 @@ Integrations
 Pandas
 ------
 
-First, you need to install pandas by yourself. We do not include it by default to keep that package size controlled::
+First, you need to install pandas by yourself. We do not include it by default to keep the package size controlled::
 
     # When installing neomodel
     pip install neomodel[pandas]
