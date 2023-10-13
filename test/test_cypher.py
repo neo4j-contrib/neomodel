@@ -1,8 +1,10 @@
 from neo4j.exceptions import ClientError as CypherError
+from numpy import ndarray
 from pandas import DataFrame, Series
 
 from neomodel import StringProperty, StructuredNode
 from neomodel.core import db
+from neomodel.integration.numpy import to_ndarray
 from neomodel.integration.pandas import to_dataframe, to_series
 
 
@@ -49,9 +51,11 @@ def test_cypher_syntax_error():
         assert False, "CypherError not raised."
 
 
-def test_pandas_dataframe_integration():
+def test_pandas_integration():
     jimla = User2(email="jimla@test.com", name="jimla").save()
     jimlo = User2(email="jimlo@test.com", name="jimlo").save()
+
+    # Test to_dataframe
     df = to_dataframe(
         db.cypher_query("MATCH (a:User2) RETURN a.name AS name, a.email AS email")
     )
@@ -69,11 +73,22 @@ def test_pandas_dataframe_integration():
 
     assert df.index.inferred_type == "string"
 
-
-def test_pandas_series_integration():
-    jimly = User3(email="jimly@test.com", name="jimly").save()
-    series = to_series(db.cypher_query("MATCH (a:User3) RETURN a.name AS name"))
+    # Next test to_series
+    series = to_series(db.cypher_query("MATCH (a:User2) RETURN a.name AS name"))
 
     assert isinstance(series, Series)
-    assert series.shape == (1,)
-    assert series.tolist() == ["jimly"]
+    assert series.shape == (2,)
+    assert df["name"].tolist() == ["jimla", "jimlo"]
+
+
+def test_numpy_integration():
+    jimly = User3(email="jimly@test.com", name="jimly").save()
+    jimlu = User3(email="jimlu@test.com", name="jimlu").save()
+
+    array = to_ndarray(
+        db.cypher_query("MATCH (a:User3) RETURN a.name AS name, a.email AS email")
+    )
+
+    assert isinstance(array, ndarray)
+    assert array.shape == (2, 2)
+    assert array[0][0] == "jimly"
