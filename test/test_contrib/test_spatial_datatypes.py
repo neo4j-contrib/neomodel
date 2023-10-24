@@ -13,23 +13,7 @@ import shapely
 
 import neomodel
 import neomodel.contrib.spatial_properties
-
-
-def version_to_dec(a_version_string):
-    """
-    Converts a version string to a number to allow for quick checks on the versions of specific components.
-
-    :param a_version_string: The version string under test (e.g. '3.4.0')
-    :type a_version_string: str
-    :return: An integer representation of the string version, e.g. '3.4.0' --> 340
-    """
-    components = a_version_string.split(".")
-    while len(components) < 3:
-        components.append("0")
-    num = 0
-    for a_component in enumerate(components):
-        num += (10 ** ((len(components) - 1) - a_component[0])) * int(a_component[1])
-    return num
+from neomodel.util import version_tag_to_integer
 
 
 def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
@@ -46,7 +30,10 @@ def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
     :return: A boolean value of True if the version reported is at least `required_least_neo4j_version`
     """
     if "NEO4J_VERSION" in os.environ:
-        if version_to_dec(os.environ["NEO4J_VERSION"]) < required_least_neo4j_version:
+        if (
+            version_tag_to_integer(os.environ["NEO4J_VERSION"])
+            < required_least_neo4j_version
+        ):
             pytest.skip(
                 "Neo4j version: {}. {}."
                 "Skipping test.".format(os.environ["NEO4J_VERSION"], message)
@@ -80,7 +67,7 @@ def basic_type_assertions(
         )
         assert len(tested_object) == len(
             ground_truth
-        ), "{} dimensionality mismatch. Expected {}, had {}".format(
+        ), "Dimensionality mismatch. Expected {}, had {}".format(
             len(ground_truth.coords), len(tested_object.coords)
         )
     else:
@@ -94,7 +81,7 @@ def basic_type_assertions(
         )
         assert len(tested_object.coords[0]) == len(
             ground_truth.coords[0]
-        ), "{} dimensionality mismatch. Expected {}, had {}".format(
+        ), "Dimensionality mismatch. Expected {}, had {}".format(
             len(ground_truth.coords[0]), len(tested_object.coords[0])
         )
 
@@ -264,14 +251,15 @@ def test_prohibited_constructor_forms():
     # Absurd coord dimensionality
     with pytest.raises(
         ValueError,
-        match="Invalid vector dimensions. Expected 2 or 3, received 7",
     ):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             (0, 0, 0, 0, 0, 0, 0), crs="cartesian"
         )
 
     # Absurd datatype passed to copy constructor
-    with pytest.raises(TypeError, match="Invalid object passed to copy constructor"):
+    with pytest.raises(
+        TypeError,
+    ):
         _ = neomodel.contrib.spatial_properties.NeomodelPoint(
             "it don't mean a thing if it ain't got that swing",
             crs="cartesian",
@@ -293,7 +281,7 @@ def test_prohibited_constructor_forms():
         _ = neomodel.contrib.spatial_properties.NeomodelPoint()
 
 
-def test_property_accessors_depending_on_crs():
+def test_property_accessors_depending_on_crs_shapely_lt_2():
     """
     Tests that points are accessed via their respective accessors.
 
@@ -304,6 +292,15 @@ def test_property_accessors_depending_on_crs():
     check_and_skip_neo4j_least_version(
         340, "This version does not support spatial data types."
     )
+
+    # Check the version of Shapely installed to run the appropriate tests:
+    try:
+        from shapely import __version__
+    except ImportError:
+        pytest.skip("Shapely not installed")
+
+    if int("".join(__version__.split(".")[0:3])) >= 200:
+        pytest.skip("Shapely 2 is installed, skipping earlier version test")
 
     # Geometrical points only have x,y,z coordinates
     new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
@@ -325,6 +322,49 @@ def test_property_accessors_depending_on_crs():
     with pytest.raises(AttributeError, match=r'Invalid coordinate \("y"\)'):
         new_point.y
     with pytest.raises(AttributeError, match=r'Invalid coordinate \("z"\)'):
+        new_point.z
+
+
+def test_property_accessors_depending_on_crs_shapely_gte_2():
+    """
+    Tests that points are accessed via their respective accessors.
+
+    :return:
+    """
+
+    # Neo4j versions lower than 3.4.0 do not support Point. In that case, skip the test.
+    check_and_skip_neo4j_least_version(
+        340, "This version does not support spatial data types."
+    )
+
+    # Check the version of Shapely installed to run the appropriate tests:
+    try:
+        from shapely import __version__
+    except ImportError:
+        pytest.skip("Shapely not installed")
+
+    if int("".join(__version__.split(".")[0:3])) < 200:
+        pytest.skip("Shapely < 2.0.0 is installed, skipping test")
+    # Geometrical points only have x,y,z coordinates
+    new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0.0, 0.0, 0.0), crs="cartesian-3d"
+    )
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("longitude"\)'):
+        new_point.longitude
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("latitude"\)'):
+        new_point.latitude
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("height"\)'):
+        new_point.height
+
+    # Geographical points only have longitude, latitude, height coordinates
+    new_point = neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0.0, 0.0, 0.0), crs="wgs-84-3d"
+    )
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("x"\)'):
+        new_point.x
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("y"\)'):
+        new_point.y
+    with pytest.raises(TypeError, match=r'Invalid coordinate \("z"\)'):
         new_point.z
 
 

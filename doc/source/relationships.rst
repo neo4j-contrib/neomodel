@@ -33,10 +33,10 @@ The following cardinality constraints are available:
 :class:`~neomodel.cardinality.ZeroOrMore` (default)  :class:`~neomodel.cardinality.OneOrMore`
 ===================================================  ========================================
 
-If a cardinality constrain is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
+If a cardinality constraint is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
 
-On attempting to violate a cardinality constrain a 
+On attempting to violate a cardinality constraint a 
 :class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
 
 Properties
@@ -50,6 +50,9 @@ Neomodel uses :mod:`~neomodel.relationship` models to define the properties stor
             index=True
         )
         met = StringProperty()
+        # Uniqueness constraints for relationship properties
+        # are only available from Neo4j version 5.7 onwards
+        meeting_id = StringProperty(unique_index=True)
 
     class Person(StructuredNode):
         name = StringProperty()
@@ -251,7 +254,7 @@ that are directly related to another ``Person``, through all relationships::
                                     definition)
     all_jims_relations = relations_traversal.all()
 
-The ``defintion`` argument is a :term:`py3:mapping` with these items:
+The ``definition`` argument is a :term:`py3:mapping` with these items:
 
 =================  ===============================================================
 ``node_class``     The class of the traversal target node.
@@ -260,3 +263,8 @@ The ``defintion`` argument is a :term:`py3:mapping` with these items:
                    or an explicit name of a relation type (the edge's label).
 ``model``          The class of the relation model, ``None`` for such without one.
 =================  ===============================================================
+
+.. note::
+
+    The ``RelationshipTo`` and ``RelationshipFrom`` objects are simply a proxy
+    for defining Traversal objects at the class level.

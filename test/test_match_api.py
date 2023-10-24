@@ -14,7 +14,7 @@ from neomodel import (
     StructuredRel,
 )
 from neomodel.exceptions import MultipleNodesReturned
-from neomodel.match import NodeSet, QueryBuilder, Traversal
+from neomodel.match import NodeSet, Optional, QueryBuilder, Traversal
 
 
 class SupplierRel(StructuredRel):
@@ -28,11 +28,21 @@ class Supplier(StructuredNode):
     coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
 
 
+class Species(StructuredNode):
+    name = StringProperty()
+    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
+
+
 class Coffee(StructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
+    species = RelationshipTo(Species, "COFFEE SPECIES", model=StructuredRel)
     id_ = IntegerProperty()
+
+
+class Extension(StructuredNode):
+    extension = RelationshipTo("Extension", "extension")
 
 
 def test_filter_exclude_via_labels():
@@ -43,8 +53,8 @@ def test_filter_exclude_via_labels():
 
     results = qb._execute()
 
-    assert "(coffee:Coffee)" in qb._ast["match"]
-    assert "result_class" in qb._ast
+    assert "(coffee:Coffee)" in qb._ast.match
+    assert qb._ast.result_class
     assert len(results) == 1
     assert isinstance(results[0], Coffee)
     assert results[0].name == "Java"
@@ -55,8 +65,8 @@ def test_filter_exclude_via_labels():
     qb = QueryBuilder(node_set).build_ast()
 
     results = qb._execute()
-    assert "(coffee:Coffee)" in qb._ast["match"]
-    assert "NOT" in qb._ast["where"][0]
+    assert "(coffee:Coffee)" in qb._ast.match
+    assert "NOT" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Kenco"
 
@@ -69,7 +79,7 @@ def test_simple_has_via_label():
     ns = NodeSet(Coffee).has(suppliers=True)
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
-    assert "COFFEE SUPPLIERS" in qb._ast["where"][0]
+    assert "COFFEE SUPPLIERS" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Nescafe"
 
@@ -78,7 +88,7 @@ def test_simple_has_via_label():
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
     assert len(results) > 0
-    assert "NOT" in qb._ast["where"][0]
+    assert "NOT" in qb._ast.where[0]
 
 
 def test_get():
@@ -103,9 +113,9 @@ def test_simple_traverse_with_filter():
 
     results = qb.build_ast()._execute()
 
-    assert "lookup" in qb._ast
-    assert "match" in qb._ast
-    assert qb._ast["return"] == "suppliers"
+    assert qb._ast.lookup
+    assert qb._ast.match
+    assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
     assert results[0].name == "Sainsburys"
 
@@ -120,8 +130,9 @@ def test_double_traverse():
     qb = QueryBuilder(ns).build_ast()
 
     results = qb._execute()
-    assert len(results) == 1
+    assert len(results) == 2
     assert results[0].name == "Decafe"
+    assert results[1].name == "Nescafe plus"
 
 
 def test_count():
@@ -173,6 +184,13 @@ def test_issue_208():
     assert len(b.suppliers.match(courier="dhl"))
 
 
+def test_issue_589():
+    node1 = Extension().save()
+    node2 = Extension().save()
+    node1.extension.connect(node2)
+    assert node2 in node1.extension.all()
+
+
 def test_contains():
     expensive = Coffee(price=1000, name="Pricey").save()
     asda = Coffee(name="Asda", price=1).save()
@@ -202,14 +220,20 @@ def test_order_by():
 
     ns = Coffee.nodes.order_by("-price")
     qb = QueryBuilder(ns).build_ast()
-    assert qb._ast["order_by"]
+    assert qb._ast.order_by
     ns = ns.order_by(None)
     qb = QueryBuilder(ns).build_ast()
-    assert not qb._ast["order_by"]
+    assert not qb._ast.order_by
     ns = ns.order_by("?")
     qb = QueryBuilder(ns).build_ast()
-    assert qb._ast["with"] == "coffee, rand() as r"
-    assert qb._ast["order_by"] == "r"
+    assert qb._ast.with_clause == "coffee, rand() as r"
+    assert qb._ast.order_by == "r"
+
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.order_by("id")
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
@@ -251,6 +275,12 @@ def test_extra_filters():
     assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
+
+    with raises(
+        ValueError,
+        match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
+    ):
+        Coffee.nodes.filter(elementId="4:xxx:111").all()
 
 
 def test_traversal_definition_keys_are_valid():
@@ -317,6 +347,7 @@ def test_empty_filters():
 
 
 def test_q_filters():
+    # Test where no children and self.connector != conn ?
     for c in Coffee.nodes:
         c.delete()
 
@@ -372,6 +403,38 @@ def test_q_filters():
     ).all()
     assert c3 not in coffees_5_not_japans
 
+    empty_Q_condition = Coffee.nodes.filter(Q(price=5) | Q()).all()
+    assert (
+        len(empty_Q_condition) == 1
+    ), "undefined Q leading to unexpected number of results"
+    assert c1 in empty_Q_condition
+
+    combined_coffees = Coffee.nodes.filter(
+        Q(price=35), Q(name="Latte") | Q(name="Cappuccino")
+    )
+    assert len(combined_coffees) == 2
+    assert c5 in combined_coffees
+    assert c6 in combined_coffees
+    assert c3 not in combined_coffees
+
+    class QQ:
+        pass
+
+    with raises(TypeError):
+        wrong_Q = Coffee.nodes.filter(Q(price=5) | QQ()).all()
+
+
+def test_qbase():
+    test_print_out = str(Q(price=5) | Q(price=10))
+    test_repr = repr(Q(price=5) | Q(price=10))
+    assert test_print_out == "(OR: ('price', 5), ('price', 10))"
+    assert test_repr == "<Q: (OR: ('price', 5), ('price', 10))>"
+
+    assert ("price", 5) in (Q(price=5) | Q(price=10))
+
+    test_hash = set([Q(price_lt=30) | ~Q(price=5), Q(price_lt=30) | ~Q(price=5)])
+    assert len(test_hash) == 1
+
 
 def test_traversal_filter_left_hand_statement():
     nescafe = Coffee(name="Nescafe2", price=99).save()
@@ -390,3 +453,45 @@ def test_traversal_filter_left_hand_statement():
     )
 
     assert lidl in lidl_supplier
+
+
+def test_fetch_relations():
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe 1000", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
+
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+
+    result = (
+        Supplier.nodes.filter(name="Sainsburys")
+        .fetch_relations("coffees__species")
+        .all()
+    )
+    assert arabica in result[0]
+    assert robusta not in result[0]
+    assert tesco in result[0]
+    assert nescafe in result[0]
+    assert nescafe_gold not in result[0]
+
+    result = (
+        Species.nodes.filter(name="Robusta")
+        .fetch_relations(Optional("coffees__suppliers"))
+        .all()
+    )
+    assert result[0][0] is None
+
+    # len() should only consider Suppliers
+    count = len(
+        Supplier.nodes.filter(name="Sainsburys")
+        .fetch_relations("coffees__species")
+        .all()
+    )
+    assert count == 1
+
+    assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
+        name="Sainsburys"
+    )

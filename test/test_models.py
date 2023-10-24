@@ -9,8 +9,10 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     StructuredNode,
+    StructuredRel,
     install_labels,
 )
+from neomodel.core import db
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
@@ -25,6 +27,10 @@ class User(StructuredNode):
     @email_alias.setter  # noqa
     def email_alias(self, value):
         self.email = value
+
+
+class NodeWithoutProperty(StructuredNode):
+    pass
 
 
 def test_issue_233():
@@ -95,9 +101,15 @@ def test_first_and_first_or_none():
 def test_save_to_model():
     u = User(email="jim@test.com", age=3)
     assert u.save()
-    assert u.id > 0
+    assert u.element_id != ""
     assert u.email == "jim@test.com"
     assert u.age == 3
+
+
+def test_save_node_without_properties():
+    n = NodeWithoutProperty()
+    assert n.save()
+    assert n.element_id != ""
 
 
 def test_unique():
@@ -184,13 +196,16 @@ def test_refresh():
     assert c.age == 20
     assert c.my_custom_prop == "value"
 
-    c = Customer2.inflate(c.id)
+    c = Customer2.inflate(c.element_id)
     c.age = 30
     c.refresh()
 
     assert c.age == 20
 
-    c = Customer2.inflate(999)
+    if db.database_version.startswith("4"):
+        c = Customer2.inflate(999)
+    else:
+        c = Customer2.inflate("4:xxxxxx:999")
     with raises(Customer2.DoesNotExist):
         c.refresh()
 
@@ -228,6 +243,30 @@ def test_inheritance():
     assert jim.labels()[0] == "Shopper"
 
 
+def test_inherited_optional_labels():
+    class BaseOptional(StructuredNode):
+        __optional_labels__ = ["Alive"]
+        name = StringProperty(unique_index=True)
+
+    class ExtendedOptional(BaseOptional):
+        __optional_labels__ = ["RewardsMember"]
+        balance = IntegerProperty(index=True)
+
+        def credit_account(self, amount):
+            self.balance = self.balance + int(amount)
+            self.save()
+
+    henry = ExtendedOptional(name="henry", balance=300).save()
+    henry.credit_account(50)
+
+    assert ExtendedOptional.__label__ == "ExtendedOptional"
+    assert henry.balance == 350
+    assert len(henry.inherited_labels()) == 2
+    assert len(henry.labels()) == 2
+
+    assert set(henry.inherited_optional_labels()) == {"Alive", "RewardsMember"}
+
+
 def test_mixins():
     class UserMixin:
         name = StringProperty(unique_index=True)
@@ -258,3 +297,42 @@ def test_date_property():
         birthdate = DateProperty()
 
     user = DateTest(birthdate=datetime.now()).save()
+
+
+def test_reserved_property_keys():
+    error_match = r".*is not allowed as it conflicts with neomodel internals.*"
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesDeletedNode(StructuredNode):
+            deleted = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdNode(StructuredNode):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdNode(StructuredNode):
+            element_id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdRel(StructuredRel):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdRel(StructuredRel):
+            element_id = StringProperty()
+
+    error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesSourceRel(StructuredRel):
+            source = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesTargetRel(StructuredRel):
+            target = StringProperty()

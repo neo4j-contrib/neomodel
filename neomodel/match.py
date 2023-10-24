@@ -1,5 +1,8 @@
 import inspect
 import re
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Optional
 
 from .core import StructuredNode, db
 from .exceptions import MultipleNodesReturned
@@ -9,13 +12,6 @@ from .properties import AliasProperty
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
 def _rel_helper(
     lhs,
     rhs,
@@ -23,7 +19,7 @@ def _rel_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs,
+    **kwargs,  # NOSONAR
 ):
     """
     Generate a relationship matching string, with specified parameters.
@@ -44,39 +40,40 @@ def _rel_helper(
     :param relation_properties: dictionary of relationship properties to match
     :returns: string
     """
-
-    if direction == OUTGOING:
-        stmt = "-{0}->"
-    elif direction == INCOMING:
-        stmt = "<-{0}-"
-    else:
-        stmt = "-{0}-"
-
     rel_props = ""
 
     if relation_properties:
-        rel_props = " {{{0}}}".format(
-            ", ".join(
-                [
-                    "{0}: {1}".format(key, value)
-                    for key, value in relation_properties.items()
-                ]
-            )
+        rel_props_str = ", ".join(
+            (f"{key}: {value}" for key, value in relation_properties.items())
         )
+        rel_props = f" {{{rel_props_str}}}"
 
-    # direct, relation_type=None is unspecified, relation_type
+    rel_def = ""
+    # relation_type is unspecified
     if relation_type is None:
-        stmt = stmt.format("")
+        rel_def = ""
     # all("*" wildcard) relation_type
     elif relation_type == "*":
-        stmt = stmt.format("[*]")
+        rel_def = "[*]"
     else:
         # explicit relation_type
-        stmt = stmt.format(
-            "[{0}:`{1}`{2}]".format(ident if ident else "", relation_type, rel_props)
-        )
+        rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
 
-    return "({0}){1}({2})".format(lhs, stmt, rhs)
+    stmt = ""
+    if direction == OUTGOING:
+        stmt = f"-{rel_def}->"
+    elif direction == INCOMING:
+        stmt = f"<-{rel_def}-"
+    else:
+        stmt = f"-{rel_def}-"
+
+    # Make sure not to add parenthesis when they are already present
+    if lhs[-1] != ")":
+        lhs = f"({lhs})"
+    if rhs[-1] != ")":
+        rhs = f"({rhs})"
+
+    return f"{lhs}{stmt}{rhs}"
 
 
 def _rel_merge_helper(
@@ -86,7 +83,7 @@ def _rel_merge_helper(
     relation_type=None,
     direction=None,
     relation_properties=None,
-    **kwargs,
+    **kwargs,  # NOSONAR
 ):
     """
     Generate a relationship merging string, with specified parameters.
@@ -119,26 +116,26 @@ def _rel_merge_helper(
     rel_none_props = ""
 
     if relation_properties:
-        rel_props = " {{{0}}}".format(
-            ", ".join(
-                [
-                    "{0}: {1}".format(key, value)
-                    for key, value in relation_properties.items()
-                    if value is not None
-                ]
+        rel_props_str = ", ".join(
+            (
+                f"{key}: {value}"
+                for key, value in relation_properties.items()
+                if value is not None
             )
         )
+        rel_props = f" {{{rel_props_str}}}"
         if None in relation_properties.values():
-            rel_none_props = " ON CREATE SET {0} ON MATCH SET {0}".format(
-                ", ".join(
-                    [
-                        "{0}.{1}={2}".format(ident, key, "${!s}".format(key))
-                        for key, value in relation_properties.items()
-                        if value is None
-                    ]
+            rel_prop_val_str = ", ".join(
+                (
+                    f"{ident}.{key}=${key!s}"
+                    for key, value in relation_properties.items()
+                    if value is None
                 )
             )
-    # direct, relation_type=None is unspecified, relation_type
+            rel_none_props = (
+                f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
+            )
+    # relation_type is unspecified
     if relation_type is None:
         stmt = stmt.format("")
     # all("*" wildcard) relation_type
@@ -146,9 +143,9 @@ def _rel_merge_helper(
         stmt = stmt.format("[*]")
     else:
         # explicit relation_type
-        stmt = stmt.format("[{0}:`{1}`{2}]".format(ident, relation_type, rel_props))
+        stmt = stmt.format(f"[{ident}:`{relation_type}`{rel_props}]")
 
-    return "({0}){1}({2}){3}".format(lhs, stmt, rhs, rel_none_props)
+    return f"({lhs}){stmt}({rhs}){rel_none_props}"
 
 
 # special operators
@@ -207,12 +204,10 @@ def install_traversals(cls, node_set):
 
     for key in rels.keys():
         if hasattr(node_set, key):
-            raise ValueError(
-                "Can't install traversal '{0}' exists on NodeSet".format(key)
-            )
+            raise ValueError(f"Cannot install traversal '{key}' exists on NodeSet")
 
         rel = getattr(cls, key)
-        rel._lookup_node_class()
+        rel.lookup_node_class()
 
         traversal = Traversal(source=node_set, name=key, definition=rel.definition)
         setattr(node_set, key, traversal)
@@ -235,39 +230,21 @@ def process_filter_args(cls, kwargs):
             operator = "="
 
         if prop not in cls.defined_properties(rels=False):
-            raise ValueError("No such property {0} on {1}".format(prop, cls.__name__))
+            raise ValueError(
+                f"No such property {prop} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
+            )
 
         property_obj = getattr(cls, prop)
         if isinstance(property_obj, AliasProperty):
             prop = property_obj.aliased_to()
             deflated_value = getattr(cls, prop).deflate(value)
         else:
-            # handle special operators
-            if operator == _SPECIAL_OPERATOR_IN:
-                if not isinstance(value, tuple) and not isinstance(value, list):
-                    raise ValueError(
-                        "Value must be a tuple or list for IN operation {0}={1}".format(
-                            key, value
-                        )
-                    )
-                deflated_value = [property_obj.deflate(v) for v in value]
-            elif operator == _SPECIAL_OPERATOR_ISNULL:
-                if not isinstance(value, bool):
-                    raise ValueError(
-                        "Value must be a bool for isnull operation on {0}".format(key)
-                    )
-                operator = "IS NULL" if value else "IS NOT NULL"
-                deflated_value = None
-            elif operator in _REGEX_OPERATOR_TABLE.values():
-                deflated_value = property_obj.deflate(value)
-                if not isinstance(deflated_value, basestring):
-                    raise ValueError("Must be a string value for {0}".format(key))
-                if operator in _STRING_REGEX_OPERATOR_TABLE.values():
-                    deflated_value = re.escape(deflated_value)
-                deflated_value = operator.format(deflated_value)
-                operator = _SPECIAL_OPERATOR_REGEX
-            else:
-                deflated_value = property_obj.deflate(value)
+            operator, deflated_value = transform_operator_to_filter(
+                operator=operator,
+                filter_key=key,
+                filter_value=value,
+                property_obj=property_obj,
+            )
 
         # map property to correct property name in the database
         db_property = cls.defined_properties(rels=False)[prop].db_property or prop
@@ -275,6 +252,35 @@ def process_filter_args(cls, kwargs):
         output[db_property] = (operator, deflated_value)
 
     return output
+
+
+def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
+    # handle special operators
+    if operator == _SPECIAL_OPERATOR_IN:
+        if not isinstance(filter_value, tuple) and not isinstance(filter_value, list):
+            raise ValueError(
+                f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
+            )
+        deflated_value = [property_obj.deflate(v) for v in filter_value]
+    elif operator == _SPECIAL_OPERATOR_ISNULL:
+        if not isinstance(filter_value, bool):
+            raise ValueError(
+                f"Value must be a bool for isnull operation on {filter_key}"
+            )
+        operator = "IS NULL" if filter_value else "IS NOT NULL"
+        deflated_value = None
+    elif operator in _REGEX_OPERATOR_TABLE.values():
+        deflated_value = property_obj.deflate(filter_value)
+        if not isinstance(deflated_value, str):
+            raise ValueError(f"Must be a string value for {filter_key}")
+        if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+            deflated_value = re.escape(deflated_value)
+        deflated_value = operator.format(deflated_value)
+        operator = _SPECIAL_OPERATOR_REGEX
+    else:
+        deflated_value = property_obj.deflate(filter_value)
+
+    return operator, deflated_value
 
 
 def process_has_args(cls, kwargs):
@@ -287,13 +293,11 @@ def process_has_args(cls, kwargs):
 
     for key, value in kwargs.items():
         if key not in rel_definitions:
-            raise ValueError(
-                "No such relation {0} defined on a {1}".format(key, cls.__name__)
-            )
+            raise ValueError(f"No such relation {key} defined on a {cls.__name__}")
 
         rhs_ident = key
 
-        rel_definitions[key]._lookup_node_class()
+        rel_definitions[key].lookup_node_class()
 
         if value is True:
             match[rhs_ident] = rel_definitions[key].definition
@@ -307,21 +311,66 @@ def process_has_args(cls, kwargs):
     return match, dont_match
 
 
+class QueryAST:
+    match: Optional[list]
+    optional_match: Optional[list]
+    where: Optional[list]
+    with_clause: Optional[str]
+    return_clause: Optional[str]
+    order_by: Optional[str]
+    skip: Optional[int]
+    limit: Optional[int]
+    result_class: Optional[type]
+    lookup: Optional[str]
+    additional_return: Optional[list]
+
+    def __init__(
+        self,
+        match: Optional[list] = None,
+        optional_match: Optional[list] = None,
+        where: Optional[list] = None,
+        with_clause: Optional[str] = None,
+        return_clause: Optional[str] = None,
+        order_by: Optional[str] = None,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
+        result_class: Optional[type] = None,
+        lookup: Optional[str] = None,
+        additional_return: Optional[list] = None,
+    ):
+        self.match = match if match else []
+        self.optional_match = optional_match if optional_match else []
+        self.where = where if where else []
+        self.with_clause = with_clause
+        self.return_clause = return_clause
+        self.order_by = order_by
+        self.skip = skip
+        self.limit = limit
+        self.result_class = result_class
+        self.lookup = lookup
+        self.additional_return = additional_return if additional_return else []
+
+
 class QueryBuilder:
     def __init__(self, node_set):
         self.node_set = node_set
-        self._ast = {"match": [], "where": []}
+        self._ast = QueryAST()
         self._query_params = {}
         self._place_holder_registry = {}
         self._ident_count = 0
+        self._node_counters = defaultdict(int)
 
     def build_ast(self):
+        if hasattr(self.node_set, "relations_to_fetch"):
+            for relation in self.node_set.relations_to_fetch:
+                self.build_traversal_from_path(relation, self.node_set.source)
+
         self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
-            self._ast["skip"] = self.node_set.skip
+            self._ast.skip = self.node_set.skip
         if hasattr(self.node_set, "limit"):
-            self._ast["limit"] = self.node_set.limit
+            self._ast.limit = self.node_set.limit
 
         return self
 
@@ -338,7 +387,7 @@ class QueryBuilder:
 
             self.build_additional_match(ident, source)
 
-            if hasattr(source, "_order_by"):
+            if hasattr(source, "order_by_elements"):
                 self.build_order_by(ident, source)
 
             if source.filters or source.q_filters:
@@ -359,13 +408,11 @@ class QueryBuilder:
         return "r" + str(self._ident_count)
 
     def build_order_by(self, ident, source):
-        if "?" in source._order_by:
-            self._ast["with"] = "{0}, rand() as r".format(ident)
-            self._ast["order_by"] = "r"
+        if "?" in source.order_by_elements:
+            self._ast.with_clause = f"{ident}, rand() as r"
+            self._ast.order_by = "r"
         else:
-            self._ast["order_by"] = [
-                "{0}.{1}".format(ident, p) for p in source._order_by
-            ]
+            self._ast.order_by = [f"{ident}.{p}" for p in source.order_by_elements]
 
     def build_traversal(self, traversal):
         """
@@ -375,39 +422,90 @@ class QueryBuilder:
         rhs_label = ":" + traversal.target_class.__label__
 
         # build source
-        lhs_ident = self.build_source(traversal.source)
-        rhs_ident = traversal.name + rhs_label
-        self._ast["return"] = traversal.name
-        self._ast["result_class"] = traversal.target_class
-
         rel_ident = self.create_ident()
+        lhs_ident = self.build_source(traversal.source)
+        traversal_ident = f"{traversal.name}_{rel_ident}"
+        rhs_ident = traversal_ident + rhs_label
+        self._ast.return_clause = traversal_ident
+        self._ast.result_class = traversal.target_class
+
         stmt = _rel_helper(
             lhs=lhs_ident,
             rhs=rhs_ident,
             ident=rel_ident,
             **traversal.definition,
         )
-        self._ast["match"].append(stmt)
+        self._ast.match.append(stmt)
 
         if traversal.filters:
             self.build_where_stmt(rel_ident, traversal.filters)
 
-        return traversal.name
+        return traversal_ident
+
+    def _additional_return(self, name):
+        if name not in self._ast.additional_return and name != self._ast.return_clause:
+            self._ast.additional_return.append(name)
+
+    def build_traversal_from_path(self, relation: dict, source_class) -> str:
+        path: str = relation["path"]
+        stmt: str = ""
+        source_class_iterator = source_class
+        for index, part in enumerate(path.split("__")):
+            relationship = getattr(source_class_iterator, part)
+            # build source
+            if "node_class" not in relationship.definition:
+                relationship.lookup_node_class()
+            rhs_label = relationship.definition["node_class"].__label__
+            rel_reference = f'{relationship.definition["node_class"]}_{part}'
+            self._node_counters[rel_reference] += 1
+            rhs_name = (
+                f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
+            )
+            rhs_ident = f"{rhs_name}:{rhs_label}"
+            self._additional_return(rhs_name)
+            if not stmt:
+                lhs_label = source_class_iterator.__label__
+                lhs_name = lhs_label.lower()
+                lhs_ident = f"{lhs_name}:{lhs_label}"
+                if not index:
+                    # This is the first one, we make sure that 'return'
+                    # contains the primary node so _contains() works
+                    # as usual
+                    self._ast.return_clause = lhs_name
+                else:
+                    self._additional_return(lhs_name)
+            else:
+                lhs_ident = stmt
+
+            rel_ident = self.create_ident()
+            self._additional_return(rel_ident)
+            stmt = _rel_helper(
+                lhs=lhs_ident,
+                rhs=rhs_ident,
+                ident=rel_ident,
+                direction=relationship.definition["direction"],
+                relation_type=relationship.definition["relation_type"],
+            )
+            source_class_iterator = relationship.definition["node_class"]
+
+        if relation.get("optional"):
+            self._ast.optional_match.append(stmt)
+        else:
+            self._ast.match.append(stmt)
+        return rhs_name
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = "MATCH ({0}) WHERE id({0})=${1} WITH {0}".format(
-            ident, place_holder
-        )
-        self._ast["lookup"] = _node_lookup
+        _node_lookup = f"MATCH ({ident}) WHERE {db.get_id_method()}({ident})=${place_holder} WITH {ident}"
+        self._ast.lookup = _node_lookup
 
-        self._query_params[place_holder] = node.id
+        self._query_params[place_holder] = node.element_id
 
-        self._ast["return"] = ident
-        self._ast["result_class"] = node.__class__
+        self._ast.return_clause = ident
+        self._ast.result_class = node.__class__
         return ident
 
     def build_label(self, ident, cls):
@@ -415,9 +513,13 @@ class QueryBuilder:
         match nodes by a label
         """
         ident_w_label = ident + ":" + cls.__label__
-        self._ast["match"].append("({0})".format(ident_w_label))
-        self._ast["return"] = ident
-        self._ast["result_class"] = cls
+
+        if not self._ast.return_clause and (
+            not self._ast.additional_return or ident not in self._ast.additional_return
+        ):
+            self._ast.match.append(f"({ident_w_label})")
+            self._ast.return_clause = ident
+            self._ast.result_class = cls
         return ident
 
     def build_additional_match(self, ident, node_set):
@@ -430,7 +532,7 @@ class QueryBuilder:
             if isinstance(value, dict):
                 label = ":" + value["node_class"].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **value)
-                self._ast["where"].append(stmt)
+                self._ast.where.append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(value))
 
@@ -438,7 +540,7 @@ class QueryBuilder:
             if isinstance(val, dict):
                 label = ":" + val["node_class"].__label__
                 stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **val)
-                self._ast["where"].append("NOT " + stmt)
+                self._ast.where.append("NOT " + stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
@@ -464,17 +566,15 @@ class QueryBuilder:
                     operator, val = op_and_val
                     if operator in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = "{0}.{1} {2}".format(ident, prop, operator)
+                        statement = f"{ident}.{prop} {operator}"
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = "{0}.{1} {2} ${3}".format(
-                            ident, prop, operator, place_holder
-                        )
+                        statement = f"{ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
                     target.append(statement)
-        ret = " {0} ".format(q.connector).join(target)
+        ret = f" {q.connector} ".join(target)
         if q.negated:
-            ret = "NOT ({0})".format(ret)
+            ret = f"NOT ({ret})"
         return ret
 
     def build_where_stmt(self, ident, filters, q_filters=None, source_class=None):
@@ -484,7 +584,7 @@ class QueryBuilder:
         if q_filters is not None:
             stmts = self._parse_q_filters(ident, q_filters, source_class)
             if stmts:
-                self._ast["where"].append(stmts)
+                self._ast.where.append(stmts)
         else:
             stmts = []
             for row in filters:
@@ -499,83 +599,106 @@ class QueryBuilder:
                     operator, val = operator_and_val
                     if operator in _UNARY_OPERATORS:
                         # unary operators do not have a parameter
-                        statement = "{0} {1}.{2} {3}".format(
-                            "NOT" if negate else "", ident, prop, operator
+                        statement = (
+                            f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
                         )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = "{0} {1}.{2} {3} ${4}".format(
-                            "NOT" if negate else "",
-                            ident,
-                            prop,
-                            operator,
-                            place_holder,
-                        )
+                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
-            self._ast["where"].append(" AND ".join(stmts))
+            self._ast.where.append(" AND ".join(stmts))
 
     def build_query(self):
         query = ""
 
-        if "lookup" in self._ast:
-            query += self._ast["lookup"]
+        if self._ast.lookup:
+            query += self._ast.lookup
 
-        query += " MATCH "
-        query += ", ".join(["({0})".format(i) for i in self._ast["match"]])
+        # Instead of using only one MATCH statement for every relation
+        # to follow, we use one MATCH per relation (to avoid cartesian
+        # product issues...).
+        # There might be optimizations to be done, using projections,
+        # or pusing patterns instead of a chain of OPTIONAL MATCH.
+        if self._ast.match:
+            query += " MATCH "
+            query += " MATCH ".join(i for i in self._ast.match)
 
-        if "where" in self._ast and self._ast["where"]:
+        if self._ast.optional_match:
+            query += " OPTIONAL MATCH "
+            query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
+
+        if self._ast.where:
             query += " WHERE "
-            query += " AND ".join(self._ast["where"])
+            query += " AND ".join(self._ast.where)
 
-        if "with" in self._ast and self._ast["with"]:
+        if self._ast.with_clause:
             query += " WITH "
-            query += self._ast["with"]
+            query += self._ast.with_clause
 
-        query += " RETURN " + self._ast["return"]
+        query += " RETURN "
+        if self._ast.return_clause:
+            query += self._ast.return_clause
+        if self._ast.additional_return:
+            if self._ast.return_clause:
+                query += ", "
+            query += ", ".join(self._ast.additional_return)
 
-        if "order_by" in self._ast and self._ast["order_by"]:
+        if self._ast.order_by:
             query += " ORDER BY "
-            query += ", ".join(self._ast["order_by"])
+            query += ", ".join(self._ast.order_by)
 
-        if "skip" in self._ast:
-            query += " SKIP {0:d}".format(self._ast["skip"])
+        if self._ast.skip:
+            query += f" SKIP {self._ast.skip}"
 
-        if "limit" in self._ast:
-            query += " LIMIT {0:d}".format(self._ast["limit"])
+        if self._ast.limit:
+            query += f" LIMIT {self._ast.limit}"
 
         return query
 
     def _count(self):
-        self._ast["return"] = "count({0})".format(self._ast["return"])
+        self._ast.return_clause = f"count({self._ast.return_clause})"
         # drop order_by, results in an invalid query
-        self._ast.pop("order_by", None)
+        self._ast.order_by = None
+        # drop additional_return to avoid unexpected result
+        self._ast.additional_return = None
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
 
-    def _contains(self, node_id):
+    def _contains(self, node_element_id):
         # inject id = into ast
-        ident = self._ast["return"]
+        if not self._ast.return_clause:
+            print(self._ast.additional_return)
+            self._ast.return_clause = self._ast.additional_return[0]
+        ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
-        self._ast["where"].append("id({0}) = ${1}".format(ident, place_holder))
-        self._query_params[place_holder] = node_id
+        self._ast.where.append(f"{db.get_id_method()}({ident}) = ${place_holder}")
+        self._query_params[place_holder] = node_element_id
         return self._count() >= 1
 
     def _execute(self, lazy=False):
         if lazy:
-            # inject id = into ast
-            self._ast["return"] = "id({})".format(self._ast["return"])
+            # inject id() into return or return_set
+            if self._ast.return_clause:
+                self._ast.return_clause = (
+                    f"{db.get_id_method()}({self._ast.return_clause})"
+                )
+            else:
+                self._ast.additional_return = [
+                    f"{db.get_id_method()}({item})"
+                    for item in self._ast.additional_return
+                ]
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
-        if results:
+        if results and len(results[0]) == 1:
             return [n[0] for n in results]
-        return []
+        return results
 
 
 class BaseSet:
@@ -610,8 +733,8 @@ class BaseSet:
 
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):
-            if hasattr(obj, "id"):
-                return self.query_cls(self).build_ast()._contains(int(obj.id))
+            if hasattr(obj, "element_id"):
+                return self.query_cls(self).build_ast()._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")
@@ -635,6 +758,13 @@ class BaseSet:
             return self.query_cls(self).build_ast()._execute()[0]
 
         return None
+
+
+@dataclass
+class Optional:
+    """Simple relation qualifier."""
+
+    relation: str
 
 
 class NodeSet(BaseSet):
@@ -662,6 +792,8 @@ class NodeSet(BaseSet):
         # used by has()
         self.must_match = {}
         self.dont_match = {}
+
+        self.relations_to_fetch: list = []
 
     def _get(self, limit=None, lazy=False, **kwargs):
         self.filter(**kwargs)
@@ -783,12 +915,12 @@ class NodeSet(BaseSet):
         remove ordering.
         """
         should_remove = len(props) == 1 and props[0] is None
-        if not hasattr(self, "_order_by") or should_remove:
-            self._order_by = []
+        if not hasattr(self, "order_by_elements") or should_remove:
+            self.order_by_elements = []
             if should_remove:
                 return self
         if "?" in props:
-            self._order_by.append("?")
+            self.order_by_elements.append("?")
         else:
             for prop in props:
                 prop = prop.strip()
@@ -800,17 +932,27 @@ class NodeSet(BaseSet):
 
                 if prop not in self.source_class.defined_properties(rels=False):
                     raise ValueError(
-                        "No such property {0} on {1}".format(
-                            prop, self.source_class.__name__
-                        )
+                        f"No such property {prop} on {self.source_class.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
                     )
 
                 property_obj = getattr(self.source_class, prop)
                 if isinstance(property_obj, AliasProperty):
                     prop = property_obj.aliased_to()
 
-                self._order_by.append(prop + (" DESC" if desc else ""))
+                self.order_by_elements.append(prop + (" DESC" if desc else ""))
 
+        return self
+
+    def fetch_relations(self, *relation_names):
+        """Specify a set of relations to return."""
+        relations = []
+        for relation_name in relation_names:
+            if isinstance(relation_name, Optional):
+                item = {"path": relation_name.relation, "optional": True}
+            else:
+                item = {"path": relation_name}
+            relations.append(item)
+        self.relations_to_fetch = relations
         return self
 
 
@@ -845,7 +987,7 @@ class Traversal(BaseSet):
         elif isinstance(source, NodeSet):
             self.source_class = source.source_class
         else:
-            raise TypeError("Bad source for traversal: " "{0}".format(type(source)))
+            raise TypeError(f"Bad source for traversal: {type(source)}")
 
         invalid_keys = set(definition) - {
             "direction",
@@ -854,11 +996,7 @@ class Traversal(BaseSet):
             "relation_type",
         }
         if invalid_keys:
-            raise ValueError(
-                "Unallowed keys in Traversal definition: {invalid_keys}".format(
-                    invalid_keys=invalid_keys
-                )
-            )
+            raise ValueError(f"Prohibited keys in Traversal definition: {invalid_keys}")
 
         self.definition = definition
         self.target_class = definition["node_class"]

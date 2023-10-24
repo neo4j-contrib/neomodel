@@ -21,6 +21,27 @@ Creating purely abstract classes is achieved using the `__abstract_node__` prope
             self.balance = self.balance + int(amount)
             self.save()
 
+
+Optional Labels
+---------------
+Sometimes it is useful to allow a node to have extra labels in addition to the
+ones Neomodel defines by default using class names.
+
+Nemodel constructs sets of labels to give to a node in Neo4j by looking at the
+names of the node classes that node is/inherits from. It also constructs a
+mapping of the reverse, expected node labels to node classes, in order to do
+object resolution.
+
+In order for object resolution to work on Node Classes that could have extra
+labels, the `__optional_labels__` property must be defined as a list of strings::
+
+    class Shopper(StructuredNode):
+        __optional_labels__ = ["SuperSaver", "SeniorDiscount"]
+        balance = IntegerProperty(index=True)
+
+.. warning:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
+
+
 Mixins
 ------
 Mixins can be used to share functionality between nodes classes::

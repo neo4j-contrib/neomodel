@@ -3,37 +3,37 @@ Modules documentation
 =====================
 
 Database
---------
+========
 .. module:: neomodel.util
 .. autoclass:: neomodel.util.Database
   :members:
   :undoc-members:
   
 Core
-----
+====
 .. automodule:: neomodel.core
   :members:
 
 .. _semistructurednode_doc:
 
 ``SemiStructuredNode``
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 .. autoclass:: neomodel.contrib.SemiStructuredNode
 
 Properties
-----------
+==========
 .. automodule:: neomodel.properties
   :members:
   :show-inheritance:
 
 Spatial Properties & Datatypes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------
 .. automodule:: neomodel.contrib.spatial_properties
   :members:
   :show-inheritance:
 
 Relationships
--------------
+=============
 .. automodule:: neomodel.relationship
   :members:
   :show-inheritance:
@@ -46,8 +46,18 @@ Relationships
   :members:
   :show-inheritance:
 
+Paths
+=====
+
+.. automodule:: neomodel.path
+  :members:
+  :show-inheritance:
+
+
+
+
 Match
------
+=====
 .. module:: neomodel.match
 .. autoclass:: neomodel.match.BaseSet
    :members:
@@ -61,9 +71,23 @@ Match
 
 
 Exceptions
-----------
+==========
 
 .. automodule:: neomodel.exceptions
    :members:
    :undoc-members:
    :show-inheritance:
+
+Scripts
+=======
+
+.. automodule:: neomodel.scripts.neomodel_install_labels
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: neomodel.scripts.neomodel_remove_labels
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

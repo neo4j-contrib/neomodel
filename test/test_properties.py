@@ -192,12 +192,6 @@ def test_default_value():
     a = DefaultTestValue()
     assert a.name_xx == "jim"
     a.save()
-    return
-    b = DefaultTestValue.index.get(name="jim")
-    assert b.name == "jim"
-
-    c = DefaultTestValue(name=None)
-    assert c.name == "jim"
 
 
 def test_default_value_callable():
@@ -389,7 +383,7 @@ def test_indexed_array():
 
     b = IndexArray(ai=[1, 2]).save()
     c = IndexArray.nodes.get(ai=[1, 2])
-    assert b.id == c.id
+    assert b.element_id == c.element_id
 
 
 def test_unique_index_prop_not_required():

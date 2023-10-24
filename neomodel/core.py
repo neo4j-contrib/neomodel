@@ -1,16 +1,25 @@
-import re
 import sys
 import warnings
+from itertools import combinations
 
 from neo4j.exceptions import ClientError
 
 from neomodel import config
-from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
+from neomodel.exceptions import (
+    DoesNotExist,
+    FeatureNotSupported,
+    NodeClassAlreadyDefined,
+)
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 from neomodel.util import Database, _get_node_properties, _UnsavedNode, classproperty
 
 db = Database()
+
+RULE_ALREADY_EXISTS = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
+INDEX_ALREADY_EXISTS = "Neo.ClientError.Schema.IndexAlreadyExists"
+CONSTRAINT_ALREADY_EXISTS = "Neo.ClientError.Schema.ConstraintAlreadyExists"
+STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg"
 
 
 def drop_constraints(quiet=True, stdout=None):
@@ -42,7 +51,7 @@ def drop_constraints(quiet=True, stdout=None):
 
 def drop_indexes(quiet=True, stdout=None):
     """
-    Discover and drop all indexes.
+    Discover and drop all indexes, except the automatically created token lookup indexes.
 
     :type: bool
     :return: None
@@ -50,18 +59,8 @@ def drop_indexes(quiet=True, stdout=None):
     if not stdout or stdout is None:
         stdout = sys.stdout
 
-    results, meta = db.cypher_query("SHOW INDEXES")
-    results_as_dict = [dict(zip(meta, row)) for row in results]
-    for index in results_as_dict:
-        # Neo4j 4.3 introduced token lookup indexes
-        # Two are created automatically so should not be dropped
-        # They can be recognized because their labelsOrTypes and properties arrays are empty
-        if not index["labelsOrTypes"]:
-            if index["properties"]:
-                raise ValueError(
-                    f'Index {index["name"]} has no labels but has properties({",".join(index["properties"])}). Unknown index'
-                )
-            continue
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    for index in indexes:
         db.cypher_query("DROP INDEX " + index["name"])
         if not quiet:
             stdout.write(
@@ -110,82 +109,139 @@ def install_labels(cls, quiet=True, stdout=None):
             )
         return
 
-    # Create indexes and constraints for node properties
     for name, property in cls.defined_properties(aliases=False, rels=False).items():
-        db_property = property.db_property or name
-        if property.index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
-            try:
-                db.cypher_query(
-                    f"CREATE INDEX index_{cls.__label__}_{db_property} FOR (n:{cls.__label__}) ON (n.{db_property}); "
-                )
-            except ClientError as e:
-                if e.code in (
-                    "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                    "Neo.ClientError.Schema.IndexAlreadyExists",
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
+        _install_node(cls, name, property, quiet, stdout)
 
-        elif property.unique_index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
-            try:
-                db.cypher_query(
-                    f"""CREATE CONSTRAINT constraint_unique_{cls.__label__}_{db_property} 
-                                FOR (n:{cls.__label__}) REQUIRE n.{db_property} IS UNIQUE"""
-                )
-            except ClientError as e:
-                if e.code in (
-                    "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                    "Neo.ClientError.Schema.ConstraintAlreadyExists",
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-
-        # TODO : Add support for existence constraints
-
-    # Create indexes and constraints for relationship properties
     for _, relationship in cls.defined_properties(
         aliases=False, rels=True, properties=False
     ).items():
-        relationship_cls = relationship.definition["model"]
-        if relationship_cls is not None:
-            relationship_type = relationship.definition["relation_type"]
-            for prop_name, property in relationship_cls.defined_properties(
-                aliases=False, rels=False
-            ).items():
-                db_property = property.db_property or prop_name
-                if property.index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
-                    try:
-                        db.cypher_query(
-                            f"CREATE INDEX index_{relationship_type}_{db_property} FOR ()-[r:{relationship_type}]-() ON (r.{db_property}); "
-                        )
-                    except ClientError as e:
-                        if e.code in (
-                            "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists",
-                            "Neo.ClientError.Schema.IndexAlreadyExists",
-                        ):
-                            stdout.write(f"{str(e)}\n")
-                        else:
-                            raise
+        _install_relationship(cls, relationship, quiet, stdout)
+
+
+def _create_node_index(label: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"CREATE INDEX index_{label}_{property_name} FOR (n:{label}) ON (n.{property_name}); "
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            INDEX_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _create_node_constraint(label: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"""CREATE CONSTRAINT constraint_unique_{label}_{property_name} 
+                        FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            CONSTRAINT_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _create_relationship_index(relationship_type: str, property_name: str, stdout):
+    try:
+        db.cypher_query(
+            f"CREATE INDEX index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
+        )
+    except ClientError as e:
+        if e.code in (
+            RULE_ALREADY_EXISTS,
+            INDEX_ALREADY_EXISTS,
+        ):
+            stdout.write(f"{str(e)}\n")
+        else:
+            raise
+
+
+def _create_relationship_constraint(relationship_type: str, property_name: str, stdout):
+    if db.version_is_higher_than("5.7"):
+        try:
+            db.cypher_query(
+                f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
+                            FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
+            )
+        except ClientError as e:
+            if e.code in (
+                RULE_ALREADY_EXISTS,
+                CONSTRAINT_ALREADY_EXISTS,
+            ):
+                stdout.write(f"{str(e)}\n")
+            else:
+                raise
+    else:
+        raise FeatureNotSupported(
+            f"Unique indexes on relationships are not supported in Neo4j version {db.database_version}. Please upgrade to Neo4j 5.7 or higher."
+        )
+
+
+def _install_node(cls, name, property, quiet, stdout):
+    # Create indexes and constraints for node property
+    db_property = property.db_property or name
+    if property.index:
+        if not quiet:
+            stdout.write(
+                f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
+            )
+        _create_node_index(
+            label=cls.__label__, property_name=db_property, stdout=stdout
+        )
+
+    elif property.unique_index:
+        if not quiet:
+            stdout.write(
+                f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
+            )
+        _create_node_constraint(
+            label=cls.__label__, property_name=db_property, stdout=stdout
+        )
+
+
+def _install_relationship(cls, relationship, quiet, stdout):
+    # Create indexes and constraints for relationship property
+    relationship_cls = relationship.definition["model"]
+    if relationship_cls is not None:
+        relationship_type = relationship.definition["relation_type"]
+        for prop_name, property in relationship_cls.defined_properties(
+            aliases=False, rels=False
+        ).items():
+            db_property = property.db_property or prop_name
+            if property.index:
+                if not quiet:
+                    stdout.write(
+                        f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
+                    )
+                _create_relationship_index(
+                    relationship_type=relationship_type,
+                    property_name=db_property,
+                    stdout=stdout,
+                )
+            elif property.unique_index:
+                if not quiet:
+                    stdout.write(
+                        f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
+                    )
+                _create_relationship_constraint(
+                    relationship_type=relationship_type,
+                    property_name=db_property,
+                    stdout=stdout,
+                )
 
 
 def install_all_labels(stdout=None):
     """
     Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-    Note: code most be loaded (imported) in order for a class to be discovered.
+    Note: code must be loaded (imported) in order for a class to be discovered.
 
     :param stdout: output stream
     :return: None
@@ -195,9 +251,10 @@ def install_all_labels(stdout=None):
         stdout = sys.stdout
 
     def subsub(cls):  # recursively return all subclasses
-        return cls.__subclasses__() + [
-            g for s in cls.__subclasses__() for g in subsub(s)
-        ]
+        subclasses = cls.__subclasses__()
+        if not subclasses:  # base case: no more subclasses
+            return []
+        return subclasses + [g for s in cls.__subclasses__() for g in subsub(s)]
 
     stdout.write("Setting up indexes and constraints...\n\n")
 
@@ -224,8 +281,21 @@ class NodeMeta(type):
         else:
             if "deleted" in namespace:
                 raise ValueError(
-                    "Class property called 'deleted' conflicts "
-                    "with neomodel internals."
+                    "Property name 'deleted' is not allowed as it conflicts with neomodel internals."
+                )
+            elif "id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as id is also a Neo4j internal.
+                    """
+                )
+            elif "element_id" in namespace:
+                raise ValueError(
+                    """
+                        Property name 'element_id' is not allowed as it conflicts with neomodel internals.
+                        Consider using 'uid' or 'identifier' as element_id is also a Neo4j internal.
+                    """
                 )
             for key, value in (
                 (x, y) for x, y in namespace.items() if isinstance(y, Property)
@@ -253,17 +323,33 @@ class NodeMeta(type):
             )
 
             cls.__label__ = namespace.get("__label__", name)
+            cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 
             if config.AUTO_INSTALL_LABELS:
                 install_labels(cls, quiet=False)
 
-            label_set = frozenset(cls.inherited_labels())
-            if label_set not in db._NODE_CLASS_REGISTRY:
-                db._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+            build_class_registry(cls)
 
         return cls
+
+
+def build_class_registry(cls):
+    base_label_set = frozenset(cls.inherited_labels())
+    optional_label_set = set(cls.inherited_optional_labels())
+
+    # Construct all possible combinations of labels + optional labels
+    possible_label_combinations = [
+        frozenset(set(x).union(base_label_set))
+        for i in range(1, len(optional_label_set) + 1)
+        for x in combinations(optional_label_set, i)
+    ]
+    possible_label_combinations.append(base_label_set)
+
+    for label_set in possible_label_combinations:
+        if label_set not in db._NODE_CLASS_REGISTRY:
+            db._NODE_CLASS_REGISTRY[label_set] = cls
+        else:
+            raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
 
 
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
@@ -295,8 +381,8 @@ class StructuredNode(NodeBase):
     def __eq__(self, other):
         if not isinstance(other, (StructuredNode,)):
             return False
-        if hasattr(self, "id") and hasattr(other, "id"):
-            return self.id == other.id
+        if hasattr(self, "element_id") and hasattr(other, "element_id"):
+            return self.element_id == other.element_id
         return False
 
     def __ne__(self, other):
@@ -322,16 +408,22 @@ class StructuredNode(NodeBase):
         return NodeSet(cls)
 
     @property
-    def _id(self, val):
-        warnings.warn(
-            "the _id property is deprecated please use .id",
-            category=DeprecationWarning,
-            stacklevel=1,
+    def element_id(self):
+        return (
+            int(self.element_id_property)
+            if db.database_version.startswith("4")
+            else self.element_id_property
         )
-        if val:
-            self.id = val
 
-        return self.id
+    # Version 4.4 support - id is deprecated in version 5.x
+    @property
+    def id(self):
+        try:
+            return int(self.element_id_property)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+            )
 
     # methods
 
@@ -349,23 +441,22 @@ class StructuredNode(NodeBase):
         :rtype: tuple
         """
         query_params = dict(merge_params=merge_params)
-        n_merge = "n:{0} {{{1}}}".format(
-            ":".join(cls.inherited_labels()),
-            ", ".join(
-                "{0}: params.create.{0}".format(getattr(cls, p).db_property or p)
+        n_merge_labels = ":".join(cls.inherited_labels())
+        n_merge_prm = ", ".join(
+            (
+                f"{getattr(cls, p).db_property or p}: params.create.{getattr(cls, p).db_property or p}"
                 for p in cls.__required_properties__
-            ),
+            )
         )
+        n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
-            query = "UNWIND $merge_params as params\n MERGE ({0})\n ".format(n_merge)
+            query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
             if not isinstance(relationship.source, StructuredNode):
                 raise ValueError(
-                    "relationship source [{0}] is not a StructuredNode".format(
-                        repr(relationship.source)
-                    )
+                    f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
                 )
             relation_type = relationship.definition.get("relation_type")
             if not relation_type:
@@ -375,10 +466,8 @@ class StructuredNode(NodeBase):
 
             from .match import _rel_helper
 
-            query_params["source_id"] = relationship.source.id
-            query = "MATCH (source:{0}) WHERE ID(source) = $source_id\n ".format(
-                relationship.source.__label__
-            )
+            query_params["source_id"] = relationship.source.element_id
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -396,20 +485,11 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += "RETURN id(n)"
+            query += f"RETURN {db.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
         return query, query_params
-
-    @classmethod
-    def category(cls):
-        raise NotImplementedError(
-            "Category was deprecated and has now been removed, "
-            "the functionality is now achieved using the {0}.nodes attribute".format(
-                cls.__name__
-            )
-        )
 
     @classmethod
     def create(cls, *props, **kwargs):
@@ -425,18 +505,18 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
 
         lazy = kwargs.get("lazy", False)
         # create mapped query
-        query = "CREATE (n:{0} $create_params)".format(":".join(cls.inherited_labels()))
+        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
 
         # close query
         if lazy:
-            query += " RETURN id(n)"
+            query += f" RETURN {db.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -494,7 +574,7 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
@@ -516,23 +596,21 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        params.update({"self": self.id})
+        params.update({"self": self.element_id})
         return db.cypher_query(query, params)
 
     @hooks
     def delete(self):
         """
-        Delete a node and it's relationships
+        Delete a node and its relationships
 
         :return: True
         """
         self._pre_action_check("delete")
         self.cypher(
-            "MATCH (self) WHERE id(self)=$self "
-            "OPTIONAL MATCH (self)-[r]-()"
-            " DELETE r, self"
+            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
         )
-        delattr(self, "id")
+        delattr(self, "element_id_property")
         self.deleted = True
         return True
 
@@ -565,7 +643,7 @@ class StructuredNode(NodeBase):
 
         if "streaming" in kwargs:
             warnings.warn(
-                "streaming is not supported by bolt, please remove the kwarg",
+                STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
@@ -582,9 +660,9 @@ class StructuredNode(NodeBase):
         :return: node object
         """
         # support lazy loading
-        if isinstance(node, int):
+        if isinstance(node, str) or isinstance(node, int):
             snode = cls()
-            snode.id = node
+            snode.element_id_property = node
         else:
             node_properties = _get_node_properties(node)
             props = {}
@@ -600,7 +678,7 @@ class StructuredNode(NodeBase):
                     props[key] = None
 
             snode = cls(**props)
-            snode.id = node.id
+            snode.element_id_property = node.element_id
 
         return snode
 
@@ -617,6 +695,21 @@ class StructuredNode(NodeBase):
             if hasattr(scls, "__label__") and not hasattr(scls, "__abstract_node__")
         ]
 
+    @classmethod
+    def inherited_optional_labels(cls):
+        """
+        Return list of optional labels from nodes class hierarchy.
+
+        :return: list
+        :rtype: list
+        """
+        return [
+            label
+            for scls in cls.mro()
+            for label in getattr(scls, "__optional_labels__", [])
+            if not hasattr(scls, "__abstract_node__")
+        ]
+
     def labels(self):
         """
         Returns list of labels tied to the node from neo4j.
@@ -625,20 +718,18 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check("labels")
-        return self.cypher("MATCH (n) WHERE id(n)=$self " "RETURN labels(n)")[0][0][0]
+        return self.cypher(
+            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
+        )[0][0][0]
 
     def _pre_action_check(self, action):
         if hasattr(self, "deleted") and self.deleted:
             raise ValueError(
-                "{0}.{1}() attempted on deleted node".format(
-                    self.__class__.__name__, action
-                )
+                f"{self.__class__.__name__}.{action}() attempted on deleted node"
             )
-        if not hasattr(self, "id"):
+        if not hasattr(self, "element_id"):
             raise ValueError(
-                "{0}.{1}() attempted on unsaved node".format(
-                    self.__class__.__name__, action
-                )
+                f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
 
     def refresh(self):
@@ -646,8 +737,10 @@ class StructuredNode(NodeBase):
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
-        if hasattr(self, "id"):
-            request = self.cypher("MATCH (n) WHERE id(n)=$self" " RETURN n")[0]
+        if hasattr(self, "element_id"):
+            request = self.cypher(
+                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
+            )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])
@@ -665,20 +758,25 @@ class StructuredNode(NodeBase):
         """
 
         # create or update instance node
-        if hasattr(self, "id"):
+        if hasattr(self, "element_id"):
             # update
             params = self.deflate(self.__properties__, self)
-            query = "MATCH (n) WHERE id(n)=$self \n"
-            query += "\n".join(
-                ["SET n.{0} = ${1}".format(key, key) + "\n" for key in params.keys()]
-            )
-            for label in self.inherited_labels():
-                query += "SET n:`{0}`\n".format(label)
+            query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"
+
+            if params:
+                query += "SET "
+                query += ",\n".join([f"n.{key} = ${key}" for key in params])
+                query += "\n"
+            if self.inherited_labels():
+                query += "\n".join(
+                    [f"SET n:`{label}`" for label in self.inherited_labels()]
+                )
             self.cypher(query, params)
         elif hasattr(self, "deleted") and self.deleted:
             raise ValueError(
-                "{0}.save() attempted on deleted node".format(self.__class__.__name__)
+                f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            self.id = self.create(self.__properties__)[0].id
+            created_node = self.create(self.__properties__)[0]
+            self.element_id_property = created_node.element_id
         return self
