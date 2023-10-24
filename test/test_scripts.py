@@ -11,7 +11,11 @@ from neomodel import (
 
 
 class ScriptsTestRel(StructuredRel):
-    some_unique_property = StringProperty(unique_index=db.version_is_higher_than("5.5"))
+    some_unique_property = (
+        StringProperty(unique_index=True)
+        if db.version_is_higher_than("5.5")
+        else StringProperty()
+    )
     some_index_property = StringProperty(index=True)
 
 
