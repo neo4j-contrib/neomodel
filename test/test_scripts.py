@@ -11,11 +11,7 @@ from neomodel import (
 
 
 class ScriptsTestRel(StructuredRel):
-    some_unique_property = (
-        StringProperty(unique_index=True)
-        if db.version_is_higher_than("5.5")
-        else StringProperty()
-    )
+    some_unique_property = StringProperty(unique_index=db.version_is_higher_than("5.7"))
     some_index_property = StringProperty(index=True)
 
 
@@ -49,7 +45,7 @@ def test_neomodel_install_labels():
         for element in constraints
     ]
     assert ("UNIQUENESS", ["ScriptsTestNode"], ["personal_id"]) in parsed_constraints
-    if db.version_is_higher_than("5.5"):
+    if db.version_is_higher_than("5.7"):
         assert (
             "RELATIONSHIP_UNIQUENESS",
             ["REL"],
