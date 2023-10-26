@@ -13,7 +13,12 @@ class User2(StructuredNode):
     email = StringProperty()
 
 
-class User3(StructuredNode):
+class UserPandas(StructuredNode):
+    name = StringProperty()
+    email = StringProperty()
+
+
+class UserNP(StructuredNode):
     name = StringProperty()
     email = StringProperty()
 
@@ -52,12 +57,12 @@ def test_cypher_syntax_error():
 
 
 def test_pandas_integration():
-    jimla = User2(email="jimla@test.com", name="jimla").save()
-    jimlo = User2(email="jimlo@test.com", name="jimlo").save()
+    jimla = UserPandas(email="jimla@test.com", name="jimla").save()
+    jimlo = UserPandas(email="jimlo@test.com", name="jimlo").save()
 
     # Test to_dataframe
     df = to_dataframe(
-        db.cypher_query("MATCH (a:User2) RETURN a.name AS name, a.email AS email")
+        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email")
     )
 
     assert isinstance(df, DataFrame)
@@ -66,7 +71,7 @@ def test_pandas_integration():
 
     # Also test passing an index and dtype to to_dataframe
     df = to_dataframe(
-        db.cypher_query("MATCH (a:User2) RETURN a.name AS name, a.email AS email"),
+        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"),
         index=df["email"],
         dtype=str,
     )
@@ -74,7 +79,7 @@ def test_pandas_integration():
     assert df.index.inferred_type == "string"
 
     # Next test to_series
-    series = to_series(db.cypher_query("MATCH (a:User2) RETURN a.name AS name"))
+    series = to_series(db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name"))
 
     assert isinstance(series, Series)
     assert series.shape == (2,)
@@ -82,11 +87,11 @@ def test_pandas_integration():
 
 
 def test_numpy_integration():
-    jimly = User3(email="jimly@test.com", name="jimly").save()
-    jimlu = User3(email="jimlu@test.com", name="jimlu").save()
+    jimly = UserNP(email="jimly@test.com", name="jimly").save()
+    jimlu = UserNP(email="jimlu@test.com", name="jimlu").save()
 
     array = to_ndarray(
-        db.cypher_query("MATCH (a:User3) RETURN a.name AS name, a.email AS email")
+        db.cypher_query("MATCH (a:UserNP) RETURN a.name AS name, a.email AS email")
     )
 
     assert isinstance(array, ndarray)
