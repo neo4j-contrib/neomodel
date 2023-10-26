@@ -53,7 +53,7 @@ with something like: ::
 Querying the graph
 ==================
 
-neomodel is mainly used as an OGM (see next section), but you also use it for direct Cypher queries : ::
+neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
     results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
