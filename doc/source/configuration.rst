@@ -59,6 +59,8 @@ Note that you have to manage the driver's lifecycle yourself.
 
 However, everything else is still handled by neomodel : sessions, transactions, etc...
 
+NB : Only the synchronous driver will work in this way. The asynchronous driver is not supported yet.
+
 Change/Close the connection
 ---------------------------
 
