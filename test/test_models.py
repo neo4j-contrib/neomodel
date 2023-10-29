@@ -98,10 +98,18 @@ def test_first_and_first_or_none():
     assert n is None
 
 
+def test_bare_init_without_save():
+    """
+    If a node model is initialised without being saved, accessing its `element_id` should
+    return None.
+    """
+    assert(User().element_id is None)
+
+
 def test_save_to_model():
     u = User(email="jim@test.com", age=3)
     assert u.save()
-    assert u.element_id != ""
+    assert u.element_id is not None
     assert u.email == "jim@test.com"
     assert u.age == 3
 
@@ -109,7 +117,7 @@ def test_save_to_model():
 def test_save_node_without_properties():
     n = NodeWithoutProperty()
     assert n.save()
-    assert n.element_id != ""
+    assert n.element_id is not None
 
 
 def test_unique():
