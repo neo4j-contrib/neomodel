@@ -76,3 +76,4 @@ max-args = 8
 [project.scripts]
 neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
 neomodel_remove_labels = "neomodel.scripts.neomodel_remove_labels:main"
+neomodel_inspect_database = "neomodel.scripts.neomodel_inspect_database:main"
