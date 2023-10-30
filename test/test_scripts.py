@@ -146,7 +146,6 @@ def test_neomodel_inspect_database():
         check=False,
     )
 
-    print(result.stdout)
     wrapped_console_output = [
         line for line in result.stdout.splitlines() if line.strip()
     ]
