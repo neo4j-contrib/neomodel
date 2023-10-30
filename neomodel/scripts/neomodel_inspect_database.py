@@ -220,7 +220,6 @@ def inspect_database(bolt_url):
 
     for label in node_labels:
         class_name = clean_class_member_key(label)
-        print(class_name)
         properties = NodeInspector.get_properties_for_label(label)
         unique_properties = NodeInspector.get_constraints_for_label(label)
         indexed_properties = NodeInspector.get_indexed_properties_for_label(label)
