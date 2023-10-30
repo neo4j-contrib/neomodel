@@ -65,7 +65,7 @@ def parse_prop_class(prop_type):
         elif prop_type == "POINT":
             if "PointProperty" not in IMPORTS:
                 IMPORTS.append("PointProperty")
-            return "PointProperty("
+            return "PointProperty(crs='wgs-84'"
 
 
 class NodeInspector:
