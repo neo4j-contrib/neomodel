@@ -182,6 +182,7 @@ def test_neomodel_inspect_database():
     # Check that the file was written
     # And that the file output has the same content as the console output
     # Again, regardless of order and redundance
+    print(result.stdout)
     wrapped_file_console_output = result.stdout.split("\n")
     assert wrapped_file_console_output[0].startswith("Connecting to")
     assert wrapped_file_console_output[1].startswith("Writing to")
