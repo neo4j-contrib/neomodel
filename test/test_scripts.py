@@ -192,6 +192,7 @@ def test_neomodel_inspect_database():
     with open("test/data/neomodel_inspect_database_test_output.py", "r") as f:
         wrapped_output_file = [line for line in f.read().split("\n") if line.strip()]
         print(wrapped_output_file)
+        assert False
         # assert set(wrapped_output_file) == set(wrapped_console_output[1:])
 
     # Finally, delete the file created by the script
