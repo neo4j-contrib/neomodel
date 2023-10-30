@@ -151,7 +151,7 @@ def test_neomodel_inspect_database():
     print(db.url)
     print(console_output)
 
-    results, _ = db.cypher_query("MATCH (n) RETURN n")
+    results, _ = db.cypher_query("CALL db.labels()")
     print(",".join([result[0] for result in results]))
     wrapped_console_output = console_output.split("\n")
     assert wrapped_console_output[0].startswith("Connecting to")
