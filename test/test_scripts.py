@@ -120,23 +120,23 @@ def test_neomodel_inspect_database():
 
     # Create a few nodes and a rel, with indexes and constraints
     node1 = ScriptsTestNode(personal_id="1", name="test").save()
-    # node2 = ScriptsTestNode(personal_id="2", name="test").save()
-    # node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
+    node2 = ScriptsTestNode(personal_id="2", name="test").save()
+    node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
 
-    # # Create a node with all the parsable property types
-    # db.cypher_query(
-    #     """
-    #     CREATE (n:EveryPropertyTypeNode {
-    #         string_property: "Hello World",
-    #         boolean_property: true,
-    #         datetime_property: datetime("2020-01-01T00:00:00.000Z"),
-    #         integer_property: 1,
-    #         float_property: 1.0,
-    #         point_property: point({x: 0.0, y: 0.0, crs: "wgs-84"}),
-    #         array_property: ["test"]
-    #     })
-    #     """
-    # )
+    # Create a node with all the parsable property types
+    db.cypher_query(
+        """
+        CREATE (n:EveryPropertyTypeNode {
+            string_property: "Hello World",
+            boolean_property: true,
+            datetime_property: datetime("2020-01-01T00:00:00.000Z"),
+            integer_property: 1,
+            float_property: 1.0,
+            point_property: point({x: 0.0, y: 0.0, crs: "wgs-84"}),
+            array_property: ["test"]
+        })
+        """
+    )
 
     # Test the console output version of the script
     result = subprocess.run(
