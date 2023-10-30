@@ -147,6 +147,12 @@ def test_neomodel_inspect_database():
     )
 
     console_output = result.stdout
+    print(config.DATABASE_URL)
+    print(db.url)
+    print(console_output)
+
+    results, _ = db.cypher_query("MATCH (n) RETURN count(n)")
+    print(results[0][0])
     wrapped_console_output = console_output.split("\n")
     assert wrapped_console_output[0].startswith("Connecting to")
     # Check that all the expected lines are here
@@ -155,8 +161,6 @@ def test_neomodel_inspect_database():
             # The neomodel components import order might differ
             # So let's check that every import that should be added is added, regardless of order
             if line.startswith("from neomodel import"):
-                print(line)
-                print(console_output)
                 parsed_imports = line.replace("from neomodel import ", "").split(", ")
                 expected_imports = (
                     wrapped_console_output[1]
