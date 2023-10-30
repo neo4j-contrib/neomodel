@@ -156,7 +156,7 @@ def test_neomodel_inspect_database():
             # So let's check that every import that should be added is added, regardless of order
             if line.startswith("from neomodel import"):
                 print(line)
-                print(wrapped_console_output[1])
+                print(console_output)
                 parsed_imports = line.replace("from neomodel import ", "").split(", ")
                 expected_imports = (
                     wrapped_console_output[1]
