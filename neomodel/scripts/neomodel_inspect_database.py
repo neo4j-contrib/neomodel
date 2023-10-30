@@ -37,35 +37,36 @@ IMPORTS = []
 
 
 def parse_prop_class(prop_type):
+    _import = ""
+    prop_class = ""
     if prop_type.startswith("LIST OF"):
-        if "ArrayProperty" not in IMPORTS:
-            IMPORTS.append("ArrayProperty")
-        return f"ArrayProperty({parse_prop_class(prop_type.replace('LIST OF ', ''))})"
+        _import = "ArrayProperty"
+        prop_class = (
+            f"ArrayProperty({parse_prop_class(prop_type.replace('LIST OF ', ''))})"
+        )
     else:
         if prop_type == "STRING":
-            if "StringProperty" not in IMPORTS:
-                IMPORTS.append("StringProperty")
-            return "StringProperty("
+            _import = "StringProperty"
+            prop_class = f"{_import}("
         elif prop_type == "BOOLEAN":
-            if "BooleanProperty" not in IMPORTS:
-                IMPORTS.append("BooleanProperty")
-            return "BooleanProperty("
+            _import = "BooleanProperty"
+            prop_class = f"{_import}("
         elif prop_type == "DATE_TIME":
-            if "DateTimeProperty" not in IMPORTS:
-                IMPORTS.append("DateTimeProperty")
-            return "DateTimeProperty("
+            _import = "DateTimeProperty"
+            prop_class = f"{_import}("
         elif prop_type == "INTEGER":
-            if "IntegerProperty" not in IMPORTS:
-                IMPORTS.append("IntegerProperty")
-            return "IntegerProperty("
+            _import = "IntegerProperty"
+            prop_class = f"{_import}("
         elif prop_type == "FLOAT":
-            if "FloatProperty" not in IMPORTS:
-                IMPORTS.append("FloatProperty")
-            return "FloatProperty("
+            _import = "FloatProperty"
+            prop_class = f"{_import}("
         elif prop_type == "POINT":
-            if "PointProperty" not in IMPORTS:
-                IMPORTS.append("PointProperty")
-            return "PointProperty(crs='wgs-84'"
+            _import = "PointProperty"
+            prop_class = f"{_import}(crs='wgs-84'"
+
+    if _import not in IMPORTS:
+        IMPORTS.append(_import)
+    return prop_class
 
 
 class NodeInspector:
