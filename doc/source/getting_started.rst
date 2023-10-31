@@ -105,8 +105,8 @@ in the case of ``Relationship`` it will be possible to be queried in either dire
 Neomodel automatically creates a label for each ``StructuredNode`` class in the database with the corresponding indexes
 and constraints.
 
-Database Inspection
-===================
+Database Inspection - Requires APOC
+===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
 
     $ neomodel_inspect_database -db bolt://neo4j:neo4j@localhost:7687 --write-to yourapp/models.py
@@ -126,6 +126,11 @@ Note that you can also print the output to the console instead of writing a file
 
     Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
     guess wrong on edge cases.
+
+.. warning:: 
+
+    The script relies on the method apoc.meta.cypher.types to parse property types. So APOC must be installed on your Neo4j server
+    for this script to work.
 
 Applying constraints and indexes
 ================================
