@@ -252,7 +252,11 @@ def inspect_database(bolt_url):
             target_label = rel[1]
             rel_props = rel[2]
 
-            unique_properties = RelationshipInspector.get_constraints_for_type(rel_type)
+            unique_properties = (
+                RelationshipInspector.get_constraints_for_type(rel_type)
+                if db.version_is_higher_than("5.7")
+                else []
+            )
             indexed_properties = RelationshipInspector.get_indexed_properties_for_type(
                 rel_type
             )
