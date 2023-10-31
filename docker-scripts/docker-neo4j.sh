@@ -5,7 +5,7 @@ if [ $1 = "4.4*" ]; then
         -d \
         --env NEO4J_AUTH=neo4j/foobarbaz \
         --env NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
-        --env NEO4JLABS_PLUGINS=["apoc-4.4.0.23-all"] \
+        --env NEO4JLABS_PLUGINS='["apoc-4.4.0.23-all"]' \
         neo4j:$1
 else
     docker run \
@@ -14,7 +14,7 @@ else
         -d \
         --env NEO4J_AUTH=neo4j/foobarbaz \
         --env NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
-        --env NEO4JLABS_PLUGINS=["apoc"] \
+        --env NEO4JLABS_PLUGINS='["apoc"]' \
         neo4j:$1
 
 fi
