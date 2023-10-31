@@ -1,3 +1,8 @@
+Version 5.2.0 2023-11
+* Add support for pandas DataFrame and Series ; numpy Array
+* Add relationship uniqueness constraints - for Neo4j >= 5.7
+* Add neomodel_inspect_database script, which inspects an existing database and creates neomodel class definitions for all objects.
+
 Version 5.1.2 2023-09
 * Raise ValueError on reserved keywords ; add tests #590 #623
 * Add support for relationship property uniqueness constraints. Introduced in Neo4j 5.7.
