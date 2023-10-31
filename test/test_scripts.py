@@ -143,7 +143,7 @@ def test_neomodel_inspect_database():
         ["neomodel_inspect_database", "--db", config.DATABASE_URL],
         capture_output=True,
         text=True,
-        check=False,
+        check=True,
     )
 
     wrapped_console_output = [
@@ -178,7 +178,7 @@ def test_neomodel_inspect_database():
         ],
         capture_output=True,
         text=True,
-        check=False,
+        check=True,
     )
 
     # Check that the file was written
