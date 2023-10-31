@@ -6,6 +6,7 @@ import warnings
 import pytest
 
 from neomodel import clear_neo4j_database, config, db
+from neomodel.util import version_tag_to_integer
 
 NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
@@ -89,23 +90,6 @@ def pytest_unconfigure():
     db.close_connection()
 
 
-def version_to_dec(a_version_string):
-    """
-    Converts a version string to a number to allow for quick checks on the versions of specific components.
-
-    :param a_version_string: The version string under test (e.g. '3.4.0')
-    :type a_version_string: str
-    :return: An integer representation of the string version, e.g. '3.4.0' --> 340
-    """
-    components = a_version_string.split(".")
-    while len(components) < 3:
-        components.append("0")
-    num = 0
-    for a_component in enumerate(components):
-        num += (10 ** ((len(components) - 1) - a_component[0])) * int(a_component[1])
-    return num
-
-
 def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
     """
     Checks if the NEO4J_VERSION is at least `required_least_neo4j_version` and skips a test if not.
@@ -119,12 +103,15 @@ def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
     :type message: str
     :return: A boolean value of True if the version reported is at least `required_least_neo4j_version`
     """
-    if "NEO4J_VERSION" in os.environ:
-        if version_to_dec(os.environ["NEO4J_VERSION"]) < required_least_neo4j_version:
-            pytest.skip(
-                "Neo4j version: {}. {}."
-                "Skipping test.".format(os.environ["NEO4J_VERSION"], message)
-            )
+    if (
+        "NEO4J_VERSION" in os.environ
+        and version_tag_to_integer(os.environ["NEO4J_VERSION"])
+        < required_least_neo4j_version
+    ):
+        pytest.skip(
+            "Neo4j version: {}. {}."
+            "Skipping test.".format(os.environ["NEO4J_VERSION"], message)
+        )
 
 
 @pytest.fixture

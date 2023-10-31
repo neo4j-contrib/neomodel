@@ -529,6 +529,27 @@ class Database(local):
 
         return constraints_as_dict
 
+    def version_is_higher_than(self, version_tag: str) -> bool:
+        """Returns true if the database version is higher or equal to a given tag
+
+        Args:
+            version_tag (str): The version to compare against
+
+        Returns:
+            bool: True if the database version is higher or equal to the given version
+        """
+        return version_tag_to_integer(self.database_version) >= version_tag_to_integer(
+            version_tag
+        )
+
+    def edition_is_enterprise(self) -> bool:
+        """Returns true if the database edition is enterprise
+
+        Returns:
+            bool: True if the database edition is enterprise
+        """
+        return self.database_edition == "enterprise"
+
 
 class TransactionProxy:
     bookmarks: Optional[Bookmarks] = None
@@ -652,3 +673,21 @@ def enumerate_traceback(initial_frame):
         yield depth, frame
         frame = frame.f_back
         depth += 1
+
+
+def version_tag_to_integer(version_tag):
+    """
+    Converts a version string to an integer representation to allow for quick comparisons between versions.
+
+    :param a_version_string: The version string to be converted (e.g. '3.4.0')
+    :type a_version_string: str
+    :return: An integer representation of the version string (e.g. '3.4.0' --> 340)
+    :rtype: int
+    """
+    components = version_tag.split(".")
+    while len(components) < 3:
+        components.append("0")
+    num = 0
+    for index, component in enumerate(components):
+        num += (10 ** ((len(components) - 1) - index)) * int(component)
+    return num

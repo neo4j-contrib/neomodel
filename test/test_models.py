@@ -9,6 +9,7 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     StructuredNode,
+    StructuredRel,
     install_labels,
 )
 from neomodel.core import db
@@ -97,10 +98,18 @@ def test_first_and_first_or_none():
     assert n is None
 
 
+def test_bare_init_without_save():
+    """
+    If a node model is initialised without being saved, accessing its `element_id` should
+    return None.
+    """
+    assert(User().element_id is None)
+
+
 def test_save_to_model():
     u = User(email="jim@test.com", age=3)
     assert u.save()
-    assert u.element_id != ""
+    assert u.element_id is not None
     assert u.email == "jim@test.com"
     assert u.age == 3
 
@@ -108,7 +117,7 @@ def test_save_to_model():
 def test_save_node_without_properties():
     n = NodeWithoutProperty()
     assert n.save()
-    assert n.element_id != ""
+    assert n.element_id is not None
 
 
 def test_unique():
@@ -296,3 +305,42 @@ def test_date_property():
         birthdate = DateProperty()
 
     user = DateTest(birthdate=datetime.now()).save()
+
+
+def test_reserved_property_keys():
+    error_match = r".*is not allowed as it conflicts with neomodel internals.*"
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesDeletedNode(StructuredNode):
+            deleted = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdNode(StructuredNode):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdNode(StructuredNode):
+            element_id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesIdRel(StructuredRel):
+            id = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesElementIdRel(StructuredRel):
+            element_id = StringProperty()
+
+    error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesSourceRel(StructuredRel):
+            source = StringProperty()
+
+    with raises(ValueError, match=error_match):
+
+        class ReservedPropertiesTargetRel(StructuredRel):
+            target = StringProperty()

@@ -50,6 +50,9 @@ Neomodel uses :mod:`~neomodel.relationship` models to define the properties stor
             index=True
         )
         met = StringProperty()
+        # Uniqueness constraints for relationship properties
+        # are only available from Neo4j version 5.7 onwards
+        meeting_id = StringProperty(unique_index=True)
 
     class Person(StructuredNode):
         name = StringProperty()

@@ -371,15 +371,15 @@ class ArrayProperty(Property):
             if isinstance(base_property, ArrayProperty):
                 raise TypeError("Cannot have nested ArrayProperty")
 
-            for ilegal_attr in [
+            for illegal_attr in [
                 "default",
                 "index",
                 "unique_index",
                 "required",
             ]:
-                if getattr(base_property, ilegal_attr, None):
+                if getattr(base_property, illegal_attr, None):
                     raise ValueError(
-                        f'ArrayProperty base_property cannot have "{ilegal_attr}" set'
+                        f'ArrayProperty base_property cannot have "{illegal_attr}" set'
                     )
 
         self.base_property = base_property
