@@ -733,7 +733,7 @@ class BaseSet:
 
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):
-            if hasattr(obj, "element_id"):
+            if hasattr(obj, "element_id") and obj.element_id is not None:
                 return self.query_cls(self).build_ast()._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
