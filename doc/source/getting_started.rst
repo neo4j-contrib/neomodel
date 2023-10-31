@@ -105,6 +105,28 @@ in the case of ``Relationship`` it will be possible to be queried in either dire
 Neomodel automatically creates a label for each ``StructuredNode`` class in the database with the corresponding indexes
 and constraints.
 
+Database Inspection
+===================
+You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
+
+    $ neomodel_inspect_database -db bolt://neo4j:neo4j@localhost:7687 --write-to yourapp/models.py
+
+This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
+and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
+
+Note that you can also print the output to the console instead of writing a file by omitting the ``--write-to`` option.
+
+.. note::
+
+    This command will only generate the definition for nodes and relationships that are present in the
+    database. If you want to generate a complete definition file, you will need to add the missing classes manually.
+
+    Also, this has only been tested with single-label nodes. If you have multi-label nodes, you will need to double check,
+    and add the missing labels manually in the relevant way.
+
+    Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
+    guess wrong on edge cases.
+
 Applying constraints and indexes
 ================================
 After creating a model in Python, any constraints or indexes must be applied to Neo4j and ``neomodel`` provides a

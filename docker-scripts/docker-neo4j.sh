@@ -4,4 +4,5 @@ docker run \
     -d \
     --env NEO4J_AUTH=neo4j/foobarbaz \
     --env NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
+    --env NEO4JLABS_PLUGINS='["apoc"]' \
     neo4j:$1

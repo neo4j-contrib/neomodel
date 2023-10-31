@@ -1,13 +1,21 @@
 import subprocess
 
 from neomodel import (
+    ArrayProperty,
+    BooleanProperty,
+    DateTimeProperty,
+    FloatProperty,
+    IntegerProperty,
     RelationshipTo,
     StringProperty,
     StructuredNode,
     StructuredRel,
     config,
     db,
+    install_labels,
+    util,
 )
+from neomodel.contrib.spatial_properties import NeomodelPoint, PointProperty
 
 
 class ScriptsTestRel(StructuredRel):
@@ -19,6 +27,16 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
+
+
+class EveryPropertyTypeNode(StructuredNode):
+    string_property = StringProperty()
+    boolean_property = BooleanProperty()
+    datetime_property = DateTimeProperty()
+    integer_property = IntegerProperty()
+    float_property = FloatProperty()
+    point_property = PointProperty(crs="wgs-84")
+    array_property = ArrayProperty(StringProperty())
 
 
 def test_neomodel_install_labels():
@@ -83,3 +101,99 @@ def test_neomodel_remove_labels():
     indexes = db.list_indexes(exclude_token_lookup=True)
     assert len(constraints) == 0
     assert len(indexes) == 0
+
+
+def test_neomodel_inspect_database():
+    # Check that the help option works
+    result = subprocess.run(
+        ["neomodel_inspect_database", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "usage: neomodel_inspect_database" in result.stdout
+    assert result.returncode == 0
+
+    util.clear_neo4j_database(db)
+    install_labels(ScriptsTestNode)
+    install_labels(ScriptsTestRel)
+
+    # Create a few nodes and a rel, with indexes and constraints
+    node1 = ScriptsTestNode(personal_id="1", name="test").save()
+    node2 = ScriptsTestNode(personal_id="2", name="test").save()
+    node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
+
+    # Create a node with all the parsable property types
+    db.cypher_query(
+        """
+        CREATE (n:EveryPropertyTypeNode {
+            string_property: "Hello World",
+            boolean_property: true,
+            datetime_property: datetime("2020-01-01T00:00:00.000Z"),
+            integer_property: 1,
+            float_property: 1.0,
+            point_property: point({x: 0.0, y: 0.0, crs: "wgs-84"}),
+            array_property: ["test"]
+        })
+        """
+    )
+
+    # Test the console output version of the script
+    result = subprocess.run(
+        ["neomodel_inspect_database", "--db", config.DATABASE_URL],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    wrapped_console_output = [
+        line for line in result.stdout.splitlines() if line.strip()
+    ]
+    assert wrapped_console_output[0].startswith("Connecting to")
+    # Check that all the expected lines are here
+    with open("test/data/neomodel_inspect_database_output.txt", "r") as f:
+        wrapped_test_file = [line for line in f.read().split("\n") if line.strip()]
+        for line in wrapped_test_file:
+            # The neomodel components import order might differ
+            # So let's check that every import that should be added is added, regardless of order
+            if line.startswith("from neomodel import"):
+                parsed_imports = line.replace("from neomodel import ", "").split(", ")
+                expected_imports = (
+                    wrapped_console_output[1]
+                    .replace("from neomodel import ", "")
+                    .split(", ")
+                )
+                assert set(parsed_imports) == set(expected_imports)
+            else:
+                assert line in wrapped_console_output
+
+    # Test the file output version of the script
+    result = subprocess.run(
+        [
+            "neomodel_inspect_database",
+            "--db",
+            config.DATABASE_URL,
+            "--write-to",
+            "test/data/neomodel_inspect_database_test_output.py",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    # Check that the file was written
+    # And that the file output has the same content as the console output
+    # Again, regardless of order and redundance
+    wrapped_file_console_output = [
+        line for line in result.stdout.splitlines() if line.strip()
+    ]
+    assert wrapped_file_console_output[0].startswith("Connecting to")
+    assert wrapped_file_console_output[1].startswith("Writing to")
+    with open("test/data/neomodel_inspect_database_test_output.py", "r") as f:
+        wrapped_output_file = [line for line in f.read().split("\n") if line.strip()]
+        assert set(wrapped_output_file) == set(wrapped_console_output[1:])
+
+    # Finally, delete the file created by the script
+    subprocess.run(
+        ["rm", "test/data/neomodel_inspect_database_test_output.py"],
+    )
