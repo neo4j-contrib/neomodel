@@ -294,6 +294,7 @@ def inspect_database(bolt_url):
         class_definitions += class_definition
 
     # Finally, parse imports
+    imports = ""
     if IMPORTS:
         special_imports = ""
         if "PointProperty" in IMPORTS:
