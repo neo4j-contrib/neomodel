@@ -98,9 +98,14 @@ class NodeInspector:
 
     @staticmethod
     def get_indexed_properties_for_label(label):
-        indexes, meta_indexes = db.cypher_query(
-            f"SHOW INDEXES WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='RANGE' AND owningConstraint IS NULL"
-        )
+        if db.version_is_higher_than("5.0"):
+            indexes, meta_indexes = db.cypher_query(
+                f"SHOW INDEXES WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='RANGE' AND owningConstraint IS NULL"
+            )
+        else:
+            indexes, meta_indexes = db.cypher_query(
+                f"SHOW INDEXES WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='BTREE' AND uniqueness='NONUNIQUE'"
+            )
         indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
         indexed_properties = [
             item.get("properties")[0]
