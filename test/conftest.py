@@ -8,6 +8,10 @@ import pytest
 from neomodel import clear_neo4j_database, config, db
 from neomodel.util import version_tag_to_integer
 
+NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "foobarbaz")
+
 
 def pytest_addoption(parser):
     """
@@ -79,6 +83,11 @@ def pytest_sessionstart(session):
     if db.database_edition == "enterprise":
         db.cypher_query("GRANT ROLE publisher TO troygreene")
         db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
+
+
+@pytest.hookimpl
+def pytest_unconfigure():
+    db.close_connection()
 
 
 def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):

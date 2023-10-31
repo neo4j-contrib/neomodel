@@ -10,45 +10,12 @@ Before executing any neomodel code, set the connection url::
     from neomodel import config
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
 
-    # You can specify a database name: 'bolt://neo4j:neo4j@localhost:7687/mydb'
-
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
+
+See the Configuration page (:ref:`connection_options_doc`) for config options.
 
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: ``http://localhost:7474`` ).
-
-You can also change the connection url at any time by calling ``set_connection``::
-
-    from neomodel import db
-    db.set_connection('bolt://neo4j:neo4j@localhost:7687')
-
-The new connection url will be applied to the current thread or process.
-
-In general however, it is better to `avoid setting database access credentials in plain sight <https://
-www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04B-3_Meli_paper.pdf>`_. Neo4J defines a number of
-`environment variables <https://neo4j.com/developer/kb/how-do-i-authenticate-with-cypher-shell-without-specifying-the-
-username-and-password-on-the-command-line/>`_ that are used in its tools and these can be re-used for other applications
-too.
-
-These are:
-
-* ``NEO4J_USERNAME``
-* ``NEO4J_PASSWORD``
-* ``NEO4J_BOLT_URL``
-
-By setting these with (for example): ::
-
-    $ export NEO4J_USERNAME=neo4j
-    $ export NEO4J_PASSWORD=neo4j
-    $ export NEO4J_BOLT_URL="bolt://$NEO4J_USERNAME:$NEO4J_PASSWORD@localhost:7687"
-
-They can be accessed from a Python script via the ``environ`` dict of module ``os`` and be used to set the connection
-with something like: ::
-
-    import os
-    from neomodel import config
-
-    config.DATABASE_URL = os.environ["NEO4J_BOLT_URL"]
 
 Querying the graph
 ==================
