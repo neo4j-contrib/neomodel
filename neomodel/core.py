@@ -409,11 +409,13 @@ class StructuredNode(NodeBase):
 
     @property
     def element_id(self):
-        return (
-            int(self.element_id_property)
-            if db.database_version.startswith("4")
-            else self.element_id_property
-        ) if hasattr(self, "element_id_property") else None 
+        if hasattr(self, "element_id_property"):
+            return (
+                int(self.element_id_property)
+                if db.database_version.startswith("4")
+                else self.element_id_property
+            )
+        return None
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property

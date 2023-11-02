@@ -216,6 +216,67 @@ def generate_rel_class_name(rel_type):
     return string.capwords(rel_type.replace("_", " ")).replace(" ", "") + "Rel"
 
 
+def parse_imports():
+    imports = ""
+    if IMPORTS:
+        special_imports = ""
+        if "PointProperty" in IMPORTS:
+            IMPORTS.remove("PointProperty")
+            special_imports += (
+                "from neomodel.contrib.spatial_properties import PointProperty\n"
+            )
+        imports = f"from neomodel import {', '.join(IMPORTS)}\n" + special_imports
+    return imports
+
+
+def build_rel_type_definition(
+    label, outgoing_relationships, properties, defined_rel_types
+):
+    class_definition_append = ""
+    rel_type_definitions = ""
+
+    for rel in outgoing_relationships:
+        rel_type = rel[0]
+        rel_name = rel_type.lower()
+        target_label = rel[1]
+        rel_props = rel[2]
+
+        unique_properties = (
+            RelationshipInspector.get_constraints_for_type(rel_type)
+            if db.version_is_higher_than("5.7")
+            else []
+        )
+        indexed_properties = RelationshipInspector.get_indexed_properties_for_type(
+            rel_type
+        )
+
+        cardinality = RelationshipInspector.infer_cardinality(rel_type, label)
+
+        class_definition_append += f'    {clean_class_member_key(rel_name)} = RelationshipTo("{target_label}", "{rel_type}", cardinality={cardinality}'
+
+        if rel_props and rel_type not in defined_rel_types:
+            rel_model_name = generate_rel_class_name(rel_type)
+            class_definition_append += f', model="{rel_model_name}"'
+            rel_type_definitions = f"\n\nclass {rel_model_name}(StructuredRel):\n"
+            if properties:
+                rel_type_definitions += "".join(
+                    [
+                        build_prop_string(
+                            unique_properties, indexed_properties, prop, prop_type
+                        )
+                        for prop, prop_type in properties.items()
+                    ]
+                )
+            else:
+                rel_type_definitions += "    pass\n"
+
+        class_definition_append += ")\n"
+
+    class_definition_append += rel_type_definitions
+
+    return class_definition_append
+
+
 def inspect_database(bolt_url):
     # Connect to the database
     print(f"Connecting to {bolt_url}")
@@ -245,51 +306,14 @@ def inspect_database(bolt_url):
         )
 
         outgoing_relationships = RelationshipInspector.outgoing_relationships(label)
-        rel_type_definitions = ""
 
         if outgoing_relationships and "StructuredRel" not in IMPORTS:
             IMPORTS.append("RelationshipTo")
             IMPORTS.append("StructuredRel")
 
-        for rel in outgoing_relationships:
-            rel_type = rel[0]
-            rel_name = rel_type.lower()
-            target_label = rel[1]
-            rel_props = rel[2]
-
-            unique_properties = (
-                RelationshipInspector.get_constraints_for_type(rel_type)
-                if db.version_is_higher_than("5.7")
-                else []
-            )
-            indexed_properties = RelationshipInspector.get_indexed_properties_for_type(
-                rel_type
-            )
-
-            cardinality = RelationshipInspector.infer_cardinality(rel_type, label)
-
-            class_definition += f'    {clean_class_member_key(rel_name)} = RelationshipTo("{target_label}", "{rel_type}", cardinality={cardinality}'
-
-            if rel_props and rel_type not in defined_rel_types:
-                rel_model_name = generate_rel_class_name(rel_type)
-                class_definition += f', model="{rel_model_name}"'
-                rel_type_definitions = f"\n\nclass {rel_model_name}(StructuredRel):\n"
-                if properties:
-                    rel_type_definitions += "".join(
-                        [
-                            build_prop_string(
-                                unique_properties, indexed_properties, prop, prop_type
-                            )
-                            for prop, prop_type in properties.items()
-                        ]
-                    )
-                else:
-                    rel_type_definitions += "    pass\n"
-                defined_rel_types.append(rel_type)
-
-            class_definition += ")\n"
-
-        class_definition += rel_type_definitions
+        class_definition += build_rel_type_definition(
+            label, outgoing_relationships, properties, defined_rel_types
+        )
 
         if not properties and not outgoing_relationships:
             class_definition += "    pass\n"
@@ -299,15 +323,7 @@ def inspect_database(bolt_url):
         class_definitions += class_definition
 
     # Finally, parse imports
-    imports = ""
-    if IMPORTS:
-        special_imports = ""
-        if "PointProperty" in IMPORTS:
-            IMPORTS.remove("PointProperty")
-            special_imports += (
-                "from neomodel.contrib.spatial_properties import PointProperty\n"
-            )
-        imports = f"from neomodel import {', '.join(IMPORTS)}\n" + special_imports
+    imports = parse_imports()
     output = "\n".join([imports, class_definitions])
 
     return output
