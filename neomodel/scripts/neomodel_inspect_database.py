@@ -81,7 +81,6 @@ class NodeInspector:
         result, _ = db.cypher_query(query)
         if result is not None and len(result) > 0:
             return result[0][0]
-        return {}
 
     @staticmethod
     def get_constraints_for_label(label):
