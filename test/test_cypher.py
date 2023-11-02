@@ -1,11 +1,12 @@
+import builtins
+
+import pytest
 from neo4j.exceptions import ClientError as CypherError
 from numpy import ndarray
 from pandas import DataFrame, Series
 
 from neomodel import StringProperty, StructuredNode
 from neomodel.core import db
-from neomodel.integration.numpy import to_ndarray
-from neomodel.integration.pandas import to_dataframe, to_series
 
 
 class User2(StructuredNode):
@@ -21,6 +22,18 @@ class UserPandas(StructuredNode):
 class UserNP(StructuredNode):
     name = StringProperty()
     email = StringProperty()
+
+
+@pytest.fixture
+def hide_available_pkg(monkeypatch, request):
+    import_orig = builtins.__import__
+
+    def mocked_import(name, *args, **kwargs):
+        if name == request.param:
+            raise ImportError()
+        return import_orig(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", mocked_import)
 
 
 def test_cypher():
@@ -56,7 +69,21 @@ def test_cypher_syntax_error():
         assert False, "CypherError not raised."
 
 
+@pytest.mark.parametrize("hide_available_pkg", ["pandas"], indirect=True)
+def test_pandas_not_installed(hide_available_pkg):
+    with pytest.raises(ImportError):
+        with pytest.warns(
+            UserWarning,
+            match="The neomodel.integration.pandas module expects pandas to be installed",
+        ):
+            from neomodel.integration.pandas import to_dataframe
+
+            _ = to_dataframe(db.cypher_query("MATCH (a) RETURN a.name AS name"))
+
+
 def test_pandas_integration():
+    from neomodel.integration.pandas import to_dataframe, to_series
+
     jimla = UserPandas(email="jimla@test.com", name="jimla").save()
     jimlo = UserPandas(email="jimlo@test.com", name="jimlo").save()
 
@@ -86,7 +113,21 @@ def test_pandas_integration():
     assert df["name"].tolist() == ["jimla", "jimlo"]
 
 
+@pytest.mark.parametrize("hide_available_pkg", ["numpy"], indirect=True)
+def test_numpy_not_installed(hide_available_pkg):
+    with pytest.raises(ImportError):
+        with pytest.warns(
+            UserWarning,
+            match="The neomodel.integration.numpy module expects pandas to be installed",
+        ):
+            from neomodel.integration.numpy import to_ndarray
+
+            _ = to_ndarray(db.cypher_query("MATCH (a) RETURN a.name AS name"))
+
+
 def test_numpy_integration():
+    from neomodel.integration.numpy import to_ndarray
+
     jimly = UserNP(email="jimly@test.com", name="jimly").save()
     jimlu = UserNP(email="jimlu@test.com", name="jimlu").save()
 
