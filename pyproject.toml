@@ -18,7 +18,7 @@ maintainers = [
     {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
 ]
 description = "An object mapper for the neo4j graph database."
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["graph", "neo4j", "ORM", "OGM", "mapper"]
 license = {text = "MIT"}
