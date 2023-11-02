@@ -130,7 +130,7 @@ class RelationshipInspector:
     @staticmethod
     def get_constraints_for_type(rel_type):
         constraints, meta_constraints = db.cypher_query(
-            f"SHOW CONSTRAINTS WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='UNIQUENESS'"
+            f"SHOW CONSTRAINTS WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='RELATIONSHIP_UNIQUENESS'"
         )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
         constrained_properties = [
@@ -223,9 +223,7 @@ def parse_imports():
     return imports
 
 
-def build_rel_type_definition(
-    label, outgoing_relationships, properties, defined_rel_types
-):
+def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
     class_definition_append = ""
     rel_type_definitions = ""
 
@@ -252,17 +250,14 @@ def build_rel_type_definition(
             rel_model_name = generate_rel_class_name(rel_type)
             class_definition_append += f', model="{rel_model_name}"'
             rel_type_definitions = f"\n\nclass {rel_model_name}(StructuredRel):\n"
-            if properties:
-                rel_type_definitions += "".join(
-                    [
-                        build_prop_string(
-                            unique_properties, indexed_properties, prop, prop_type
-                        )
-                        for prop, prop_type in properties.items()
-                    ]
-                )
-            else:
-                rel_type_definitions += "    pass\n"
+            rel_type_definitions += "".join(
+                [
+                    build_prop_string(
+                        unique_properties, indexed_properties, prop, prop_type
+                    )
+                    for prop, prop_type in rel_props.items()
+                ]
+            )
 
         class_definition_append += ")\n"
 
@@ -306,7 +301,7 @@ def inspect_database(bolt_url):
             IMPORTS.append("StructuredRel")
 
         class_definition += build_rel_type_definition(
-            label, outgoing_relationships, properties, defined_rel_types
+            label, outgoing_relationships, defined_rel_types
         )
 
         if not properties and not outgoing_relationships:

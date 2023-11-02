@@ -8,8 +8,8 @@ class ScriptsTestNode(StructuredNode):
 
 
 class RelRel(StructuredRel):
-    personal_id = StringProperty()
-    name = StringProperty()
+    some_index_property = StringProperty(index=True)
+    some_unique_property = StringProperty(unique_index=True)
 
 
 class EveryPropertyTypeNode(StructuredNode):
@@ -21,4 +21,11 @@ class EveryPropertyTypeNode(StructuredNode):
     datetime_property = DateTimeProperty()
     integer_property = IntegerProperty()
 
+
+class NoPropertyNode(StructuredNode):
+    pass
+
+
+class NoPropertyRelNode(StructuredNode):
+    no_prop_rel = RelationshipTo("NoPropertyRelNode", "NO_PROP_REL", cardinality=ZeroOrOne)
 

@@ -1,11 +1,6 @@
 import subprocess
 
 from neomodel import (
-    ArrayProperty,
-    BooleanProperty,
-    DateTimeProperty,
-    FloatProperty,
-    IntegerProperty,
     RelationshipTo,
     StringProperty,
     StructuredNode,
@@ -15,7 +10,6 @@ from neomodel import (
     install_labels,
     util,
 )
-from neomodel.contrib.spatial_properties import NeomodelPoint, PointProperty
 
 
 class ScriptsTestRel(StructuredRel):
@@ -27,16 +21,6 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
-
-
-class EveryPropertyTypeNode(StructuredNode):
-    string_property = StringProperty()
-    boolean_property = BooleanProperty()
-    datetime_property = DateTimeProperty()
-    integer_property = IntegerProperty()
-    float_property = FloatProperty()
-    point_property = PointProperty(crs="wgs-84")
-    array_property = ArrayProperty(StringProperty())
 
 
 def test_neomodel_install_labels():
@@ -124,9 +108,10 @@ def test_neomodel_inspect_database():
     node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
 
     # Create a node with all the parsable property types
+    # Also create a node with no properties
     db.cypher_query(
         """
-        CREATE (n:EveryPropertyTypeNode {
+        CREATE (:EveryPropertyTypeNode {
             string_property: "Hello World",
             boolean_property: true,
             datetime_property: datetime("2020-01-01T00:00:00.000Z"),
@@ -135,6 +120,10 @@ def test_neomodel_inspect_database():
             point_property: point({x: 0.0, y: 0.0, crs: "wgs-84"}),
             array_property: ["test"]
         })
+        CREATE (:NoPropertyNode)
+        CREATE (n1:NoPropertyRelNode)
+        CREATE (n2:NoPropertyRelNode)
+        CREATE (n1)-[:NO_PROP_REL]->(n2)
         """
     )
 
@@ -164,8 +153,11 @@ def test_neomodel_inspect_database():
                     .split(", ")
                 )
                 assert set(parsed_imports) == set(expected_imports)
-            else:
-                assert line in wrapped_console_output
+                wrapped_test_file.remove(line)
+                break
+
+        # Check that both outputs have the same set of lines, regardless of order and redundance
+        assert set(wrapped_test_file) == set(wrapped_console_output[2:])
 
     # Test the file output version of the script
     result = subprocess.run(
