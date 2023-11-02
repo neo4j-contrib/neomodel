@@ -18,7 +18,7 @@ maintainers = [
     {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
 ]
 description = "An object mapper for the neo4j graph database."
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["graph", "neo4j", "ORM", "OGM", "mapper"]
 license = {text = "MIT"}
@@ -38,7 +38,7 @@ dependencies = [
     "neobolt==1.7.17",
     "six==1.16.0",
 ]
-version='5.1.2'
+version='5.2.0'
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
@@ -54,6 +54,8 @@ dev = [
     "isort",
     "Shapely>=2.0.0"
 ]
+pandas = ["pandas"]
+numpy = ["numpy"]
 
 [tool.pytest.ini_options]
 addopts = "--resetdb"
@@ -76,3 +78,4 @@ max-args = 8
 [project.scripts]
 neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
 neomodel_remove_labels = "neomodel.scripts.neomodel_remove_labels:main"
+neomodel_inspect_database = "neomodel.scripts.neomodel_inspect_database:main"

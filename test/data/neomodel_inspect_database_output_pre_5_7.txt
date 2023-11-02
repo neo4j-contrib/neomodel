@@ -1,0 +1,31 @@
+from neomodel import StructuredNode, StringProperty, RelationshipTo, StructuredRel, ZeroOrOne, ArrayProperty, FloatProperty, BooleanProperty, DateTimeProperty, IntegerProperty
+from neomodel.contrib.spatial_properties import PointProperty
+
+class ScriptsTestNode(StructuredNode):
+    personal_id = StringProperty(unique_index=True)
+    name = StringProperty(index=True)
+    rel = RelationshipTo("ScriptsTestNode", "REL", cardinality=ZeroOrOne, model="RelRel")
+
+
+class RelRel(StructuredRel):
+    some_index_property = StringProperty(index=True)
+    some_unique_property = StringProperty()
+
+
+class EveryPropertyTypeNode(StructuredNode):
+    array_property = ArrayProperty(StringProperty())
+    float_property = FloatProperty()
+    boolean_property = BooleanProperty()
+    point_property = PointProperty(crs='wgs-84')
+    string_property = StringProperty()
+    datetime_property = DateTimeProperty()
+    integer_property = IntegerProperty()
+
+
+class NoPropertyNode(StructuredNode):
+    pass
+
+
+class NoPropertyRelNode(StructuredNode):
+    no_prop_rel = RelationshipTo("NoPropertyRelNode", "NO_PROP_REL", cardinality=ZeroOrOne)
+

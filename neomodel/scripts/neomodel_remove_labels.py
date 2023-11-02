@@ -23,8 +23,8 @@
 """
 from __future__ import print_function
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import textwrap
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ
 
 from .. import db, remove_all_labels
@@ -32,15 +32,17 @@ from .. import db, remove_all_labels
 
 def main():
     parser = ArgumentParser(
-        formatter_class=RawDescriptionHelpFormatter,            
-        description=textwrap.dedent("""
+        formatter_class=RawDescriptionHelpFormatter,
+        description=textwrap.dedent(
+            """
                                     Drop all indexes and constraints on labels from schema in Neo4j database.
 
                                     If a connection URL is not specified, the tool will look up the environment 
                                     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
                                     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
                                     """
-                                    ))
+        ),
+    )
 
     parser.add_argument(
         "--db",
@@ -59,7 +61,7 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print(f"Connecting to {bolt_url}")
-    db.set_connection(bolt_url)
+    db.set_connection(url=bolt_url)
 
     remove_all_labels()
 

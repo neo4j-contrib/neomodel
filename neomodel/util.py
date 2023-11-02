@@ -7,7 +7,7 @@ from threading import local
 from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
 
-from neo4j import DEFAULT_DATABASE, GraphDatabase, basic_auth
+from neo4j import DEFAULT_DATABASE, Driver, GraphDatabase, basic_auth
 from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
@@ -33,8 +33,11 @@ def ensure_connection(func):
         else:
             _db = self
 
-        if not _db.url:
-            _db.set_connection(config.DATABASE_URL)
+        if not _db.driver:
+            if hasattr(config, "DRIVER") and config.DRIVER:
+                _db.set_connection(driver=config.DRIVER)
+            elif config.DATABASE_URL:
+                _db.set_connection(url=config.DATABASE_URL)
 
         return func(self, *args, **kwargs)
 
@@ -78,9 +81,46 @@ class Database(local):
         self._database_edition = None
         self.impersonated_user = None
 
-    def set_connection(self, url):
+    def set_connection(self, url: str = None, driver: Driver = None):
         """
-        Sets the connection URL to the address a Neo4j server is set up at
+        Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
+
+        Args:
+            url (str): Optionally, Neo4j URL in the form protocol://username:password@hostname:port/dbname.
+            When provided, a Neo4j driver instance will be created by neomodel.
+
+            driver (neo4j.Driver): Optionally, a pre-created driver instance.
+            When provided, neomodel will not create a driver instance but use this one instead.
+        """
+        if driver:
+            self.driver = driver
+            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
+                self._database_name = config.DATABASE_NAME
+        elif url:
+            self._parse_driver_from_url(url=url)
+
+        self._pid = os.getpid()
+        self._active_transaction = None
+        # Set to default database if it hasn't been set before
+        if self._database_name is None:
+            self._database_name = DEFAULT_DATABASE
+
+        # Getting the information about the database version requires a connection to the database
+        self._database_version = None
+        self._database_edition = None
+        self._update_database_version()
+
+    def _parse_driver_from_url(self, url: str) -> None:
+        """Parse the driver information from the given URL and initialize the driver.
+
+        Args:
+            url (str): The URL to parse.
+
+        Raises:
+            ValueError: If the URL format is not as expected.
+
+        Returns:
+            None - Sets the driver and database_name as class properties
         """
         p_start = url.replace(":", "", 1).find(":") + 2
         p_end = url.rfind("@")
@@ -128,14 +168,23 @@ class Database(local):
             parsed_url.scheme + "://" + hostname, **options
         )
         self.url = url
-        self._pid = os.getpid()
-        self._active_transaction = None
-        self._database_name = DEFAULT_DATABASE if database_name == "" else database_name
+        # The database name can be provided through the url or the config
+        if database_name == "":
+            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
+                self._database_name = config.DATABASE_NAME
+        else:
+            self._database_name = database_name
 
-        # Getting the information about the database version requires a connection to the database
+    def close_connection(self):
+        """
+        Closes the currently open driver.
+        The driver should always be closed at the end of the application's lifecyle.
+        """
         self._database_version = None
         self._database_edition = None
-        self._update_database_version()
+        self._database_name = None
+        self.driver.close()
+        self.driver = None
 
     @property
     def database_version(self):
@@ -358,7 +407,8 @@ class Database(local):
         :type: dict
         :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
         :type: bool
-        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired
+        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired.
+        If you use neomodel with your own driver, you must catch SessionExpired exceptions yourself and retry with a new driver instance.
         :type: bool
         :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
         :type: bool
@@ -420,7 +470,7 @@ class Database(local):
             raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
-                self.set_connection(self.url)
+                self.set_connection(url=self.url)
                 return self.cypher_query(
                     query=query,
                     params=params,

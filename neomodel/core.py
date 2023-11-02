@@ -409,11 +409,13 @@ class StructuredNode(NodeBase):
 
     @property
     def element_id(self):
-        return (
-            int(self.element_id_property)
-            if db.database_version.startswith("4")
-            else self.element_id_property
-        )
+        if hasattr(self, "element_id_property"):
+            return (
+                int(self.element_id_property)
+                if db.database_version.startswith("4")
+                else self.element_id_property
+            )
+        return None
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
@@ -758,7 +760,7 @@ class StructuredNode(NodeBase):
         """
 
         # create or update instance node
-        if hasattr(self, "element_id"):
+        if hasattr(self, "element_id_property"):
             # update
             params = self.deflate(self.__properties__, self)
             query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"

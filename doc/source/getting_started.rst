@@ -10,45 +10,20 @@ Before executing any neomodel code, set the connection url::
     from neomodel import config
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
 
-    # You can specify a database name: 'bolt://neo4j:neo4j@localhost:7687/mydb'
-
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
+
+See the Configuration page (:ref:`connection_options_doc`) for config options.
 
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: ``http://localhost:7474`` ).
 
-You can also change the connection url at any time by calling ``set_connection``::
+Querying the graph
+==================
 
-    from neomodel import db
-    db.set_connection('bolt://neo4j:neo4j@localhost:7687')
+neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
-The new connection url will be applied to the current thread or process.
+    results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
-In general however, it is better to `avoid setting database access credentials in plain sight <https://
-www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04B-3_Meli_paper.pdf>`_. Neo4J defines a number of
-`environment variables <https://neo4j.com/developer/kb/how-do-i-authenticate-with-cypher-shell-without-specifying-the-
-username-and-password-on-the-command-line/>`_ that are used in its tools and these can be re-used for other applications
-too.
-
-These are:
-
-* ``NEO4J_USERNAME``
-* ``NEO4J_PASSWORD``
-* ``NEO4J_BOLT_URL``
-
-By setting these with (for example): ::
-
-    $ export NEO4J_USERNAME=neo4j
-    $ export NEO4J_PASSWORD=neo4j
-    $ export NEO4J_BOLT_URL="bolt://$NEO4J_USERNAME:$NEO4J_PASSWORD@localhost:7687"
-
-They can be accessed from a Python script via the ``environ`` dict of module ``os`` and be used to set the connection
-with something like: ::
-
-    import os
-    from neomodel import config
-
-    config.DATABASE_URL = os.environ["NEO4J_BOLT_URL"]
 
 Defining Node Entities and Relationships
 ========================================
@@ -96,6 +71,33 @@ in the case of ``Relationship`` it will be possible to be queried in either dire
 
 Neomodel automatically creates a label for each ``StructuredNode`` class in the database with the corresponding indexes
 and constraints.
+
+Database Inspection - Requires APOC
+===================================
+You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
+
+    $ neomodel_inspect_database -db bolt://neo4j:neo4j@localhost:7687 --write-to yourapp/models.py
+
+This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
+and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
+
+Note that you can also print the output to the console instead of writing a file by omitting the ``--write-to`` option.
+
+.. note::
+
+    This command will only generate the definition for nodes and relationships that are present in the
+    database. If you want to generate a complete definition file, you will need to add the missing classes manually.
+
+    Also, this has only been tested with single-label nodes. If you have multi-label nodes, you will need to double check,
+    and add the missing labels manually in the relevant way.
+
+    Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
+    guess wrong on edge cases.
+
+.. warning:: 
+
+    The script relies on the method apoc.meta.cypher.types to parse property types. So APOC must be installed on your Neo4j server
+    for this script to work.
 
 Applying constraints and indexes
 ================================
