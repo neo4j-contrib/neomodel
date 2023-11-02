@@ -55,6 +55,21 @@ Documentation
 .. _readthedocs: http://neomodel.readthedocs.org
 
 
+Upcoming breaking changes notice - >=5.3
+========================================
+
+Based on Python version status_, neomodel will be dropping support for Python 3.7 in the next release (5.3).
+This does not mean neomodel will stop working on Python 3.7, but it will no longer be tested against it.
+Instead, we will try to add support for Python 3.12.
+
+.. _status: https://devguide.python.org/versions/
+
+Another potential breaking change coming up is adding async support to neomodel. But we do not know when this will happen yet,
+or if it will actually be a breaking change. We will definitely push this in a major release though. More to come on that later.
+
+Finally, we are looking at refactoring some standalone methods into the Database() class. More to come on that later.
+
+
 Installation
 ============
 
