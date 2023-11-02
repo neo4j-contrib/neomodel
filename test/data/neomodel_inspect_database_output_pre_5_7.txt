@@ -9,7 +9,7 @@ class ScriptsTestNode(StructuredNode):
 
 class RelRel(StructuredRel):
     some_index_property = StringProperty(index=True)
-    some_unique_property = StringProperty(unique_index=True)
+    some_unique_property = StringProperty()
 
 
 class EveryPropertyTypeNode(StructuredNode):
