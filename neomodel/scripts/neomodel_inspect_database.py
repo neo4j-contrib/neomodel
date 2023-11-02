@@ -189,12 +189,6 @@ def get_node_labels():
     return [record[0] for record in result]
 
 
-def get_relationship_types():
-    query = "CALL db.relationshipTypes()"
-    result, _ = db.cypher_query(query)
-    return [record[0] for record in result]
-
-
 def build_prop_string(unique_properties, indexed_properties, prop, prop_type):
     is_unique = prop in unique_properties
     is_indexed = prop in indexed_properties
