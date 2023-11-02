@@ -1,4 +1,4 @@
-ersion 5.2.0 2023-11
+Version 5.2.0 2023-11
 * Add an option to pass your own driver instead of relying on the automatically created one. See set_connection method.
 * Add a close_connection method to explicitly close the driver to match Neo4j deprecation.
 * Add a DATABASE_NAME config option, available for both auto- and self-managed driver modes.
