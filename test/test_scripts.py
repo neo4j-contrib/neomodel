@@ -140,7 +140,12 @@ def test_neomodel_inspect_database():
     ]
     assert wrapped_console_output[0].startswith("Connecting to")
     # Check that all the expected lines are here
-    with open("test/data/neomodel_inspect_database_output.txt", "r") as f:
+    file_path = (
+        "test/data/neomodel_inspect_database_output.txt"
+        if db.version_is_higher_than("5.7")
+        else "test/data/neomodel_inspect_database_output_pre_5_7.txt"
+    )
+    with open(file_path, "r") as f:
         wrapped_test_file = [line for line in f.read().split("\n") if line.strip()]
         for line in wrapped_test_file:
             # The neomodel components import order might differ
