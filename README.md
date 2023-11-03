@@ -89,7 +89,7 @@ Ensure `dbms.security.auth_enabled=true` in your database configuration
 file. Setup a virtual environment, install neomodel for development and
 run the test suite: :
 
-    $ pip install -e '.[dev]'
+    $ pip install -e '.[dev,pandas,numpy]'
     $ pytest
 
 The tests in \"test_connection.py\" will fail locally if you don\'t
