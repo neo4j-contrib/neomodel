@@ -40,8 +40,7 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=2.0.0",
-    "six==1.16.0"
+    "Shapely>=2.0.0"
 ]
 pandas = ["pandas"]
 numpy = ["numpy"]
