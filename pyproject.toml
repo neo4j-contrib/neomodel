@@ -1,25 +1,15 @@
-[build-system]
-requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
-
-[tool.setuptools.packages.find]
-where = ["./"]
-
 [project]
 name = "neomodel"
 authors = [
     {name = "Robin Edwards", email = "robin.ge@gmail.com"},
 ]
 maintainers = [
+    {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
     {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
     {name = "Cristina Escalante"},
-    {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
 ]
 description = "An object mapper for the neo4j graph database."
 readme = "README.md"
-requires-python = ">=3.7"
 keywords = ["graph", "neo4j", "ORM", "OGM", "mapper"]
 license = {text = "MIT"}
 classifiers = [
@@ -33,12 +23,10 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j==5.12.0",
-    "pytz>=2021.1",
-    "neobolt==1.7.17",
-    "six==1.16.0",
+    "neo4j~=5.14.1",
 ]
-version='5.2.0'
+requires-python = ">=3.7"
+dynamic = ["version"]
 
 [project.urls]
 documentation = "https://neomodel.readthedocs.io/en/latest/"
@@ -52,10 +40,21 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=2.0.0"
+    "Shapely>=2.0.0",
+    "six==1.16.0"
 ]
 pandas = ["pandas"]
 numpy = ["numpy"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "neomodel._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["./"]
 
 [tool.pytest.ini_options]
 addopts = "--resetdb"
