@@ -1,0 +1,9 @@
+# neomodel
+-e .[pandas,numpy]
+
+pytest>=7.1
+pytest-cov>=4.0
+pre-commit
+black
+isort
+Shapely>=2.0.0
