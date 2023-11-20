@@ -21,8 +21,6 @@
                             Neo4j Server URL
 
 """
-from __future__ import print_function
-
 import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ

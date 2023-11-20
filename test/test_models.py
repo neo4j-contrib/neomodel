@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from datetime import datetime
 
 from pytest import raises
@@ -103,7 +101,7 @@ def test_bare_init_without_save():
     If a node model is initialised without being saved, accessing its `element_id` should
     return None.
     """
-    assert(User().element_id is None)
+    assert User().element_id is None
 
 
 def test_save_to_model():

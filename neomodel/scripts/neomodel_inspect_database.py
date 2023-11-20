@@ -1,12 +1,12 @@
 """
 .. _neomodel_inspect_database:
 
-``_neomodel_inspect_database``
+``neomodel_inspect_database``
 ---------------------------
 
 ::
 
-    usage: _neomodel_inspect_database [-h] [--db bolt://neo4j:neo4j@localhost:7687] [--write-to <someapp/models.py> ...]
+    usage: neomodel_inspect_database [-h] [--db bolt://neo4j:neo4j@localhost:7687] [--write-to <someapp/models.py> ...]
     
     Connects to a Neo4j database and inspects existing nodes and relationships.
     Infers the schema of the database and generates Python class definitions.

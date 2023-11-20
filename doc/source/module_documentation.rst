@@ -91,3 +91,8 @@ Scripts
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: neomodel.scripts.neomodel_inspect_database
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
