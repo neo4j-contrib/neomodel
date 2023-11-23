@@ -1,11 +1,9 @@
 from __future__ import print_function
 
 import os
-import warnings
 
 import pytest
 
-from neomodel import clear_neo4j_database, config, db
 from neomodel.util import version_tag_to_integer
 
 NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
@@ -50,46 +48,6 @@ def pytest_collection_modifyitems(items):
     items[:] = new_order
 
 
-@pytest.hookimpl
-def pytest_sessionstart(session):
-    """
-    Provides initial connection to the database and sets up the rest of the test suite
-
-    :param session: The session object. Please see <https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionstart>`_
-    :type Session object: For more information please see <https://docs.pytest.org/en/latest/reference.html#session>`_
-    """
-
-    warnings.simplefilter("default")
-
-    config.DATABASE_URL = os.environ.get(
-        "NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"
-    )
-    config.AUTO_INSTALL_LABELS = True
-
-    # Clear the database if required
-    database_is_populated, _ = db.cypher_query(
-        "MATCH (a) return count(a)>0 as database_is_populated"
-    )
-    if database_is_populated[0][0] and not session.config.getoption("resetdb"):
-        raise SystemError(
-            "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
-        )
-    else:
-        clear_neo4j_database(db, clear_constraints=True, clear_indexes=True)
-
-    db.cypher_query(
-        "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
-    )
-    if db.database_edition == "enterprise":
-        db.cypher_query("GRANT ROLE publisher TO troygreene")
-        db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
-
-
-@pytest.hookimpl
-def pytest_unconfigure():
-    db.close_connection()
-
-
 def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
     """
     Checks if the NEO4J_VERSION is at least `required_least_neo4j_version` and skips a test if not.
@@ -112,8 +70,3 @@ def check_and_skip_neo4j_least_version(required_least_neo4j_version, message):
             "Neo4j version: {}. {}."
             "Skipping test.".format(os.environ["NEO4J_VERSION"], message)
         )
-
-
-@pytest.fixture
-def skip_neo4j_before_330():
-    check_and_skip_neo4j_least_version(330, "Neo4J version does not support this test")

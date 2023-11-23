@@ -1,14 +1,15 @@
 from neo4j.graph import Path
-from .core import db
-from .relationship import StructuredRel
-from .exceptions import RelationshipClassNotDefined
+
+from neomodel._async.core import adb
+from neomodel.exceptions import RelationshipClassNotDefined
+from neomodel.relationship import StructuredRel
 
 
 class NeomodelPath(Path):
     """
     Represents paths within neomodel.
 
-    This object is instantiated when you include whole paths in your ``cypher_query()`` 
+    This object is instantiated when you include whole paths in your ``cypher_query()``
     result sets and turn ``resolve_objects`` to True.
 
     That is, any query of the form:
@@ -16,7 +17,7 @@ class NeomodelPath(Path):
 
         MATCH p=(:SOME_NODE_LABELS)-[:SOME_REL_LABELS]-(:SOME_OTHER_NODE_LABELS) return p
 
-    ``NeomodelPath`` are simple objects that reference their nodes and relationships, each of which is already 
+    ``NeomodelPath`` are simple objects that reference their nodes and relationships, each of which is already
     resolved to their neomodel objects if such mapping is possible.
 
 
@@ -25,23 +26,25 @@ class NeomodelPath(Path):
     :type nodes: List[StructuredNode]
     :type relationships: List[StructuredRel]
     """
+
     def __init__(self, a_neopath):
-        self._nodes=[]
+        self._nodes = []
         self._relationships = []
 
         for a_node in a_neopath.nodes:
-            self._nodes.append(db._object_resolution(a_node))
+            self._nodes.append(adb._object_resolution(a_node))
 
         for a_relationship in a_neopath.relationships:
             # This check is required here because if the relationship does not bear data
             # then it does not have an entry in the registry. In that case, we instantiate
             # an "unspecified" StructuredRel.
             rel_type = frozenset([a_relationship.type])
-            if rel_type in db._NODE_CLASS_REGISTRY:
-                new_rel = db._object_resolution(a_relationship)
+            if rel_type in adb._NODE_CLASS_REGISTRY:
+                new_rel = adb._object_resolution(a_relationship)
             else:
                 new_rel = StructuredRel.inflate(a_relationship)
             self._relationships.append(new_rel)
+
     @property
     def nodes(self):
         return self._nodes
@@ -49,5 +52,3 @@ class NeomodelPath(Path):
     @property
     def relationships(self):
         return self._relationships
-
-

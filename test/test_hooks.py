@@ -1,9 +1,9 @@
-from neomodel import StringProperty, StructuredNode
+from neomodel import StringProperty, StructuredNodeAsync
 
 HOOKS_CALLED = {}
 
 
-class HookTest(StructuredNode):
+class HookTest(StructuredNodeAsync):
     name = StringProperty()
 
     def post_create(self):
@@ -23,8 +23,8 @@ class HookTest(StructuredNode):
 
 
 def test_hooks():
-    ht = HookTest(name="k").save()
-    ht.delete()
+    ht = HookTest(name="k").save_async()
+    ht.delete_async()
     assert "pre_save" in HOOKS_CALLED
     assert "post_save" in HOOKS_CALLED
     assert "post_create" in HOOKS_CALLED

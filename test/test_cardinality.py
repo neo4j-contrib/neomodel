@@ -8,26 +8,26 @@ from neomodel import (
     OneOrMore,
     RelationshipTo,
     StringProperty,
-    StructuredNode,
+    StructuredNodeAsync,
     ZeroOrMore,
     ZeroOrOne,
-    db,
+    adb,
 )
 
 
-class HairDryer(StructuredNode):
+class HairDryer(StructuredNodeAsync):
     version = IntegerProperty()
 
 
-class ScrewDriver(StructuredNode):
+class ScrewDriver(StructuredNodeAsync):
     version = IntegerProperty()
 
 
-class Car(StructuredNode):
+class Car(StructuredNodeAsync):
     version = IntegerProperty()
 
 
-class Monkey(StructuredNode):
+class Monkey(StructuredNodeAsync):
     name = StringProperty()
     dryers = RelationshipTo("HairDryer", "OWNS_DRYER", cardinality=ZeroOrMore)
     driver = RelationshipTo("ScrewDriver", "HAS_SCREWDRIVER", cardinality=ZeroOrOne)
@@ -35,15 +35,15 @@ class Monkey(StructuredNode):
     toothbrush = RelationshipTo("ToothBrush", "HAS_TOOTHBRUSH", cardinality=One)
 
 
-class ToothBrush(StructuredNode):
+class ToothBrush(StructuredNodeAsync):
     name = StringProperty()
 
 
 def test_cardinality_zero_or_more():
-    m = Monkey(name="tim").save()
+    m = Monkey(name="tim").save_async()
     assert m.dryers.all() == []
     assert m.dryers.single() is None
-    h = HairDryer(version=1).save()
+    h = HairDryer(version=1).save_async()
 
     m.dryers.connect(h)
     assert len(m.dryers.all()) == 1
@@ -53,7 +53,7 @@ def test_cardinality_zero_or_more():
     assert m.dryers.all() == []
     assert m.dryers.single() is None
 
-    h2 = HairDryer(version=2).save()
+    h2 = HairDryer(version=2).save_async()
     m.dryers.connect(h)
     m.dryers.connect(h2)
     m.dryers.disconnect_all()
@@ -62,16 +62,16 @@ def test_cardinality_zero_or_more():
 
 
 def test_cardinality_zero_or_one():
-    m = Monkey(name="bob").save()
+    m = Monkey(name="bob").save_async()
     assert m.driver.all() == []
     assert m.driver.single() is None
-    h = ScrewDriver(version=1).save()
+    h = ScrewDriver(version=1).save_async()
 
     m.driver.connect(h)
     assert len(m.driver.all()) == 1
     assert m.driver.single().version == 1
 
-    j = ScrewDriver(version=2).save()
+    j = ScrewDriver(version=2).save_async()
     with raises(AttemptedCardinalityViolation):
         m.driver.connect(j)
 
@@ -80,7 +80,7 @@ def test_cardinality_zero_or_one():
 
     # Forcing creation of a second ToothBrush to go around
     # AttemptedCardinalityViolation
-    db.cypher_query(
+    adb.cypher_query(
         """
         MATCH (m:Monkey WHERE m.name="bob")
         CREATE (s:ScrewDriver {version:3})
@@ -95,7 +95,7 @@ def test_cardinality_zero_or_one():
 
 
 def test_cardinality_one_or_more():
-    m = Monkey(name="jerry").save()
+    m = Monkey(name="jerry").save_async()
 
     with raises(CardinalityViolation):
         m.car.all()
@@ -103,7 +103,7 @@ def test_cardinality_one_or_more():
     with raises(CardinalityViolation):
         m.car.single()
 
-    c = Car(version=2).save()
+    c = Car(version=2).save_async()
     m.car.connect(c)
     assert m.car.single().version == 2
 
@@ -113,7 +113,7 @@ def test_cardinality_one_or_more():
     with raises(AttemptedCardinalityViolation):
         m.car.disconnect(c)
 
-    d = Car(version=3).save()
+    d = Car(version=3).save_async()
     m.car.connect(d)
     cars = m.car.all()
     assert len(cars) == 2
@@ -124,7 +124,7 @@ def test_cardinality_one_or_more():
 
 
 def test_cardinality_one():
-    m = Monkey(name="jerry").save()
+    m = Monkey(name="jerry").save_async()
 
     with raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: none."
@@ -134,11 +134,11 @@ def test_cardinality_one():
     with raises(CardinalityViolation):
         m.toothbrush.single()
 
-    b = ToothBrush(name="Jim").save()
+    b = ToothBrush(name="Jim").save_async()
     m.toothbrush.connect(b)
     assert m.toothbrush.single().name == "Jim"
 
-    x = ToothBrush(name="Jim").save
+    x = ToothBrush(name="Jim").save_async
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
 
@@ -150,7 +150,7 @@ def test_cardinality_one():
 
     # Forcing creation of a second ToothBrush to go around
     # AttemptedCardinalityViolation
-    db.cypher_query(
+    adb.cypher_query(
         """
         MATCH (m:Monkey WHERE m.name="jerry")
         CREATE (t:ToothBrush {name:"Jim"})

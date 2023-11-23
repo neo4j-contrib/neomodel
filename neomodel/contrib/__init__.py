@@ -1,1 +1,1 @@
-from .semi_structured import SemiStructuredNode
+from neomodel.semi_structured import SemiStructuredNode

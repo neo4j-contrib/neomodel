@@ -8,13 +8,13 @@ from neomodel import (
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredNode,
+    StructuredNodeAsync,
     StructuredRel,
 )
-from neomodel.core import db
+from neomodel._async.core import adb
 
 
-class PersonWithRels(StructuredNode):
+class PersonWithRels(StructuredNodeAsync):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo("Country", "IS_FROM")
@@ -28,7 +28,7 @@ class PersonWithRels(StructuredNode):
         return "I have no powers"
 
 
-class Country(StructuredNode):
+class Country(StructuredNodeAsync):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
     president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)
@@ -42,8 +42,8 @@ class SuperHero(PersonWithRels):
 
 
 def test_actions_on_deleted_node():
-    u = PersonWithRels(name="Jim2", age=3).save()
-    u.delete()
+    u = PersonWithRels(name="Jim2", age=3).save_async()
+    u.delete_async()
     with raises(ValueError):
         u.is_from.connect(None)
 
@@ -51,14 +51,14 @@ def test_actions_on_deleted_node():
         u.is_from.get()
 
     with raises(ValueError):
-        u.save()
+        u.save_async()
 
 
 def test_bidirectional_relationships():
-    u = PersonWithRels(name="Jim", age=3).save()
+    u = PersonWithRels(name="Jim", age=3).save_async()
     assert u
 
-    de = Country(code="DE").save()
+    de = Country(code="DE").save_async()
     assert de
 
     assert not u.is_from
@@ -82,17 +82,17 @@ def test_bidirectional_relationships():
 
 
 def test_either_direction_connect():
-    rey = PersonWithRels(name="Rey", age=3).save()
-    sakis = PersonWithRels(name="Sakis", age=3).save()
+    rey = PersonWithRels(name="Rey", age=3).save_async()
+    sakis = PersonWithRels(name="Sakis", age=3).save_async()
 
     rey.knows.connect(sakis)
     assert rey.knows.is_connected(sakis)
     assert sakis.knows.is_connected(rey)
     sakis.knows.connect(rey)
 
-    result, _ = sakis.cypher(
+    result, _ = sakis.cypher_async(
         f"""MATCH (us), (them)
-            WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(them)=$them
+            WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
         {"them": rey.element_id},
     )
@@ -106,10 +106,10 @@ def test_either_direction_connect():
 
 
 def test_search_and_filter_and_exclude():
-    fred = PersonWithRels(name="Fred", age=13).save()
-    zz = Country(code="ZZ").save()
-    zx = Country(code="ZX").save()
-    zt = Country(code="ZY").save()
+    fred = PersonWithRels(name="Fred", age=13).save_async()
+    zz = Country(code="ZZ").save_async()
+    zx = Country(code="ZX").save_async()
+    zt = Country(code="ZY").save_async()
     fred.is_from.connect(zz)
     fred.is_from.connect(zx)
     fred.is_from.connect(zt)
@@ -130,21 +130,21 @@ def test_search_and_filter_and_exclude():
 
 
 def test_custom_methods():
-    u = PersonWithRels(name="Joe90", age=13).save()
+    u = PersonWithRels(name="Joe90", age=13).save_async()
     assert u.special_power() == "I have no powers"
-    u = SuperHero(name="Joe91", age=13, power="xxx").save()
+    u = SuperHero(name="Joe91", age=13, power="xxx").save_async()
     assert u.special_power() == "I have powers"
     assert u.special_name == "Joe91"
 
 
 def test_valid_reconnection():
-    p = PersonWithRels(name="ElPresidente", age=93).save()
+    p = PersonWithRels(name="ElPresidente", age=93).save_async()
     assert p
 
-    pp = PersonWithRels(name="TheAdversary", age=33).save()
+    pp = PersonWithRels(name="TheAdversary", age=33).save_async()
     assert pp
 
-    c = Country(code="CU").save()
+    c = Country(code="CU").save_async()
     assert c
 
     c.president.connect(p)
@@ -160,16 +160,16 @@ def test_valid_reconnection():
 
 
 def test_valid_replace():
-    brady = PersonWithRels(name="Tom Brady", age=40).save()
+    brady = PersonWithRels(name="Tom Brady", age=40).save_async()
     assert brady
 
-    gronk = PersonWithRels(name="Rob Gronkowski", age=28).save()
+    gronk = PersonWithRels(name="Rob Gronkowski", age=28).save_async()
     assert gronk
 
-    colbert = PersonWithRels(name="Stephen Colbert", age=53).save()
+    colbert = PersonWithRels(name="Stephen Colbert", age=53).save_async()
     assert colbert
 
-    hanks = PersonWithRels(name="Tom Hanks", age=61).save()
+    hanks = PersonWithRels(name="Tom Hanks", age=61).save_async()
     assert hanks
 
     brady.knows.connect(gronk)
@@ -186,13 +186,13 @@ def test_valid_replace():
 
 
 def test_props_relationship():
-    u = PersonWithRels(name="Mar", age=20).save()
+    u = PersonWithRels(name="Mar", age=20).save_async()
     assert u
 
-    c = Country(code="AT").save()
+    c = Country(code="AT").save_async()
     assert c
 
-    c2 = Country(code="LA").save()
+    c2 = Country(code="LA").save_async()
     assert c2
 
     with raises(NotImplementedError):

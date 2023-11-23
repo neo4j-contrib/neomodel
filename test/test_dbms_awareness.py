@@ -1,22 +1,22 @@
 from pytest import mark
 
-from neomodel import db
+from neomodel._async.core import adb
 
 
 @mark.skipif(
-    db.database_version != "5.7.0", reason="Testing a specific database version"
+    adb.database_version != "5.7.0", reason="Testing a specific database version"
 )
 def test_version_awareness():
-    assert db.database_version == "5.7.0"
-    assert db.version_is_higher_than("5.7")
-    assert db.version_is_higher_than("5")
-    assert db.version_is_higher_than("4")
+    assert adb.database_version == "5.7.0"
+    assert adb.version_is_higher_than("5.7")
+    assert adb.version_is_higher_than("5")
+    assert adb.version_is_higher_than("4")
 
-    assert not db.version_is_higher_than("5.8")
+    assert not adb.version_is_higher_than("5.8")
 
 
 def test_edition_awareness():
-    if db.database_edition == "enterprise":
-        assert db.edition_is_enterprise()
+    if adb.database_edition == "enterprise":
+        assert adb.edition_is_enterprise()
     else:
-        assert not db.edition_is_enterprise()
+        assert not adb.edition_is_enterprise()

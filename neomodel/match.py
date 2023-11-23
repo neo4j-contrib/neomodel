@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from .core import StructuredNode, db
-from .exceptions import MultipleNodesReturned
-from .match_q import Q, QBase
-from .properties import AliasProperty
+from neomodel._async.core import StructuredNodeAsync, adb
+from neomodel.exceptions import MultipleNodesReturned
+from neomodel.match_q import Q, QBase
+from neomodel.properties import AliasProperty
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
@@ -379,7 +379,7 @@ class QueryBuilder:
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(
-                source.source, StructuredNode
+                source.source, StructuredNodeAsync
             ):
                 ident = self.build_label(source.source.__label__.lower(), source.source)
             else:
@@ -399,7 +399,7 @@ class QueryBuilder:
                 )
 
             return ident
-        if isinstance(source, StructuredNode):
+        if isinstance(source, StructuredNodeAsync):
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
@@ -499,7 +499,7 @@ class QueryBuilder:
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = f"MATCH ({ident}) WHERE {db.get_id_method()}({ident})=${place_holder} WITH {ident}"
+        _node_lookup = f"MATCH ({ident}) WHERE {adb.get_id_method()}({ident})=${place_holder} WITH {ident}"
         self._ast.lookup = _node_lookup
 
         self._query_params[place_holder] = node.element_id
@@ -664,7 +664,7 @@ class QueryBuilder:
         # drop additional_return to avoid unexpected result
         self._ast.additional_return = None
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params)
+        results, _ = adb.cypher_query_async(query, self._query_params)
         return int(results[0][0])
 
     def _contains(self, node_element_id):
@@ -674,7 +674,7 @@ class QueryBuilder:
             self._ast.return_clause = self._ast.additional_return[0]
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
-        self._ast.where.append(f"{db.get_id_method()}({ident}) = ${place_holder}")
+        self._ast.where.append(f"{adb.get_id_method()}({ident}) = ${place_holder}")
         self._query_params[place_holder] = node_element_id
         return self._count() >= 1
 
@@ -683,15 +683,17 @@ class QueryBuilder:
             # inject id() into return or return_set
             if self._ast.return_clause:
                 self._ast.return_clause = (
-                    f"{db.get_id_method()}({self._ast.return_clause})"
+                    f"{adb.get_id_method()}({self._ast.return_clause})"
                 )
             else:
                 self._ast.additional_return = [
-                    f"{db.get_id_method()}({item})"
+                    f"{adb.get_id_method()}({item})"
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
+        results, _ = adb.cypher_query_async(
+            query, self._query_params, resolve_objects=True
+        )
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
@@ -732,7 +734,7 @@ class BaseSet:
         return self.query_cls(self).build_ast()._count() > 0
 
     def __contains__(self, obj):
-        if isinstance(obj, StructuredNode):
+        if isinstance(obj, StructuredNodeAsync):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 return self.query_cls(self).build_ast()._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
@@ -776,9 +778,9 @@ class NodeSet(BaseSet):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+        elif inspect.isclass(source) and issubclass(source, StructuredNodeAsync):
             self.source_class = source
-        elif isinstance(source, StructuredNode):
+        elif isinstance(source, StructuredNodeAsync):
             self.source_class = source.__class__
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
@@ -980,9 +982,9 @@ class Traversal(BaseSet):
 
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNode):
+        elif inspect.isclass(source) and issubclass(source, StructuredNodeAsync):
             self.source_class = source
-        elif isinstance(source, StructuredNode):
+        elif isinstance(source, StructuredNodeAsync):
             self.source_class = source.__class__
         elif isinstance(source, NodeSet):
             self.source_class = source.source_class

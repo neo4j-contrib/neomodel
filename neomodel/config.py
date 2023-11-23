@@ -1,6 +1,6 @@
 import neo4j
 
-from ._version import __version__
+from neomodel._version import __version__
 
 AUTO_INSTALL_LABELS = False
 

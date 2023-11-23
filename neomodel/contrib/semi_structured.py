@@ -1,9 +1,9 @@
-from neomodel.core import StructuredNode
+from neomodel._async.core import StructuredNodeAsync
 from neomodel.exceptions import DeflateConflict, InflateConflict
 from neomodel.util import _get_node_properties
 
 
-class SemiStructuredNode(StructuredNode):
+class SemiStructuredNode(StructuredNodeAsync):
     """
     A base class allowing properties to be stored on a node that aren't
     specified in its definition. Conflicting properties are signaled with the
@@ -57,7 +57,7 @@ class SemiStructuredNode(StructuredNode):
     def deflate(cls, node_props, obj=None, skip_empty=False):
         deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
-            if hasattr(cls, key) and (getattr(cls,key).required or not skip_empty):
+            if hasattr(cls, key) and (getattr(cls, key).required or not skip_empty):
                 raise DeflateConflict(cls, key, deflated[key], obj.element_id)
 
         node_props.update(deflated)

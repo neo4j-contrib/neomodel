@@ -12,8 +12,7 @@ import pytest
 
 import neomodel
 import neomodel.contrib.spatial_properties
-
-from .test_spatial_datatypes import (
+from neomodel.test_spatial_datatypes import (
     basic_type_assertions,
     check_and_skip_neo4j_least_version,
 )
@@ -167,7 +166,7 @@ def test_default_value():
             (random.random(), random.random())
         )
 
-    class LocalisableEntity(neomodel.StructuredNode):
+    class LocalisableEntity(neomodel.StructuredNodeAsync):
         """
         A very simple entity to try out the default value assignment.
         """
@@ -183,7 +182,7 @@ def test_default_value():
     )
 
     # Save an object
-    an_object = LocalisableEntity().save()
+    an_object = LocalisableEntity().save_async()
     coords = an_object.location.coords[0]
     # Retrieve it
     retrieved_object = LocalisableEntity.nodes.get(identifier=an_object.identifier)
@@ -201,7 +200,7 @@ def test_array_of_points():
     :return:
     """
 
-    class AnotherLocalisableEntity(neomodel.StructuredNode):
+    class AnotherLocalisableEntity(neomodel.StructuredNodeAsync):
         """
         A very simple entity with an array of locations
         """
@@ -221,7 +220,7 @@ def test_array_of_points():
             neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0)),
             neomodel.contrib.spatial_properties.NeomodelPoint((1.0, 0.0)),
         ]
-    ).save()
+    ).save_async()
 
     retrieved_object = AnotherLocalisableEntity.nodes.get(
         identifier=an_object.identifier
@@ -243,7 +242,7 @@ def test_simple_storage_retrieval():
     :return:
     """
 
-    class TestStorageRetrievalProperty(neomodel.StructuredNode):
+    class TestStorageRetrievalProperty(neomodel.StructuredNodeAsync):
         uid = neomodel.UniqueIdProperty()
         description = neomodel.StringProperty()
         location = neomodel.contrib.spatial_properties.PointProperty(crs="cartesian")
@@ -256,13 +255,14 @@ def test_simple_storage_retrieval():
     a_restaurant = TestStorageRetrievalProperty(
         description="Milliways",
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0)),
-    ).save()
+    ).save_async()
 
     a_property = TestStorageRetrievalProperty.nodes.get(
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0))
     )
 
     assert a_restaurant.description == a_property.description
+
 
 def test_equality_with_other_objects():
     """
@@ -277,6 +277,9 @@ def test_equality_with_other_objects():
     if int("".join(__version__.split(".")[0:3])) < 200:
         pytest.skip(f"Shapely 2.0 not present (Current version is {__version__}")
 
-    assert neomodel.contrib.spatial_properties.NeomodelPoint((0,0)) == neomodel.contrib.spatial_properties.NeomodelPoint(x=0, y=0)
-    assert neomodel.contrib.spatial_properties.NeomodelPoint((0,0)) == shapely.geometry.Point((0,0))
-
+    assert neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0, 0)
+    ) == neomodel.contrib.spatial_properties.NeomodelPoint(x=0, y=0)
+    assert neomodel.contrib.spatial_properties.NeomodelPoint(
+        (0, 0)
+    ) == shapely.geometry.Point((0, 0))

@@ -30,7 +30,7 @@ class SubClass2(Class1):
     pass
 
 
-class RelationshipDefinerSecondSibling(neomodel.StructuredNode):
+class RelationshipDefinerSecondSibling(neomodel.StructuredNodeAsync):
     rel_1 = neomodel.Relationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=Class1
     )
@@ -42,7 +42,7 @@ class RelationshipDefinerSecondSibling(neomodel.StructuredNode):
     )
 
 
-class RelationshipDefinerParentLast(neomodel.StructuredNode):
+class RelationshipDefinerParentLast(neomodel.StructuredNodeAsync):
     rel_2 = neomodel.Relationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass1
     )
@@ -57,9 +57,9 @@ class RelationshipDefinerParentLast(neomodel.StructuredNode):
 # Test cases
 def test_relationship_definer_second_sibling():
     # Create a few entities
-    A = RelationshipDefinerSecondSibling.get_or_create({})[0]
-    B = RelationshipDefinerSecondSibling.get_or_create({})[0]
-    C = RelationshipDefinerSecondSibling.get_or_create({})[0]
+    A = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
+    B = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
+    C = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
 
     # Add connections
     A.rel_1.connect(B)
@@ -67,16 +67,16 @@ def test_relationship_definer_second_sibling():
     C.rel_3.connect(A)
 
     # Clean up
-    A.delete()
-    B.delete()
-    C.delete()
+    A.delete_async()
+    B.delete_async()
+    C.delete_async()
 
 
 def test_relationship_definer_parent_last():
     # Create a few entities
-    A = RelationshipDefinerParentLast.get_or_create({})[0]
-    B = RelationshipDefinerParentLast.get_or_create({})[0]
-    C = RelationshipDefinerParentLast.get_or_create({})[0]
+    A = RelationshipDefinerParentLast.get_or_create_async({})[0]
+    B = RelationshipDefinerParentLast.get_or_create_async({})[0]
+    C = RelationshipDefinerParentLast.get_or_create_async({})[0]
 
     # Add connections
     A.rel_1.connect(B)
@@ -84,6 +84,6 @@ def test_relationship_definer_parent_last():
     C.rel_3.connect(A)
 
     # Clean up
-    A.delete()
-    B.delete()
-    C.delete()
+    A.delete_async()
+    B.delete_async()
+    C.delete_async()

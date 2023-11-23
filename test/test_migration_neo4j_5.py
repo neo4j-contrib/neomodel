@@ -4,13 +4,13 @@ from neomodel import (
     IntegerProperty,
     RelationshipTo,
     StringProperty,
-    StructuredNode,
+    StructuredNodeAsync,
     StructuredRel,
 )
-from neomodel.core import db
+from neomodel._async.core import adb
 
 
-class Album(StructuredNode):
+class Album(StructuredNodeAsync):
     name = StringProperty()
 
 
@@ -18,7 +18,7 @@ class Released(StructuredRel):
     year = IntegerProperty()
 
 
-class Band(StructuredNode):
+class Band(StructuredNodeAsync):
     name = StringProperty()
     released = RelationshipTo(Album, relation_type="RELEASED", model=Released)
 
@@ -35,7 +35,7 @@ def test_read_elements_id():
 
     # Validate id properties
     # Behaviour is dependent on Neo4j version
-    if db.database_version.startswith("4"):
+    if adb.database_version.startswith("4"):
         # Nodes' ids
         assert lex_hives.id == int(lex_hives.element_id)
         assert lex_hives.id == the_hives.released.single().id

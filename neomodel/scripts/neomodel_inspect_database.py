@@ -31,7 +31,7 @@ import string
 import textwrap
 from os import environ
 
-from neomodel import db
+from neomodel._async.core import adb
 
 IMPORTS = []
 
@@ -78,13 +78,13 @@ class NodeInspector:
           ORDER BY size(properties) DESC
           RETURN apoc.meta.cypher.types(properties(sampleNode)) AS properties LIMIT 1
         """
-        result, _ = db.cypher_query(query)
+        result, _ = adb.cypher_query_async(query)
         if result is not None and len(result) > 0:
             return result[0][0]
 
     @staticmethod
     def get_constraints_for_label(label):
-        constraints, meta_constraints = db.cypher_query(
+        constraints, meta_constraints = adb.cypher_query_async(
             f"SHOW CONSTRAINTS WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='UNIQUENESS'"
         )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
@@ -97,12 +97,12 @@ class NodeInspector:
 
     @staticmethod
     def get_indexed_properties_for_label(label):
-        if db.version_is_higher_than("5.0"):
-            indexes, meta_indexes = db.cypher_query(
+        if adb.version_is_higher_than("5.0"):
+            indexes, meta_indexes = adb.cypher_query_async(
                 f"SHOW INDEXES WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='RANGE' AND owningConstraint IS NULL"
             )
         else:
-            indexes, meta_indexes = db.cypher_query(
+            indexes, meta_indexes = adb.cypher_query_async(
                 f"SHOW INDEXES WHERE entityType='NODE' AND '{label}' IN labelsOrTypes AND type='BTREE' AND uniqueness='NONUNIQUE'"
             )
         indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
@@ -123,12 +123,12 @@ class RelationshipInspector:
             ORDER BY size(properties) DESC
             RETURN rel_type, target_label, apoc.meta.cypher.types(properties(sampleRel)) AS properties LIMIT 1
         """
-        result, _ = db.cypher_query(query)
+        result, _ = adb.cypher_query_async(query)
         return [(record[0], record[1], record[2]) for record in result]
 
     @staticmethod
     def get_constraints_for_type(rel_type):
-        constraints, meta_constraints = db.cypher_query(
+        constraints, meta_constraints = adb.cypher_query_async(
             f"SHOW CONSTRAINTS WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='RELATIONSHIP_UNIQUENESS'"
         )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
@@ -141,12 +141,12 @@ class RelationshipInspector:
 
     @staticmethod
     def get_indexed_properties_for_type(rel_type):
-        if db.version_is_higher_than("5.0"):
-            indexes, meta_indexes = db.cypher_query(
+        if adb.version_is_higher_than("5.0"):
+            indexes, meta_indexes = adb.cypher_query_async(
                 f"SHOW INDEXES WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='RANGE' AND owningConstraint IS NULL"
             )
         else:
-            indexes, meta_indexes = db.cypher_query(
+            indexes, meta_indexes = adb.cypher_query_async(
                 f"SHOW INDEXES WHERE entityType='RELATIONSHIP' AND '{rel_type}' IN labelsOrTypes AND type='BTREE' AND uniqueness='NONUNIQUE'"
             )
         indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
@@ -160,7 +160,7 @@ class RelationshipInspector:
     @staticmethod
     def infer_cardinality(rel_type, start_label):
         range_start_query = f"MATCH (n:`{start_label}`) WHERE NOT EXISTS ((n)-[:`{rel_type}`]->()) WITH n LIMIT 1 RETURN count(n)"
-        result, _ = db.cypher_query(range_start_query)
+        result, _ = adb.cypher_query_async(range_start_query)
         is_start_zero = result[0][0] > 0
 
         range_end_query = f"""
@@ -170,7 +170,7 @@ class RelationshipInspector:
             WITH n LIMIT 1
             RETURN count(n)
         """
-        result, _ = db.cypher_query(range_end_query)
+        result, _ = adb.cypher_query_async(range_end_query)
         is_end_one = result[0][0] == 0
 
         cardinality = "Zero" if is_start_zero else "One"
@@ -184,7 +184,7 @@ class RelationshipInspector:
 
 def get_node_labels():
     query = "CALL db.labels()"
-    result, _ = db.cypher_query(query)
+    result, _ = adb.cypher_query_async(query)
     return [record[0] for record in result]
 
 
@@ -234,7 +234,7 @@ def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
 
         unique_properties = (
             RelationshipInspector.get_constraints_for_type(rel_type)
-            if db.version_is_higher_than("5.7")
+            if adb.version_is_higher_than("5.7")
             else []
         )
         indexed_properties = RelationshipInspector.get_indexed_properties_for_type(
@@ -268,7 +268,7 @@ def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
 def inspect_database(bolt_url):
     # Connect to the database
     print(f"Connecting to {bolt_url}")
-    db.set_connection(bolt_url)
+    adb.set_connection_async(bolt_url)
 
     node_labels = get_node_labels()
     defined_rel_types = []

@@ -3,9 +3,9 @@ import inspect
 import sys
 from importlib import import_module
 
-from .core import db
-from .exceptions import NotConnected, RelationshipClassRedefined
-from .match import (
+from neomodel._async.core import adb
+from neomodel.exceptions import NotConnected, RelationshipClassRedefined
+from neomodel.match import (
     EITHER,
     INCOMING,
     OUTGOING,
@@ -14,8 +14,8 @@ from .match import (
     _rel_helper,
     _rel_merge_helper,
 )
-from .relationship import StructuredRel
-from .util import _get_node_properties, enumerate_traceback
+from neomodel.relationship import StructuredRel
+from neomodel.util import _get_node_properties, enumerate_traceback
 
 # basestring python 3.x fallback
 try:
@@ -120,7 +120,7 @@ class RelationshipManager(object):
             **self.definition,
         )
         q = (
-            f"MATCH (them), (us) WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self "
+            f"MATCH (them), (us) WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self "
             "MERGE" + new_rel
         )
 
@@ -164,7 +164,7 @@ class RelationshipManager(object):
         q = (
             "MATCH "
             + my_rel
-            + f" WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r LIMIT 1"
+            + f" WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
         rels = self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
@@ -185,7 +185,7 @@ class RelationshipManager(object):
         self._check_node(node)
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
-        q = f"MATCH {my_rel} WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r "
+        q = f"MATCH {my_rel} WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r "
         rels = self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
             return []
@@ -225,7 +225,7 @@ class RelationshipManager(object):
         # get list of properties on the existing rel
         result, _ = self.source.cypher(
             f"""
-                MATCH (us), (old) WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(old)=$old
+                MATCH (us), (old) WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(old)=$old
                 MATCH {old_rel} RETURN r
             """,
             {"old": old_node.element_id},
@@ -240,7 +240,7 @@ class RelationshipManager(object):
         new_rel = _rel_merge_helper(lhs="us", rhs="new", ident="r2", **self.definition)
         q = (
             "MATCH (us), (old), (new) "
-            f"WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(old)=$old and {db.get_id_method()}(new)=$new "
+            f"WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(old)=$old and {adb.get_id_method()}(new)=$new "
             "MATCH " + old_rel
         )
         q += " MERGE" + new_rel
@@ -261,7 +261,7 @@ class RelationshipManager(object):
         """
         rel = _rel_helper(lhs="a", rhs="b", ident="r", **self.definition)
         q = f"""
-                MATCH (a), (b) WHERE {db.get_id_method()}(a)=$self and {db.get_id_method()}(b)=$them
+                MATCH (a), (b) WHERE {adb.get_id_method()}(a)=$self and {adb.get_id_method()}(b)=$them
                 MATCH {rel} DELETE r
             """
         self.source.cypher(q, {"them": node.element_id})
@@ -275,7 +275,7 @@ class RelationshipManager(object):
         """
         rhs = "b:" + self.definition["node_class"].__label__
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
-        q = f"MATCH (a) WHERE {db.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
+        q = f"MATCH (a) WHERE {adb.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
         self.source.cypher(q)
 
     @check_source
@@ -428,18 +428,18 @@ class RelationshipDefinition:
                 # In this case, it has to be ensured that the class
                 # that is overriding the relationship is a descendant
                 # of the already existing class.
-                model_from_registry = db._NODE_CLASS_REGISTRY[label_set]
+                model_from_registry = adb._NODE_CLASS_REGISTRY[label_set]
                 if not issubclass(model, model_from_registry):
                     is_parent = issubclass(model_from_registry, model)
                     if is_direct_subclass(model, StructuredRel) and not is_parent:
                         raise RelationshipClassRedefined(
-                            relation_type, db._NODE_CLASS_REGISTRY, model
+                            relation_type, adb._NODE_CLASS_REGISTRY, model
                         )
                 else:
-                    db._NODE_CLASS_REGISTRY[label_set] = model
+                    adb._NODE_CLASS_REGISTRY[label_set] = model
             except KeyError:
                 # If the mapping does not exist then it is simply created.
-                db._NODE_CLASS_REGISTRY[label_set] = model
+                adb._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(self, cls_name, model):
         if not isinstance(cls_name, (basestring, object)):

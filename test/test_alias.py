@@ -1,4 +1,4 @@
-from neomodel import AliasProperty, StringProperty, StructuredNode
+from neomodel import AliasProperty, StringProperty, StructuredNodeAsync
 
 
 class MagicProperty(AliasProperty):
@@ -6,20 +6,20 @@ class MagicProperty(AliasProperty):
         self.owner.setup_hook_called = True
 
 
-class AliasTestNode(StructuredNode):
+class AliasTestNode(StructuredNodeAsync):
     name = StringProperty(unique_index=True)
     full_name = AliasProperty(to="name")
     long_name = MagicProperty(to="name")
 
 
 def test_property_setup_hook():
-    tim = AliasTestNode(long_name="tim").save()
+    tim = AliasTestNode(long_name="tim").save_async()
     assert AliasTestNode.setup_hook_called
     assert tim.name == "tim"
 
 
 def test_alias():
-    jim = AliasTestNode(full_name="Jim").save()
+    jim = AliasTestNode(full_name="Jim").save_async()
     assert jim.name == "Jim"
     assert jim.full_name == "Jim"
     assert "full_name" not in AliasTestNode.deflate(jim.__properties__)
