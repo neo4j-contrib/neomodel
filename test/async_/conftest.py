@@ -1,6 +1,8 @@
+import asyncio
 import os
 import warnings
 
+import pytest
 import pytest_asyncio
 
 from neomodel import config
@@ -8,6 +10,7 @@ from neomodel._async.core import adb
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest.mark.asyncio
 async def setup_neo4j_session(request):
     """
     Provides initial connection to the database and sets up the rest of the test suite
@@ -31,8 +34,8 @@ async def setup_neo4j_session(request):
         raise SystemError(
             "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
         )
-    else:
-        await adb.clear_neo4j_database_async(clear_constraints=True, clear_indexes=True)
+
+    await adb.clear_neo4j_database_async(clear_constraints=True, clear_indexes=True)
 
     await adb.cypher_query_async(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
@@ -43,6 +46,16 @@ async def setup_neo4j_session(request):
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest.mark.asyncio
 async def cleanup():
     yield
     await adb.close_connection_async()
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Overrides pytest default function scoped event loop"""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()

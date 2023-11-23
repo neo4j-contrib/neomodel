@@ -64,7 +64,7 @@ def ensure_connection(func):
             elif config.DATABASE_URL:
                 await _db.set_connection_async(url=config.DATABASE_URL)
 
-        return func(self, *args, **kwargs)
+        return await func(self, *args, **kwargs)
 
     return wrapper
 
@@ -115,7 +115,7 @@ class AsyncDatabase(local):
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
         self._database_edition = None
-        self._update_database_version_async()
+        await self._update_database_version_async()
 
     def _parse_driver_from_url(self, url: str) -> None:
         """Parse the driver information from the given URL and initialize the driver.
@@ -437,7 +437,7 @@ class AsyncDatabase(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with await self.driver.session(
+            async with self.driver.session(
                 database=self._database_name, impersonated_user=self.impersonated_user
             ) as session:
                 results, meta = await self._run_cypher_query_async(
@@ -464,7 +464,7 @@ class AsyncDatabase(local):
             # Retrieve the data
             start = time.time()
             response: AsyncResult = await session.run(query, params)
-            results, meta = [list(r.values()) for r in response], response.keys()
+            results, meta = [list(r.values()) async for r in response], response.keys()
             end = time.time()
 
             if resolve_objects:
@@ -1303,7 +1303,7 @@ class StructuredNodeAsync(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query_async(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        return [cls.inflate(r[0]) async for r in results[0]]
 
     async def cypher_async(self, query, params=None):
         """
@@ -1372,7 +1372,7 @@ class StructuredNodeAsync(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query_async(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        return [cls.inflate(r[0]) async for r in results[0]]
 
     @classmethod
     def inflate(cls, node):
