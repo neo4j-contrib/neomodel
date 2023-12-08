@@ -679,9 +679,9 @@ def version_tag_to_integer(version_tag):
     """
     Converts a version string to an integer representation to allow for quick comparisons between versions.
 
-    :param a_version_string: The version string to be converted (e.g. '3.4.0')
+    :param a_version_string: The version string to be converted (e.g. '5.4.0')
     :type a_version_string: str
-    :return: An integer representation of the version string (e.g. '3.4.0' --> 340)
+    :return: An integer representation of the version string (e.g. '5.4.0' --> 50400)
     :rtype: int
     """
     components = version_tag.split(".")
@@ -689,5 +689,9 @@ def version_tag_to_integer(version_tag):
         components.append("0")
     num = 0
     for index, component in enumerate(components):
-        num += (10 ** ((len(components) - 1) - index)) * int(component)
+        # Aura started adding a -aura suffix in version numbers, like "5.14-aura"
+        # This will strip the suffix to allow for proper comparison : 14 instead of 14-aura
+        if "-" in component:
+            component = component.split("-")[0]
+        num += (100 ** ((len(components) - 1) - index)) * int(component)
     return num
