@@ -38,19 +38,19 @@ def hide_available_pkg(monkeypatch, request):
 
 
 @mark_async_test
-async def test_cypher_async():
+def test_cypher_async():
     """
     test result format is backward compatible with earlier versions of neomodel
     """
 
-    jim = await User2(email="jim1@test.com").save_async()
-    data, meta = await jim.cypher_async(
+    jim = User2(email="jim1@test.com").save_async()
+    data, meta = jim.cypher_async(
         f"MATCH (a) WHERE {adb.get_id_method()}(a)=$self RETURN a.email"
     )
     assert data[0][0] == "jim1@test.com"
     assert "a.email" in meta
 
-    data, meta = await jim.cypher_async(
+    data, meta = jim.cypher_async(
         f"""
             MATCH (a) WHERE {adb.get_id_method()}(a)=$self
             MATCH (a)<-[:USER2]-(b)
@@ -61,12 +61,10 @@ async def test_cypher_async():
 
 
 @mark_async_test
-async def test_cypher_syntax_error_async():
-    jim = await User2(email="jim1@test.com").save_async()
+def test_cypher_syntax_error_async():
+    jim = User2(email="jim1@test.com").save_async()
     try:
-        await jim.cypher_async(
-            f"MATCH a WHERE {adb.get_id_method()}(a)={{self}} RETURN xx"
-        )
+        jim.cypher_async(f"MATCH a WHERE {adb.get_id_method()}(a)={ self}  RETURN xx")
     except CypherError as e:
         assert hasattr(e, "message")
         assert hasattr(e, "code")
@@ -76,7 +74,7 @@ async def test_cypher_syntax_error_async():
 
 @mark_async_test
 @pytest.mark.parametrize("hide_available_pkg", ["pandas"], indirect=True)
-async def test_pandas_not_installed_async(hide_available_pkg):
+def test_pandas_not_installed_async(hide_available_pkg):
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
@@ -84,21 +82,19 @@ async def test_pandas_not_installed_async(hide_available_pkg):
         ):
             from neomodel.integration.pandas import to_dataframe
 
-            _ = to_dataframe(
-                await adb.cypher_query_async("MATCH (a) RETURN a.name AS name")
-            )
+            _ = to_dataframe(adb.cypher_query_async("MATCH (a) RETURN a.name AS name"))
 
 
 @mark_async_test
-async def test_pandas_integration_async():
+def test_pandas_integration_async():
     from neomodel.integration.pandas import to_dataframe, to_series
 
-    jimla = await UserPandas(email="jimla@test.com", name="jimla").save_async()
-    jimlo = await UserPandas(email="jimlo@test.com", name="jimlo").save_async()
+    jimla = UserPandas(email="jimla@test.com", name="jimla").save_async()
+    jimlo = UserPandas(email="jimlo@test.com", name="jimlo").save_async()
 
     # Test to_dataframe
     df = to_dataframe(
-        await adb.cypher_query_async(
+        adb.cypher_query_async(
             "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
         )
     )
@@ -109,7 +105,7 @@ async def test_pandas_integration_async():
 
     # Also test passing an index and dtype to to_dataframe
     df = to_dataframe(
-        await adb.cypher_query_async(
+        adb.cypher_query_async(
             "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
         ),
         index=df["email"],
@@ -120,7 +116,7 @@ async def test_pandas_integration_async():
 
     # Next test to_series
     series = to_series(
-        await adb.cypher_query_async("MATCH (a:UserPandas) RETURN a.name AS name")
+        adb.cypher_query_async("MATCH (a:UserPandas) RETURN a.name AS name")
     )
 
     assert isinstance(series, Series)
@@ -130,7 +126,7 @@ async def test_pandas_integration_async():
 
 @mark_async_test
 @pytest.mark.parametrize("hide_available_pkg", ["numpy"], indirect=True)
-async def test_numpy_not_installed_async(hide_available_pkg):
+def test_numpy_not_installed_async(hide_available_pkg):
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
@@ -138,20 +134,18 @@ async def test_numpy_not_installed_async(hide_available_pkg):
         ):
             from neomodel.integration.numpy import to_ndarray
 
-            _ = to_ndarray(
-                await adb.cypher_query_async("MATCH (a) RETURN a.name AS name")
-            )
+            _ = to_ndarray(adb.cypher_query_async("MATCH (a) RETURN a.name AS name"))
 
 
 @mark_async_test
-async def test_numpy_integration_async():
+def test_numpy_integration_async():
     from neomodel.integration.numpy import to_ndarray
 
-    jimly = await UserNP(email="jimly@test.com", name="jimly").save_async()
-    jimlu = await UserNP(email="jimlu@test.com", name="jimlu").save_async()
+    jimly = UserNP(email="jimly@test.com", name="jimly").save_async()
+    jimlu = UserNP(email="jimlu@test.com", name="jimlu").save_async()
 
     array = to_ndarray(
-        await adb.cypher_query_async(
+        adb.cypher_query_async(
             "MATCH (a:UserNP) RETURN a.name AS name, a.email AS email"
         )
     )

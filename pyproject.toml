@@ -35,6 +35,7 @@ changelog = "https://github.com/neo4j-contrib/neomodel/releases"
 
 [project.optional-dependencies]
 dev = [
+    "unasync",
     "pytest>=7.1",
     "pytest-asyncio",
     "pytest-cov>=4.0",
