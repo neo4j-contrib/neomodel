@@ -1,5 +1,4 @@
 # pep8: noqa
-import pkg_resources
 
 from neomodel.exceptions import *
 from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal
