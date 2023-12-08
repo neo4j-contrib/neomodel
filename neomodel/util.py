@@ -689,5 +689,9 @@ def version_tag_to_integer(version_tag):
         components.append("0")
     num = 0
     for index, component in enumerate(components):
+        # Aura started adding a -aura suffix in version numbers, like "5.14-aura"
+        # This will strip the suffix to allow for proper comparison : 14 instead of 14-aura
+        if "-" in component:
+            component = component.split("-")[0]
         num += (10 ** ((len(components) - 1) - index)) * int(component)
     return num
