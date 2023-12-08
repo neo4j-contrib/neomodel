@@ -284,14 +284,15 @@ def inspect_database(bolt_url):
         indexed_properties = NodeInspector.get_indexed_properties_for_label(label)
 
         class_definition = f"class {class_name}(StructuredNode):\n"
-        class_definition += "".join(
-            [
-                build_prop_string(
-                    unique_properties, indexed_properties, prop, prop_type
-                )
-                for prop, prop_type in properties.items()
-            ]
-        )
+        if properties:
+            class_definition += "".join(
+                [
+                    build_prop_string(
+                        unique_properties, indexed_properties, prop, prop_type
+                    )
+                    for prop, prop_type in properties.items()
+                ]
+            )
 
         outgoing_relationships = RelationshipInspector.outgoing_relationships(label)
 
