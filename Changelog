@@ -1,3 +1,9 @@
+Version 5.2.1 2023-12
+* Add options to inspection script to skip heavy operations - rel props or cardinality inspection #767
+* Fixes database version parsing issues
+* Fixes bug when combining count with pagination #769
+* Bumps neo4j (driver) to 5.15.0
+
 Version 5.2.0 2023-11
 * Add an option to pass your own driver instead of relying on the automatically created one. See set_connection method. NB : only accepts the synchronous driver for now.
 * Add a close_connection method to explicitly close the driver to match Neo4j deprecation.

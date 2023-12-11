@@ -81,7 +81,17 @@ You can inspect an existing Neo4j database to generate a neomodel definition fil
 This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
 and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
 
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
+
 Note that you can also print the output to the console instead of writing a file by omitting the ``--write-to`` option.
+
+If you have a database with a large number of nodes and relationships,
+this script can take a long time to run (during our tests, it took 30 seconds for 500k nodes and 1.3M relationships).
+You can speed it up by not scanning for relationship properties and/or relationship cardinality, using these options :
+``--no-rel-props`` and ``--no-rel-cardinality``.
+Note that this will still add relationship definition to your nodes, but without relationship models ;
+and cardinality will be default (ZeroOrMore).
 
 .. note::
 
@@ -108,6 +118,9 @@ script (:ref:`neomodel_install_labels`) to automate this: ::
 
 It is important to execute this after altering the schema and observe the number of classes it reports.
 
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
+
 Remove existing constraints and indexes
 =======================================
 Similarly, ``neomodel`` provides a script (:ref:`neomodel_remove_labels`) to automate the removal of all existing constraints and indexes from
@@ -116,6 +129,9 @@ the database, when this is required: ::
     $ neomodel_remove_labels --db bolt://neo4j:neo4j@localhost:7687
 
 After executing, it will print all indexes and constraints it has removed.
+
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
 
 Create, Update, Delete operations
 =================================

@@ -1,5 +1,4 @@
 import pytest
-from six import StringIO
 
 from neomodel import (
     RelationshipTo,
@@ -118,11 +117,11 @@ def test_install_label_twice(capsys):
         assert expected_std_out in captured.out
 
 
-def test_install_labels_db_property():
-    stdout = StringIO()
+def test_install_labels_db_property(capsys):
     drop_constraints()
-    install_labels(SomeNotUniqueNode, quiet=False, stdout=stdout)
-    assert "id" in stdout.getvalue()
+    install_labels(SomeNotUniqueNode, quiet=False)
+    captured = capsys.readouterr()
+    assert "id" in captured.out
     # make sure that the id_ constraint doesn't exist
     constraint_names = _drop_constraints_for_label_and_property(
         "SomeNotUniqueNode", "id_"
