@@ -6,8 +6,8 @@ class SomeModel(StructuredNodeAsync):
 
 
 def test_len_relationship():
-    t1 = SomeModel().save_async()
-    t2 = SomeModel().save_async()
+    t1 = SomeModel().save()
+    t2 = SomeModel().save()
 
     t1.test.connect(t2)
     l = len(t1.test.all())

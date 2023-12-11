@@ -15,7 +15,7 @@ def setup_teardown():
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
     adb.close_connection()
-    adb.set_connection_async(url=config.DATABASE_URL)
+    adb.set_connection(url=config.DATABASE_URL)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -43,26 +43,26 @@ class Pastry(StructuredNodeAsync):
 
 def test_set_connection_driver_works():
     # Verify that current connection is up
-    assert Pastry(name="Chocolatine").save_async()
+    assert Pastry(name="Chocolatine").save()
     adb.close_connection()
 
     # Test connection using a driver
-    adb.set_connection_async(
+    adb.set_connection(
         driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     )
-    assert Pastry(name="Croissant").save_async()
+    assert Pastry(name="Croissant").save()
 
 
 def test_config_driver_works():
     # Verify that current connection is up
-    assert Pastry(name="Chausson aux pommes").save_async()
+    assert Pastry(name="Chausson aux pommes").save()
     adb.close_connection()
 
     # Test connection using a driver defined in config
     driver = GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
     config.DRIVER = driver
-    assert Pastry(name="Grignette").save_async()
+    assert Pastry(name="Grignette").save()
 
     # Clear config
     # No need to close connection - pytest teardown will do it
@@ -79,7 +79,7 @@ def test_connect_to_non_default_database():
     adb.close_connection()
 
     # Set database name in url - for url init only
-    adb.set_connection_async(url=f"{config.DATABASE_URL}/{database_name}")
+    adb.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
     assert get_current_database_name() == "pastries"
 
     adb.close_connection()
@@ -88,13 +88,13 @@ def test_connect_to_non_default_database():
     config.DATABASE_NAME = database_name
 
     # url init
-    adb.set_connection_async(url=config.DATABASE_URL)
+    adb.set_connection(url=config.DATABASE_URL)
     assert get_current_database_name() == "pastries"
 
     adb.close_connection()
 
     # driver init
-    adb.set_connection_async(
+    adb.set_connection(
         driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     )
     assert get_current_database_name() == "pastries"
@@ -112,7 +112,7 @@ def test_wrong_url_format(url):
         ValueError,
         match=rf"Expecting url format: bolt://user:password@localhost:7687 got {url}",
     ):
-        adb.set_connection_async(url=url)
+        adb.set_connection(url=url)
 
 
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])
@@ -134,4 +134,4 @@ def _set_connection(protocol):
     AURA_TEST_DB_HOSTNAME = os.environ["AURA_TEST_DB_HOSTNAME"]
 
     database_url = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
-    adb.set_connection_async(url=database_url)
+    adb.set_connection(url=database_url)

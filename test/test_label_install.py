@@ -49,9 +49,9 @@ config.AUTO_INSTALL_LABELS = True
 
 
 def test_labels_were_not_installed():
-    bob = NodeWithConstraint(name="bob").save_async()
-    bob2 = NodeWithConstraint(name="bob").save_async()
-    bob3 = NodeWithConstraint(name="bob").save_async()
+    bob = NodeWithConstraint(name="bob").save()
+    bob2 = NodeWithConstraint(name="bob").save()
+    bob3 = NodeWithConstraint(name="bob").save()
     assert bob.element_id != bob3.element_id
 
     for n in NodeWithConstraint.nodes.all():
@@ -59,16 +59,16 @@ def test_labels_were_not_installed():
 
 
 def test_install_all():
-    adb.drop_constraints_async()
-    adb.install_labels_async(AbstractNode)
+    adb.drop_constraints()
+    adb.install_labels(AbstractNode)
     # run install all labels
-    adb.install_all_labels_async()
+    adb.install_all_labels()
 
-    indexes = adb.list_indexes_async()
+    indexes = adb.list_indexes()
     index_names = [index["name"] for index in indexes]
     assert "index_INDEXED_REL_indexed_rel_prop" in index_names
 
-    constraints = adb.list_constraints_async()
+    constraints = adb.list_constraints()
     constraint_names = [constraint["name"] for constraint in constraints]
     assert "constraint_unique_NodeWithConstraint_name" in constraint_names
     assert "constraint_unique_SomeNotUniqueNode_id" in constraint_names
@@ -81,21 +81,21 @@ def test_install_label_twice(capsys):
     expected_std_out = (
         "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
     )
-    adb.install_labels_async(AbstractNode)
-    adb.install_labels_async(AbstractNode)
+    adb.install_labels(AbstractNode)
+    adb.install_labels(AbstractNode)
 
-    adb.install_labels_async(NodeWithIndex)
-    adb.install_labels_async(NodeWithIndex, quiet=False)
+    adb.install_labels(NodeWithIndex)
+    adb.install_labels(NodeWithIndex, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
-    adb.install_labels_async(NodeWithConstraint)
-    adb.install_labels_async(NodeWithConstraint, quiet=False)
+    adb.install_labels(NodeWithConstraint)
+    adb.install_labels(NodeWithConstraint, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
-    adb.install_labels_async(OtherNodeWithRelationship)
-    adb.install_labels_async(OtherNodeWithRelationship, quiet=False)
+    adb.install_labels(OtherNodeWithRelationship)
+    adb.install_labels(OtherNodeWithRelationship, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
@@ -109,15 +109,15 @@ def test_install_label_twice(capsys):
                 NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
             )
 
-        adb.install_labels_async(OtherNodeWithUniqueIndexRelationship)
-        adb.install_labels_async(OtherNodeWithUniqueIndexRelationship, quiet=False)
+        adb.install_labels(OtherNodeWithUniqueIndexRelationship)
+        adb.install_labels(OtherNodeWithUniqueIndexRelationship, quiet=False)
         captured = capsys.readouterr()
         assert expected_std_out in captured.out
 
 
 def test_install_labels_db_property(capsys):
-    adb.drop_constraints_async()
-    adb.install_labels_async(SomeNotUniqueNode, quiet=False)
+    adb.drop_constraints()
+    adb.install_labels(SomeNotUniqueNode, quiet=False)
     captured = capsys.readouterr()
     assert "id" in captured.out
     # make sure that the id_ constraint doesn't exist
@@ -166,10 +166,10 @@ def test_relationship_unique_index():
             model=UniqueIndexRelationshipBis,
         )
 
-    adb.install_labels_async(UniqueIndexRelationshipBis)
-    node1 = NodeWithUniqueIndexRelationship().save_async()
-    node2 = TargetNodeForUniqueIndexRelationship().save_async()
-    node3 = TargetNodeForUniqueIndexRelationship().save_async()
+    adb.install_labels(UniqueIndexRelationshipBis)
+    node1 = NodeWithUniqueIndexRelationship().save()
+    node2 = TargetNodeForUniqueIndexRelationship().save()
+    node3 = TargetNodeForUniqueIndexRelationship().save()
     rel1 = node1.has_rel.connect(node2, {"name": "rel1"})
 
     with pytest.raises(
@@ -180,7 +180,7 @@ def test_relationship_unique_index():
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
-    results, meta = adb.cypher_query_async("SHOW CONSTRAINTS")
+    results, meta = adb.cypher_query("SHOW CONSTRAINTS")
     results_as_dict = [dict(zip(meta, row)) for row in results]
     constraint_names = [
         constraint
@@ -188,6 +188,6 @@ def _drop_constraints_for_label_and_property(label: str = None, property: str = 
         if constraint["labelsOrTypes"] == label and constraint["properties"] == property
     ]
     for constraint_name in constraint_names:
-        adb.cypher_query_async(f"DROP CONSTRAINT {constraint_name}")
+        adb.cypher_query(f"DROP CONSTRAINT {constraint_name}")
 
     return constraint_names

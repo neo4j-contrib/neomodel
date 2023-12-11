@@ -66,13 +66,13 @@ def test_string_property_w_choice():
         sex = StringProperty(required=True, choices=SEXES)
 
     try:
-        TestChoices(sex="Z").save_async()
+        TestChoices(sex="Z").save()
     except DeflateError as e:
         assert "choice" in str(e)
     else:
         assert False, "DeflateError not raised."
 
-    node = TestChoices(sex="M").save_async()
+    node = TestChoices(sex="M").save()
     assert node.get_sex_display() == "Male"
 
 
@@ -191,7 +191,7 @@ def test_default_value():
 
     a = DefaultTestValue()
     assert a.name_xx == "jim"
-    a.save_async()
+    a.save()
 
 
 def test_default_value_callable():
@@ -201,7 +201,7 @@ def test_default_value_callable():
     class DefaultTestValueTwo(StructuredNodeAsync):
         uid = StringProperty(default=uid_generator, index=True)
 
-    a = DefaultTestValueTwo().save_async()
+    a = DefaultTestValueTwo().save()
     assert a.uid == "xx"
 
 
@@ -219,9 +219,9 @@ def test_default_value_callable_type():
 
     x = DefaultTestValueThree()
     assert x.uid == "123"
-    x.save_async()
+    x.save()
     assert x.uid == "123"
-    x.refresh_async()
+    x.refresh()
     assert x.uid == "123"
 
 
@@ -231,7 +231,7 @@ def test_independent_property_name():
 
     x = TestDBNamePropertyNode()
     x.name_ = "jim"
-    x.save_async()
+    x.save()
 
     # check database property name on low level
     results, meta = adb.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
@@ -245,7 +245,7 @@ def test_independent_property_name():
     assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
     assert TestDBNamePropertyNode.nodes.get(name_="jim").name_ == x.name_
 
-    x.delete_async()
+    x.delete()
 
 
 def test_independent_property_name_get_or_create():
@@ -254,9 +254,9 @@ def test_independent_property_name_get_or_create():
         name_ = StringProperty(db_property="name", required=True)
 
     # create the node
-    TestNode.get_or_create_async({"uid": 123, "name_": "jim"})
+    TestNode.get_or_create({"uid": 123, "name_": "jim"})
     # test that the node is retrieved correctly
-    x = TestNode.get_or_create_async({"uid": 123, "name_": "jim"})[0]
+    x = TestNode.get_or_create({"uid": 123, "name_": "jim"})[0]
 
     # check database property name on low level
     results, meta = adb.cypher_query("MATCH (n:TestNode) RETURN n")
@@ -265,7 +265,7 @@ def test_independent_property_name_get_or_create():
     assert "name_" not in node_properties
 
     # delete node afterwards
-    x.delete_async()
+    x.delete()
 
 
 @mark.parametrize("normalized_class", (NormalizedProperty,))
@@ -341,7 +341,7 @@ def test_uid_property():
     class CheckMyId(StructuredNodeAsync):
         uid = UniqueIdProperty()
 
-    cmid = CheckMyId().save_async()
+    cmid = CheckMyId().save()
     assert len(cmid.uid)
 
 
@@ -353,20 +353,20 @@ class ArrayProps(StructuredNodeAsync):
 
 def test_array_properties():
     # untyped
-    ap1 = ArrayProps(uid="1", untyped_arr=["Tim", "Bob"]).save_async()
+    ap1 = ArrayProps(uid="1", untyped_arr=["Tim", "Bob"]).save()
     assert "Tim" in ap1.untyped_arr
     ap1 = ArrayProps.nodes.get(uid="1")
     assert "Tim" in ap1.untyped_arr
 
     # typed
     try:
-        ArrayProps(uid="2", typed_arr=["a", "b"]).save_async()
+        ArrayProps(uid="2", typed_arr=["a", "b"]).save()
     except DeflateError as e:
         assert "unsaved node" in str(e)
     else:
         assert False, "DeflateError not raised."
 
-    ap2 = ArrayProps(uid="2", typed_arr=[1, 2]).save_async()
+    ap2 = ArrayProps(uid="2", typed_arr=[1, 2]).save()
     assert 1 in ap2.typed_arr
     ap2 = ArrayProps.nodes.get(uid="2")
     assert 2 in ap2.typed_arr
@@ -381,7 +381,7 @@ def test_indexed_array():
     class IndexArray(StructuredNodeAsync):
         ai = ArrayProperty(unique_index=True)
 
-    b = IndexArray(ai=[1, 2]).save_async()
+    b = IndexArray(ai=[1, 2]).save()
     c = IndexArray.nodes.get(ai=[1, 2])
     assert b.element_id == c.element_id
 
@@ -396,14 +396,14 @@ def test_unique_index_prop_not_required():
     # Create a node with a missing required property
     with raises(RequiredProperty):
         x = ConstrainedTestNode(required_property="required", unique_property="unique")
-        x.save_async()
+        x.save()
 
     # Create a node with a missing unique (but not required) property.
     x = ConstrainedTestNode()
     x.required_property = "required"
     x.unique_required_property = "unique and required"
     x.unconstrained_property = "no contraints"
-    x.save_async()
+    x.save()
 
     # check database property name on low level
     results, meta = adb.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
@@ -411,7 +411,7 @@ def test_unique_index_prop_not_required():
     assert node_properties["unique_required_property"] == "unique and required"
 
     # delete node afterwards
-    x.delete_async()
+    x.delete()
 
 
 def test_unique_index_prop_enforced():
@@ -420,22 +420,22 @@ def test_unique_index_prop_enforced():
 
     # Nameless
     x = UniqueNullableNameNode()
-    x.save_async()
+    x.save()
     y = UniqueNullableNameNode()
-    y.save_async()
+    y.save()
 
     # Named
     z = UniqueNullableNameNode(name="named")
-    z.save_async()
+    z.save()
     with raises(UniqueProperty):
         a = UniqueNullableNameNode(name="named")
-        a.save_async()
+        a.save()
 
     # Check nodes are in database
     results, meta = adb.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
     assert len(results) == 3
 
     # Delete nodes afterwards
-    x.delete_async()
-    y.delete_async()
-    z.delete_async()
+    x.delete()
+    y.delete()
+    z.delete()

@@ -9,7 +9,7 @@ class ThingyMaBob(StructuredNodeAsync):
 
 def thing_create(name):
     name = str(name)
-    (thing,) = ThingyMaBob.get_or_create_async({"name": name})
+    (thing,) = ThingyMaBob.get_or_create({"name": name})
     return thing.name, name
 
 

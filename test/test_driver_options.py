@@ -11,7 +11,7 @@ from neomodel.exceptions import FeatureNotSupported
 )
 def test_impersonate():
     with adb.impersonate(user="troygreene"):
-        results, _ = adb.cypher_query_async("RETURN 'Doo Wacko !'")
+        results, _ = adb.cypher_query("RETURN 'Doo Wacko !'")
         assert results[0][0] == "Doo Wacko !"
 
 
@@ -21,7 +21,7 @@ def test_impersonate():
 def test_impersonate_unauthorized():
     with adb.impersonate(user="unknownuser"):
         with raises(ClientError):
-            _ = adb.cypher_query_async("RETURN 'Gabagool'")
+            _ = adb.cypher_query("RETURN 'Gabagool'")
 
 
 @pytest.mark.skipif(
@@ -30,14 +30,14 @@ def test_impersonate_unauthorized():
 def test_impersonate_multiple_transactions():
     with adb.impersonate(user="troygreene"):
         with adb.transaction:
-            results, _ = adb.cypher_query_async("RETURN 'Doo Wacko !'")
+            results, _ = adb.cypher_query("RETURN 'Doo Wacko !'")
             assert results[0][0] == "Doo Wacko !"
 
         with adb.transaction:
-            results, _ = adb.cypher_query_async("SHOW CURRENT USER")
+            results, _ = adb.cypher_query("SHOW CURRENT USER")
             assert results[0][0] == "troygreene"
 
-    results, _ = adb.cypher_query_async("SHOW CURRENT USER")
+    results, _ = adb.cypher_query("SHOW CURRENT USER")
     assert results[0][0] == "neo4j"
 
 
@@ -47,4 +47,4 @@ def test_impersonate_multiple_transactions():
 def test_impersonate_community():
     with raises(FeatureNotSupported):
         with adb.impersonate(user="troygreene"):
-            _ = adb.cypher_query_async("RETURN 'Gabagoogoo'")
+            _ = adb.cypher_query("RETURN 'Gabagoogoo'")

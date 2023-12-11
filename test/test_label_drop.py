@@ -12,16 +12,16 @@ class ConstraintAndIndex(StructuredNodeAsync):
 
 
 def test_drop_labels():
-    constraints_before = adb.list_constraints_async()
-    indexes_before = adb.list_indexes_async(exclude_token_lookup=True)
+    constraints_before = adb.list_constraints()
+    indexes_before = adb.list_indexes(exclude_token_lookup=True)
 
     assert len(constraints_before) > 0
     assert len(indexes_before) > 0
 
-    adb.remove_all_labels_async()
+    adb.remove_all_labels()
 
-    constraints = adb.list_constraints_async()
-    indexes = adb.list_indexes_async(exclude_token_lookup=True)
+    constraints = adb.list_constraints()
+    indexes = adb.list_indexes(exclude_token_lookup=True)
 
     assert len(constraints) == 0
     assert len(indexes) == 0
@@ -34,12 +34,12 @@ def test_drop_labels():
         elif constraint["type"] == "NODE_KEY":
             constraint_type_clause = "NODE KEY"
 
-        adb.cypher_query_async(
+        adb.cypher_query(
             f'CREATE CONSTRAINT {constraint["name"]} FOR (n:{constraint["labelsOrTypes"][0]}) REQUIRE n.{constraint["properties"][0]} IS {constraint_type_clause}'
         )
     for index in indexes_before:
         try:
-            adb.cypher_query_async(
+            adb.cypher_query(
                 f'CREATE INDEX {index["name"]} FOR (n:{index["labelsOrTypes"][0]}) ON (n.{index["properties"][0]})'
             )
         except ClientError:

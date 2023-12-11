@@ -13,13 +13,13 @@ class AliasTestNode(StructuredNodeAsync):
 
 
 def test_property_setup_hook():
-    tim = AliasTestNode(long_name="tim").save_async()
+    tim = AliasTestNode(long_name="tim").save()
     assert AliasTestNode.setup_hook_called
     assert tim.name == "tim"
 
 
 def test_alias():
-    jim = AliasTestNode(full_name="Jim").save_async()
+    jim = AliasTestNode(full_name="Jim").save()
     assert jim.name == "Jim"
     assert jim.full_name == "Jim"
     assert "full_name" not in AliasTestNode.deflate(jim.__properties__)

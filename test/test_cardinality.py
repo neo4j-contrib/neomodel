@@ -40,10 +40,10 @@ class ToothBrush(StructuredNodeAsync):
 
 
 def test_cardinality_zero_or_more():
-    m = Monkey(name="tim").save_async()
+    m = Monkey(name="tim").save()
     assert m.dryers.all() == []
     assert m.dryers.single() is None
-    h = HairDryer(version=1).save_async()
+    h = HairDryer(version=1).save()
 
     m.dryers.connect(h)
     assert len(m.dryers.all()) == 1
@@ -53,7 +53,7 @@ def test_cardinality_zero_or_more():
     assert m.dryers.all() == []
     assert m.dryers.single() is None
 
-    h2 = HairDryer(version=2).save_async()
+    h2 = HairDryer(version=2).save()
     m.dryers.connect(h)
     m.dryers.connect(h2)
     m.dryers.disconnect_all()
@@ -62,16 +62,16 @@ def test_cardinality_zero_or_more():
 
 
 def test_cardinality_zero_or_one():
-    m = Monkey(name="bob").save_async()
+    m = Monkey(name="bob").save()
     assert m.driver.all() == []
     assert m.driver.single() is None
-    h = ScrewDriver(version=1).save_async()
+    h = ScrewDriver(version=1).save()
 
     m.driver.connect(h)
     assert len(m.driver.all()) == 1
     assert m.driver.single().version == 1
 
-    j = ScrewDriver(version=2).save_async()
+    j = ScrewDriver(version=2).save()
     with raises(AttemptedCardinalityViolation):
         m.driver.connect(j)
 
@@ -95,7 +95,7 @@ def test_cardinality_zero_or_one():
 
 
 def test_cardinality_one_or_more():
-    m = Monkey(name="jerry").save_async()
+    m = Monkey(name="jerry").save()
 
     with raises(CardinalityViolation):
         m.car.all()
@@ -103,7 +103,7 @@ def test_cardinality_one_or_more():
     with raises(CardinalityViolation):
         m.car.single()
 
-    c = Car(version=2).save_async()
+    c = Car(version=2).save()
     m.car.connect(c)
     assert m.car.single().version == 2
 
@@ -113,7 +113,7 @@ def test_cardinality_one_or_more():
     with raises(AttemptedCardinalityViolation):
         m.car.disconnect(c)
 
-    d = Car(version=3).save_async()
+    d = Car(version=3).save()
     m.car.connect(d)
     cars = m.car.all()
     assert len(cars) == 2
@@ -124,7 +124,7 @@ def test_cardinality_one_or_more():
 
 
 def test_cardinality_one():
-    m = Monkey(name="jerry").save_async()
+    m = Monkey(name="jerry").save()
 
     with raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: none."
@@ -134,11 +134,11 @@ def test_cardinality_one():
     with raises(CardinalityViolation):
         m.toothbrush.single()
 
-    b = ToothBrush(name="Jim").save_async()
+    b = ToothBrush(name="Jim").save()
     m.toothbrush.connect(b)
     assert m.toothbrush.single().name == "Jim"
 
-    x = ToothBrush(name="Jim").save_async
+    x = ToothBrush(name="Jim").save
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.connect(x)
 

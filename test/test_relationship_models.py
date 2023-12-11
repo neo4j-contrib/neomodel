@@ -42,8 +42,8 @@ class Stoat(StructuredNodeAsync):
 
 
 def test_either_connect_with_rel_model():
-    paul = Badger(name="Paul").save_async()
-    tom = Badger(name="Tom").save_async()
+    paul = Badger(name="Paul").save()
+    tom = Badger(name="Tom").save()
 
     # creating rels
     new_rel = tom.friend.disconnect(paul)
@@ -64,8 +64,8 @@ def test_either_connect_with_rel_model():
 
 
 def test_direction_connect_with_rel_model():
-    paul = Badger(name="Paul the badger").save_async()
-    ian = Stoat(name="Ian the stoat").save_async()
+    paul = Badger(name="Paul the badger").save()
+    ian = Stoat(name="Ian the stoat").save()
 
     rel = ian.hates.connect(paul, {"reason": "thinks paul should bath more often"})
     assert isinstance(rel.since, datetime)
@@ -104,9 +104,9 @@ def test_direction_connect_with_rel_model():
 
 
 def test_traversal_where_clause():
-    phill = Badger(name="Phill the badger").save_async()
-    tim = Badger(name="Tim the badger").save_async()
-    bob = Badger(name="Bob the badger").save_async()
+    phill = Badger(name="Phill the badger").save()
+    tim = Badger(name="Tim the badger").save()
+    bob = Badger(name="Bob the badger").save()
     rel = tim.friend.connect(bob)
     now = datetime.now(pytz.utc)
     assert rel.since < now
@@ -118,8 +118,8 @@ def test_traversal_where_clause():
 
 def test_multiple_rels_exist_issue_223():
     # check a badger can dislike a stoat for multiple reasons
-    phill = Badger(name="Phill").save_async()
-    ian = Stoat(name="Stoat").save_async()
+    phill = Badger(name="Phill").save()
+    ian = Stoat(name="Stoat").save()
 
     rel_a = phill.hates.connect(ian, {"reason": "a"})
     rel_b = phill.hates.connect(ian, {"reason": "b"})
@@ -131,8 +131,8 @@ def test_multiple_rels_exist_issue_223():
 
 
 def test_retrieve_all_rels():
-    tom = Badger(name="tom").save_async()
-    ian = Stoat(name="ian").save_async()
+    tom = Badger(name="tom").save()
+    ian = Stoat(name="ian").save()
 
     rel_a = tom.hates.connect(ian, {"reason": "a"})
     rel_b = tom.hates.connect(ian, {"reason": "b"})
@@ -147,8 +147,8 @@ def test_save_hook_on_rel_model():
     HOOKS_CALLED["pre_save"] = 0
     HOOKS_CALLED["post_save"] = 0
 
-    paul = Badger(name="PaulB").save_async()
-    ian = Stoat(name="IanS").save_async()
+    paul = Badger(name="PaulB").save()
+    ian = Stoat(name="IanS").save()
 
     rel = ian.hates.connect(paul, {"reason": "yadda yadda"})
     rel.save()

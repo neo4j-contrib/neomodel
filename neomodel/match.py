@@ -664,7 +664,7 @@ class QueryBuilder:
         # drop additional_return to avoid unexpected result
         self._ast.additional_return = None
         query = self.build_query()
-        results, _ = adb.cypher_query_async(query, self._query_params)
+        results, _ = adb.cypher_query(query, self._query_params)
         return int(results[0][0])
 
     def _contains(self, node_element_id):
@@ -691,9 +691,7 @@ class QueryBuilder:
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
-        results, _ = adb.cypher_query_async(
-            query, self._query_params, resolve_objects=True
-        )
+        results, _ = adb.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first

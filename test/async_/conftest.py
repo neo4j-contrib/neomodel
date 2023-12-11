@@ -28,7 +28,7 @@ async def setup_neo4j_session(request):
     config.AUTO_INSTALL_LABELS = True
 
     # Clear the database if required
-    database_is_populated, _ = await adb.cypher_query_async(
+    database_is_populated, _ = await adb.cypher_query(
         "MATCH (a) return count(a)>0 as database_is_populated"
     )
     if database_is_populated[0][0] and not request.config.getoption("resetdb"):
@@ -36,21 +36,21 @@ async def setup_neo4j_session(request):
             "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
         )
 
-    await adb.clear_neo4j_database_async(clear_constraints=True, clear_indexes=True)
+    await adb.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
 
-    await adb.cypher_query_async(
+    await adb.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
     )
     if adb.database_edition == "enterprise":
-        await adb.cypher_query_async("GRANT ROLE publisher TO troygreene")
-        await adb.cypher_query_async("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
+        await adb.cypher_query("GRANT ROLE publisher TO troygreene")
+        await adb.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 @mark_async_test
 async def cleanup():
     yield
-    await adb.close_connection_async()
+    await adb.close_connection()
 
 
 @pytest.fixture(scope="session")

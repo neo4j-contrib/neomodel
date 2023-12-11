@@ -43,25 +43,25 @@ def test_path_instantiation():
     such a mapping is available.
     """
 
-    c1 = CountryOfOrigin(code="GR").save_async()
-    c2 = CountryOfOrigin(code="FR").save_async()
+    c1 = CountryOfOrigin(code="GR").save()
+    c2 = CountryOfOrigin(code="FR").save()
 
-    ct1 = CityOfResidence(name="Athens", country=c1).save_async()
-    ct2 = CityOfResidence(name="Paris", country=c2).save_async()
+    ct1 = CityOfResidence(name="Athens", country=c1).save()
+    ct2 = CityOfResidence(name="Paris", country=c2).save()
 
-    p1 = PersonOfInterest(name="Bill", age=22).save_async()
+    p1 = PersonOfInterest(name="Bill", age=22).save()
     p1.country.connect(c1)
     p1.city.connect(ct1)
 
-    p2 = PersonOfInterest(name="Jean", age=28).save_async()
+    p2 = PersonOfInterest(name="Jean", age=28).save()
     p2.country.connect(c2)
     p2.city.connect(ct2)
 
-    p3 = PersonOfInterest(name="Bo", age=32).save_async()
+    p3 = PersonOfInterest(name="Bo", age=32).save()
     p3.country.connect(c1)
     p3.city.connect(ct2)
 
-    p4 = PersonOfInterest(name="Drop", age=16).save_async()
+    p4 = PersonOfInterest(name="Drop", age=16).save()
     p4.country.connect(c1)
     p4.city.connect(ct2)
 
@@ -83,11 +83,11 @@ def test_path_instantiation():
     assert type(path_rels[0]) is PersonLivesInCity
     assert type(path_rels[1]) is StructuredRel
 
-    c1.delete_async()
-    c2.delete_async()
-    ct1.delete_async()
-    ct2.delete_async()
-    p1.delete_async()
-    p2.delete_async()
-    p3.delete_async()
-    p4.delete_async()
+    c1.delete()
+    c2.delete()
+    ct1.delete()
+    ct2.delete()
+    p1.delete()
+    p2.delete()
+    p3.delete()
+    p4.delete()

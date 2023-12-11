@@ -57,9 +57,9 @@ class RelationshipDefinerParentLast(neomodel.StructuredNodeAsync):
 # Test cases
 def test_relationship_definer_second_sibling():
     # Create a few entities
-    A = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
-    B = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
-    C = RelationshipDefinerSecondSibling.get_or_create_async({})[0]
+    A = RelationshipDefinerSecondSibling.get_or_create({})[0]
+    B = RelationshipDefinerSecondSibling.get_or_create({})[0]
+    C = RelationshipDefinerSecondSibling.get_or_create({})[0]
 
     # Add connections
     A.rel_1.connect(B)
@@ -67,16 +67,16 @@ def test_relationship_definer_second_sibling():
     C.rel_3.connect(A)
 
     # Clean up
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()
 
 
 def test_relationship_definer_parent_last():
     # Create a few entities
-    A = RelationshipDefinerParentLast.get_or_create_async({})[0]
-    B = RelationshipDefinerParentLast.get_or_create_async({})[0]
-    C = RelationshipDefinerParentLast.get_or_create_async({})[0]
+    A = RelationshipDefinerParentLast.get_or_create({})[0]
+    B = RelationshipDefinerParentLast.get_or_create({})[0]
+    C = RelationshipDefinerParentLast.get_or_create({})[0]
 
     # Add connections
     A.rel_1.connect(B)
@@ -84,6 +84,6 @@ def test_relationship_definer_parent_last():
     C.rel_3.connect(A)
 
     # Clean up
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()

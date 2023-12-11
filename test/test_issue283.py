@@ -88,15 +88,9 @@ def test_automatic_result_resolution():
     """
 
     # Create a few entities
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
-    B = TechnicalPerson.get_or_create_async({"name": "Happy", "expertise": "Unicorns"})[
-        0
-    ]
-    C = TechnicalPerson.get_or_create_async({"name": "Sleepy", "expertise": "Pillows"})[
-        0
-    ]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
 
     # Add connections
     A.friends_with.connect(B)
@@ -107,9 +101,9 @@ def test_automatic_result_resolution():
     # TechnicalPerson (!NOT basePerson!)
     assert type(A.friends_with[0]) is TechnicalPerson
 
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()
 
 
 def test_recursive_automatic_result_resolution():
@@ -120,18 +114,12 @@ def test_recursive_automatic_result_resolution():
     """
 
     # Create a few entities
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpier", "expertise": "Grumpiness"}
-    )[0]
-    B = TechnicalPerson.get_or_create_async(
-        {"name": "Happier", "expertise": "Grumpiness"}
-    )[0]
-    C = TechnicalPerson.get_or_create_async(
-        {"name": "Sleepier", "expertise": "Pillows"}
-    )[0]
-    D = TechnicalPerson.get_or_create_async(
-        {"name": "Sneezier", "expertise": "Pillows"}
-    )[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpier", "expertise": "Grumpiness"})[
+        0
+    ]
+    B = TechnicalPerson.get_or_create({"name": "Happier", "expertise": "Grumpiness"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepier", "expertise": "Pillows"})[0]
+    D = TechnicalPerson.get_or_create({"name": "Sneezier", "expertise": "Pillows"})[0]
 
     # Retrieve mixed results, both at the top level and nested
     L, _ = neomodel.adb.cypher_query(
@@ -152,10 +140,10 @@ def test_recursive_automatic_result_resolution():
     # Assert that primitive data types remain primitive data types
     assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
 
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
-    D.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
 
 
 def test_validation_with_inheritance_from_db():
@@ -166,21 +154,15 @@ def test_validation_with_inheritance_from_db():
 
     # Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
-    B = TechnicalPerson.get_or_create_async({"name": "Happy", "expertise": "Unicorns"})[
-        0
-    ]
-    C = TechnicalPerson.get_or_create_async({"name": "Sleepy", "expertise": "Pillows"})[
-        0
-    ]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
 
     # Pilot Persons
-    D = PilotPerson.get_or_create_async(
+    D = PilotPerson.get_or_create(
         {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
     )[0]
-    E = PilotPerson.get_or_create_async(
+    E = PilotPerson.get_or_create(
         {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
     )[0]
 
@@ -209,11 +191,11 @@ def test_validation_with_inheritance_from_db():
     )
     assert type(D.friends_with[0]) is PilotPerson
 
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
-    D.delete_async()
-    E.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
+    E.delete()
 
 
 def test_validation_enforcement_to_db():
@@ -223,26 +205,20 @@ def test_validation_enforcement_to_db():
 
     # Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
-    B = TechnicalPerson.get_or_create_async({"name": "Happy", "expertise": "Unicorns"})[
-        0
-    ]
-    C = TechnicalPerson.get_or_create_async({"name": "Sleepy", "expertise": "Pillows"})[
-        0
-    ]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
+    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
 
     # Pilot Persons
-    D = PilotPerson.get_or_create_async(
+    D = PilotPerson.get_or_create(
         {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
     )[0]
-    E = PilotPerson.get_or_create_async(
+    E = PilotPerson.get_or_create(
         {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
     )[0]
 
     # Some Person
-    F = SomePerson(car_color="Blue").save_async()
+    F = SomePerson(car_color="Blue").save()
 
     # TechnicalPersons can befriend PilotPersons and vice-versa and that's fine
     A.friends_with.connect(B)
@@ -257,12 +233,12 @@ def test_validation_enforcement_to_db():
     with pytest.raises(ValueError):
         A.friends_with.connect(F)
 
-    A.delete_async()
-    B.delete_async()
-    C.delete_async()
-    D.delete_async()
-    E.delete_async()
-    F.delete_async()
+    A.delete()
+    B.delete()
+    C.delete()
+    D.delete()
+    E.delete()
+    F.delete()
 
 
 def test_failed_result_resolution():
@@ -276,12 +252,10 @@ def test_failed_result_resolution():
         randomness = neomodel.FloatProperty(default=random.random)
 
     # A Technical Person...
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
 
     # A Random Person...
-    B = RandomPerson.get_or_create_async({"name": "Mad Hatter"})[0]
+    B = RandomPerson.get_or_create({"name": "Mad Hatter"})[0]
 
     A.friends_with.connect(B)
 
@@ -290,9 +264,7 @@ def test_failed_result_resolution():
     del neomodel.adb._NODE_CLASS_REGISTRY[frozenset(["RandomPerson", "BasePerson"])]
 
     # Now try to instantiate a RandomPerson
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     with pytest.raises(
         neomodel.exceptions.NodeClassNotDefined,
         match=r"Node with labels .* does not resolve to any of the known objects.*",
@@ -300,8 +272,8 @@ def test_failed_result_resolution():
         for some_friend in A.friends_with:
             print(some_friend.name)
 
-    A.delete_async()
-    B.delete_async()
+    A.delete()
+    B.delete()
 
 
 def test_node_label_mismatch():
@@ -317,13 +289,9 @@ def test_node_label_mismatch():
         ultraness = neomodel.FloatProperty(default=3.1415928)
 
     # Create a TechnicalPerson...
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     # ...that is connected to an UltraTechnicalPerson
-    F = UltraTechnicalPerson(
-        name="Chewbaka", expertise="Aarrr wgh ggwaaah"
-    ).save_async()
+    F = UltraTechnicalPerson(name="Chewbaka", expertise="Aarrr wgh ggwaaah").save()
     A.friends_with.connect(F)
 
     # Forget about the UltraTechnicalPerson
@@ -341,9 +309,7 @@ def test_node_label_mismatch():
     # Recall a TechnicalPerson and enumerate its friends.
     # One of them is UltraTechnicalPerson which would be returned as a valid
     # node to a friends_with query but is currently unknown to the node class registry.
-    A = TechnicalPerson.get_or_create_async(
-        {"name": "Grumpy", "expertise": "Grumpiness"}
-    )[0]
+    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
     with pytest.raises(neomodel.exceptions.NodeClassNotDefined):
         for some_friend in A.friends_with:
             print(some_friend.name)
@@ -373,11 +339,11 @@ def test_relationship_result_resolution():
     A query returning a "Relationship" object can now instantiate it to a data model class
     """
     # Test specific data
-    A = PilotPerson(name="Zantford Granville", airplane="Gee Bee Model R").save_async()
-    B = PilotPerson(name="Thomas Granville", airplane="Gee Bee Model R").save_async()
-    C = PilotPerson(name="Robert Granville", airplane="Gee Bee Model R").save_async()
-    D = PilotPerson(name="Mark Granville", airplane="Gee Bee Model R").save_async()
-    E = PilotPerson(name="Edward Granville", airplane="Gee Bee Model R").save_async()
+    A = PilotPerson(name="Zantford Granville", airplane="Gee Bee Model R").save()
+    B = PilotPerson(name="Thomas Granville", airplane="Gee Bee Model R").save()
+    C = PilotPerson(name="Robert Granville", airplane="Gee Bee Model R").save()
+    D = PilotPerson(name="Mark Granville", airplane="Gee Bee Model R").save()
+    E = PilotPerson(name="Edward Granville", airplane="Gee Bee Model R").save()
 
     A.friends_with.connect(B)
     B.friends_with.connect(C)
@@ -415,9 +381,9 @@ def test_properly_inherited_relationship():
         )
 
     # Test specific data
-    A = ExtendedSomePerson(name="Michael Knight", car_color="Black").save_async()
-    B = ExtendedSomePerson(name="Luke Duke", car_color="Orange").save_async()
-    C = ExtendedSomePerson(name="Michael Schumacher", car_color="Red").save_async()
+    A = ExtendedSomePerson(name="Michael Knight", car_color="Black").save()
+    B = ExtendedSomePerson(name="Luke Duke", car_color="Orange").save()
+    C = ExtendedSomePerson(name="Michael Schumacher", car_color="Red").save()
 
     A.friends_with.connect(B)
     A.friends_with.connect(C)

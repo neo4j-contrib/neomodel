@@ -114,7 +114,7 @@ class StructuredRel(StructuredRelBase):
         query += "".join([f" SET r.{key} = ${key}" for key in props])
         props["self"] = self.element_id
 
-        adb.cypher_query_async(query, props)
+        adb.cypher_query(query, props)
 
         return self
 
@@ -124,7 +124,7 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        test = adb.cypher_query_async(
+        test = adb.cypher_query(
             f"""
             MATCH (aNode)
             WHERE {adb.get_id_method()}(aNode)=$start_node_element_id
@@ -141,7 +141,7 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        return adb.cypher_query_async(
+        return adb.cypher_query(
             f"""
             MATCH (aNode)
             WHERE {adb.get_id_method()}(aNode)=$end_node_element_id

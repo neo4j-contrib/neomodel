@@ -46,7 +46,7 @@ class Extension(StructuredNodeAsync):
 
 
 def test_filter_exclude_via_labels():
-    Coffee(name="Java", price=99).save_async()
+    Coffee(name="Java", price=99).save()
 
     node_set = NodeSet(Coffee)
     qb = QueryBuilder(node_set).build_ast()
@@ -60,7 +60,7 @@ def test_filter_exclude_via_labels():
     assert results[0].name == "Java"
 
     # with filter and exclude
-    Coffee(name="Kenco", price=3).save_async()
+    Coffee(name="Kenco", price=3).save()
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name="Java")
     qb = QueryBuilder(node_set).build_ast()
 
@@ -72,8 +72,8 @@ def test_filter_exclude_via_labels():
 
 
 def test_simple_has_via_label():
-    nescafe = Coffee(name="Nescafe", price=99).save_async()
-    tesco = Supplier(name="Tesco", delivery_cost=2).save_async()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    tesco = Supplier(name="Tesco", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
     ns = NodeSet(Coffee).has(suppliers=True)
@@ -83,7 +83,7 @@ def test_simple_has_via_label():
     assert len(results) == 1
     assert results[0].name == "Nescafe"
 
-    Coffee(name="nespresso", price=99).save_async()
+    Coffee(name="nespresso", price=99).save()
     ns = NodeSet(Coffee).has(suppliers=False)
     qb = QueryBuilder(ns).build_ast()
     results = qb._execute()
@@ -92,21 +92,21 @@ def test_simple_has_via_label():
 
 
 def test_get():
-    Coffee(name="1", price=3).save_async()
+    Coffee(name="1", price=3).save()
     assert Coffee.nodes.get(name="1")
 
     with raises(Coffee.DoesNotExist):
         Coffee.nodes.get(name="2")
 
-    Coffee(name="2", price=3).save_async()
+    Coffee(name="2", price=3).save()
 
     with raises(MultipleNodesReturned):
         Coffee.nodes.get(price=3)
 
 
 def test_simple_traverse_with_filter():
-    nescafe = Coffee(name="Nescafe2", price=99).save_async()
-    tesco = Supplier(name="Sainsburys", delivery_cost=2).save_async()
+    nescafe = Coffee(name="Nescafe2", price=99).save()
+    tesco = Supplier(name="Sainsburys", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
@@ -121,10 +121,10 @@ def test_simple_traverse_with_filter():
 
 
 def test_double_traverse():
-    nescafe = Coffee(name="Nescafe plus", price=99).save_async()
-    tesco = Supplier(name="Asda", delivery_cost=2).save_async()
+    nescafe = Coffee(name="Nescafe plus", price=99).save()
+    tesco = Supplier(name="Asda", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
-    tesco.coffees.connect(Coffee(name="Decafe", price=2).save_async())
+    tesco.coffees.connect(Coffee(name="Decafe", price=2).save())
 
     ns = NodeSet(NodeSet(source=nescafe).suppliers.match()).coffees.match()
     qb = QueryBuilder(ns).build_ast()
@@ -136,7 +136,7 @@ def test_double_traverse():
 
 
 def test_count():
-    Coffee(name="Nescafe Gold", price=99).save_async()
+    Coffee(name="Nescafe Gold", price=99).save()
     count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
     assert count > 0
 
@@ -144,7 +144,7 @@ def test_count():
 def test_len_and_iter_and_bool():
     iterations = 0
 
-    Coffee(name="Icelands finest").save_async()
+    Coffee(name="Icelands finest").save()
 
     for c in Coffee.nodes:
         iterations += 1
@@ -159,9 +159,9 @@ def test_slice():
     for c in Coffee.nodes:
         c.delete()
 
-    Coffee(name="Icelands finest").save_async()
-    Coffee(name="Britains finest").save_async()
-    Coffee(name="Japans finest").save_async()
+    Coffee(name="Icelands finest").save()
+    Coffee(name="Britains finest").save()
+    Coffee(name="Japans finest").save()
 
     assert len(list(Coffee.nodes.all()[1:])) == 2
     assert len(list(Coffee.nodes.all()[:1])) == 1
@@ -173,9 +173,9 @@ def test_slice():
 def test_issue_208():
     # calls to match persist across queries.
 
-    b = Coffee(name="basics").save_async()
-    l = Supplier(name="lidl").save_async()
-    a = Supplier(name="aldi").save_async()
+    b = Coffee(name="basics").save()
+    l = Supplier(name="lidl").save()
+    a = Supplier(name="aldi").save()
 
     b.suppliers.connect(l, {"courier": "fedex"})
     b.suppliers.connect(a, {"courier": "dhl"})
@@ -185,15 +185,15 @@ def test_issue_208():
 
 
 def test_issue_589():
-    node1 = Extension().save_async()
-    node2 = Extension().save_async()
+    node1 = Extension().save()
+    node2 = Extension().save()
     node1.extension.connect(node2)
     assert node2 in node1.extension.all()
 
 
 def test_contains():
-    expensive = Coffee(price=1000, name="Pricey").save_async()
-    asda = Coffee(name="Asda", price=1).save_async()
+    expensive = Coffee(price=1000, name="Pricey").save()
+    asda = Coffee(name="Asda", price=1).save()
 
     assert expensive in Coffee.nodes.filter(price__gt=999)
     assert asda not in Coffee.nodes.filter(price__gt=999)
@@ -211,9 +211,9 @@ def test_order_by():
     for c in Coffee.nodes:
         c.delete()
 
-    c1 = Coffee(name="Icelands finest", price=5).save_async()
-    c2 = Coffee(name="Britains finest", price=10).save_async()
-    c3 = Coffee(name="Japans finest", price=35).save_async()
+    c1 = Coffee(name="Icelands finest", price=5).save()
+    c2 = Coffee(name="Britains finest", price=10).save()
+    c3 = Coffee(name="Japans finest", price=35).save()
 
     assert Coffee.nodes.order_by("price").all()[0].price == 5
     assert Coffee.nodes.order_by("-price").all()[0].price == 35
@@ -236,7 +236,7 @@ def test_order_by():
         Coffee.nodes.order_by("id")
 
     # Test order by on a relationship
-    l = Supplier(name="lidl2").save_async()
+    l = Supplier(name="lidl2").save()
     l.coffees.connect(c1)
     l.coffees.connect(c2)
     l.coffees.connect(c3)
@@ -251,10 +251,10 @@ def test_extra_filters():
     for c in Coffee.nodes:
         c.delete()
 
-    c1 = Coffee(name="Icelands finest", price=5, id_=1).save_async()
-    c2 = Coffee(name="Britains finest", price=10, id_=2).save_async()
-    c3 = Coffee(name="Japans finest", price=35, id_=3).save_async()
-    c4 = Coffee(name="US extra-fine", price=None, id_=4).save_async()
+    c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
+    c2 = Coffee(name="Britains finest", price=10, id_=2).save()
+    c3 = Coffee(name="Japans finest", price=35, id_=3).save()
+    c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
 
     coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5]).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
@@ -325,8 +325,8 @@ def test_empty_filters():
     for c in Coffee.nodes:
         c.delete()
 
-    c1 = Coffee(name="Super", price=5, id_=1).save_async()
-    c2 = Coffee(name="Puper", price=10, id_=2).save_async()
+    c1 = Coffee(name="Super", price=5, id_=1).save()
+    c2 = Coffee(name="Puper", price=10, id_=2).save()
 
     empty_filter = Coffee.nodes.filter()
 
@@ -351,12 +351,12 @@ def test_q_filters():
     for c in Coffee.nodes:
         c.delete()
 
-    c1 = Coffee(name="Icelands finest", price=5, id_=1).save_async()
-    c2 = Coffee(name="Britains finest", price=10, id_=2).save_async()
-    c3 = Coffee(name="Japans finest", price=35, id_=3).save_async()
-    c4 = Coffee(name="US extra-fine", price=None, id_=4).save_async()
-    c5 = Coffee(name="Latte", price=35, id_=5).save_async()
-    c6 = Coffee(name="Cappuccino", price=35, id_=6).save_async()
+    c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
+    c2 = Coffee(name="Britains finest", price=10, id_=2).save()
+    c3 = Coffee(name="Japans finest", price=35, id_=3).save()
+    c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
+    c5 = Coffee(name="Latte", price=35, id_=5).save()
+    c6 = Coffee(name="Cappuccino", price=35, id_=6).save()
 
     coffees_5_10 = Coffee.nodes.filter(Q(price=10) | Q(price=5)).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
@@ -437,12 +437,12 @@ def test_qbase():
 
 
 def test_traversal_filter_left_hand_statement():
-    nescafe = Coffee(name="Nescafe2", price=99).save_async()
-    nescafe_gold = Coffee(name="Nescafe gold", price=11).save_async()
+    nescafe = Coffee(name="Nescafe2", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save_async()
-    biedronka = Supplier(name="Biedronka", delivery_cost=5).save_async()
-    lidl = Supplier(name="Lidl", delivery_cost=3).save_async()
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    biedronka = Supplier(name="Biedronka", delivery_cost=5).save()
+    lidl = Supplier(name="Lidl", delivery_cost=3).save()
 
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(biedronka)
@@ -456,12 +456,12 @@ def test_traversal_filter_left_hand_statement():
 
 
 def test_fetch_relations():
-    arabica = Species(name="Arabica").save_async()
-    robusta = Species(name="Robusta").save_async()
-    nescafe = Coffee(name="Nescafe 1000", price=99).save_async()
-    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save_async()
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe 1000", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save_async()
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)

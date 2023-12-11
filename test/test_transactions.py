@@ -15,16 +15,16 @@ def test_rollback_and_commit_transaction():
     for p in APerson.nodes:
         p.delete()
 
-    APerson(name="Roger").save_async()
+    APerson(name="Roger").save()
 
     adb.begin()
-    APerson(name="Terry S").save_async()
+    APerson(name="Terry S").save()
     adb.rollback()
 
     assert len(APerson.nodes) == 1
 
     adb.begin()
-    APerson(name="Terry S").save_async()
+    APerson(name="Terry S").save()
     adb.commit()
 
     assert len(APerson.nodes) == 2
@@ -33,11 +33,11 @@ def test_rollback_and_commit_transaction():
 @adb.transaction
 def in_a_tx(*names):
     for n in names:
-        APerson(name=n).save_async()
+        APerson(name=n).save()
 
 
 def test_transaction_decorator():
-    adb.install_labels_async(APerson)
+    adb.install_labels(APerson)
     for p in APerson.nodes:
         p.delete()
 
@@ -54,13 +54,13 @@ def test_transaction_decorator():
 
 def test_transaction_as_a_context():
     with adb.transaction:
-        APerson(name="Tim").save_async()
+        APerson(name="Tim").save()
 
     assert APerson.nodes.filter(name="Tim")
 
     with raises(UniqueProperty):
         with adb.transaction:
-            APerson(name="Tim").save_async()
+            APerson(name="Tim").save()
 
 
 def test_query_inside_transaction():
@@ -68,14 +68,14 @@ def test_query_inside_transaction():
         p.delete()
 
     with adb.transaction:
-        APerson(name="Alice").save_async()
-        APerson(name="Bob").save_async()
+        APerson(name="Alice").save()
+        APerson(name="Bob").save()
 
         assert len([p.name for p in APerson.nodes]) == 2
 
 
 def test_read_transaction():
-    APerson(name="Johnny").save_async()
+    APerson(name="Johnny").save()
 
     with adb.read_transaction:
         people = APerson.nodes.all()
@@ -84,13 +84,13 @@ def test_read_transaction():
     with raises(TransactionError):
         with adb.read_transaction:
             with raises(ClientError) as e:
-                APerson(name="Gina").save_async()
+                APerson(name="Gina").save()
             assert e.value.code == "Neo.ClientError.Statement.AccessMode"
 
 
 def test_write_transaction():
     with adb.write_transaction:
-        APerson(name="Amelia").save_async()
+        APerson(name="Amelia").save()
 
     amelia = APerson.nodes.get(name="Amelia")
     assert amelia
@@ -107,7 +107,7 @@ def double_transaction():
 @adb.transaction.with_bookmark
 def in_a_tx(*names):
     for n in names:
-        APerson(name=n).save_async()
+        APerson(name=n).save()
 
 
 def test_bookmark_transaction_decorator():
@@ -128,14 +128,14 @@ def test_bookmark_transaction_decorator():
 
 def test_bookmark_transaction_as_a_context():
     with adb.transaction as transaction:
-        APerson(name="Tanya").save_async()
+        APerson(name="Tanya").save()
     assert isinstance(transaction.last_bookmark, Bookmarks)
 
     assert APerson.nodes.filter(name="Tanya")
 
     with raises(UniqueProperty):
         with adb.transaction as transaction:
-            APerson(name="Tanya").save_async()
+            APerson(name="Tanya").save()
     assert not hasattr(transaction, "last_bookmark")
 
 
@@ -174,8 +174,8 @@ def test_query_inside_bookmark_transaction():
         p.delete()
 
     with adb.transaction as transaction:
-        APerson(name="Alice").save_async()
-        APerson(name="Bob").save_async()
+        APerson(name="Alice").save()
+        APerson(name="Bob").save()
 
         assert len([p.name for p in APerson.nodes]) == 2
 

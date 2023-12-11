@@ -23,8 +23,8 @@ class HookTest(StructuredNodeAsync):
 
 
 def test_hooks():
-    ht = HookTest(name="k").save_async()
-    ht.delete_async()
+    ht = HookTest(name="k").save()
+    ht.delete()
     assert "pre_save" in HOOKS_CALLED
     assert "post_save" in HOOKS_CALLED
     assert "post_create" in HOOKS_CALLED

@@ -182,7 +182,7 @@ def test_default_value():
     )
 
     # Save an object
-    an_object = LocalisableEntity().save_async()
+    an_object = LocalisableEntity().save()
     coords = an_object.location.coords[0]
     # Retrieve it
     retrieved_object = LocalisableEntity.nodes.get(identifier=an_object.identifier)
@@ -220,7 +220,7 @@ def test_array_of_points():
             neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0)),
             neomodel.contrib.spatial_properties.NeomodelPoint((1.0, 0.0)),
         ]
-    ).save_async()
+    ).save()
 
     retrieved_object = AnotherLocalisableEntity.nodes.get(
         identifier=an_object.identifier
@@ -255,7 +255,7 @@ def test_simple_storage_retrieval():
     a_restaurant = TestStorageRetrievalProperty(
         description="Milliways",
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0)),
-    ).save_async()
+    ).save()
 
     a_property = TestStorageRetrievalProperty.nodes.get(
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0))

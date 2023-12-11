@@ -61,9 +61,9 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print(f"Connecting to {bolt_url}")
-    adb.set_connection_async(url=bolt_url)
+    adb.set_connection(url=bolt_url)
 
-    adb.remove_all_labels_async()
+    adb.remove_all_labels()
 
 
 if __name__ == "__main__":

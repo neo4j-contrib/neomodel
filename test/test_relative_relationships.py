@@ -9,10 +9,10 @@ class Cat(StructuredNodeAsync):
 
 
 def test_relative_relationship():
-    a = Cat(name="snufkin").save_async()
+    a = Cat(name="snufkin").save()
     assert a
 
-    c = Country(code="MG").save_async()
+    c = Country(code="MG").save()
     assert c
 
     # connecting an instance of the class defined above

@@ -2,13 +2,13 @@
 # TODO : Check imports here
 from neomodel._async.core import (
     StructuredNodeAsync,
-    change_neo4j_password_async,
-    clear_neo4j_database_async,
-    drop_constraints_async,
-    drop_indexes_async,
-    install_all_labels_async,
-    install_labels_async,
-    remove_all_labels_async,
+    change_neo4j_password,
+    clear_neo4j_database,
+    drop_constraints,
+    drop_indexes,
+    install_all_labels,
+    install_labels,
+    remove_all_labels,
 )
 from neomodel.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
 from neomodel.exceptions import *

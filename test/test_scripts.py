@@ -41,7 +41,7 @@ def test_neomodel_install_labels():
     )
     assert result.returncode == 0
     assert "Setting up indexes and constraints" in result.stdout
-    constraints = adb.list_constraints_async()
+    constraints = adb.list_constraints()
     parsed_constraints = [
         (element["type"], element["labelsOrTypes"], element["properties"])
         for element in constraints
@@ -53,7 +53,7 @@ def test_neomodel_install_labels():
             ["REL"],
             ["some_unique_property"],
         ) in parsed_constraints
-    indexes = adb.lise_indexes_async()
+    indexes = adb.list_indexes()
     parsed_indexes = [
         (element["labelsOrTypes"], element["properties"]) for element in indexes
     ]
@@ -81,8 +81,8 @@ def test_neomodel_remove_labels():
         "Dropping unique constraint and index on label ScriptsTestNode" in result.stdout
     )
     assert result.returncode == 0
-    constraints = adb.list_constraints_async()
-    indexes = adb.lise_indexes_async(exclude_token_lookup=True)
+    constraints = adb.list_constraints()
+    indexes = adb.list_indexes(exclude_token_lookup=True)
     assert len(constraints) == 0
     assert len(indexes) == 0
 
@@ -98,13 +98,13 @@ def test_neomodel_inspect_database():
     assert "usage: neomodel_inspect_database" in result.stdout
     assert result.returncode == 0
 
-    adb.clear_neo4j_database_async()
-    adb.install_labels_async(ScriptsTestNode)
-    adb.install_labels_async(ScriptsTestRel)
+    adb.clear_neo4j_database()
+    adb.install_labels(ScriptsTestNode)
+    adb.install_labels(ScriptsTestRel)
 
     # Create a few nodes and a rel, with indexes and constraints
-    node1 = ScriptsTestNode(personal_id="1", name="test").save_async()
-    node2 = ScriptsTestNode(personal_id="2", name="test").save_async()
+    node1 = ScriptsTestNode(personal_id="1", name="test").save()
+    node2 = ScriptsTestNode(personal_id="2", name="test").save()
     node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
 
     # Create a node with all the parsable property types

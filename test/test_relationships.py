@@ -42,8 +42,8 @@ class SuperHero(PersonWithRels):
 
 
 def test_actions_on_deleted_node():
-    u = PersonWithRels(name="Jim2", age=3).save_async()
-    u.delete_async()
+    u = PersonWithRels(name="Jim2", age=3).save()
+    u.delete()
     with raises(ValueError):
         u.is_from.connect(None)
 
@@ -51,14 +51,14 @@ def test_actions_on_deleted_node():
         u.is_from.get()
 
     with raises(ValueError):
-        u.save_async()
+        u.save()
 
 
 def test_bidirectional_relationships():
-    u = PersonWithRels(name="Jim", age=3).save_async()
+    u = PersonWithRels(name="Jim", age=3).save()
     assert u
 
-    de = Country(code="DE").save_async()
+    de = Country(code="DE").save()
     assert de
 
     assert not u.is_from
@@ -82,15 +82,15 @@ def test_bidirectional_relationships():
 
 
 def test_either_direction_connect():
-    rey = PersonWithRels(name="Rey", age=3).save_async()
-    sakis = PersonWithRels(name="Sakis", age=3).save_async()
+    rey = PersonWithRels(name="Rey", age=3).save()
+    sakis = PersonWithRels(name="Sakis", age=3).save()
 
     rey.knows.connect(sakis)
     assert rey.knows.is_connected(sakis)
     assert sakis.knows.is_connected(rey)
     sakis.knows.connect(rey)
 
-    result, _ = sakis.cypher_async(
+    result, _ = sakis.cypher(
         f"""MATCH (us), (them)
             WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
@@ -106,10 +106,10 @@ def test_either_direction_connect():
 
 
 def test_search_and_filter_and_exclude():
-    fred = PersonWithRels(name="Fred", age=13).save_async()
-    zz = Country(code="ZZ").save_async()
-    zx = Country(code="ZX").save_async()
-    zt = Country(code="ZY").save_async()
+    fred = PersonWithRels(name="Fred", age=13).save()
+    zz = Country(code="ZZ").save()
+    zx = Country(code="ZX").save()
+    zt = Country(code="ZY").save()
     fred.is_from.connect(zz)
     fred.is_from.connect(zx)
     fred.is_from.connect(zt)
@@ -130,21 +130,21 @@ def test_search_and_filter_and_exclude():
 
 
 def test_custom_methods():
-    u = PersonWithRels(name="Joe90", age=13).save_async()
+    u = PersonWithRels(name="Joe90", age=13).save()
     assert u.special_power() == "I have no powers"
-    u = SuperHero(name="Joe91", age=13, power="xxx").save_async()
+    u = SuperHero(name="Joe91", age=13, power="xxx").save()
     assert u.special_power() == "I have powers"
     assert u.special_name == "Joe91"
 
 
 def test_valid_reconnection():
-    p = PersonWithRels(name="ElPresidente", age=93).save_async()
+    p = PersonWithRels(name="ElPresidente", age=93).save()
     assert p
 
-    pp = PersonWithRels(name="TheAdversary", age=33).save_async()
+    pp = PersonWithRels(name="TheAdversary", age=33).save()
     assert pp
 
-    c = Country(code="CU").save_async()
+    c = Country(code="CU").save()
     assert c
 
     c.president.connect(p)
@@ -160,16 +160,16 @@ def test_valid_reconnection():
 
 
 def test_valid_replace():
-    brady = PersonWithRels(name="Tom Brady", age=40).save_async()
+    brady = PersonWithRels(name="Tom Brady", age=40).save()
     assert brady
 
-    gronk = PersonWithRels(name="Rob Gronkowski", age=28).save_async()
+    gronk = PersonWithRels(name="Rob Gronkowski", age=28).save()
     assert gronk
 
-    colbert = PersonWithRels(name="Stephen Colbert", age=53).save_async()
+    colbert = PersonWithRels(name="Stephen Colbert", age=53).save()
     assert colbert
 
-    hanks = PersonWithRels(name="Tom Hanks", age=61).save_async()
+    hanks = PersonWithRels(name="Tom Hanks", age=61).save()
     assert hanks
 
     brady.knows.connect(gronk)
@@ -186,13 +186,13 @@ def test_valid_replace():
 
 
 def test_props_relationship():
-    u = PersonWithRels(name="Mar", age=20).save_async()
+    u = PersonWithRels(name="Mar", age=20).save()
     assert u
 
-    c = Country(code="AT").save_async()
+    c = Country(code="AT").save()
     assert c
 
-    c2 = Country(code="LA").save_async()
+    c2 = Country(code="LA").save()
     assert c2
 
     with raises(NotImplementedError):
