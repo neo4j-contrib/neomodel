@@ -323,6 +323,7 @@ class QueryAST:
     result_class: Optional[type]
     lookup: Optional[str]
     additional_return: Optional[list]
+    is_count: Optional[bool]
 
     def __init__(
         self,
@@ -337,6 +338,7 @@ class QueryAST:
         result_class: Optional[type] = None,
         lookup: Optional[str] = None,
         additional_return: Optional[list] = None,
+        is_count: Optional[bool] = False,
     ):
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -349,6 +351,7 @@ class QueryAST:
         self.result_class = result_class
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
+        self.is_count = is_count
 
 
 class QueryBuilder:
@@ -649,15 +652,27 @@ class QueryBuilder:
             query += " ORDER BY "
             query += ", ".join(self._ast.order_by)
 
-        if self._ast.skip:
+        # If we return a count with pagination, pagination has to happen before RETURN
+        # It will then be included in the WITH clause already
+        if self._ast.skip and not self._ast.is_count:
             query += f" SKIP {self._ast.skip}"
 
-        if self._ast.limit:
+        if self._ast.limit and not self._ast.is_count:
             query += f" LIMIT {self._ast.limit}"
 
         return query
 
     def _count(self):
+        self._ast.is_count = True
+        # If we return a count with pagination, pagination has to happen before RETURN
+        # Like : WITH my_var SKIP 10 LIMIT 10 RETURN count(my_var)
+        self._ast.with_clause = f"{self._ast.return_clause}"
+        if self._ast.skip:
+            self._ast.with_clause += f" SKIP {self._ast.skip}"
+
+        if self._ast.limit:
+            self._ast.with_clause += f" LIMIT {self._ast.limit}"
+
         self._ast.return_clause = f"count({self._ast.return_clause})"
         # drop order_by, results in an invalid query
         self._ast.order_by = None
