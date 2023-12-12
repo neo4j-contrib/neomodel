@@ -1,7 +1,7 @@
-from neomodel import RelationshipTo, StructuredNodeAsync
+from neomodel import AsyncStructuredNode, RelationshipTo
 
 
-class SomeModel(StructuredNodeAsync):
+class SomeModel(AsyncStructuredNode):
     test = RelationshipTo("SomeModel", "SELF")
 
 

@@ -30,7 +30,7 @@ class SubClass2(Class1):
     pass
 
 
-class RelationshipDefinerSecondSibling(neomodel.StructuredNodeAsync):
+class RelationshipDefinerSecondSibling(neomodel.AsyncStructuredNode):
     rel_1 = neomodel.Relationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=Class1
     )
@@ -42,7 +42,7 @@ class RelationshipDefinerSecondSibling(neomodel.StructuredNodeAsync):
     )
 
 
-class RelationshipDefinerParentLast(neomodel.StructuredNodeAsync):
+class RelationshipDefinerParentLast(neomodel.AsyncStructuredNode):
     rel_2 = neomodel.Relationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass1
     )

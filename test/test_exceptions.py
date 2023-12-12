@@ -1,9 +1,9 @@
 import pickle
 
-from neomodel import DoesNotExist, StringProperty, StructuredNodeAsync
+from neomodel import AsyncStructuredNode, DoesNotExist, StringProperty
 
 
-class EPerson(StructuredNodeAsync):
+class EPerson(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
 
 

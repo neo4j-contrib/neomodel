@@ -1,6 +1,7 @@
 from pytest import raises
 
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     One,
     Q,
@@ -8,13 +9,12 @@ from neomodel import (
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 from neomodel._async.core import adb
 
 
-class PersonWithRels(StructuredNodeAsync):
+class PersonWithRels(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
     is_from = RelationshipTo("Country", "IS_FROM")
@@ -28,7 +28,7 @@ class PersonWithRels(StructuredNodeAsync):
         return "I have no powers"
 
 
-class Country(StructuredNodeAsync):
+class Country(AsyncStructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
     president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)

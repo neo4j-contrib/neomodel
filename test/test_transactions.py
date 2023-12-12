@@ -3,11 +3,11 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
-from neomodel import StringProperty, StructuredNodeAsync, UniqueProperty
+from neomodel import AsyncStructuredNode, StringProperty, UniqueProperty
 from neomodel._async.core import adb
 
 
-class APerson(StructuredNodeAsync):
+class APerson(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
 
 

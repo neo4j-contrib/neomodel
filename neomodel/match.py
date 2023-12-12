@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from neomodel._async.core import StructuredNodeAsync, adb
+from neomodel._async.core import AsyncStructuredNode, adb
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty
@@ -382,7 +382,7 @@ class QueryBuilder:
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(
-                source.source, StructuredNodeAsync
+                source.source, AsyncStructuredNode
             ):
                 ident = self.build_label(source.source.__label__.lower(), source.source)
             else:
@@ -402,7 +402,7 @@ class QueryBuilder:
                 )
 
             return ident
-        if isinstance(source, StructuredNodeAsync):
+        if isinstance(source, AsyncStructuredNode):
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
@@ -747,7 +747,7 @@ class BaseSet:
         return self.query_cls(self).build_ast()._count() > 0
 
     def __contains__(self, obj):
-        if isinstance(obj, StructuredNodeAsync):
+        if isinstance(obj, AsyncStructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 return self.query_cls(self).build_ast()._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
@@ -791,9 +791,9 @@ class NodeSet(BaseSet):
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNodeAsync):
+        elif inspect.isclass(source) and issubclass(source, AsyncStructuredNode):
             self.source_class = source
-        elif isinstance(source, StructuredNodeAsync):
+        elif isinstance(source, AsyncStructuredNode):
             self.source_class = source.__class__
         else:
             raise ValueError("Bad source for nodeset " + repr(source))
@@ -995,9 +995,9 @@ class Traversal(BaseSet):
 
         if isinstance(source, Traversal):
             self.source_class = source.target_class
-        elif inspect.isclass(source) and issubclass(source, StructuredNodeAsync):
+        elif inspect.isclass(source) and issubclass(source, AsyncStructuredNode):
             self.source_class = source
-        elif isinstance(source, StructuredNodeAsync):
+        elif isinstance(source, AsyncStructuredNode):
             self.source_class = source.__class__
         elif isinstance(source, NodeSet):
             self.source_class = source.source_class

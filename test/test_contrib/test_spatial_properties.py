@@ -166,7 +166,7 @@ def test_default_value():
             (random.random(), random.random())
         )
 
-    class LocalisableEntity(neomodel.StructuredNodeAsync):
+    class LocalisableEntity(neomodel.AsyncStructuredNode):
         """
         A very simple entity to try out the default value assignment.
         """
@@ -200,7 +200,7 @@ def test_array_of_points():
     :return:
     """
 
-    class AnotherLocalisableEntity(neomodel.StructuredNodeAsync):
+    class AnotherLocalisableEntity(neomodel.AsyncStructuredNode):
         """
         A very simple entity with an array of locations
         """
@@ -242,7 +242,7 @@ def test_simple_storage_retrieval():
     :return:
     """
 
-    class TestStorageRetrievalProperty(neomodel.StructuredNodeAsync):
+    class TestStorageRetrievalProperty(neomodel.AsyncStructuredNode):
         uid = neomodel.UniqueIdProperty()
         description = neomodel.StringProperty()
         location = neomodel.contrib.spatial_properties.PointProperty(crs="cartesian")

@@ -2,16 +2,16 @@ import pytest
 from pytest import raises
 
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     StringProperty,
-    StructuredNodeAsync,
     UniqueProperty,
 )
 from neomodel._async.core import adb
 from neomodel.exceptions import ConstraintValidationFailed
 
 
-class Human(StructuredNodeAsync):
+class Human(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 
@@ -67,7 +67,7 @@ def test_does_not_exist():
 
 
 def test_custom_label_name():
-    class Giraffe(StructuredNodeAsync):
+    class Giraffe(AsyncStructuredNode):
         __label__ = "Giraffes"
         name = StringProperty(unique_index=True)
 

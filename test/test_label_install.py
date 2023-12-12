@@ -1,9 +1,9 @@
 import pytest
 
 from neomodel import (
+    AsyncStructuredNode,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
     UniqueIdProperty,
     config,
@@ -14,15 +14,15 @@ from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
 config.AUTO_INSTALL_LABELS = False
 
 
-class NodeWithIndex(StructuredNodeAsync):
+class NodeWithIndex(AsyncStructuredNode):
     name = StringProperty(index=True)
 
 
-class NodeWithConstraint(StructuredNodeAsync):
+class NodeWithConstraint(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class NodeWithRelationship(StructuredNodeAsync):
+class NodeWithRelationship(AsyncStructuredNode):
     ...
 
 
@@ -30,18 +30,18 @@ class IndexedRelationship(StructuredRel):
     indexed_rel_prop = StringProperty(index=True)
 
 
-class OtherNodeWithRelationship(StructuredNodeAsync):
+class OtherNodeWithRelationship(AsyncStructuredNode):
     has_rel = RelationshipTo(
         NodeWithRelationship, "INDEXED_REL", model=IndexedRelationship
     )
 
 
-class AbstractNode(StructuredNodeAsync):
+class AbstractNode(AsyncStructuredNode):
     __abstract_node__ = True
     name = StringProperty(unique_index=True)
 
 
-class SomeNotUniqueNode(StructuredNodeAsync):
+class SomeNotUniqueNode(AsyncStructuredNode):
     id_ = UniqueIdProperty(db_property="id")
 
 
@@ -104,7 +104,7 @@ def test_install_label_twice(capsys):
         class UniqueIndexRelationship(StructuredRel):
             unique_index_rel_prop = StringProperty(unique_index=True)
 
-        class OtherNodeWithUniqueIndexRelationship(StructuredNodeAsync):
+        class OtherNodeWithUniqueIndexRelationship(AsyncStructuredNode):
             has_rel = RelationshipTo(
                 NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
             )
@@ -136,14 +136,14 @@ def test_relationship_unique_index_not_supported():
     class UniqueIndexRelationship(StructuredRel):
         name = StringProperty(unique_index=True)
 
-    class TargetNodeForUniqueIndexRelationship(StructuredNodeAsync):
+    class TargetNodeForUniqueIndexRelationship(AsyncStructuredNode):
         pass
 
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
     ):
 
-        class NodeWithUniqueIndexRelationship(StructuredNodeAsync):
+        class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
             has_rel = RelationshipTo(
                 TargetNodeForUniqueIndexRelationship,
                 "UNIQUE_INDEX_REL",
@@ -156,10 +156,10 @@ def test_relationship_unique_index():
     class UniqueIndexRelationshipBis(StructuredRel):
         name = StringProperty(unique_index=True)
 
-    class TargetNodeForUniqueIndexRelationship(StructuredNodeAsync):
+    class TargetNodeForUniqueIndexRelationship(AsyncStructuredNode):
         pass
 
-    class NodeWithUniqueIndexRelationship(StructuredNodeAsync):
+    class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
         has_rel = RelationshipTo(
             TargetNodeForUniqueIndexRelationship,
             "UNIQUE_INDEX_REL_BIS",

@@ -1,11 +1,11 @@
 from pytest import raises
 
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     UniqueIdProperty,
     config,
 )
@@ -14,7 +14,7 @@ from neomodel.exceptions import DeflateError, UniqueProperty
 config.AUTO_INSTALL_LABELS = True
 
 
-class UniqueUser(StructuredNodeAsync):
+class UniqueUser(AsyncStructuredNode):
     uid = UniqueIdProperty()
     name = StringProperty()
     age = IntegerProperty()
@@ -31,7 +31,7 @@ def test_unique_id_property_batch():
     assert users[1].uid
 
 
-class Customer(StructuredNodeAsync):
+class Customer(AsyncStructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
@@ -97,12 +97,12 @@ def test_batch_index_violation():
     assert not Customer.nodes.filter(email="jim7@aol.com")
 
 
-class Dog(StructuredNodeAsync):
+class Dog(AsyncStructuredNode):
     name = StringProperty(required=True)
     owner = RelationshipTo("Person", "owner")
 
 
-class Person(StructuredNodeAsync):
+class Person(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     pets = RelationshipFrom("Dog", "owner")
 

@@ -1,9 +1,9 @@
-from neomodel import StringProperty, StructuredNodeAsync
+from neomodel import AsyncStructuredNode, StringProperty
 
 HOOKS_CALLED = {}
 
 
-class HookTest(StructuredNodeAsync):
+class HookTest(AsyncStructuredNode):
     name = StringProperty()
 
     def post_create(self):

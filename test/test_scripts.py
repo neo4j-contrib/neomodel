@@ -3,9 +3,9 @@ import subprocess
 import pytest
 
 from neomodel import (
+    AsyncStructuredNode,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
     config,
 )
@@ -19,7 +19,7 @@ class ScriptsTestRel(StructuredRel):
     some_index_property = StringProperty(index=True)
 
 
-class ScriptsTestNode(StructuredNodeAsync):
+class ScriptsTestNode(AsyncStructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)

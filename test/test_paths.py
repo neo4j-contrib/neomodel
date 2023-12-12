@@ -1,9 +1,9 @@
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     NeomodelPath,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
     UniqueIdProperty,
     adb,
@@ -18,16 +18,16 @@ class PersonLivesInCity(StructuredRel):
     some_num = IntegerProperty(index=True, default=12)
 
 
-class CountryOfOrigin(StructuredNodeAsync):
+class CountryOfOrigin(AsyncStructuredNode):
     code = StringProperty(unique_index=True, required=True)
 
 
-class CityOfResidence(StructuredNodeAsync):
+class CityOfResidence(AsyncStructuredNode):
     name = StringProperty(required=True)
     country = RelationshipTo(CountryOfOrigin, "FROM_COUNTRY")
 
 
-class PersonOfInterest(StructuredNodeAsync):
+class PersonOfInterest(AsyncStructuredNode):
     uid = UniqueIdProperty()
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True, default=0)

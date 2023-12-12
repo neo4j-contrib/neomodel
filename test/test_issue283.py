@@ -36,7 +36,7 @@ class PersonalRelationship(neomodel.StructuredRel):
     on_date = neomodel.DateTimeProperty(default_now=True)
 
 
-class BasePerson(neomodel.StructuredNodeAsync):
+class BasePerson(neomodel.AsyncStructuredNode):
     """
     Base class for defining some basic sort of an actor.
     """
@@ -64,7 +64,7 @@ class PilotPerson(BasePerson):
     airplane = neomodel.StringProperty(required=True)
 
 
-class BaseOtherPerson(neomodel.StructuredNodeAsync):
+class BaseOtherPerson(neomodel.AsyncStructuredNode):
     """
     An obviously "wrong" class of actor to befriend BasePersons with.
     """

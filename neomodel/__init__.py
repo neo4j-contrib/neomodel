@@ -1,7 +1,7 @@
 # pep8: noqa
 # TODO : Check imports here
 from neomodel._async.core import (
-    StructuredNodeAsync,
+    AsyncStructuredNode,
     change_neo4j_password,
     clear_neo4j_database,
     drop_constraints,
@@ -10,6 +10,7 @@ from neomodel._async.core import (
     install_labels,
     remove_all_labels,
 )
+from neomodel._sync.core import StructuredNode
 from neomodel.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
 from neomodel.exceptions import *
 from neomodel.match import EITHER, INCOMING, OUTGOING, NodeSet, Traversal

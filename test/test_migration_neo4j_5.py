@@ -1,16 +1,16 @@
 import pytest
 
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 from neomodel._async.core import adb
 
 
-class Album(StructuredNodeAsync):
+class Album(AsyncStructuredNode):
     name = StringProperty()
 
 
@@ -18,7 +18,7 @@ class Released(StructuredRel):
     year = IntegerProperty()
 
 
-class Band(StructuredNodeAsync):
+class Band(AsyncStructuredNode):
     name = StringProperty()
     released = RelationshipTo(Album, relation_type="RELEASED", model=Released)
 

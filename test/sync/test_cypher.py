@@ -6,21 +6,21 @@ from neo4j.exceptions import ClientError as CypherError
 from numpy import ndarray
 from pandas import DataFrame, Series
 
-from neomodel import StringProperty, StructuredNodeAsync
+from neomodel import StructuredNode, StringProperty
 from neomodel._async.core import adb
 
 
-class User2(StructuredNodeAsync):
+class User2(StructuredNode):
     name = StringProperty()
     email = StringProperty()
 
 
-class UserPandas(StructuredNodeAsync):
+class UserPandas(StructuredNode):
     name = StringProperty()
     email = StringProperty()
 
 
-class UserNP(StructuredNodeAsync):
+class UserNP(StructuredNode):
     name = StringProperty()
     email = StringProperty()
 

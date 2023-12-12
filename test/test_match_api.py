@@ -4,13 +4,13 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
+    AsyncStructuredNode,
     DateTimeProperty,
     IntegerProperty,
     Q,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 from neomodel.exceptions import MultipleNodesReturned
@@ -22,18 +22,18 @@ class SupplierRel(StructuredRel):
     courier = StringProperty()
 
 
-class Supplier(StructuredNodeAsync):
+class Supplier(AsyncStructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
     coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
 
 
-class Species(StructuredNodeAsync):
+class Species(AsyncStructuredNode):
     name = StringProperty()
     coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
 
 
-class Coffee(StructuredNodeAsync):
+class Coffee(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
@@ -41,7 +41,7 @@ class Coffee(StructuredNodeAsync):
     id_ = IntegerProperty()
 
 
-class Extension(StructuredNodeAsync):
+class Extension(AsyncStructuredNode):
     extension = RelationshipTo("Extension", "extension")
 
 

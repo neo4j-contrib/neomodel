@@ -1,9 +1,9 @@
-from neomodel._async.core import StructuredNodeAsync
+from neomodel._async.core import AsyncStructuredNode
 from neomodel.exceptions import DeflateConflict, InflateConflict
 from neomodel.util import _get_node_properties
 
 
-class SemiStructuredNode(StructuredNodeAsync):
+class SemiStructuredNode(AsyncStructuredNode):
     """
     A base class allowing properties to be stored on a node that aren't
     specified in its definition. Conflicting properties are signaled with the

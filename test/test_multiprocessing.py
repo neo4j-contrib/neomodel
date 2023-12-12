@@ -1,9 +1,9 @@
 from multiprocessing.pool import ThreadPool as Pool
 
-from neomodel import StringProperty, StructuredNodeAsync, adb
+from neomodel import AsyncStructuredNode, StringProperty, adb
 
 
-class ThingyMaBob(StructuredNodeAsync):
+class ThingyMaBob(AsyncStructuredNode):
     name = StringProperty(unique_index=True, required=True)
 
 

@@ -212,15 +212,15 @@ class AsyncDatabase(local):
         """
         Returns the current transaction object
         """
-        return TransactionProxyAsync(self)
+        return AsyncTransactionProxy(self)
 
     @property
     def write_transaction(self):
-        return TransactionProxyAsync(self, access_mode="WRITE")
+        return AsyncTransactionProxy(self, access_mode="WRITE")
 
     @property
     def read_transaction(self):
-        return TransactionProxyAsync(self, access_mode="READ")
+        return AsyncTransactionProxy(self, access_mode="READ")
 
     def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
@@ -661,7 +661,7 @@ class AsyncDatabase(local):
         stdout.write("Setting up indexes and constraints...\n\n")
 
         i = 0
-        for cls in subsub(StructuredNodeAsync):
+        for cls in subsub(AsyncStructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
             await install_labels(cls, quiet=False, stdout=stdout)
             i += 1
@@ -903,7 +903,7 @@ async def install_all_labels(stdout=None):
     await adb.install_all_labels(stdout)
 
 
-class TransactionProxyAsync:
+class AsyncTransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
     def __init__(self, db: AsyncDatabase, access_mode=None):
@@ -938,7 +938,7 @@ class TransactionProxyAsync:
 
     @property
     def with_bookmark(self):
-        return BookmarkingTransactionProxyAsync(self.db, self.access_mode)
+        return BookmarkingAsyncTransactionProxy(self.db, self.access_mode)
 
 
 class ImpersonationHandler:
@@ -965,7 +965,7 @@ class ImpersonationHandler:
         return wrapper
 
 
-class BookmarkingTransactionProxyAsync(TransactionProxyAsync):
+class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             self.bookmarks = kwargs.pop("bookmarks", None)
@@ -1067,7 +1067,7 @@ def build_class_registry(cls):
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
 
 
-class StructuredNodeAsync(NodeBase):
+class AsyncStructuredNode(NodeBase):
     """
     Base class for all node definitions to inherit from.
 
@@ -1091,7 +1091,7 @@ class StructuredNodeAsync(NodeBase):
         super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, (StructuredNodeAsync,)):
+        if not isinstance(other, (AsyncStructuredNode,)):
             return False
         if hasattr(self, "element_id") and hasattr(other, "element_id"):
             return self.element_id == other.element_id
@@ -1168,7 +1168,7 @@ class StructuredNodeAsync(NodeBase):
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
-            if not isinstance(relationship.source, StructuredNodeAsync):
+            if not isinstance(relationship.source, AsyncStructuredNode):
                 raise ValueError(
                     f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
                 )

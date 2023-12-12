@@ -5,17 +5,17 @@ from datetime import datetime
 from pytest import raises
 
 from neomodel import (
+    AsyncStructuredNode,
     DateProperty,
     IntegerProperty,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 from neomodel._async.core import adb
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
-class User(StructuredNodeAsync):
+class User(AsyncStructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
@@ -28,12 +28,12 @@ class User(StructuredNodeAsync):
         self.email = value
 
 
-class NodeWithoutProperty(StructuredNodeAsync):
+class NodeWithoutProperty(AsyncStructuredNode):
     pass
 
 
 def test_issue_233():
-    class BaseIssue233(StructuredNodeAsync):
+    class BaseIssue233(AsyncStructuredNode):
         __abstract_node__ = True
 
         def __getitem__(self, item):
@@ -156,7 +156,7 @@ def test_save_through_magic_property():
     assert user2
 
 
-class Customer2(StructuredNodeAsync):
+class Customer2(AsyncStructuredNode):
     __label__ = "customers"
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
@@ -229,7 +229,7 @@ def test_setting_value_to_none():
 
 
 def test_inheritance():
-    class User(StructuredNodeAsync):
+    class User(AsyncStructuredNode):
         __abstract_node__ = True
         name = StringProperty(unique_index=True)
 
@@ -251,7 +251,7 @@ def test_inheritance():
 
 
 def test_inherited_optional_labels():
-    class BaseOptional(StructuredNodeAsync):
+    class BaseOptional(AsyncStructuredNode):
         __optional_labels__ = ["Alive"]
         name = StringProperty(unique_index=True)
 
@@ -286,7 +286,7 @@ def test_mixins():
             self.balance = self.balance + int(amount)
             self.save()
 
-    class Shopper2(StructuredNodeAsync, UserMixin, CreditMixin):
+    class Shopper2(AsyncStructuredNode, UserMixin, CreditMixin):
         pass
 
     jim = Shopper2(name="jimmy", balance=300).save()
@@ -300,7 +300,7 @@ def test_mixins():
 
 
 def test_date_property():
-    class DateTest(StructuredNodeAsync):
+    class DateTest(AsyncStructuredNode):
         birthdate = DateProperty()
 
     user = DateTest(birthdate=datetime.now()).save()
@@ -310,17 +310,17 @@ def test_reserved_property_keys():
     error_match = r".*is not allowed as it conflicts with neomodel internals.*"
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesDeletedNode(StructuredNodeAsync):
+        class ReservedPropertiesDeletedNode(AsyncStructuredNode):
             deleted = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesIdNode(StructuredNodeAsync):
+        class ReservedPropertiesIdNode(AsyncStructuredNode):
             id = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesElementIdNode(StructuredNodeAsync):
+        class ReservedPropertiesElementIdNode(AsyncStructuredNode):
             element_id = StringProperty()
 
     with raises(ValueError, match=error_match):

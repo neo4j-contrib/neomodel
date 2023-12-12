@@ -4,12 +4,12 @@ import pytz
 from pytest import raises
 
 from neomodel import (
+    AsyncStructuredNode,
     DateTimeProperty,
     DeflateError,
     Relationship,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 
@@ -30,13 +30,13 @@ class HatesRel(FriendRel):
         HOOKS_CALLED["post_save"] += 1
 
 
-class Badger(StructuredNodeAsync):
+class Badger(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     friend = Relationship("Badger", "FRIEND", model=FriendRel)
     hates = RelationshipTo("Stoat", "HATES", model=HatesRel)
 
 
-class Stoat(StructuredNodeAsync):
+class Stoat(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     hates = RelationshipTo("Badger", "HATES", model=HatesRel)
 

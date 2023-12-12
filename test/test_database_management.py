@@ -2,16 +2,16 @@ import pytest
 from neo4j.exceptions import AuthError
 
 from neomodel import (
+    AsyncStructuredNode,
     IntegerProperty,
     RelationshipTo,
     StringProperty,
-    StructuredNodeAsync,
     StructuredRel,
 )
 from neomodel._async.core import adb
 
 
-class City(StructuredNodeAsync):
+class City(AsyncStructuredNode):
     name = StringProperty()
 
 
@@ -19,7 +19,7 @@ class InCity(StructuredRel):
     creation_year = IntegerProperty(index=True)
 
 
-class Venue(StructuredNodeAsync):
+class Venue(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     creator = StringProperty(index=True)
     in_city = RelationshipTo(City, relation_type="IN", model=InCity)

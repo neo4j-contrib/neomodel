@@ -1,12 +1,12 @@
 from neo4j.exceptions import ClientError
 
-from neomodel import StringProperty, StructuredNodeAsync, config
+from neomodel import AsyncStructuredNode, StringProperty, config
 from neomodel._async.core import adb
 
 config.AUTO_INSTALL_LABELS = True
 
 
-class ConstraintAndIndex(StructuredNodeAsync):
+class ConstraintAndIndex(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     last_name = StringProperty(index=True)
 

@@ -5,7 +5,7 @@ import pytest
 from neo4j import GraphDatabase
 from neo4j.debug import watch
 
-from neomodel import StringProperty, StructuredNodeAsync, adb, config
+from neomodel import AsyncStructuredNode, StringProperty, adb, config
 from neomodel.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
 
 
@@ -37,7 +37,7 @@ def get_current_database_name() -> str:
     return results_as_dict[0]["name"]
 
 
-class Pastry(StructuredNodeAsync):
+class Pastry(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
 
 

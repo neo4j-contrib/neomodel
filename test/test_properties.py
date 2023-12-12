@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNodeAsync, adb, config
+from neomodel import AsyncStructuredNode, adb, config
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -61,7 +61,7 @@ def test_string_property_exceeds_max_length():
 
 
 def test_string_property_w_choice():
-    class TestChoices(StructuredNodeAsync):
+    class TestChoices(AsyncStructuredNode):
         SEXES = {"F": "Female", "M": "Male", "O": "Other"}
         sex = StringProperty(required=True, choices=SEXES)
 
@@ -186,7 +186,7 @@ def test_json():
 
 
 def test_default_value():
-    class DefaultTestValue(StructuredNodeAsync):
+    class DefaultTestValue(AsyncStructuredNode):
         name_xx = StringProperty(default="jim", index=True)
 
     a = DefaultTestValue()
@@ -198,7 +198,7 @@ def test_default_value_callable():
     def uid_generator():
         return "xx"
 
-    class DefaultTestValueTwo(StructuredNodeAsync):
+    class DefaultTestValueTwo(AsyncStructuredNode):
         uid = StringProperty(default=uid_generator, index=True)
 
     a = DefaultTestValueTwo().save()
@@ -214,7 +214,7 @@ def test_default_value_callable_type():
 
         return Foo()
 
-    class DefaultTestValueThree(StructuredNodeAsync):
+    class DefaultTestValueThree(AsyncStructuredNode):
         uid = StringProperty(default=factory, index=True)
 
     x = DefaultTestValueThree()
@@ -226,7 +226,7 @@ def test_default_value_callable_type():
 
 
 def test_independent_property_name():
-    class TestDBNamePropertyNode(StructuredNodeAsync):
+    class TestDBNamePropertyNode(AsyncStructuredNode):
         name_ = StringProperty(db_property="name")
 
     x = TestDBNamePropertyNode()
@@ -249,7 +249,7 @@ def test_independent_property_name():
 
 
 def test_independent_property_name_get_or_create():
-    class TestNode(StructuredNodeAsync):
+    class TestNode(AsyncStructuredNode):
         uid = UniqueIdProperty()
         name_ = StringProperty(db_property="name", required=True)
 
@@ -338,14 +338,14 @@ def test_uid_property():
     myuid = prop.default_value()
     assert len(myuid)
 
-    class CheckMyId(StructuredNodeAsync):
+    class CheckMyId(AsyncStructuredNode):
         uid = UniqueIdProperty()
 
     cmid = CheckMyId().save()
     assert len(cmid.uid)
 
 
-class ArrayProps(StructuredNodeAsync):
+class ArrayProps(AsyncStructuredNode):
     uid = StringProperty(unique_index=True)
     untyped_arr = ArrayProperty()
     typed_arr = ArrayProperty(IntegerProperty())
@@ -378,7 +378,7 @@ def test_illegal_array_base_prop_raises():
 
 
 def test_indexed_array():
-    class IndexArray(StructuredNodeAsync):
+    class IndexArray(AsyncStructuredNode):
         ai = ArrayProperty(unique_index=True)
 
     b = IndexArray(ai=[1, 2]).save()
@@ -387,7 +387,7 @@ def test_indexed_array():
 
 
 def test_unique_index_prop_not_required():
-    class ConstrainedTestNode(StructuredNodeAsync):
+    class ConstrainedTestNode(AsyncStructuredNode):
         required_property = StringProperty(required=True)
         unique_property = StringProperty(unique_index=True)
         unique_required_property = StringProperty(unique_index=True, required=True)
@@ -415,7 +415,7 @@ def test_unique_index_prop_not_required():
 
 
 def test_unique_index_prop_enforced():
-    class UniqueNullableNameNode(StructuredNodeAsync):
+    class UniqueNullableNameNode(AsyncStructuredNode):
         name = StringProperty(unique_index=True)
 
     # Nameless
