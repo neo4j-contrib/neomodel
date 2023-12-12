@@ -1,5 +1,7 @@
 import subprocess
 
+import pytest
+
 from neomodel import (
     RelationshipTo,
     StringProperty,
@@ -87,7 +89,15 @@ def test_neomodel_remove_labels():
     assert len(indexes) == 0
 
 
-def test_neomodel_inspect_database():
+@pytest.mark.parametrize(
+    "script_flavour",
+    [
+        "",
+        "_light",
+    ],
+)
+def test_neomodel_inspect_database(script_flavour):
+    output_file = "test/data/neomodel_inspect_database_test_output.py"
     # Check that the help option works
     result = subprocess.run(
         ["neomodel_inspect_database", "--help"],
@@ -128,8 +138,11 @@ def test_neomodel_inspect_database():
     )
 
     # Test the console output version of the script
+    args_list = ["neomodel_inspect_database", "--db", config.DATABASE_URL]
+    if script_flavour == "_light":
+        args_list += ["--no-rel-props", "--no-rel-cardinality"]
     result = subprocess.run(
-        ["neomodel_inspect_database", "--db", config.DATABASE_URL],
+        args_list,
         capture_output=True,
         text=True,
         check=True,
@@ -141,9 +154,9 @@ def test_neomodel_inspect_database():
     assert wrapped_console_output[0].startswith("Connecting to")
     # Check that all the expected lines are here
     file_path = (
-        "test/data/neomodel_inspect_database_output.txt"
+        f"test/data/neomodel_inspect_database_output{script_flavour}.txt"
         if adb.version_is_higher_than("5.7")
-        else "test/data/neomodel_inspect_database_output_pre_5_7.txt"
+        else f"test/data/neomodel_inspect_database_output_pre_5_7{script_flavour}.txt"
     )
     with open(file_path, "r") as f:
         wrapped_test_file = [line for line in f.read().split("\n") if line.strip()]
@@ -165,14 +178,9 @@ def test_neomodel_inspect_database():
         assert set(wrapped_test_file) == set(wrapped_console_output[2:])
 
     # Test the file output version of the script
+    args_list += ["--write-to", output_file]
     result = subprocess.run(
-        [
-            "neomodel_inspect_database",
-            "--db",
-            config.DATABASE_URL,
-            "--write-to",
-            "test/data/neomodel_inspect_database_test_output.py",
-        ],
+        args_list,
         capture_output=True,
         text=True,
         check=True,
@@ -186,11 +194,11 @@ def test_neomodel_inspect_database():
     ]
     assert wrapped_file_console_output[0].startswith("Connecting to")
     assert wrapped_file_console_output[1].startswith("Writing to")
-    with open("test/data/neomodel_inspect_database_test_output.py", "r") as f:
+    with open(output_file, "r") as f:
         wrapped_output_file = [line for line in f.read().split("\n") if line.strip()]
         assert set(wrapped_output_file) == set(wrapped_console_output[1:])
 
     # Finally, delete the file created by the script
     subprocess.run(
-        ["rm", "test/data/neomodel_inspect_database_test_output.py"],
+        ["rm", output_file],
     )

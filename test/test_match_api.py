@@ -140,6 +140,13 @@ def test_count():
     count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
     assert count > 0
 
+    Coffee(name="Kawa", price=27).save()
+    node_set = NodeSet(source=Coffee)
+    node_set.skip = 1
+    node_set.limit = 1
+    count = QueryBuilder(node_set).build_ast()._count()
+    assert count == 1
+
 
 def test_len_and_iter_and_bool():
     iterations = 0
