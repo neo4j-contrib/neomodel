@@ -77,7 +77,6 @@ class CustomRule(unasync.Rule):
     def __init__(self, *args, **kwargs):
         super(CustomRule, self).__init__(*args, **kwargs)
         self.out_files = []
-        self.token_replacements = {}
 
     def _unasync_tokens(self, tokens):
         # copy from unasync to fix handling of multiline strings
