@@ -820,15 +820,15 @@ class Database(local):
 
 
 # Create a singleton instance of the database object
-adb = Database()
+db = Database()
 
 
 # Deprecated methods
 def change_neo4j_password(db: Database, user, new_password):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.change_neo4j_password(user, new_password) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.change_neo4j_password(user, new_password) instead.
         This direct call will be removed in an upcoming version.
         """
     )
@@ -840,8 +840,8 @@ def clear_neo4j_database(
 ):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.clear_neo4j_database(clear_constraints, clear_indexes) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
         This direct call will be removed in an upcoming version.
         """
     )
@@ -851,56 +851,56 @@ def clear_neo4j_database(
 def drop_constraints(quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_constraints(quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.drop_constraints(quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    adb.drop_constraints(quiet, stdout)
+    db.drop_constraints(quiet, stdout)
 
 
 def drop_indexes(quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_indexes(quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.drop_indexes(quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    adb.drop_indexes(quiet, stdout)
+    db.drop_indexes(quiet, stdout)
 
 
 def remove_all_labels(stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.remove_all_labels(stdout) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.remove_all_labels(stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    adb.remove_all_labels(stdout)
+    db.remove_all_labels(stdout)
 
 
 def install_labels(cls, quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_labels(cls, quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.install_labels(cls, quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    adb.install_labels(cls, quiet, stdout)
+    db.install_labels(cls, quiet, stdout)
 
 
 def install_all_labels(stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_all_labels(stdout) instead.
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.install_all_labels(stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    adb.install_all_labels(stdout)
+    db.install_all_labels(stdout)
 
 
 class TransactionProxy:
@@ -1058,10 +1058,10 @@ def build_class_registry(cls):
     possible_label_combinations.append(base_label_set)
 
     for label_set in possible_label_combinations:
-        if label_set not in adb._NODE_CLASS_REGISTRY:
-            adb._NODE_CLASS_REGISTRY[label_set] = cls
+        if label_set not in db._NODE_CLASS_REGISTRY:
+            db._NODE_CLASS_REGISTRY[label_set] = cls
         else:
-            raise NodeClassAlreadyDefined(cls, adb._NODE_CLASS_REGISTRY)
+            raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
 
 
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
@@ -1124,7 +1124,7 @@ class StructuredNode(NodeBase):
         if hasattr(self, "element_id_property"):
             return (
                 int(self.element_id_property)
-                if adb.database_version.startswith("4")
+                if db.database_version.startswith("4")
                 else self.element_id_property
             )
         return None
@@ -1181,7 +1181,7 @@ class StructuredNode(NodeBase):
             from neomodel.match import _rel_helper
 
             query_params["source_id"] = relationship.source.element_id
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE {adb.get_id_method()}(source) = $source_id\n "
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -1199,7 +1199,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f"RETURN {adb.get_id_method()}(n)"
+            query += f"RETURN {db.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
@@ -1230,7 +1230,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f" RETURN {adb.get_id_method()}(n)"
+            query += f" RETURN {db.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -1238,7 +1238,7 @@ class StructuredNode(NodeBase):
         for item in [
             cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
         ]:
-            node, _ = adb.cypher_query(query, {"create_params": item})
+            node, _ = db.cypher_query(query, {"create_params": item})
             results.extend(node[0])
 
         nodes = [cls.inflate(node) for node in results]
@@ -1294,7 +1294,7 @@ class StructuredNode(NodeBase):
             )
 
         # fetch and build instance for each result
-        results = adb.cypher_query(query, params)
+        results = db.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
     def cypher(self, query, params=None):
@@ -1311,7 +1311,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check("cypher")
         params = params or {}
         params.update({"self": self.element_id})
-        return adb.cypher_query(query, params)
+        return db.cypher_query(query, params)
 
     @hooks
     def delete(self):
@@ -1322,7 +1322,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("delete")
         self.cypher(
-            f"MATCH (self) WHERE {adb.get_id_method()}(self)=$self DETACH DELETE self"
+            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
         )
         delattr(self, "element_id_property")
         self.deleted = True
@@ -1363,7 +1363,7 @@ class StructuredNode(NodeBase):
             )
 
         # fetch and build instance for each result
-        results = adb.cypher_query(query, params)
+        results = db.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
@@ -1433,7 +1433,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("labels")
         return self.cypher(
-            f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self " "RETURN labels(n)"
+            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
         )[0][0][0]
 
     def _pre_action_check(self, action):
@@ -1453,7 +1453,7 @@ class StructuredNode(NodeBase):
         self._pre_action_check("refresh")
         if hasattr(self, "element_id"):
             request = self.cypher(
-                f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self RETURN n"
+                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
             )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
@@ -1475,7 +1475,7 @@ class StructuredNode(NodeBase):
         if hasattr(self, "element_id_property"):
             # update
             params = self.deflate(self.__properties__, self)
-            query = f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self\n"
+            query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"
 
             if params:
                 query += "SET "

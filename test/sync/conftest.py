@@ -1,17 +1,17 @@
 import asyncio
 import os
 import warnings
-from test._async_compat import mark_async_test
+from test._async_compat import mark_sync_test
 
 import pytest
 import pytest_asyncio
 
 from neomodel import config
-from neomodel._async.core import adb
+from neomodel._sync.core import db
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-@mark_async_test
+@mark_sync_test
 def setup_neo4j_session(request):
     """
     Provides initial connection to the database and sets up the rest of the test suite
@@ -28,7 +28,7 @@ def setup_neo4j_session(request):
     config.AUTO_INSTALL_LABELS = True
 
     # Clear the database if required
-    database_is_populated, _ = adb.cypher_query(
+    database_is_populated, _ = db.cypher_query(
         "MATCH (a) return count(a)>0 as database_is_populated"
     )
     if database_is_populated[0][0] and not request.config.getoption("resetdb"):
@@ -36,21 +36,21 @@ def setup_neo4j_session(request):
             "Please note: The database seems to be populated.\n\tEither delete all nodes and edges manually, or set the --resetdb parameter when calling pytest\n\n\tpytest --resetdb."
         )
 
-    adb.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
+    db.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
 
-    adb.cypher_query(
+    db.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
     )
-    if adb.database_edition == "enterprise":
-        adb.cypher_query("GRANT ROLE publisher TO troygreene")
-        adb.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
+    if db.database_edition == "enterprise":
+        db.cypher_query("GRANT ROLE publisher TO troygreene")
+        db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-@mark_async_test
+@mark_sync_test
 def cleanup():
     yield
-    adb.close_connection()
+    db.close_connection()
 
 
 @pytest.fixture(scope="session")
