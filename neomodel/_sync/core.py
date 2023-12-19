@@ -1162,7 +1162,7 @@ class StructuredNode(NodeBase):
                 for p in cls.__required_properties__
             )
         )
-        n_merge = f"n:{n_merge_labels} { {n_merge_prm}} "
+        n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "

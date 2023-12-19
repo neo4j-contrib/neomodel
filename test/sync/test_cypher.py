@@ -64,7 +64,7 @@ def test_cypher():
 def test_cypher_syntax_error():
     jim = User2(email="jim1@test.com").save()
     try:
-        jim.cypher(f"MATCH a WHERE {db.get_id_method()}(a)={ self}  RETURN xx")
+        jim.cypher(f"MATCH a WHERE {db.get_id_method()}(a)={{self}} RETURN xx")
     except CypherError as e:
         assert hasattr(e, "message")
         assert hasattr(e, "code")
