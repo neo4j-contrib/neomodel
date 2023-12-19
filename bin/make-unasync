@@ -64,6 +64,16 @@ def _tokenize(f):
         last_end = tok.end
         if tok.type in [std_tokenize.NEWLINE, std_tokenize.NL]:
             last_end = (tok.end[0] + 1, 0)
+        elif (
+            sys.version_info >= (3, 12)
+            and tok.type == std_tokenize.FSTRING_MIDDLE
+        ):
+            last_end = (
+                last_end[0],
+                last_end[1]
+                + tok.string.count("{")
+                + tok.string.count("}")
+            )
 
 
 def _untokenize(tokens):
@@ -110,6 +120,12 @@ class CustomRule(unasync.Rule):
                             tokval[-1:],
                         )
                     tokval = left_quote + self._unasync_string(name) + right_quote
+                elif (
+                    sys.version_info >= (3, 12)
+                    and toknum == std_tokenize.FSTRING_MIDDLE
+                ):
+                    tokval = tokval.replace("{", "{{").replace("}", "}}")
+                    tokval = self._unasync_string(tokval)
                 if used_space is None:
                     used_space = space
                 yield (used_space, tokval)
