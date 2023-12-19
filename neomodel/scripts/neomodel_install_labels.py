@@ -32,7 +32,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from importlib import import_module
 from os import environ, path
 
-from neomodel._async.core import adb
+from neomodel._sync.core import db
 
 
 def load_python_module_or_file(name):
@@ -109,9 +109,9 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print(f"Connecting to {bolt_url}")
-    adb.set_connection(url=bolt_url)
+    db.set_connection(url=bolt_url)
 
-    adb.install_all_labels()
+    db.install_all_labels()
 
 
 if __name__ == "__main__":

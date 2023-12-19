@@ -27,7 +27,7 @@ import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ
 
-from neomodel._async.core import adb
+from neomodel._sync.core import db
 
 
 def main():
@@ -61,9 +61,9 @@ def main():
 
     # Connect after to override any code in the module that may set the connection
     print(f"Connecting to {bolt_url}")
-    adb.set_connection(url=bolt_url)
+    db.set_connection(url=bolt_url)
 
-    adb.remove_all_labels()
+    db.remove_all_labels()
 
 
 if __name__ == "__main__":
