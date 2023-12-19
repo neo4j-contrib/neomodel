@@ -1,18 +1,16 @@
 import asyncio
 import os
 import warnings
-from test._async_compat import mark_async_test
+from test._async_compat import mark_async_session_auto_fixture
 
 import pytest
-import pytest_asyncio
 
 from neomodel import config
 from neomodel._async.core import adb
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-@mark_async_test
-async def setup_neo4j_session(request):
+@mark_async_session_auto_fixture
+async def setup_neo4j_session(request, event_loop):
     """
     Provides initial connection to the database and sets up the rest of the test suite
 
@@ -46,9 +44,8 @@ async def setup_neo4j_session(request):
         await adb.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-@mark_async_test
-async def cleanup():
+@mark_async_session_auto_fixture
+async def cleanup(event_loop):
     yield
     await adb.close_connection()
 

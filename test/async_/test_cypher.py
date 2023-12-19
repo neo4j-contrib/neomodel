@@ -61,7 +61,7 @@ async def test_cypher():
 
 
 @mark_async_test
-async def test_cypher_syntax_error_async():
+async def test_cypher_syntax_error():
     jim = await User2(email="jim1@test.com").save()
     try:
         await jim.cypher(f"MATCH a WHERE {adb.get_id_method()}(a)={{self}} RETURN xx")
@@ -74,7 +74,7 @@ async def test_cypher_syntax_error_async():
 
 @mark_async_test
 @pytest.mark.parametrize("hide_available_pkg", ["pandas"], indirect=True)
-async def test_pandas_not_installed_async(hide_available_pkg):
+async def test_pandas_not_installed(hide_available_pkg):
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
@@ -86,7 +86,7 @@ async def test_pandas_not_installed_async(hide_available_pkg):
 
 
 @mark_async_test
-async def test_pandas_integration_async():
+async def test_pandas_integration():
     from neomodel.integration.pandas import to_dataframe, to_series
 
     jimla = await UserPandas(email="jimla@test.com", name="jimla").save()
@@ -126,7 +126,7 @@ async def test_pandas_integration_async():
 
 @mark_async_test
 @pytest.mark.parametrize("hide_available_pkg", ["numpy"], indirect=True)
-async def test_numpy_not_installed_async(hide_available_pkg):
+async def test_numpy_not_installed(hide_available_pkg):
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
@@ -138,7 +138,7 @@ async def test_numpy_not_installed_async(hide_available_pkg):
 
 
 @mark_async_test
-async def test_numpy_integration_async():
+async def test_numpy_integration():
     from neomodel.integration.numpy import to_ndarray
 
     jimly = await UserNP(email="jimly@test.com", name="jimly").save()

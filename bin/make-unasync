@@ -196,6 +196,7 @@ def apply_unasync(files):
         "_async": "_sync",
         "adb": "db",
         "mark_async_test": "mark_sync_test",
+        "mark_async_session_auto_fixture": "mark_sync_session_auto_fixture",
     }
     rules = [
         CustomRule(
