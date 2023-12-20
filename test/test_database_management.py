@@ -2,10 +2,10 @@ import pytest
 from neo4j.exceptions import AuthError
 
 from neomodel import (
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     IntegerProperty,
-    RelationshipTo,
     StringProperty,
 )
 from neomodel._async.core import adb
@@ -22,7 +22,7 @@ class InCity(AsyncStructuredRel):
 class Venue(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     creator = StringProperty(index=True)
-    in_city = RelationshipTo(City, relation_type="IN", model=InCity)
+    in_city = AsyncRelationshipTo(City, relation_type="IN", model=InCity)
 
 
 def test_clear_database():

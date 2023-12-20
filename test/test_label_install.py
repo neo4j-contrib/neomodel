@@ -1,9 +1,9 @@
 import pytest
 
 from neomodel import (
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
-    RelationshipTo,
     StringProperty,
     UniqueIdProperty,
     config,
@@ -31,7 +31,7 @@ class IndexedRelationship(AsyncStructuredRel):
 
 
 class OtherNodeWithRelationship(AsyncStructuredNode):
-    has_rel = RelationshipTo(
+    has_rel = AsyncRelationshipTo(
         NodeWithRelationship, "INDEXED_REL", model=IndexedRelationship
     )
 
@@ -105,7 +105,7 @@ def test_install_label_twice(capsys):
             unique_index_rel_prop = StringProperty(unique_index=True)
 
         class OtherNodeWithUniqueIndexRelationship(AsyncStructuredNode):
-            has_rel = RelationshipTo(
+            has_rel = AsyncRelationshipTo(
                 NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
             )
 
@@ -144,7 +144,7 @@ def test_relationship_unique_index_not_supported():
     ):
 
         class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
-            has_rel = RelationshipTo(
+            has_rel = AsyncRelationshipTo(
                 TargetNodeForUniqueIndexRelationship,
                 "UNIQUE_INDEX_REL",
                 model=UniqueIndexRelationship,
@@ -160,7 +160,7 @@ def test_relationship_unique_index():
         pass
 
     class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
-        has_rel = RelationshipTo(
+        has_rel = AsyncRelationshipTo(
             TargetNodeForUniqueIndexRelationship,
             "UNIQUE_INDEX_REL_BIS",
             model=UniqueIndexRelationshipBis,

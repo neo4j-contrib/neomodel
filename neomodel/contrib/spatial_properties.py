@@ -25,9 +25,9 @@ import neo4j.spatial
 
 # If shapely is not installed, its import will fail and the spatial properties will not be available
 try:
-    from shapely.geometry import Point as ShapelyPoint
     from shapely import __version__ as shapely_version
-    from shapely.coords import CoordinateSequence 
+    from shapely.coords import CoordinateSequence
+    from shapely.geometry import Point as ShapelyPoint 
 except ImportError as exc:
     raise ImportError(
         "NEOMODEL ERROR: Shapely not found. If required, you can install Shapely via "

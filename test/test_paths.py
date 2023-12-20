@@ -1,9 +1,9 @@
 from neomodel import (
     AsyncNeomodelPath,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     IntegerProperty,
-    RelationshipTo,
     StringProperty,
     UniqueIdProperty,
     adb,
@@ -24,7 +24,7 @@ class CountryOfOrigin(AsyncStructuredNode):
 
 class CityOfResidence(AsyncStructuredNode):
     name = StringProperty(required=True)
-    country = RelationshipTo(CountryOfOrigin, "FROM_COUNTRY")
+    country = AsyncRelationshipTo(CountryOfOrigin, "FROM_COUNTRY")
 
 
 class PersonOfInterest(AsyncStructuredNode):
@@ -32,8 +32,8 @@ class PersonOfInterest(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True, default=0)
 
-    country = RelationshipTo(CountryOfOrigin, "IS_FROM")
-    city = RelationshipTo(CityOfResidence, "LIVES_IN", model=PersonLivesInCity)
+    country = AsyncRelationshipTo(CountryOfOrigin, "IS_FROM")
+    city = AsyncRelationshipTo(CityOfResidence, "LIVES_IN", model=PersonLivesInCity)
 
 
 def test_path_instantiation():

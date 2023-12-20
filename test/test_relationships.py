@@ -2,13 +2,13 @@ from pytest import raises
 
 from neomodel import (
     AsyncOne,
+    AsyncRelationship,
+    AsyncRelationshipFrom,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     IntegerProperty,
     Q,
-    Relationship,
-    RelationshipFrom,
-    RelationshipTo,
     StringProperty,
 )
 from neomodel._async.core import adb
@@ -17,8 +17,8 @@ from neomodel._async.core import adb
 class PersonWithRels(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
-    is_from = RelationshipTo("Country", "IS_FROM")
-    knows = Relationship("PersonWithRels", "KNOWS")
+    is_from = AsyncRelationshipTo("Country", "IS_FROM")
+    knows = AsyncRelationship("PersonWithRels", "KNOWS")
 
     @property
     def special_name(self):
@@ -30,8 +30,8 @@ class PersonWithRels(AsyncStructuredNode):
 
 class Country(AsyncStructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
-    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=AsyncOne)
+    inhabitant = AsyncRelationshipFrom(PersonWithRels, "IS_FROM")
+    president = AsyncRelationshipTo(PersonWithRels, "PRESIDENT", cardinality=AsyncOne)
 
 
 class SuperHero(PersonWithRels):

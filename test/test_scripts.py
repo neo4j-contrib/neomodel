@@ -3,9 +3,9 @@ import subprocess
 import pytest
 
 from neomodel import (
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
-    RelationshipTo,
     StringProperty,
     config,
 )
@@ -22,7 +22,7 @@ class ScriptsTestRel(AsyncStructuredRel):
 class ScriptsTestNode(AsyncStructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
-    rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
+    rel = AsyncRelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
 
 
 def test_neomodel_install_labels():

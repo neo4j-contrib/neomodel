@@ -31,25 +31,25 @@ class SubClass2(Class1):
 
 
 class RelationshipDefinerSecondSibling(neomodel.AsyncStructuredNode):
-    rel_1 = neomodel.Relationship(
+    rel_1 = neomodel.AsyncRelationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=Class1
     )
-    rel_2 = neomodel.Relationship(
+    rel_2 = neomodel.AsyncRelationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=SubClass1
     )
-    rel_3 = neomodel.Relationship(
+    rel_3 = neomodel.AsyncRelationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=SubClass2
     )
 
 
 class RelationshipDefinerParentLast(neomodel.AsyncStructuredNode):
-    rel_2 = neomodel.Relationship(
+    rel_2 = neomodel.AsyncRelationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass1
     )
-    rel_3 = neomodel.Relationship(
+    rel_3 = neomodel.AsyncRelationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass2
     )
-    rel_1 = neomodel.Relationship(
+    rel_1 = neomodel.AsyncRelationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=Class1
     )
 

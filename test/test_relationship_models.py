@@ -4,12 +4,12 @@ import pytz
 from pytest import raises
 
 from neomodel import (
+    AsyncRelationship,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     DateTimeProperty,
     DeflateError,
-    Relationship,
-    RelationshipTo,
     StringProperty,
 )
 
@@ -32,13 +32,13 @@ class HatesRel(FriendRel):
 
 class Badger(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
-    friend = Relationship("Badger", "FRIEND", model=FriendRel)
-    hates = RelationshipTo("Stoat", "HATES", model=HatesRel)
+    friend = AsyncRelationship("Badger", "FRIEND", model=FriendRel)
+    hates = AsyncRelationshipTo("Stoat", "HATES", model=HatesRel)
 
 
 class Stoat(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
-    hates = RelationshipTo("Badger", "HATES", model=HatesRel)
+    hates = AsyncRelationshipTo("Badger", "HATES", model=HatesRel)
 
 
 def test_either_connect_with_rel_model():

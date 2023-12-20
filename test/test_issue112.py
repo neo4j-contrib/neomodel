@@ -1,8 +1,8 @@
-from neomodel import AsyncStructuredNode, RelationshipTo
+from neomodel import AsyncRelationshipTo, AsyncStructuredNode
 
 
 class SomeModel(AsyncStructuredNode):
-    test = RelationshipTo("SomeModel", "SELF")
+    test = AsyncRelationshipTo("SomeModel", "SELF")
 
 
 def test_len_relationship():

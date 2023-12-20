@@ -1,11 +1,11 @@
-from neomodel import AsyncStructuredNode, RelationshipTo, StringProperty
+from neomodel import AsyncRelationshipTo, AsyncStructuredNode, StringProperty
 from neomodel.test_relationships import Country
 
 
 class Cat(AsyncStructuredNode):
     name = StringProperty()
     # Relationship is defined using a relative class path
-    is_from = RelationshipTo(".test_relationships.Country", "IS_FROM")
+    is_from = AsyncRelationshipTo(".test_relationships.Country", "IS_FROM")
 
 
 def test_relative_relationship():

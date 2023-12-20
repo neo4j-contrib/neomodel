@@ -390,7 +390,7 @@ class AsyncRelationshipManager(object):
         return self._new_traversal().__getitem__(key)
 
 
-class RelationshipDefinition:
+class AsyncRelationshipDefinition:
     def __init__(
         self,
         relation_type,
@@ -503,7 +503,7 @@ class AsyncZeroOrMore(AsyncRelationshipManager):
     description = "zero or more relationships"
 
 
-class RelationshipTo(RelationshipDefinition):
+class AsyncRelationshipTo(AsyncRelationshipDefinition):
     def __init__(
         self,
         cls_name,
@@ -516,7 +516,7 @@ class RelationshipTo(RelationshipDefinition):
         )
 
 
-class RelationshipFrom(RelationshipDefinition):
+class AsyncRelationshipFrom(AsyncRelationshipDefinition):
     def __init__(
         self,
         cls_name,
@@ -529,7 +529,7 @@ class RelationshipFrom(RelationshipDefinition):
         )
 
 
-class Relationship(RelationshipDefinition):
+class AsyncRelationship(AsyncRelationshipDefinition):
     def __init__(
         self,
         cls_name,

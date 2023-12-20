@@ -1,10 +1,10 @@
 import pytest
 
 from neomodel import (
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     IntegerProperty,
-    RelationshipTo,
     StringProperty,
 )
 from neomodel._async.core import adb
@@ -20,7 +20,7 @@ class Released(AsyncStructuredRel):
 
 class Band(AsyncStructuredNode):
     name = StringProperty()
-    released = RelationshipTo(Album, relation_type="RELEASED", model=Released)
+    released = AsyncRelationshipTo(Album, relation_type="RELEASED", model=Released)
 
 
 def test_read_elements_id():

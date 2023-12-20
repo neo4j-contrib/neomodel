@@ -1,10 +1,10 @@
 from pytest import raises
 
 from neomodel import (
+    AsyncRelationshipFrom,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     IntegerProperty,
-    RelationshipFrom,
-    RelationshipTo,
     StringProperty,
     UniqueIdProperty,
     config,
@@ -99,12 +99,12 @@ def test_batch_index_violation():
 
 class Dog(AsyncStructuredNode):
     name = StringProperty(required=True)
-    owner = RelationshipTo("Person", "owner")
+    owner = AsyncRelationshipTo("Person", "owner")
 
 
 class Person(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
-    pets = RelationshipFrom("Dog", "owner")
+    pets = AsyncRelationshipFrom("Dog", "owner")
 
 
 def test_get_or_create_with_rel():

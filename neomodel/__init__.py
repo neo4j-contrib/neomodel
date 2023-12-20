@@ -20,19 +20,24 @@ from neomodel._async.match import AsyncNodeSet, AsyncTraversal
 from neomodel._async.path import AsyncNeomodelPath
 from neomodel._async.relationship import AsyncStructuredRel
 from neomodel._async.relationship_manager import (
+    AsyncRelationship,
+    AsyncRelationshipDefinition,
+    AsyncRelationshipFrom,
     AsyncRelationshipManager,
-    NotConnected,
-    Relationship,
-    RelationshipDefinition,
-    RelationshipFrom,
-    RelationshipTo,
+    AsyncRelationshipTo,
 )
 from neomodel._sync.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
 from neomodel._sync.core import StructuredNode
 from neomodel._sync.match import NodeSet, Traversal
 from neomodel._sync.path import NeomodelPath
 from neomodel._sync.relationship import StructuredRel
-from neomodel._sync.relationship_manager import RelationshipManager
+from neomodel._sync.relationship_manager import (
+    Relationship,
+    RelationshipDefinition,
+    RelationshipFrom,
+    RelationshipManager,
+    RelationshipTo,
+)
 from neomodel.exceptions import *
 from neomodel.match_q import Q  # noqa
 from neomodel.properties import (

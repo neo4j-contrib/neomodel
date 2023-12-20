@@ -253,7 +253,9 @@ class Database(local):
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: Transaction = self._session.begin_transaction()
+        self._active_transaction: Transaction = (
+            self._session.begin_transaction()
+        )
 
     @ensure_connection
     def commit(self):
@@ -342,9 +344,9 @@ class Database(local):
             return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
 
         if isinstance(object_to_resolve, Path):
-            from neomodel._async.path import AsyncNeomodelPath
+            from neomodel._sync.path import NeomodelPath
 
-            return AsyncNeomodelPath(object_to_resolve)
+            return NeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
             return self._result_resolution([object_to_resolve])
@@ -833,7 +835,9 @@ def change_neo4j_password(db: Database, user, new_password):
     db.change_neo4j_password(user, new_password)
 
 
-def clear_neo4j_database(db: Database, clear_constraints=False, clear_indexes=False):
+def clear_neo4j_database(
+    db: Database, clear_constraints=False, clear_indexes=False
+):
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1111,9 +1115,9 @@ class StructuredNode(NodeBase):
         :return: NodeSet
         :rtype: NodeSet
         """
-        from neomodel._async.match import AsyncNodeSet
+        from neomodel._sync.match import NodeSet
 
-        return AsyncNodeSet(cls)
+        return NodeSet(cls)
 
     @property
     def element_id(self):
@@ -1174,7 +1178,7 @@ class StructuredNode(NodeBase):
                     "No relation_type is specified on provided relationship"
                 )
 
-            from neomodel._async.match import _rel_helper
+            from neomodel._sync.match import _rel_helper
 
             query_params["source_id"] = relationship.source.element_id
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "

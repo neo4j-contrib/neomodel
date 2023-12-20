@@ -4,13 +4,13 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
+    AsyncRelationshipFrom,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
     DateTimeProperty,
     IntegerProperty,
     Q,
-    RelationshipFrom,
-    RelationshipTo,
     StringProperty,
 )
 from neomodel._async.match import (
@@ -30,24 +30,26 @@ class SupplierRel(AsyncStructuredRel):
 class Supplier(AsyncStructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS")
 
 
 class Species(AsyncStructuredNode):
     name = StringProperty()
-    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=AsyncStructuredRel)
+    coffees = AsyncRelationshipFrom(
+        "Coffee", "COFFEE SPECIES", model=AsyncStructuredRel
+    )
 
 
 class Coffee(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
-    suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
-    species = RelationshipTo(Species, "COFFEE SPECIES", model=AsyncStructuredRel)
+    suppliers = AsyncRelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
+    species = AsyncRelationshipTo(Species, "COFFEE SPECIES", model=AsyncStructuredRel)
     id_ = IntegerProperty()
 
 
 class Extension(AsyncStructuredNode):
-    extension = RelationshipTo("Extension", "extension")
+    extension = AsyncRelationshipTo("Extension", "extension")
 
 
 def test_filter_exclude_via_labels():

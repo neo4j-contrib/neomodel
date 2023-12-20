@@ -42,7 +42,7 @@ class BasePerson(neomodel.AsyncStructuredNode):
     """
 
     name = neomodel.StringProperty(required=True, unique_index=True)
-    friends_with = neomodel.RelationshipTo(
+    friends_with = neomodel.AsyncRelationshipTo(
         "BasePerson", "FRIENDS_WITH", model=PersonalRelationship
     )
 
@@ -374,7 +374,7 @@ def test_properly_inherited_relationship():
 
     # Extends SomePerson, establishes "enriched" relationships with any BaseOtherPerson
     class ExtendedSomePerson(SomePerson):
-        friends_with = neomodel.RelationshipTo(
+        friends_with = neomodel.AsyncRelationshipTo(
             "BaseOtherPerson",
             "FRIENDS_WITH",
             model=ExtendedPersonalRelationship,
@@ -412,7 +412,7 @@ def test_improperly_inherited_relationship():
     ):
 
         class NewSomePerson(SomePerson):
-            friends_with = neomodel.RelationshipTo(
+            friends_with = neomodel.AsyncRelationshipTo(
                 "BaseOtherPerson", "FRIENDS_WITH", model=NewRelationship
             )
 
