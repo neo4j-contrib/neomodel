@@ -2,10 +2,10 @@ import pytest
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     IntegerProperty,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
 )
 from neomodel._async.core import adb
 
@@ -14,7 +14,7 @@ class Album(AsyncStructuredNode):
     name = StringProperty()
 
 
-class Released(StructuredRel):
+class Released(AsyncStructuredRel):
     year = IntegerProperty()
 
 

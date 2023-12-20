@@ -6,10 +6,10 @@ from pytest import raises
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     DateProperty,
     IntegerProperty,
     StringProperty,
-    StructuredRel,
 )
 from neomodel._async.core import adb
 from neomodel.exceptions import RequiredProperty, UniqueProperty
@@ -325,21 +325,21 @@ def test_reserved_property_keys():
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesIdRel(StructuredRel):
+        class ReservedPropertiesIdRel(AsyncStructuredRel):
             id = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesElementIdRel(StructuredRel):
+        class ReservedPropertiesElementIdRel(AsyncStructuredRel):
             element_id = StringProperty()
 
     error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesSourceRel(StructuredRel):
+        class ReservedPropertiesSourceRel(AsyncStructuredRel):
             source = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesTargetRel(StructuredRel):
+        class ReservedPropertiesTargetRel(AsyncStructuredRel):
             target = StringProperty()

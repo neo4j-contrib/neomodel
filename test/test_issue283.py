@@ -25,7 +25,7 @@ except NameError:
 
 
 # Set up a very simple model for the tests
-class PersonalRelationship(neomodel.StructuredRel):
+class PersonalRelationship(neomodel.AsyncStructuredRel):
     """
     A very simple relationship between two basePersons that simply records
     the date at which an acquaintance was established.
@@ -403,7 +403,7 @@ def test_improperly_inherited_relationship():
     :return:
     """
 
-    class NewRelationship(neomodel.StructuredRel):
+    class NewRelationship(neomodel.AsyncStructuredRel):
         profile_match_factor = neomodel.FloatProperty()
 
     with pytest.raises(

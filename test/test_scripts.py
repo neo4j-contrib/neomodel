@@ -4,15 +4,15 @@ import pytest
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
     config,
 )
 from neomodel._async.core import adb
 
 
-class ScriptsTestRel(StructuredRel):
+class ScriptsTestRel(AsyncStructuredRel):
     some_unique_property = StringProperty(
         unique_index=adb.version_is_higher_than("5.7")
     )

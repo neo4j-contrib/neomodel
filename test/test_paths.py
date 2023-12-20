@@ -1,16 +1,16 @@
 from neomodel import (
+    AsyncNeomodelPath,
     AsyncStructuredNode,
+    AsyncStructuredRel,
     IntegerProperty,
-    NeomodelPath,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
     UniqueIdProperty,
     adb,
 )
 
 
-class PersonLivesInCity(StructuredRel):
+class PersonLivesInCity(AsyncStructuredRel):
     """
     Relationship with data that will be instantiated as "stand-alone"
     """
@@ -75,13 +75,13 @@ def test_path_instantiation():
     path_nodes = path_object.nodes
     path_rels = path_object.relationships
 
-    assert type(path_object) is NeomodelPath
+    assert type(path_object) is AsyncNeomodelPath
     assert type(path_nodes[0]) is CityOfResidence
     assert type(path_nodes[1]) is PersonOfInterest
     assert type(path_nodes[2]) is CountryOfOrigin
 
     assert type(path_rels[0]) is PersonLivesInCity
-    assert type(path_rels[1]) is StructuredRel
+    assert type(path_rels[1]) is AsyncStructuredRel
 
     c1.delete()
     c2.delete()

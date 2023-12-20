@@ -3,10 +3,10 @@ from neo4j.exceptions import AuthError
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     IntegerProperty,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
 )
 from neomodel._async.core import adb
 
@@ -15,7 +15,7 @@ class City(AsyncStructuredNode):
     name = StringProperty()
 
 
-class InCity(StructuredRel):
+class InCity(AsyncStructuredRel):
     creation_year = IntegerProperty(index=True)
 
 

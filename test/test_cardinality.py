@@ -1,16 +1,16 @@
 from pytest import raises
 
 from neomodel import (
+    AsyncOne,
+    AsyncOneOrMore,
     AsyncStructuredNode,
+    AsyncZeroOrOne,
     AttemptedCardinalityViolation,
     CardinalityViolation,
     IntegerProperty,
-    One,
-    OneOrMore,
     RelationshipTo,
     StringProperty,
     ZeroOrMore,
-    ZeroOrOne,
     adb,
 )
 
@@ -30,9 +30,11 @@ class Car(AsyncStructuredNode):
 class Monkey(AsyncStructuredNode):
     name = StringProperty()
     dryers = RelationshipTo("HairDryer", "OWNS_DRYER", cardinality=ZeroOrMore)
-    driver = RelationshipTo("ScrewDriver", "HAS_SCREWDRIVER", cardinality=ZeroOrOne)
-    car = RelationshipTo("Car", "HAS_CAR", cardinality=OneOrMore)
-    toothbrush = RelationshipTo("ToothBrush", "HAS_TOOTHBRUSH", cardinality=One)
+    driver = RelationshipTo(
+        "ScrewDriver", "HAS_SCREWDRIVER", cardinality=AsyncZeroOrOne
+    )
+    car = RelationshipTo("Car", "HAS_CAR", cardinality=AsyncOneOrMore)
+    toothbrush = RelationshipTo("ToothBrush", "HAS_TOOTHBRUSH", cardinality=AsyncOne)
 
 
 class ToothBrush(AsyncStructuredNode):

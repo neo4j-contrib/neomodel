@@ -5,19 +5,24 @@ from pytest import raises
 from neomodel import (
     INCOMING,
     AsyncStructuredNode,
+    AsyncStructuredRel,
     DateTimeProperty,
     IntegerProperty,
     Q,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
+)
+from neomodel._async.match import (
+    AsyncNodeSet,
+    AsyncQueryBuilder,
+    AsyncTraversal,
+    Optional,
 )
 from neomodel.exceptions import MultipleNodesReturned
-from neomodel.match import NodeSet, Optional, QueryBuilder, Traversal
 
 
-class SupplierRel(StructuredRel):
+class SupplierRel(AsyncStructuredRel):
     since = DateTimeProperty(default=datetime.now)
     courier = StringProperty()
 
@@ -30,14 +35,14 @@ class Supplier(AsyncStructuredNode):
 
 class Species(AsyncStructuredNode):
     name = StringProperty()
-    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
+    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=AsyncStructuredRel)
 
 
 class Coffee(AsyncStructuredNode):
     name = StringProperty(unique_index=True)
     price = IntegerProperty()
     suppliers = RelationshipFrom(Supplier, "COFFEE SUPPLIERS", model=SupplierRel)
-    species = RelationshipTo(Species, "COFFEE SPECIES", model=StructuredRel)
+    species = RelationshipTo(Species, "COFFEE SPECIES", model=AsyncStructuredRel)
     id_ = IntegerProperty()
 
 
@@ -48,8 +53,8 @@ class Extension(AsyncStructuredNode):
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
 
-    node_set = NodeSet(Coffee)
-    qb = QueryBuilder(node_set).build_ast()
+    node_set = AsyncNodeSet(Coffee)
+    qb = AsyncQueryBuilder(node_set).build_ast()
 
     results = qb._execute()
 
@@ -62,7 +67,7 @@ def test_filter_exclude_via_labels():
     # with filter and exclude
     Coffee(name="Kenco", price=3).save()
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name="Java")
-    qb = QueryBuilder(node_set).build_ast()
+    qb = AsyncQueryBuilder(node_set).build_ast()
 
     results = qb._execute()
     assert "(coffee:Coffee)" in qb._ast.match
@@ -76,16 +81,16 @@ def test_simple_has_via_label():
     tesco = Supplier(name="Tesco", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
-    ns = NodeSet(Coffee).has(suppliers=True)
-    qb = QueryBuilder(ns).build_ast()
+    ns = AsyncNodeSet(Coffee).has(suppliers=True)
+    qb = AsyncQueryBuilder(ns).build_ast()
     results = qb._execute()
     assert "COFFEE SUPPLIERS" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Nescafe"
 
     Coffee(name="nespresso", price=99).save()
-    ns = NodeSet(Coffee).has(suppliers=False)
-    qb = QueryBuilder(ns).build_ast()
+    ns = AsyncNodeSet(Coffee).has(suppliers=False)
+    qb = AsyncQueryBuilder(ns).build_ast()
     results = qb._execute()
     assert len(results) > 0
     assert "NOT" in qb._ast.where[0]
@@ -109,7 +114,9 @@ def test_simple_traverse_with_filter():
     tesco = Supplier(name="Sainsburys", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
-    qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
+    qb = AsyncQueryBuilder(
+        AsyncNodeSet(source=nescafe).suppliers.match(since__lt=datetime.now())
+    )
 
     results = qb.build_ast()._execute()
 
@@ -126,8 +133,8 @@ def test_double_traverse():
     nescafe.suppliers.connect(tesco)
     tesco.coffees.connect(Coffee(name="Decafe", price=2).save())
 
-    ns = NodeSet(NodeSet(source=nescafe).suppliers.match()).coffees.match()
-    qb = QueryBuilder(ns).build_ast()
+    ns = AsyncNodeSet(AsyncNodeSet(source=nescafe).suppliers.match()).coffees.match()
+    qb = AsyncQueryBuilder(ns).build_ast()
 
     results = qb._execute()
     assert len(results) == 2
@@ -137,14 +144,14 @@ def test_double_traverse():
 
 def test_count():
     Coffee(name="Nescafe Gold", price=99).save()
-    count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
+    count = AsyncQueryBuilder(AsyncNodeSet(source=Coffee)).build_ast()._count()
     assert count > 0
 
     Coffee(name="Kawa", price=27).save()
-    node_set = NodeSet(source=Coffee)
+    node_set = AsyncNodeSet(source=Coffee)
     node_set.skip = 1
     node_set.limit = 1
-    count = QueryBuilder(node_set).build_ast()._count()
+    count = AsyncQueryBuilder(node_set).build_ast()._count()
     assert count == 1
 
 
@@ -226,13 +233,13 @@ def test_order_by():
     assert Coffee.nodes.order_by("-price").all()[0].price == 35
 
     ns = Coffee.nodes.order_by("-price")
-    qb = QueryBuilder(ns).build_ast()
+    qb = AsyncQueryBuilder(ns).build_ast()
     assert qb._ast.order_by
     ns = ns.order_by(None)
-    qb = QueryBuilder(ns).build_ast()
+    qb = AsyncQueryBuilder(ns).build_ast()
     assert not qb._ast.order_by
     ns = ns.order_by("?")
-    qb = QueryBuilder(ns).build_ast()
+    qb = AsyncQueryBuilder(ns).build_ast()
     assert qb._ast.with_clause == "coffee, rand() as r"
     assert qb._ast.order_by == "r"
 
@@ -294,7 +301,7 @@ def test_traversal_definition_keys_are_valid():
     muckefuck = Coffee(name="Mukkefuck", price=1)
 
     with raises(ValueError):
-        Traversal(
+        AsyncTraversal(
             muckefuck,
             "a_name",
             {
@@ -305,7 +312,7 @@ def test_traversal_definition_keys_are_valid():
             },
         )
 
-    Traversal(
+    AsyncTraversal(
         muckefuck,
         "a_name",
         {
@@ -456,7 +463,9 @@ def test_traversal_filter_left_hand_statement():
     nescafe_gold.suppliers.connect(lidl)
 
     lidl_supplier = (
-        NodeSet(Coffee.nodes.filter(price=11).suppliers).filter(delivery_cost=3).all()
+        AsyncNodeSet(Coffee.nodes.filter(price=11).suppliers)
+        .filter(delivery_cost=3)
+        .all()
     )
 
     assert lidl in lidl_supplier

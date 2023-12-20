@@ -1,5 +1,7 @@
 import warnings
 
+OUTGOING, INCOMING, EITHER = 1, -1, 0
+
 
 def deprecated(message):
     # pylint:disable=invalid-name

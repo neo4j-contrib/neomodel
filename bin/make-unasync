@@ -64,15 +64,10 @@ def _tokenize(f):
         last_end = tok.end
         if tok.type in [std_tokenize.NEWLINE, std_tokenize.NL]:
             last_end = (tok.end[0] + 1, 0)
-        elif (
-            sys.version_info >= (3, 12)
-            and tok.type == std_tokenize.FSTRING_MIDDLE
-        ):
+        elif sys.version_info >= (3, 12) and tok.type == std_tokenize.FSTRING_MIDDLE:
             last_end = (
                 last_end[0],
-                last_end[1]
-                + tok.string.count("{")
-                + tok.string.count("}")
+                last_end[1] + tok.string.count("{") + tok.string.count("}"),
             )
 
 
@@ -207,7 +202,7 @@ class CustomRule(unasync.Rule):
 def apply_unasync(files):
     """Generate sync code from async code."""
 
-    additional_main_replacements = {"adb": "db"}
+    additional_main_replacements = {"adb": "db", "_async": "_sync"}
     additional_test_replacements = {
         "_async": "_sync",
         "adb": "db",

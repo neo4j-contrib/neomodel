@@ -18,7 +18,7 @@ except NameError:
     basestring = str
 
 
-class Class1(neomodel.StructuredRel):
+class Class1(neomodel.AsyncStructuredRel):
     pass
 
 

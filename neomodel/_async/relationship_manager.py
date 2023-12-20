@@ -4,18 +4,21 @@ import sys
 from importlib import import_module
 
 from neomodel._async.core import adb
-from neomodel.exceptions import NotConnected, RelationshipClassRedefined
-from neomodel.match import (
-    EITHER,
-    INCOMING,
-    OUTGOING,
-    NodeSet,
-    Traversal,
+from neomodel._async.match import (
+    AsyncNodeSet,
+    AsyncTraversal,
     _rel_helper,
     _rel_merge_helper,
 )
-from neomodel.relationship import StructuredRel
-from neomodel.util import _get_node_properties, enumerate_traceback
+from neomodel._async.relationship import AsyncStructuredRel
+from neomodel.exceptions import NotConnected, RelationshipClassRedefined
+from neomodel.util import (
+    EITHER,
+    INCOMING,
+    OUTGOING,
+    _get_node_properties,
+    enumerate_traceback,
+)
 
 # basestring python 3.x fallback
 try:
@@ -44,7 +47,7 @@ def is_direct_subclass(obj, classinfo):
     return False
 
 
-class RelationshipManager(object):
+class AsyncRelationshipManager(object):
     """
     Base class for all relationships managed through neomodel.
 
@@ -76,7 +79,7 @@ class RelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    def connect(self, node, properties=None):
+    async def connect(self, node, properties=None):
         """
         Connect a node
 
@@ -127,10 +130,10 @@ class RelationshipManager(object):
         params["them"] = node.element_id
 
         if not rel_model:
-            self.source.cypher(q, params)
+            await self.source.cypher(q, params)
             return True
 
-        rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
+        rel_ = await self.source.cypher(q + " RETURN r", params)[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), node)
 
         if hasattr(rel_instance, "post_save"):
@@ -139,7 +142,7 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
-    def replace(self, node, properties=None):
+    async def replace(self, node, properties=None):
         """
         Disconnect all existing nodes and connect the supplied node
 
@@ -148,11 +151,11 @@ class RelationshipManager(object):
         :type: dict
         :return:
         """
-        self.disconnect_all()
-        self.connect(node, properties)
+        await self.disconnect_all()
+        await self.connect(node, properties)
 
     @check_source
-    def relationship(self, node):
+    async def relationship(self, node):
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -166,16 +169,16 @@ class RelationshipManager(object):
             + my_rel
             + f" WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        rels = self.source.cypher(q, {"them": node.element_id})[0]
+        rels = await self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
             return
 
-        rel_model = self.definition.get("model") or StructuredRel
+        rel_model = self.definition.get("model") or AsyncStructuredRel
 
         return self._set_start_end_cls(rel_model.inflate(rels[0][0]), node)
 
     @check_source
-    def all_relationships(self, node):
+    async def all_relationships(self, node):
         """
         Retrieve all relationship objects between self and node.
 
@@ -186,11 +189,11 @@ class RelationshipManager(object):
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
         q = f"MATCH {my_rel} WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r "
-        rels = self.source.cypher(q, {"them": node.element_id})[0]
+        rels = await self.source.cypher(q, {"them": node.element_id})[0]
         if not rels:
             return []
 
-        rel_model = self.definition.get("model") or StructuredRel
+        rel_model = self.definition.get("model") or AsyncStructuredRel
         return [
             self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels
         ]
@@ -205,7 +208,7 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
-    def reconnect(self, old_node, new_node):
+    async def reconnect(self, old_node, new_node):
         """
         Disconnect old_node and connect new_node copying over any properties on the original relationship.
 
@@ -223,7 +226,7 @@ class RelationshipManager(object):
         old_rel = _rel_helper(lhs="us", rhs="old", ident="r", **self.definition)
 
         # get list of properties on the existing rel
-        result, _ = self.source.cypher(
+        result, _ = await self.source.cypher(
             f"""
                 MATCH (us), (old) WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(old)=$old
                 MATCH {old_rel} RETURN r
@@ -249,10 +252,12 @@ class RelationshipManager(object):
         q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
         q += " WITH r DELETE r"
 
-        self.source.cypher(q, {"old": old_node.element_id, "new": new_node.element_id})
+        await self.source.cypher(
+            q, {"old": old_node.element_id, "new": new_node.element_id}
+        )
 
     @check_source
-    def disconnect(self, node):
+    async def disconnect(self, node):
         """
         Disconnect a node
 
@@ -264,10 +269,10 @@ class RelationshipManager(object):
                 MATCH (a), (b) WHERE {adb.get_id_method()}(a)=$self and {adb.get_id_method()}(b)=$them
                 MATCH {rel} DELETE r
             """
-        self.source.cypher(q, {"them": node.element_id})
+        await self.source.cypher(q, {"them": node.element_id})
 
     @check_source
-    def disconnect_all(self):
+    async def disconnect_all(self):
         """
         Disconnect all nodes
 
@@ -276,11 +281,11 @@ class RelationshipManager(object):
         rhs = "b:" + self.definition["node_class"].__label__
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
         q = f"MATCH (a) WHERE {adb.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
-        self.source.cypher(q)
+        await self.source.cypher(q)
 
     @check_source
     def _new_traversal(self):
-        return Traversal(self.source, self.name, self.definition)
+        return AsyncTraversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
     def get(self, **kwargs):
@@ -290,7 +295,7 @@ class RelationshipManager(object):
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return NodeSet(self._new_traversal()).get(**kwargs)
+        return AsyncNodeSet(self._new_traversal()).get(**kwargs)
 
     def get_or_none(self, **kwargs):
         """
@@ -299,7 +304,7 @@ class RelationshipManager(object):
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return NodeSet(self._new_traversal()).get_or_none(**kwargs)
+        return AsyncNodeSet(self._new_traversal()).get_or_none(**kwargs)
 
     def filter(self, *args, **kwargs):
         """
@@ -309,7 +314,7 @@ class RelationshipManager(object):
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).filter(*args, **kwargs)
+        return AsyncNodeSet(self._new_traversal()).filter(*args, **kwargs)
 
     def order_by(self, *props):
         """
@@ -318,7 +323,7 @@ class RelationshipManager(object):
         :param props:
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).order_by(*props)
+        return AsyncNodeSet(self._new_traversal()).order_by(*props)
 
     def exclude(self, *args, **kwargs):
         """
@@ -328,7 +333,7 @@ class RelationshipManager(object):
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
         """
-        return NodeSet(self._new_traversal()).exclude(*args, **kwargs)
+        return AsyncNodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
     def is_connected(self, node):
         """
@@ -391,7 +396,7 @@ class RelationshipDefinition:
         relation_type,
         cls_name,
         direction,
-        manager=RelationshipManager,
+        manager=AsyncRelationshipManager,
         model=None,
     ):
         self._validate_class(cls_name, model)
@@ -431,7 +436,7 @@ class RelationshipDefinition:
                 model_from_registry = adb._NODE_CLASS_REGISTRY[label_set]
                 if not issubclass(model, model_from_registry):
                     is_parent = issubclass(model_from_registry, model)
-                    if is_direct_subclass(model, StructuredRel) and not is_parent:
+                    if is_direct_subclass(model, AsyncStructuredRel) and not is_parent:
                         raise RelationshipClassRedefined(
                             relation_type, adb._NODE_CLASS_REGISTRY, model
                         )
@@ -445,7 +450,7 @@ class RelationshipDefinition:
         if not isinstance(cls_name, (basestring, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
-        if model and not issubclass(model, (StructuredRel,)):
+        if model and not issubclass(model, (AsyncStructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
     def lookup_node_class(self):
@@ -490,7 +495,7 @@ class RelationshipDefinition:
         return self.manager(source, name, self.definition)
 
 
-class ZeroOrMore(RelationshipManager):
+class AsyncZeroOrMore(AsyncRelationshipManager):
     """
     A relationship of zero or more nodes (the default)
     """
@@ -503,7 +508,7 @@ class RelationshipTo(RelationshipDefinition):
         self,
         cls_name,
         relation_type,
-        cardinality=ZeroOrMore,
+        cardinality=AsyncZeroOrMore,
         model=None,
     ):
         super().__init__(
@@ -516,7 +521,7 @@ class RelationshipFrom(RelationshipDefinition):
         self,
         cls_name,
         relation_type,
-        cardinality=ZeroOrMore,
+        cardinality=AsyncZeroOrMore,
         model=None,
     ):
         super().__init__(
@@ -529,7 +534,7 @@ class Relationship(RelationshipDefinition):
         self,
         cls_name,
         relation_type,
-        cardinality=ZeroOrMore,
+        cardinality=AsyncZeroOrMore,
         model=None,
     ):
         super().__init__(

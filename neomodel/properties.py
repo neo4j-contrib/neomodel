@@ -67,7 +67,7 @@ class PropertyManager:
 
     @property
     def __properties__(self):
-        from neomodel.relationship_manager import RelationshipManager
+        from neomodel._async.relationship_manager import AsyncRelationshipManager
 
         return dict(
             (name, value)
@@ -77,7 +77,7 @@ class PropertyManager:
             and not isinstance(
                 value,
                 (
-                    RelationshipManager,
+                    AsyncRelationshipManager,
                     AliasProperty,
                 ),
             )
@@ -101,7 +101,7 @@ class PropertyManager:
 
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):
-        from neomodel.relationship_manager import RelationshipDefinition
+        from neomodel._async.relationship_manager import RelationshipDefinition
 
         props = {}
         for baseclass in reversed(cls.__mro__):

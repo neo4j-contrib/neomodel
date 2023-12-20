@@ -2,9 +2,9 @@ import pytest
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
     UniqueIdProperty,
     config,
 )
@@ -26,7 +26,7 @@ class NodeWithRelationship(AsyncStructuredNode):
     ...
 
 
-class IndexedRelationship(StructuredRel):
+class IndexedRelationship(AsyncStructuredRel):
     indexed_rel_prop = StringProperty(index=True)
 
 
@@ -101,7 +101,7 @@ def test_install_label_twice(capsys):
 
     if adb.version_is_higher_than("5.7"):
 
-        class UniqueIndexRelationship(StructuredRel):
+        class UniqueIndexRelationship(AsyncStructuredRel):
             unique_index_rel_prop = StringProperty(unique_index=True)
 
         class OtherNodeWithUniqueIndexRelationship(AsyncStructuredNode):
@@ -133,7 +133,7 @@ def test_install_labels_db_property(capsys):
     adb.version_is_higher_than("5.7"), reason="Not supported before 5.7"
 )
 def test_relationship_unique_index_not_supported():
-    class UniqueIndexRelationship(StructuredRel):
+    class UniqueIndexRelationship(AsyncStructuredRel):
         name = StringProperty(unique_index=True)
 
     class TargetNodeForUniqueIndexRelationship(AsyncStructuredNode):
@@ -153,7 +153,7 @@ def test_relationship_unique_index_not_supported():
 
 @pytest.mark.skipif(not adb.version_is_higher_than("5.7"), reason="Supported from 5.7")
 def test_relationship_unique_index():
-    class UniqueIndexRelationshipBis(StructuredRel):
+    class UniqueIndexRelationshipBis(AsyncStructuredRel):
         name = StringProperty(unique_index=True)
 
     class TargetNodeForUniqueIndexRelationship(AsyncStructuredNode):

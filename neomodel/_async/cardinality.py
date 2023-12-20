@@ -1,11 +1,11 @@
-from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
-from neomodel.relationship_manager import (  # pylint:disable=unused-import
-    RelationshipManager,
-    ZeroOrMore,
+from neomodel._async.relationship_manager import (  # pylint:disable=unused-import
+    AsyncRelationshipManager,
+    AsyncZeroOrMore,
 )
+from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 
 
-class ZeroOrOne(RelationshipManager):
+class AsyncZeroOrOne(AsyncRelationshipManager):
     """A relationship to zero or one node."""
 
     description = "zero or one relationship"
@@ -27,7 +27,7 @@ class ZeroOrOne(RelationshipManager):
         node = self.single()
         return [node] if node else []
 
-    def connect(self, node, properties=None):
+    async def connect(self, node, properties=None):
         """
         Connect to a node.
 
@@ -41,10 +41,10 @@ class ZeroOrOne(RelationshipManager):
             raise AttemptedCardinalityViolation(
                 f"Node already has {self} can't connect more"
             )
-        return super().connect(node, properties)
+        return await super().connect(node, properties)
 
 
-class OneOrMore(RelationshipManager):
+class AsyncOneOrMore(AsyncRelationshipManager):
     """A relationship to zero or more nodes."""
 
     description = "one or more relationships"
@@ -71,7 +71,7 @@ class OneOrMore(RelationshipManager):
             return nodes
         raise CardinalityViolation(self, "none")
 
-    def disconnect(self, node):
+    async def disconnect(self, node):
         """
         Disconnect node
         :param node:
@@ -79,10 +79,10 @@ class OneOrMore(RelationshipManager):
         """
         if super().__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
-        return super().disconnect(node)
+        return await super().disconnect(node)
 
 
-class One(RelationshipManager):
+class AsyncOne(AsyncRelationshipManager):
     """
     A relationship to a single node
     """
@@ -110,17 +110,17 @@ class One(RelationshipManager):
         """
         return [self.single()]
 
-    def disconnect(self, node):
+    async def disconnect(self, node):
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect use reconnect."
         )
 
-    def disconnect_all(self):
+    async def disconnect_all(self):
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect_all use reconnect."
         )
 
-    def connect(self, node, properties=None):
+    async def connect(self, node, properties=None):
         """
         Connect a node
 
@@ -132,4 +132,4 @@ class One(RelationshipManager):
             raise ValueError("Node has not been saved cannot connect!")
         if len(self):
             raise AttemptedCardinalityViolation("Node already has one relationship")
-        return super().connect(node, properties)
+        return await super().connect(node, properties)

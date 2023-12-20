@@ -344,9 +344,9 @@ class AsyncDatabase(local):
             return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
 
         if isinstance(object_to_resolve, Path):
-            from neomodel.path import NeomodelPath
+            from neomodel._async.path import AsyncNeomodelPath
 
-            return NeomodelPath(object_to_resolve)
+            return AsyncNeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
             return self._result_resolution([object_to_resolve])
@@ -1115,9 +1115,9 @@ class AsyncStructuredNode(NodeBase):
         :return: NodeSet
         :rtype: NodeSet
         """
-        from neomodel.match import NodeSet
+        from neomodel._async.match import AsyncNodeSet
 
-        return NodeSet(cls)
+        return AsyncNodeSet(cls)
 
     @property
     def element_id(self):
@@ -1178,7 +1178,7 @@ class AsyncStructuredNode(NodeBase):
                     "No relation_type is specified on provided relationship"
                 )
 
-            from neomodel.match import _rel_helper
+            from neomodel._async.match import _rel_helper
 
             query_params["source_id"] = relationship.source.element_id
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {adb.get_id_method()}(source) = $source_id\n "

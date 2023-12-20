@@ -1,15 +1,15 @@
 from pytest import raises
 
 from neomodel import (
+    AsyncOne,
     AsyncStructuredNode,
+    AsyncStructuredRel,
     IntegerProperty,
-    One,
     Q,
     Relationship,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
 )
 from neomodel._async.core import adb
 
@@ -31,7 +31,7 @@ class PersonWithRels(AsyncStructuredNode):
 class Country(AsyncStructuredNode):
     code = StringProperty(unique_index=True)
     inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
-    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)
+    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=AsyncOne)
 
 
 class SuperHero(PersonWithRels):
@@ -99,10 +99,10 @@ def test_either_direction_connect():
     assert int(result[0][0]) == 1
 
     rel = rey.knows.relationship(sakis)
-    assert isinstance(rel, StructuredRel)
+    assert isinstance(rel, AsyncStructuredRel)
 
     rels = rey.knows.all_relationships(sakis)
-    assert isinstance(rels[0], StructuredRel)
+    assert isinstance(rels[0], AsyncStructuredRel)
 
 
 def test_search_and_filter_and_exclude():

@@ -5,18 +5,18 @@ from pytest import raises
 
 from neomodel import (
     AsyncStructuredNode,
+    AsyncStructuredRel,
     DateTimeProperty,
     DeflateError,
     Relationship,
     RelationshipTo,
     StringProperty,
-    StructuredRel,
 )
 
 HOOKS_CALLED = {"pre_save": 0, "post_save": 0}
 
 
-class FriendRel(StructuredRel):
+class FriendRel(AsyncStructuredRel):
     since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
 
 
