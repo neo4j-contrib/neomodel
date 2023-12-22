@@ -1,4 +1,4 @@
-from neomodel._async.core import adb
+from neomodel.sync_.core import db
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
 
@@ -38,7 +38,7 @@ class RelationshipMeta(type):
 StructuredRelBase = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
 
 
-class AsyncStructuredRel(StructuredRelBase):
+class StructuredRel(StructuredRelBase):
     """
     Base class for relationship objects
     """
@@ -50,7 +50,7 @@ class AsyncStructuredRel(StructuredRelBase):
     def element_id(self):
         return (
             int(self.element_id_property)
-            if adb.database_version.startswith("4")
+            if db.database_version.startswith("4")
             else self.element_id_property
         )
 
@@ -58,7 +58,7 @@ class AsyncStructuredRel(StructuredRelBase):
     def _start_node_element_id(self):
         return (
             int(self._start_node_element_id_property)
-            if adb.database_version.startswith("4")
+            if db.database_version.startswith("4")
             else self._start_node_element_id_property
         )
 
@@ -66,7 +66,7 @@ class AsyncStructuredRel(StructuredRelBase):
     def _end_node_element_id(self):
         return (
             int(self._end_node_element_id_property)
-            if adb.database_version.startswith("4")
+            if db.database_version.startswith("4")
             else self._end_node_element_id_property
         )
 
@@ -101,31 +101,31 @@ class AsyncStructuredRel(StructuredRelBase):
             )
 
     @hooks
-    async def save(self):
+    def save(self):
         """
         Save the relationship
 
         :return: self
         """
         props = self.deflate(self.__properties__)
-        query = f"MATCH ()-[r]->() WHERE {adb.get_id_method()}(r)=$self "
+        query = f"MATCH ()-[r]->() WHERE {db.get_id_method()}(r)=$self "
         query += "".join([f" SET r.{key} = ${key}" for key in props])
         props["self"] = self.element_id
 
-        await adb.cypher_query(query, props)
+        db.cypher_query(query, props)
 
         return self
 
-    async def start_node(self):
+    def start_node(self):
         """
         Get start node
 
         :return: StructuredNode
         """
-        test = await adb.cypher_query(
+        test = db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE {adb.get_id_method()}(aNode)=$start_node_element_id
+            WHERE {db.get_id_method()}(aNode)=$start_node_element_id
             RETURN aNode
             """,
             {"start_node_element_id": self._start_node_element_id},
@@ -133,16 +133,16 @@ class AsyncStructuredRel(StructuredRelBase):
         )
         return test[0][0][0]
 
-    async def end_node(self):
+    def end_node(self):
         """
         Get end node
 
         :return: StructuredNode
         """
-        return await adb.cypher_query(
+        return db.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE {adb.get_id_method()}(aNode)=$end_node_element_id
+            WHERE {db.get_id_method()}(aNode)=$end_node_element_id
             RETURN aNode
             """,
             {"end_node_element_id": self._end_node_element_id},

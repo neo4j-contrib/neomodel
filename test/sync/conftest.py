@@ -1,12 +1,12 @@
 import asyncio
 import os
 import warnings
-from test._async_compat import mark_sync_session_auto_fixture
+from test._compat import mark_sync_session_auto_fixture
 
 import pytest
 
 from neomodel import config
-from neomodel._sync.core import db
+from neomodel.sync_.core import db
 
 
 @mark_sync_session_auto_fixture

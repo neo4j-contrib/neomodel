@@ -27,7 +27,7 @@ import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ
 
-from neomodel._sync.core import db
+from neomodel.sync_.core import db
 
 
 def main():

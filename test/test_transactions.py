@@ -4,7 +4,7 @@ from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import AsyncStructuredNode, StringProperty, UniqueProperty
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 class APerson(AsyncStructuredNode):

@@ -9,4 +9,4 @@ repos:
         name: unasync
         entry: bin/make-unasync
         language: system
-        files: "^(neomodel/_async|test/async_)/.*"
+        files: "^(neomodel/async_|test/async_)/.*"

@@ -8,7 +8,7 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
 )
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 class City(AsyncStructuredNode):

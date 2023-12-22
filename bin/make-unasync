@@ -11,8 +11,10 @@ from pathlib import Path
 import unasync
 
 ROOT_DIR = Path(__file__).parents[1].absolute()
-ASYNC_DIR = ROOT_DIR / "neomodel" / "_async"
-SYNC_DIR = ROOT_DIR / "neomodel" / "_sync"
+ASYNC_DIR = ROOT_DIR / "neomodel" / "async_"
+SYNC_DIR = ROOT_DIR / "neomodel" / "sync_"
+ASYNC_CONTRIB_DIR = ROOT_DIR / "neomodel" / "contrib" / "async_"
+SYNC_CONTRIB_DIR = ROOT_DIR / "neomodel" / "contrib" / "sync_"
 ASYNC_INTEGRATION_TEST_DIR = ROOT_DIR / "test" / "async_"
 SYNC_INTEGRATION_TEST_DIR = ROOT_DIR / "test" / "sync"
 UNASYNC_SUFFIX = ".unasync"
@@ -202,9 +204,9 @@ class CustomRule(unasync.Rule):
 def apply_unasync(files):
     """Generate sync code from async code."""
 
-    additional_main_replacements = {"adb": "db", "_async": "_sync"}
+    additional_main_replacements = {"adb": "db", "async_": "sync_"}
     additional_test_replacements = {
-        "_async": "_sync",
+        "async_": "sync_",
         "adb": "db",
         "mark_async_test": "mark_sync_test",
         "mark_async_session_auto_fixture": "mark_sync_session_auto_fixture",
@@ -216,6 +218,11 @@ def apply_unasync(files):
             additional_replacements=additional_main_replacements,
         ),
         CustomRule(
+            fromdir=str(ASYNC_CONTRIB_DIR),
+            todir=str(SYNC_CONTRIB_DIR),
+            additional_replacements=additional_main_replacements,
+        ),
+        CustomRule(
             fromdir=str(ASYNC_INTEGRATION_TEST_DIR),
             todir=str(SYNC_INTEGRATION_TEST_DIR),
             additional_replacements=additional_test_replacements,
@@ -224,6 +231,7 @@ def apply_unasync(files):
 
     if not files:
         paths = list(ASYNC_DIR.rglob("*"))
+        paths += list(ASYNC_CONTRIB_DIR.rglob("*"))
         paths += list(ASYNC_INTEGRATION_TEST_DIR.rglob("*"))
     else:
         paths = [ROOT_DIR / Path(f) for f in files]

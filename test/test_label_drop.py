@@ -1,7 +1,7 @@
 from neo4j.exceptions import ClientError
 
 from neomodel import AsyncStructuredNode, StringProperty, config
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 config.AUTO_INSTALL_LABELS = True
 

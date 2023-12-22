@@ -1,12 +1,12 @@
 import asyncio
 import os
 import warnings
-from test._async_compat import mark_async_session_auto_fixture
+from test.async__compat import mark_async_session_auto_fixture
 
 import pytest
 
 from neomodel import config
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 @mark_async_session_auto_fixture

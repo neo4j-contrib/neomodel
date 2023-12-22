@@ -11,7 +11,7 @@ from neomodel import (
     Q,
     StringProperty,
 )
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 class PersonWithRels(AsyncStructuredNode):

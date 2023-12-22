@@ -10,11 +10,11 @@ from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
     DEFAULT_DATABASE,
-    Driver,
-    GraphDatabase,
-    Result,
-    Session,
-    Transaction,
+    AsyncDriver,
+    AsyncGraphDatabase,
+    AsyncResult,
+    AsyncSession,
+    AsyncTransaction,
     basic_auth,
 )
 from neo4j.api import Bookmarks
@@ -51,7 +51,7 @@ STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
-    def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         # Sort out where to find url
         if hasattr(self, "db"):
             _db = self.db
@@ -60,16 +60,16 @@ def ensure_connection(func):
 
         if not _db.driver:
             if hasattr(config, "DRIVER") and config.DRIVER:
-                _db.set_connection(driver=config.DRIVER)
+                await _db.set_connection(driver=config.DRIVER)
             elif config.DATABASE_URL:
-                _db.set_connection(url=config.DATABASE_URL)
+                await _db.set_connection(url=config.DATABASE_URL)
 
-        return func(self, *args, **kwargs)
+        return await func(self, *args, **kwargs)
 
     return wrapper
 
 
-class Database(local):
+class AsyncDatabase(local):
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
@@ -88,7 +88,7 @@ class Database(local):
         self._database_edition = None
         self.impersonated_user = None
 
-    def set_connection(self, url: str = None, driver: Driver = None):
+    async def set_connection(self, url: str = None, driver: AsyncDriver = None):
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
 
@@ -115,7 +115,7 @@ class Database(local):
         # Getting the information about the database version requires a connection to the database
         self._database_version = None
         self._database_edition = None
-        self._update_database_version()
+        await self._update_database_version()
 
     def _parse_driver_from_url(self, url: str) -> None:
         """Parse the driver information from the given URL and initialize the driver.
@@ -171,7 +171,7 @@ class Database(local):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
-        self.driver = GraphDatabase.driver(
+        self.driver = AsyncGraphDatabase.driver(
             parsed_url.scheme + "://" + hostname, **options
         )
         self.url = url
@@ -182,7 +182,7 @@ class Database(local):
         else:
             self._database_name = database_name
 
-    def close_connection(self):
+    async def close_connection(self):
         """
         Closes the currently open driver.
         The driver should always be closed at the end of the application's lifecyle.
@@ -190,7 +190,7 @@ class Database(local):
         self._database_version = None
         self._database_edition = None
         self._database_name = None
-        self.driver.close()
+        await self.driver.close()
         self.driver = None
 
     @property
@@ -212,15 +212,15 @@ class Database(local):
         """
         Returns the current transaction object
         """
-        return TransactionProxy(self)
+        return AsyncTransactionProxy(self)
 
     @property
     def write_transaction(self):
-        return TransactionProxy(self, access_mode="WRITE")
+        return AsyncTransactionProxy(self, access_mode="WRITE")
 
     @property
     def read_transaction(self):
-        return TransactionProxy(self, access_mode="READ")
+        return AsyncTransactionProxy(self, access_mode="READ")
 
     def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
@@ -238,7 +238,7 @@ class Database(local):
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
-    def begin(self, access_mode=None, **parameters):
+    async def begin(self, access_mode=None, **parameters):
         """
         Begins a new transaction. Raises SystemError if a transaction is already active.
         """
@@ -247,58 +247,58 @@ class Database(local):
             and self._active_transaction is not None
         ):
             raise SystemError("Transaction in progress")
-        self._session: Session = self.driver.session(
+        self._session: AsyncSession = await self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: Transaction = (
-            self._session.begin_transaction()
+        self._active_transaction: AsyncTransaction = (
+            await self._session.begin_transaction()
         )
 
     @ensure_connection
-    def commit(self):
+    async def commit(self):
         """
         Commits the current transaction and closes its session
 
         :return: last_bookmarks
         """
         try:
-            self._active_transaction.commit()
-            last_bookmarks: Bookmarks = self._session.last_bookmarks()
+            await self._active_transaction.commit()
+            last_bookmarks: Bookmarks = await self._session.last_bookmarks()
         finally:
             # In case when something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
-            self._active_transaction.close()
-            self._session.close()
+            await self._active_transaction.close()
+            await self._session.close()
             self._active_transaction = None
             self._session = None
 
         return last_bookmarks
 
     @ensure_connection
-    def rollback(self):
+    async def rollback(self):
         """
         Rolls back the current transaction and closes its session
         """
         try:
-            self._active_transaction.rollback()
+            await self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
-            self._active_transaction.close()
-            self._session.close()
+            await self._active_transaction.close()
+            await self._session.close()
             self._active_transaction = None
             self._session = None
 
-    def _update_database_version(self):
+    async def _update_database_version(self):
         """
         Updates the database server information when it is required
         """
         try:
-            results = self.cypher_query(
+            results = await self.cypher_query(
                 "CALL dbms.components() yield versions, edition return versions[0], edition"
             )
             self._database_version = results[0][0][0]
@@ -344,9 +344,9 @@ class Database(local):
             return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
 
         if isinstance(object_to_resolve, Path):
-            from neomodel._sync.path import NeomodelPath
+            from neomodel.async_.path import AsyncNeomodelPath
 
-            return NeomodelPath(object_to_resolve)
+            return AsyncNeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
             return self._result_resolution([object_to_resolve])
@@ -399,7 +399,7 @@ class Database(local):
         return result_list
 
     @ensure_connection
-    def cypher_query(
+    async def cypher_query(
         self,
         query,
         params=None,
@@ -427,7 +427,7 @@ class Database(local):
 
         if self._active_transaction:
             # Use current session is a transaction is currently active
-            results, meta = self._run_cypher_query(
+            results, meta = await self._run_cypher_query(
                 self._active_transaction,
                 query,
                 params,
@@ -437,10 +437,10 @@ class Database(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with self.driver.session(
+            async with self.driver.session(
                 database=self._database_name, impersonated_user=self.impersonated_user
             ) as session:
-                results, meta = self._run_cypher_query(
+                results, meta = await self._run_cypher_query(
                     session,
                     query,
                     params,
@@ -451,9 +451,9 @@ class Database(local):
 
         return results, meta
 
-    def _run_cypher_query(
+    async def _run_cypher_query(
         self,
-        session: Session,
+        session: AsyncSession,
         query,
         params,
         handle_unique,
@@ -463,8 +463,8 @@ class Database(local):
         try:
             # Retrieve the data
             start = time.time()
-            response: Result = session.run(query, params)
-            results, meta = [list(r.values()) for r in response], response.keys()
+            response: AsyncResult = await session.run(query, params)
+            results, meta = [list(r.values()) async for r in response], response.keys()
             end = time.time()
 
             if resolve_objects:
@@ -481,8 +481,8 @@ class Database(local):
             raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
-                self.set_connection(url=self.url)
-                return self.cypher_query(
+                await self.set_connection(url=self.url)
+                return await self.cypher_query(
                     query=query,
                     params=params,
                     handle_unique=handle_unique,
@@ -510,7 +510,7 @@ class Database(local):
         else:
             return "elementId"
 
-    def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
+    async def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
         """Returns all indexes existing in the database
 
         Arguments:
@@ -519,7 +519,7 @@ class Database(local):
         Returns:
             Sequence[dict]: List of dictionaries, each entry being an index definition
         """
-        indexes, meta_indexes = self.cypher_query("SHOW INDEXES")
+        indexes, meta_indexes = await self.cypher_query("SHOW INDEXES")
         indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
 
         if exclude_token_lookup:
@@ -529,13 +529,13 @@ class Database(local):
 
         return indexes_as_dict
 
-    def list_constraints(self) -> Sequence[dict]:
+    async def list_constraints(self) -> Sequence[dict]:
         """Returns all constraints existing in the database
 
         Returns:
             Sequence[dict]: List of dictionaries, each entry being a constraint definition
         """
-        constraints, meta_constraints = self.cypher_query("SHOW CONSTRAINTS")
+        constraints, meta_constraints = await self.cypher_query("SHOW CONSTRAINTS")
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
 
         return constraints_as_dict
@@ -561,11 +561,11 @@ class Database(local):
         """
         return self.database_edition == "enterprise"
 
-    def change_neo4j_password(self, user, new_password):
-        self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
+    async def change_neo4j_password(self, user, new_password):
+        await self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 
-    def clear_neo4j_database(self, clear_constraints=False, clear_indexes=False):
-        self.cypher_query(
+    async def clear_neo4j_database(self, clear_constraints=False, clear_indexes=False):
+        await self.cypher_query(
             """
             MATCH (a)
             CALL { WITH a DETACH DELETE a }
@@ -573,11 +573,11 @@ class Database(local):
         """
         )
         if clear_constraints:
-            drop_constraints()
+            await drop_constraints()
         if clear_indexes:
-            drop_indexes()
+            await drop_indexes()
 
-    def drop_constraints(self, quiet=True, stdout=None):
+    async def drop_constraints(self, quiet=True, stdout=None):
         """
         Discover and drop all constraints.
 
@@ -587,11 +587,11 @@ class Database(local):
         if not stdout or stdout is None:
             stdout = sys.stdout
 
-        results, meta = self.cypher_query("SHOW CONSTRAINTS")
+        results, meta = await self.cypher_query("SHOW CONSTRAINTS")
 
         results_as_dict = [dict(zip(meta, row)) for row in results]
         for constraint in results_as_dict:
-            self.cypher_query("DROP CONSTRAINT " + constraint["name"])
+            await self.cypher_query("DROP CONSTRAINT " + constraint["name"])
             if not quiet:
                 stdout.write(
                     (
@@ -603,7 +603,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def drop_indexes(self, quiet=True, stdout=None):
+    async def drop_indexes(self, quiet=True, stdout=None):
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
 
@@ -613,9 +613,9 @@ class Database(local):
         if not stdout or stdout is None:
             stdout = sys.stdout
 
-        indexes = self.list_indexes(exclude_token_lookup=True)
+        indexes = await self.list_indexes(exclude_token_lookup=True)
         for index in indexes:
-            self.cypher_query("DROP INDEX " + index["name"])
+            await self.cypher_query("DROP INDEX " + index["name"])
             if not quiet:
                 stdout.write(
                     f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
@@ -623,7 +623,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def remove_all_labels(self, stdout=None):
+    async def remove_all_labels(self, stdout=None):
         """
         Calls functions for dropping constraints and indexes.
 
@@ -635,12 +635,12 @@ class Database(local):
             stdout = sys.stdout
 
         stdout.write("Dropping constraints...\n")
-        self.drop_constraints(quiet=False, stdout=stdout)
+        await self.drop_constraints(quiet=False, stdout=stdout)
 
         stdout.write("Dropping indexes...\n")
-        self.drop_indexes(quiet=False, stdout=stdout)
+        await self.drop_indexes(quiet=False, stdout=stdout)
 
-    def install_all_labels(self, stdout=None):
+    async def install_all_labels(self, stdout=None):
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -661,9 +661,9 @@ class Database(local):
         stdout.write("Setting up indexes and constraints...\n\n")
 
         i = 0
-        for cls in subsub(StructuredNode):
+        for cls in subsub(AsyncStructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            install_labels(cls, quiet=False, stdout=stdout)
+            await install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -671,7 +671,7 @@ class Database(local):
 
         stdout.write(f"Finished {i} classes.\n")
 
-    def install_labels(self, cls, quiet=True, stdout=None):
+    async def install_labels(self, cls, quiet=True, stdout=None):
         """
         Setup labels with indexes and constraints for a given class
 
@@ -693,16 +693,16 @@ class Database(local):
             return
 
         for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            self._install_node(cls, name, property, quiet, stdout)
+            await self._install_node(cls, name, property, quiet, stdout)
 
         for _, relationship in cls.defined_properties(
             aliases=False, rels=True, properties=False
         ).items():
-            self._install_relationship(cls, relationship, quiet, stdout)
+            await self._install_relationship(cls, relationship, quiet, stdout)
 
-    def _create_node_index(self, label: str, property_name: str, stdout):
+    async def _create_node_index(self, label: str, property_name: str, stdout):
         try:
-            self.cypher_query(
+            await self.cypher_query(
                 f"CREATE INDEX index_{label}_{property_name} FOR (n:{label}) ON (n.{property_name}); "
             )
         except ClientError as e:
@@ -714,9 +714,9 @@ class Database(local):
             else:
                 raise
 
-    def _create_node_constraint(self, label: str, property_name: str, stdout):
+    async def _create_node_constraint(self, label: str, property_name: str, stdout):
         try:
-            self.cypher_query(
+            await self.cypher_query(
                 f"""CREATE CONSTRAINT constraint_unique_{label}_{property_name} 
                             FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
             )
@@ -729,11 +729,11 @@ class Database(local):
             else:
                 raise
 
-    def _create_relationship_index(
+    async def _create_relationship_index(
         self, relationship_type: str, property_name: str, stdout
     ):
         try:
-            self.cypher_query(
+            await self.cypher_query(
                 f"CREATE INDEX index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
             )
         except ClientError as e:
@@ -745,12 +745,12 @@ class Database(local):
             else:
                 raise
 
-    def _create_relationship_constraint(
+    async def _create_relationship_constraint(
         self, relationship_type: str, property_name: str, stdout
     ):
         if self.version_is_higher_than("5.7"):
             try:
-                self.cypher_query(
+                await self.cypher_query(
                     f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
                                 FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
                 )
@@ -767,7 +767,7 @@ class Database(local):
                 f"Unique indexes on relationships are not supported in Neo4j version {self.database_version}. Please upgrade to Neo4j 5.7 or higher."
             )
 
-    def _install_node(self, cls, name, property, quiet, stdout):
+    async def _install_node(self, cls, name, property, quiet, stdout):
         # Create indexes and constraints for node property
         db_property = property.db_property or name
         if property.index:
@@ -775,7 +775,7 @@ class Database(local):
                 stdout.write(
                     f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
                 )
-            self._create_node_index(
+            await self._create_node_index(
                 label=cls.__label__, property_name=db_property, stdout=stdout
             )
 
@@ -784,11 +784,11 @@ class Database(local):
                 stdout.write(
                     f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
                 )
-            self._create_node_constraint(
+            await self._create_node_constraint(
                 label=cls.__label__, property_name=db_property, stdout=stdout
             )
 
-    def _install_relationship(self, cls, relationship, quiet, stdout):
+    async def _install_relationship(self, cls, relationship, quiet, stdout):
         # Create indexes and constraints for relationship property
         relationship_cls = relationship.definition["model"]
         if relationship_cls is not None:
@@ -802,7 +802,7 @@ class Database(local):
                         stdout.write(
                             f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
                         )
-                    self._create_relationship_index(
+                    await self._create_relationship_index(
                         relationship_type=relationship_type,
                         property_name=db_property,
                         stdout=stdout,
@@ -812,7 +812,7 @@ class Database(local):
                         stdout.write(
                             f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
                         )
-                    self._create_relationship_constraint(
+                    await self._create_relationship_constraint(
                         relationship_type=relationship_type,
                         property_name=db_property,
                         stdout=stdout,
@@ -820,105 +820,105 @@ class Database(local):
 
 
 # Create a singleton instance of the database object
-db = Database()
+adb = AsyncDatabase()
 
 
 # Deprecated methods
-def change_neo4j_password(db: Database, user, new_password):
+async def change_neo4j_password(db: AsyncDatabase, user, new_password):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.change_neo4j_password(user, new_password) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.change_neo4j_password(user, new_password) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.change_neo4j_password(user, new_password)
+    await db.change_neo4j_password(user, new_password)
 
 
-def clear_neo4j_database(
-    db: Database, clear_constraints=False, clear_indexes=False
+async def clear_neo4j_database(
+    db: AsyncDatabase, clear_constraints=False, clear_indexes=False
 ):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.clear_neo4j_database(clear_constraints, clear_indexes) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.clear_neo4j_database(clear_constraints, clear_indexes)
+    await db.clear_neo4j_database(clear_constraints, clear_indexes)
 
 
-def drop_constraints(quiet=True, stdout=None):
+async def drop_constraints(quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_constraints(quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.drop_constraints(quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.drop_constraints(quiet, stdout)
+    await adb.drop_constraints(quiet, stdout)
 
 
-def drop_indexes(quiet=True, stdout=None):
+async def drop_indexes(quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_indexes(quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.drop_indexes(quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.drop_indexes(quiet, stdout)
+    await adb.drop_indexes(quiet, stdout)
 
 
-def remove_all_labels(stdout=None):
+async def remove_all_labels(stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.remove_all_labels(stdout) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.remove_all_labels(stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.remove_all_labels(stdout)
+    await adb.remove_all_labels(stdout)
 
 
-def install_labels(cls, quiet=True, stdout=None):
+async def install_labels(cls, quiet=True, stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_labels(cls, quiet, stdout) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.install_labels(cls, quiet, stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.install_labels(cls, quiet, stdout)
+    await adb.install_labels(cls, quiet, stdout)
 
 
-def install_all_labels(stdout=None):
+async def install_all_labels(stdout=None):
     deprecated(
         """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_all_labels(stdout) instead.
+        This method has been moved to the Database singleton (db for sync, adb for async).
+        Please use adb.install_all_labels(stdout) instead.
         This direct call will be removed in an upcoming version.
         """
     )
-    db.install_all_labels(stdout)
+    await adb.install_all_labels(stdout)
 
 
-class TransactionProxy:
+class AsyncTransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
-    def __init__(self, db: Database, access_mode=None):
+    def __init__(self, db: AsyncDatabase, access_mode=None):
         self.db = db
         self.access_mode = access_mode
 
     @ensure_connection
-    def __enter__(self):
-        self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
+    async def __enter__(self):
+        await self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __exit__(self, exc_type, exc_value, traceback):
         if exc_value:
-            self.db.rollback()
+            await self.db.rollback()
 
         if (
             exc_type is ClientError
@@ -927,7 +927,7 @@ class TransactionProxy:
             raise UniqueProperty(exc_value.message)
 
         if not exc_value:
-            self.last_bookmark = self.db.commit()
+            self.last_bookmark = await self.db.commit()
 
     def __call__(self, func):
         def wrapper(*args, **kwargs):
@@ -942,7 +942,7 @@ class TransactionProxy:
 
 
 class ImpersonationHandler:
-    def __init__(self, db: Database, impersonated_user: str):
+    def __init__(self, db: AsyncDatabase, impersonated_user: str):
         self.db = db
         self.impersonated_user = impersonated_user
 
@@ -965,7 +965,7 @@ class ImpersonationHandler:
         return wrapper
 
 
-class BookmarkingAsyncTransactionProxy(TransactionProxy):
+class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             self.bookmarks = kwargs.pop("bookmarks", None)
@@ -1058,16 +1058,16 @@ def build_class_registry(cls):
     possible_label_combinations.append(base_label_set)
 
     for label_set in possible_label_combinations:
-        if label_set not in db._NODE_CLASS_REGISTRY:
-            db._NODE_CLASS_REGISTRY[label_set] = cls
+        if label_set not in adb._NODE_CLASS_REGISTRY:
+            adb._NODE_CLASS_REGISTRY[label_set] = cls
         else:
-            raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+            raise NodeClassAlreadyDefined(cls, adb._NODE_CLASS_REGISTRY)
 
 
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
 
 
-class StructuredNode(NodeBase):
+class AsyncStructuredNode(NodeBase):
     """
     Base class for all node definitions to inherit from.
 
@@ -1091,7 +1091,7 @@ class StructuredNode(NodeBase):
         super().__init__(*args, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, (StructuredNode,)):
+        if not isinstance(other, (AsyncStructuredNode,)):
             return False
         if hasattr(self, "element_id") and hasattr(other, "element_id"):
             return self.element_id == other.element_id
@@ -1115,16 +1115,16 @@ class StructuredNode(NodeBase):
         :return: NodeSet
         :rtype: NodeSet
         """
-        from neomodel._sync.match import NodeSet
+        from neomodel.async_.match import AsyncNodeSet
 
-        return NodeSet(cls)
+        return AsyncNodeSet(cls)
 
     @property
     def element_id(self):
         if hasattr(self, "element_id_property"):
             return (
                 int(self.element_id_property)
-                if db.database_version.startswith("4")
+                if adb.database_version.startswith("4")
                 else self.element_id_property
             )
         return None
@@ -1168,7 +1168,7 @@ class StructuredNode(NodeBase):
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
-            if not isinstance(relationship.source, StructuredNode):
+            if not isinstance(relationship.source, AsyncStructuredNode):
                 raise ValueError(
                     f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
                 )
@@ -1178,10 +1178,10 @@ class StructuredNode(NodeBase):
                     "No relation_type is specified on provided relationship"
                 )
 
-            from neomodel._sync.match import _rel_helper
+            from neomodel.async_.match import _rel_helper
 
             query_params["source_id"] = relationship.source.element_id
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {adb.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -1199,14 +1199,14 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f"RETURN {db.get_id_method()}(n)"
+            query += f"RETURN {adb.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
         return query, query_params
 
     @classmethod
-    def create(cls, *props, **kwargs):
+    async def create(cls, *props, **kwargs):
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
@@ -1230,7 +1230,7 @@ class StructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f" RETURN {db.get_id_method()}(n)"
+            query += f" RETURN {adb.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -1238,7 +1238,7 @@ class StructuredNode(NodeBase):
         for item in [
             cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
         ]:
-            node, _ = db.cypher_query(query, {"create_params": item})
+            node, _ = await adb.cypher_query(query, {"create_params": item})
             results.extend(node[0])
 
         nodes = [cls.inflate(node) for node in results]
@@ -1250,7 +1250,7 @@ class StructuredNode(NodeBase):
         return nodes
 
     @classmethod
-    def create_or_update(cls, *props, **kwargs):
+    async def create_or_update(cls, *props, **kwargs):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
@@ -1294,10 +1294,10 @@ class StructuredNode(NodeBase):
             )
 
         # fetch and build instance for each result
-        results = db.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        results = await adb.cypher_query(query, params)
+        return [cls.inflate(r[0]) async for r in results[0]]
 
-    def cypher(self, query, params=None):
+    async def cypher(self, query, params=None):
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 
@@ -1311,25 +1311,25 @@ class StructuredNode(NodeBase):
         self._pre_action_check("cypher")
         params = params or {}
         params.update({"self": self.element_id})
-        return db.cypher_query(query, params)
+        return await adb.cypher_query(query, params)
 
     @hooks
-    def delete(self):
+    async def delete(self):
         """
         Delete a node and its relationships
 
         :return: True
         """
         self._pre_action_check("delete")
-        self.cypher(
-            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
+        await self.cypher(
+            f"MATCH (self) WHERE {adb.get_id_method()}(self)=$self DETACH DELETE self"
         )
         delattr(self, "element_id_property")
         self.deleted = True
         return True
 
     @classmethod
-    def get_or_create(cls, *props, **kwargs):
+    async def get_or_create(cls, *props, **kwargs):
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
@@ -1363,8 +1363,8 @@ class StructuredNode(NodeBase):
             )
 
         # fetch and build instance for each result
-        results = db.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        results = await adb.cypher_query(query, params)
+        return [cls.inflate(r[0]) async for r in results[0]]
 
     @classmethod
     def inflate(cls, node):
@@ -1424,7 +1424,7 @@ class StructuredNode(NodeBase):
             if not hasattr(scls, "__abstract_node__")
         ]
 
-    def labels(self):
+    async def labels(self):
         """
         Returns list of labels tied to the node from neo4j.
 
@@ -1432,8 +1432,8 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check("labels")
-        return self.cypher(
-            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
+        return await self.cypher(
+            f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self " "RETURN labels(n)"
         )[0][0][0]
 
     def _pre_action_check(self, action):
@@ -1446,14 +1446,14 @@ class StructuredNode(NodeBase):
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
 
-    def refresh(self):
+    async def refresh(self):
         """
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
         if hasattr(self, "element_id"):
-            request = self.cypher(
-                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
+            request = await self.cypher(
+                f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self RETURN n"
             )[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
@@ -1464,7 +1464,7 @@ class StructuredNode(NodeBase):
             raise ValueError("Can't refresh unsaved node")
 
     @hooks
-    def save(self):
+    async def save(self):
         """
         Save the node to neo4j or raise an exception
 
@@ -1475,7 +1475,7 @@ class StructuredNode(NodeBase):
         if hasattr(self, "element_id_property"):
             # update
             params = self.deflate(self.__properties__, self)
-            query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"
+            query = f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self\n"
 
             if params:
                 query += "SET "
@@ -1485,13 +1485,13 @@ class StructuredNode(NodeBase):
                 query += "\n".join(
                     [f"SET n:`{label}`" for label in self.inherited_labels()]
                 )
-            self.cypher(query, params)
+            await self.cypher(query, params)
         elif hasattr(self, "deleted") and self.deleted:
             raise ValueError(
                 f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            result = self.create(self.__properties__)
+            result = await self.create(self.__properties__)
             created_node = result[0]
             self.element_id_property = created_node.element_id
         return self

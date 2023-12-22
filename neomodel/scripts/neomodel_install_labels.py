@@ -32,7 +32,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from importlib import import_module
 from os import environ, path
 
-from neomodel._sync.core import db
+from neomodel.sync_.core import db
 
 
 def load_python_module_or_file(name):

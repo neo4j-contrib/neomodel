@@ -1,12 +1,12 @@
 # pep8: noqa
 # TODO : Check imports here
-from neomodel._async.cardinality import (
+from neomodel.async_.cardinality import (
     AsyncOne,
     AsyncOneOrMore,
     AsyncZeroOrMore,
     AsyncZeroOrOne,
 )
-from neomodel._async.core import (
+from neomodel.async_.core import (
     AsyncStructuredNode,
     change_neo4j_password,
     clear_neo4j_database,
@@ -16,27 +16,15 @@ from neomodel._async.core import (
     install_labels,
     remove_all_labels,
 )
-from neomodel._async.match import AsyncNodeSet, AsyncTraversal
-from neomodel._async.path import AsyncNeomodelPath
-from neomodel._async.relationship import AsyncStructuredRel
-from neomodel._async.relationship_manager import (
+from neomodel.async_.match import AsyncNodeSet, AsyncTraversal
+from neomodel.async_.path import AsyncNeomodelPath
+from neomodel.async_.relationship import AsyncStructuredRel
+from neomodel.async_.relationship_manager import (
     AsyncRelationship,
     AsyncRelationshipDefinition,
     AsyncRelationshipFrom,
     AsyncRelationshipManager,
     AsyncRelationshipTo,
-)
-from neomodel._sync.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
-from neomodel._sync.core import StructuredNode
-from neomodel._sync.match import NodeSet, Traversal
-from neomodel._sync.path import NeomodelPath
-from neomodel._sync.relationship import StructuredRel
-from neomodel._sync.relationship_manager import (
-    Relationship,
-    RelationshipDefinition,
-    RelationshipFrom,
-    RelationshipManager,
-    RelationshipTo,
 )
 from neomodel.exceptions import *
 from neomodel.match_q import Q  # noqa
@@ -55,6 +43,18 @@ from neomodel.properties import (
     RegexProperty,
     StringProperty,
     UniqueIdProperty,
+)
+from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
+from neomodel.sync_.core import StructuredNode
+from neomodel.sync_.match import NodeSet, Traversal
+from neomodel.sync_.path import NeomodelPath
+from neomodel.sync_.relationship import StructuredRel
+from neomodel.sync_.relationship_manager import (
+    Relationship,
+    RelationshipDefinition,
+    RelationshipFrom,
+    RelationshipManager,
+    RelationshipTo,
 )
 from neomodel.util import EITHER, INCOMING, OUTGOING
 

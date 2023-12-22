@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from neomodel._async.core import AsyncStructuredNode, adb
+from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty

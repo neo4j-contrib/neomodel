@@ -2,7 +2,7 @@ import pytest
 from neo4j.exceptions import ClientError
 from pytest import raises
 
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 from neomodel.exceptions import FeatureNotSupported
 
 

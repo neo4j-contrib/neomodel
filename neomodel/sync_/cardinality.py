@@ -1,4 +1,4 @@
-from neomodel._sync.relationship_manager import (  # pylint:disable=unused-import
+from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
     ZeroOrMore,
 )

@@ -67,7 +67,7 @@ class PropertyManager:
 
     @property
     def __properties__(self):
-        from neomodel._async.relationship_manager import AsyncRelationshipManager
+        from neomodel.async_.relationship_manager import AsyncRelationshipManager
 
         return dict(
             (name, value)
@@ -101,7 +101,7 @@ class PropertyManager:
 
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):
-        from neomodel._async.relationship_manager import AsyncRelationshipDefinition
+        from neomodel.async_.relationship_manager import AsyncRelationshipDefinition
 
         props = {}
         for baseclass in reversed(cls.__mro__):
@@ -467,7 +467,7 @@ class DateProperty(Property):
 
 class DateTimeFormatProperty(Property):
     """
-    Store a datetime by custome format
+    Store a datetime by custom format
     :param default_now: If ``True``, the creation time (Local) will be used as default.
                         Defaults to ``False``.
     :param format:      Date format string, default is %Y-%m-%d

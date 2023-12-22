@@ -8,7 +8,7 @@ from neomodel import (
     UniqueIdProperty,
     config,
 )
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
 
 config.AUTO_INSTALL_LABELS = False

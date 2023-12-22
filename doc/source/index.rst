@@ -59,6 +59,8 @@ Contents
    configuration
    extending
    module_documentation
+   module_documentation_sync
+   module_documentation_async
 
 Indices and tables
 ==================

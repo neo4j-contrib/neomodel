@@ -1,5 +1,5 @@
 import builtins
-from test._async_compat import mark_async_test
+from test.async__compat import mark_async_test
 
 import pytest
 from neo4j.exceptions import ClientError as CypherError
@@ -7,7 +7,7 @@ from numpy import ndarray
 from pandas import DataFrame, Series
 
 from neomodel import AsyncStructuredNode, StringProperty
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 class User2(AsyncStructuredNode):

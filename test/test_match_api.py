@@ -13,7 +13,7 @@ from neomodel import (
     Q,
     StringProperty,
 )
-from neomodel._async.match import (
+from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
     AsyncTraversal,

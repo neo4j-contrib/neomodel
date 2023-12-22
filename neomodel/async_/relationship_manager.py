@@ -3,14 +3,14 @@ import inspect
 import sys
 from importlib import import_module
 
-from neomodel._async.core import adb
-from neomodel._async.match import (
+from neomodel.async_.core import adb
+from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncTraversal,
     _rel_helper,
     _rel_merge_helper,
 )
-from neomodel._async.relationship import AsyncStructuredRel
+from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.util import (
     EITHER,

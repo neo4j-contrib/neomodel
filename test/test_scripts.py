@@ -9,7 +9,7 @@ from neomodel import (
     StringProperty,
     config,
 )
-from neomodel._async.core import adb
+from neomodel.async_.core import adb
 
 
 class ScriptsTestRel(AsyncStructuredRel):

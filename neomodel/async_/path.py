@@ -1,10 +1,10 @@
 from neo4j.graph import Path
 
-from neomodel._sync.core import db
-from neomodel._sync.relationship import StructuredRel
+from neomodel.async_.core import adb
+from neomodel.async_.relationship import AsyncStructuredRel
 
 
-class NeomodelPath(Path):
+class AsyncNeomodelPath(Path):
     """
     Represents paths within neomodel.
 
@@ -31,17 +31,17 @@ class NeomodelPath(Path):
         self._relationships = []
 
         for a_node in a_neopath.nodes:
-            self._nodes.append(db._object_resolution(a_node))
+            self._nodes.append(adb._object_resolution(a_node))
 
         for a_relationship in a_neopath.relationships:
             # This check is required here because if the relationship does not bear data
             # then it does not have an entry in the registry. In that case, we instantiate
             # an "unspecified" StructuredRel.
             rel_type = frozenset([a_relationship.type])
-            if rel_type in db._NODE_CLASS_REGISTRY:
-                new_rel = db._object_resolution(a_relationship)
+            if rel_type in adb._NODE_CLASS_REGISTRY:
+                new_rel = adb._object_resolution(a_relationship)
             else:
-                new_rel = StructuredRel.inflate(a_relationship)
+                new_rel = AsyncStructuredRel.inflate(a_relationship)
             self._relationships.append(new_rel)
 
     @property

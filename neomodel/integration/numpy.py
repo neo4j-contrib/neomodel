@@ -7,7 +7,7 @@ Provides integration with `numpy <https://numpy.org/>`_.
 
 Example:
 
-    >>> from neomodel._async import db
+    >>> from neomodel.async_ import db
     >>> from neomodel.integration.numpy import to_nparray
     >>> db.set_connection('bolt://neo4j:secret@localhost:7687')
     >>> df = to_nparray(db.cypher_query("MATCH (u:User) RETURN u.email AS email, u.name AS name"))
