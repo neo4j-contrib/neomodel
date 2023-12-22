@@ -1,4 +1,4 @@
-from test.async__compat import mark_async_test
+from test._async_compat import mark_async_test
 
 from neomodel import AliasProperty, AsyncStructuredNode, StringProperty
 

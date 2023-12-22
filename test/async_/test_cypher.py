@@ -1,5 +1,5 @@
 import builtins
-from test.async__compat import mark_async_test
+from test._async_compat import mark_async_test
 
 import pytest
 from neo4j.exceptions import ClientError as CypherError

@@ -1,12 +1,12 @@
 import builtins
-from test._compat import mark_sync_test
+from test._async_compat import mark_sync_test
 
 import pytest
 from neo4j.exceptions import ClientError as CypherError
 from numpy import ndarray
 from pandas import DataFrame, Series
 
-from neomodel import StructuredNode, StringProperty
+from neomodel import StringProperty, StructuredNode
 from neomodel.sync_.core import db
 
 

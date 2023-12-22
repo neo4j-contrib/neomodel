@@ -1,8 +1,8 @@
 import pytest
-import pytestasync_io
+import pytest_asyncio
 
 mark_async_test = pytest.mark.asyncio
-mark_async_session_auto_fixture = pytestasync_io.fixture(scope="session", autouse=True)
+mark_async_session_auto_fixture = pytest_asyncio.fixture(scope="session", autouse=True)
 mark_sync_session_auto_fixture = pytest.fixture(scope="session", autouse=True)
 
 

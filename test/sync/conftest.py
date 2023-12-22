@@ -1,7 +1,7 @@
 import asyncio
 import os
 import warnings
-from test._compat import mark_sync_session_auto_fixture
+from test._async_compat import mark_sync_session_auto_fixture
 
 import pytest
 
