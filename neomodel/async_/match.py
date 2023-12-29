@@ -726,6 +726,15 @@ class AsyncBaseSet:
 
     query_cls = AsyncQueryBuilder
 
+    async def all(self, lazy=False):
+        """
+        Return all nodes belonging to the set
+        :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :return: list of nodes
+        :rtype: list
+        """
+        return await self.query_cls(self).build_ast()._execute(lazy)
+
     async def __aiter__(self):
         async for i in await self.query_cls(self).build_ast()._execute():
             yield i
@@ -734,10 +743,12 @@ class AsyncBaseSet:
         return await self.query_cls(self).build_ast()._count()
 
     async def __abool__(self):
-        return bool(await self.query_cls(self).build_ast()._count() > 0)
+        _count = await self.query_cls(self).build_ast()._count()
+        return _count > 0
 
-    async def __nonzero__(self):
-        return bool(await self.query_cls(self).build_ast()._count() > 0)
+    async def __anonzero__(self):
+        _count = await self.query_cls(self).build_ast()._count()
+        return _count > 0
 
     def __contains__(self, obj):
         if isinstance(obj, AsyncStructuredNode):

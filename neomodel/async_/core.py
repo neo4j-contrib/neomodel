@@ -1295,7 +1295,7 @@ class AsyncStructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query(query, params)
-        return [cls.inflate(r[0]) async for r in results[0]]
+        return [cls.inflate(r[0]) for r in results[0]]
 
     async def cypher(self, query, params=None):
         """
@@ -1364,7 +1364,7 @@ class AsyncStructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query(query, params)
-        return [cls.inflate(r[0]) async for r in results[0]]
+        return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
     def inflate(cls, node):

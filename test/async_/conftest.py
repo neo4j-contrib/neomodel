@@ -23,7 +23,6 @@ async def setup_neo4j_session(request, event_loop):
     config.DATABASE_URL = os.environ.get(
         "NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"
     )
-    config.AUTO_INSTALL_LABELS = True
 
     # Clear the database if required
     database_is_populated, _ = await adb.cypher_query(
@@ -35,6 +34,8 @@ async def setup_neo4j_session(request, event_loop):
         )
 
     await adb.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
+
+    await adb.install_all_labels()
 
     await adb.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
