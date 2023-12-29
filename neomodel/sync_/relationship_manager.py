@@ -3,10 +3,15 @@ import inspect
 import sys
 from importlib import import_module
 
-from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
-from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
+from neomodel.sync_.match import (
+    NodeSet,
+    Traversal,
+    _rel_helper,
+    _rel_merge_helper,
+)
 from neomodel.sync_.relationship import StructuredRel
+from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.util import (
     EITHER,
     INCOMING,

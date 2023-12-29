@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
+from neomodel.sync_.core import StructuredNode, db
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty
-from neomodel.sync_.core import StructuredNode, db
 from neomodel.util import INCOMING, OUTGOING
 
 
@@ -781,7 +781,8 @@ class BaseSet:
             self.skip = key
             self.limit = 1
 
-            return self.query_cls(self).build_ast()._execute()[0]
+            _items = self.query_cls(self).build_ast()._execute()
+            return _items[0]
 
         return None
 

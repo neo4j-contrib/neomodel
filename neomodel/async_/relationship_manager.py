@@ -343,14 +343,14 @@ class AsyncRelationshipManager(object):
         """
         return self._new_traversal().__contains__(node)
 
-    def single(self):
+    async def single(self):
         """
         Get a single related node or none.
 
         :return: StructuredNode
         """
         try:
-            return self[0]
+            return await self[0]
         except IndexError:
             pass
 
@@ -363,25 +363,25 @@ class AsyncRelationshipManager(object):
         """
         return self._new_traversal().match(**kwargs)
 
-    def all(self):
+    async def all(self):
         """
         Return all related nodes.
 
         :return: list
         """
-        return self._new_traversal().all()
+        return await self._new_traversal().all()
 
-    def __iter__(self):
-        return self._new_traversal().__iter__()
+    async def __aiter__(self):
+        return self._new_traversal().__aiter__()
 
     def __len__(self):
         return self._new_traversal().__len__()
 
     def __bool__(self):
-        return self._new_traversal().__bool__()
+        return self._new_traversal().check_bool()
 
     def __nonzero__(self):
-        return self._new_traversal().__nonzero__()
+        return self._new_traversal().check_nonzero()
 
     def __contains__(self, obj):
         return self._new_traversal().__contains__(obj)

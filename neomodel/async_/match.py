@@ -751,7 +751,7 @@ class AsyncBaseSet:
         _count = await self.query_cls(self).build_ast()._count()
         return _count > 0
 
-    async def check_non_zero(self):
+    async def check_nonzero(self):
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any node, False otherwise
@@ -783,7 +783,8 @@ class AsyncBaseSet:
             self.skip = key
             self.limit = 1
 
-            return await self.query_cls(self).build_ast()._execute()[0]
+            _items = await self.query_cls(self).build_ast()._execute()
+            return _items[0]
 
         return None
 

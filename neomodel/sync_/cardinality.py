@@ -1,8 +1,8 @@
-from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
     ZeroOrMore,
 )
+from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 
 
 class ZeroOrOne(RelationshipManager):
@@ -37,7 +37,7 @@ class ZeroOrOne(RelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if len(self):
+        if super().__len__():
             raise AttemptedCardinalityViolation(
                 f"Node already has {self} can't connect more"
             )
@@ -130,6 +130,6 @@ class One(RelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
-        if len(self):
+        if super().__len__():
             raise AttemptedCardinalityViolation("Node already has one relationship")
         return super().connect(node, properties)

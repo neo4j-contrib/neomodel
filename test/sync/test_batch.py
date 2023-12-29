@@ -3,11 +3,11 @@ from test._async_compat import mark_sync_test
 from pytest import raises
 
 from neomodel import (
-    IntegerProperty,
     RelationshipFrom,
     RelationshipTo,
-    StringProperty,
     StructuredNode,
+    IntegerProperty,
+    StringProperty,
     UniqueIdProperty,
     config,
 )

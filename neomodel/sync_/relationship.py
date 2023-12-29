@@ -1,7 +1,7 @@
-from neomodel.hooks import hooks
-from neomodel.properties import Property
 from neomodel.sync_.core import db
 from neomodel.sync_.property_manager import PropertyManager
+from neomodel.hooks import hooks
+from neomodel.properties import Property
 
 
 class RelationshipMeta(type):

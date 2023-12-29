@@ -10,21 +10,21 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
 
     description = "zero or one relationship"
 
-    def single(self):
+    async def single(self):
         """
         Return the associated node.
 
         :return: node
         """
-        nodes = super().all()
+        nodes = await super().all()
         if len(nodes) == 1:
             return nodes[0]
         if len(nodes) > 1:
             raise CardinalityViolation(self, len(nodes))
         return None
 
-    def all(self):
-        node = self.single()
+    async def all(self):
+        node = await self.single()
         return [node] if node else []
 
     async def connect(self, node, properties=None):
@@ -37,7 +37,7 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if len(self):
+        if await super().__len__():
             raise AttemptedCardinalityViolation(
                 f"Node already has {self} can't connect more"
             )
@@ -49,24 +49,24 @@ class AsyncOneOrMore(AsyncRelationshipManager):
 
     description = "one or more relationships"
 
-    def single(self):
+    async def single(self):
         """
         Fetch one of the related nodes
 
         :return: Node
         """
-        nodes = super().all()
+        nodes = await super().all()
         if nodes:
             return nodes[0]
         raise CardinalityViolation(self, "none")
 
-    def all(self):
+    async def all(self):
         """
         Returns all related nodes.
 
         :return: [node1, node2...]
         """
-        nodes = super().all()
+        nodes = await super().all()
         if nodes:
             return nodes
         raise CardinalityViolation(self, "none")
@@ -77,7 +77,7 @@ class AsyncOneOrMore(AsyncRelationshipManager):
         :param node:
         :return:
         """
-        if super().__len__() < 2:
+        if await super().__len__() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
         return await super().disconnect(node)
 
@@ -89,26 +89,26 @@ class AsyncOne(AsyncRelationshipManager):
 
     description = "one relationship"
 
-    def single(self):
+    async def single(self):
         """
         Return the associated node.
 
         :return: node
         """
-        nodes = super().all()
+        nodes = await super().all()
         if nodes:
             if len(nodes) == 1:
                 return nodes[0]
             raise CardinalityViolation(self, len(nodes))
         raise CardinalityViolation(self, "none")
 
-    def all(self):
+    async def all(self):
         """
         Return single node in an array
 
         :return: [node]
         """
-        return [self.single()]
+        return [await self.single()]
 
     async def disconnect(self, node):
         raise AttemptedCardinalityViolation(
@@ -130,6 +130,6 @@ class AsyncOne(AsyncRelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
-        if len(self):
+        if await super().__len__():
             raise AttemptedCardinalityViolation("Node already has one relationship")
         return await super().connect(node, properties)

@@ -1,5 +1,5 @@
-from neomodel.exceptions import DeflateConflict, InflateConflict
 from neomodel.sync_.core import StructuredNode
+from neomodel.exceptions import DeflateConflict, InflateConflict
 from neomodel.util import _get_node_properties
 
 
