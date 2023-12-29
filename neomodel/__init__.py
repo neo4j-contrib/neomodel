@@ -48,6 +48,7 @@ from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
 from neomodel.sync_.core import StructuredNode
 from neomodel.sync_.match import NodeSet, Traversal
 from neomodel.sync_.path import NeomodelPath
+from neomodel.sync_.property_manager import PropertyManager
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.sync_.relationship_manager import (
     Relationship,

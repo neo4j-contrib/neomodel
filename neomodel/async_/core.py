@@ -22,6 +22,7 @@ from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
 from neomodel import config
+from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.exceptions import (
     ConstraintValidationFailed,
     DoesNotExist,
@@ -32,7 +33,7 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.hooks import hooks
-from neomodel.properties import Property, PropertyManager
+from neomodel.properties import Property
 from neomodel.util import (
     _get_node_properties,
     _UnsavedNode,
@@ -1064,7 +1065,7 @@ def build_class_registry(cls):
             raise NodeClassAlreadyDefined(cls, adb._NODE_CLASS_REGISTRY)
 
 
-NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
+NodeBase = NodeMeta("NodeBase", (AsyncPropertyManager,), {"__abstract_node__": True})
 
 
 class AsyncStructuredNode(NodeBase):

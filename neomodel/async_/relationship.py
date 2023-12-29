@@ -1,6 +1,7 @@
 from neomodel.async_.core import adb
+from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.hooks import hooks
-from neomodel.properties import Property, PropertyManager
+from neomodel.properties import Property
 
 
 class RelationshipMeta(type):
@@ -35,7 +36,7 @@ class RelationshipMeta(type):
         return inst
 
 
-StructuredRelBase = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
+StructuredRelBase = RelationshipMeta("RelationshipBase", (AsyncPropertyManager,), {})
 
 
 class AsyncStructuredRel(StructuredRelBase):

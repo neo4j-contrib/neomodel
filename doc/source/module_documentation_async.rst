@@ -27,6 +27,12 @@ Relationships
   :members:
   :show-inheritance:
 
+Property Manager
+================
+.. automodule:: neomodel.async_.property_manager
+  :members:
+  :show-inheritance:
+
 Paths
 =====
 

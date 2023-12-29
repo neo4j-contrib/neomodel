@@ -32,7 +32,8 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.hooks import hooks
-from neomodel.properties import Property, PropertyManager
+from neomodel.properties import Property
+from neomodel.sync_.property_manager import PropertyManager
 from neomodel.util import (
     _get_node_properties,
     _UnsavedNode,
@@ -253,9 +254,7 @@ class Database(local):
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: Transaction = (
-            self._session.begin_transaction()
-        )
+        self._active_transaction: Transaction = self._session.begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -835,9 +834,7 @@ def change_neo4j_password(db: Database, user, new_password):
     db.change_neo4j_password(user, new_password)
 
 
-def clear_neo4j_database(
-    db: Database, clear_constraints=False, clear_indexes=False
-):
+def clear_neo4j_database(db: Database, clear_constraints=False, clear_indexes=False):
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
