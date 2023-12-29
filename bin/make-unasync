@@ -204,9 +204,16 @@ class CustomRule(unasync.Rule):
 def apply_unasync(files):
     """Generate sync code from async code."""
 
-    additional_main_replacements = {"adb": "db", "async_": "sync_"}
+    additional_main_replacements = {
+        "adb": "db",
+        "async_": "sync_",
+        "check_bool": "__bool__",
+        "check_non_zero": "__nonzero__",
+    }
     additional_test_replacements = {
         "async_": "sync_",
+        "check_bool": "__bool__",
+        "check_non_zero": "__nonzero__",
         "adb": "db",
         "mark_async_test": "mark_sync_test",
         "mark_async_session_auto_fixture": "mark_sync_session_auto_fixture",

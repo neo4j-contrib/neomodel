@@ -1,13 +1,13 @@
-from test._async_compat import mark_async_test
+from test._async_compat import mark_sync_test
 
 from pytest import raises
 
 from neomodel import (
-    AsyncRelationshipFrom,
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
     IntegerProperty,
+    RelationshipFrom,
+    RelationshipTo,
     StringProperty,
+    StructuredNode,
     UniqueIdProperty,
     config,
 )
@@ -16,21 +16,21 @@ from neomodel.exceptions import DeflateError, UniqueProperty
 config.AUTO_INSTALL_LABELS = True
 
 
-class UniqueUser(AsyncStructuredNode):
+class UniqueUser(StructuredNode):
     uid = UniqueIdProperty()
     name = StringProperty()
     age = IntegerProperty()
 
 
-@mark_async_test
-async def test_unique_id_property_batch():
-    users = await UniqueUser.create(
+@mark_sync_test
+def test_unique_id_property_batch():
+    users = UniqueUser.create(
         {"name": "bob", "age": 2}, {"name": "ben", "age": 3}
     )
 
     assert users[0].uid != users[1].uid
 
-    users = await UniqueUser.get_or_create(
+    users = UniqueUser.get_or_create(
         {"uid": users[0].uid}, {"name": "bill", "age": 4}
     )
 
@@ -38,14 +38,14 @@ async def test_unique_id_property_batch():
     assert users[1].uid
 
 
-class Customer(AsyncStructuredNode):
+class Customer(StructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
 
-@mark_async_test
-async def test_batch_create():
-    users = await Customer.create(
+@mark_sync_test
+def test_batch_create():
+    users = Customer.create(
         {"email": "jim1@aol.com", "age": 11},
         {"email": "jim2@aol.com", "age": 7},
         {"email": "jim3@aol.com", "age": 9},
@@ -56,12 +56,12 @@ async def test_batch_create():
     assert users[0].age == 11
     assert users[1].age == 7
     assert users[1].email == "jim2@aol.com"
-    assert await Customer.nodes.get(email="jim1@aol.com")
+    assert Customer.nodes.get(email="jim1@aol.com")
 
 
-@mark_async_test
-async def test_batch_create_or_update():
-    users = await Customer.create_or_update(
+@mark_sync_test
+def test_batch_create_or_update():
+    users = Customer.create_or_update(
         {"email": "merge1@aol.com", "age": 11},
         {"email": "merge2@aol.com"},
         {"email": "merge3@aol.com", "age": 1},
@@ -69,66 +69,66 @@ async def test_batch_create_or_update():
     )
     assert len(users) == 4
     assert users[1] == users[3]
-    merge_1: Customer = await Customer.nodes.get(email="merge1@aol.com")
+    merge_1: Customer = Customer.nodes.get(email="merge1@aol.com")
     assert merge_1.age == 11
 
-    more_users = await Customer.create_or_update(
+    more_users = Customer.create_or_update(
         {"email": "merge1@aol.com", "age": 22},
         {"email": "merge4@aol.com", "age": None},
     )
     assert len(more_users) == 2
     assert users[0] == more_users[0]
-    merge_1 = await Customer.nodes.get(email="merge1@aol.com")
+    merge_1 = Customer.nodes.get(email="merge1@aol.com")
     assert merge_1.age == 22
 
 
-@mark_async_test
-async def test_batch_validation():
+@mark_sync_test
+def test_batch_validation():
     # test validation in batch create
     with raises(DeflateError):
-        await Customer.create(
+        Customer.create(
             {"email": "jim1@aol.com", "age": "x"},
         )
 
 
-@mark_async_test
-async def test_batch_index_violation():
-    for u in await Customer.nodes.all():
-        await u.delete()
+@mark_sync_test
+def test_batch_index_violation():
+    for u in Customer.nodes.all():
+        u.delete()
 
-    users = await Customer.create(
+    users = Customer.create(
         {"email": "jim6@aol.com", "age": 3},
     )
     assert users
     with raises(UniqueProperty):
-        await Customer.create(
+        Customer.create(
             {"email": "jim6@aol.com", "age": 3},
             {"email": "jim7@aol.com", "age": 5},
         )
 
     # not found
-    assert not await Customer.nodes.filter(email="jim7@aol.com").check_bool()
+    assert not Customer.nodes.filter(email="jim7@aol.com").__bool__()
 
 
-class Dog(AsyncStructuredNode):
+class Dog(StructuredNode):
     name = StringProperty(required=True)
-    owner = AsyncRelationshipTo("Person", "owner")
+    owner = RelationshipTo("Person", "owner")
 
 
-class Person(AsyncStructuredNode):
+class Person(StructuredNode):
     name = StringProperty(unique_index=True)
-    pets = AsyncRelationshipFrom("Dog", "owner")
+    pets = RelationshipFrom("Dog", "owner")
 
 
-@mark_async_test
-async def test_get_or_create_with_rel():
-    create_bob = await Person.get_or_create({"name": "Bob"})
+@mark_sync_test
+def test_get_or_create_with_rel():
+    create_bob = Person.get_or_create({"name": "Bob"})
     bob = create_bob[0]
-    bobs_gizmo = await Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
+    bobs_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
 
-    create_tim = await Person.get_or_create({"name": "Tim"})
+    create_tim = Person.get_or_create({"name": "Tim"})
     tim = create_tim[0]
-    tims_gizmo = await Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
+    tims_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]

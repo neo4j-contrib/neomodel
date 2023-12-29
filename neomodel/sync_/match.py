@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from neomodel.sync_.core import StructuredNode, db
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty
+from neomodel.sync_.core import StructuredNode, db
 from neomodel.util import INCOMING, OUTGOING
 
 
@@ -705,9 +705,7 @@ class QueryBuilder:
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
-        results, _ = db.cypher_query(
-            query, self._query_params, resolve_objects=True
-        )
+        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
@@ -726,6 +724,15 @@ class BaseSet:
 
     query_cls = QueryBuilder
 
+    def all(self, lazy=False):
+        """
+        Return all nodes belonging to the set
+        :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :return: list of nodes
+        :rtype: list
+        """
+        return self.query_cls(self).build_ast()._execute(lazy)
+
     def __iter__(self):
         for i in self.query_cls(self).build_ast()._execute():
             yield i
@@ -733,11 +740,22 @@ class BaseSet:
     def __len__(self):
         return self.query_cls(self).build_ast()._count()
 
-    def __abool__(self):
-        return bool(self.query_cls(self).build_ast()._count() > 0)
+    def __bool__(self):
+        """
+        Override for __bool__ dunder method.
+        :return: True if the set contains any nodes, False otherwise
+        :rtype: bool
+        """
+        _count = self.query_cls(self).build_ast()._count()
+        return _count > 0
 
     def __nonzero__(self):
-        return bool(self.query_cls(self).build_ast()._count() > 0)
+        """
+        Override for __bool__ dunder method.
+        :return: True if the set contains any node, False otherwise
+        :rtype: bool
+        """
+        return self.__bool__()
 
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):

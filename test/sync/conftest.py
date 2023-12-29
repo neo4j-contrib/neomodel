@@ -23,7 +23,6 @@ def setup_neo4j_session(request, event_loop):
     config.DATABASE_URL = os.environ.get(
         "NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"
     )
-    config.AUTO_INSTALL_LABELS = True
 
     # Clear the database if required
     database_is_populated, _ = db.cypher_query(
@@ -35,6 +34,8 @@ def setup_neo4j_session(request, event_loop):
         )
 
     db.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
+
+    db.install_all_labels()
 
     db.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"

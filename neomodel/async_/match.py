@@ -742,13 +742,22 @@ class AsyncBaseSet:
     async def __len__(self):
         return await self.query_cls(self).build_ast()._count()
 
-    async def __abool__(self):
+    async def check_bool(self):
+        """
+        Override for __bool__ dunder method.
+        :return: True if the set contains any nodes, False otherwise
+        :rtype: bool
+        """
         _count = await self.query_cls(self).build_ast()._count()
         return _count > 0
 
-    async def __anonzero__(self):
-        _count = await self.query_cls(self).build_ast()._count()
-        return _count > 0
+    async def check_non_zero(self):
+        """
+        Override for __bool__ dunder method.
+        :return: True if the set contains any node, False otherwise
+        :rtype: bool
+        """
+        return await self.check_bool()
 
     def __contains__(self, obj):
         if isinstance(obj, AsyncStructuredNode):
