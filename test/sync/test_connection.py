@@ -1,21 +1,23 @@
 import os
-import time
 
+from test._async_compat import mark_sync_test
+from test.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
 import pytest
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Driver
 from neo4j.debug import watch
 
-from neomodel import AsyncStructuredNode, StringProperty, adb, config
-from neomodel.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
+from neomodel import StructuredNode, StringProperty, config
+from neomodel.sync_.core import db
 
 
+@mark_sync_test
 @pytest.fixture(autouse=True)
 def setup_teardown():
     yield
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
-    adb.close_connection()
-    adb.set_connection(url=config.DATABASE_URL)
+    db.close_connection()
+    db.set_connection(url=config.DATABASE_URL)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -24,6 +26,7 @@ def neo4j_logging():
         yield
 
 
+@mark_sync_test
 def get_current_database_name() -> str:
     """
     Fetches the name of the currently active database from the Neo4j database.
@@ -31,35 +34,41 @@ def get_current_database_name() -> str:
     Returns:
     - str: The name of the current database.
     """
-    results, meta = adb.cypher_query("CALL db.info")
+    results, meta = db.cypher_query("CALL db.info")
     results_as_dict = [dict(zip(meta, row)) for row in results]
 
     return results_as_dict[0]["name"]
 
 
-class Pastry(AsyncStructuredNode):
+class Pastry(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
+@mark_sync_test
 def test_set_connection_driver_works():
     # Verify that current connection is up
     assert Pastry(name="Chocolatine").save()
-    adb.close_connection()
+    db.close_connection()
 
     # Test connection using a driver
-    adb.set_connection(
-        driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    db.set_connection(
+        driver=GraphDatabase().driver(
+            NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+        )
     )
     assert Pastry(name="Croissant").save()
 
 
+@mark_sync_test
 def test_config_driver_works():
     # Verify that current connection is up
     assert Pastry(name="Chausson aux pommes").save()
-    adb.close_connection()
+    db.close_connection()
 
     # Test connection using a driver defined in config
-    driver = GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    driver: Driver = GraphDatabase().driver(
+        NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+    )
 
     config.DRIVER = driver
     assert Pastry(name="Grignette").save()
@@ -69,33 +78,36 @@ def test_config_driver_works():
     config.DRIVER = None
 
 
+@mark_sync_test
 @pytest.mark.skipif(
-    adb.database_edition != "enterprise",
+    db.database_edition != "enterprise",
     reason="Skipping test for community edition - no multi database in CE",
 )
 def test_connect_to_non_default_database():
     database_name = "pastries"
-    adb.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
-    adb.close_connection()
+    db.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
+    db.close_connection()
 
     # Set database name in url - for url init only
-    adb.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
+    db.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
     assert get_current_database_name() == "pastries"
 
-    adb.close_connection()
+    db.close_connection()
 
     # Set database name in config - for both url and driver init
     config.DATABASE_NAME = database_name
 
     # url init
-    adb.set_connection(url=config.DATABASE_URL)
+    db.set_connection(url=config.DATABASE_URL)
     assert get_current_database_name() == "pastries"
 
-    adb.close_connection()
+    db.close_connection()
 
     # driver init
-    adb.set_connection(
-        driver=GraphDatabase().driver(NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    db.set_connection(
+        driver=GraphDatabase().driver(
+            NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
+        )
     )
     assert get_current_database_name() == "pastries"
 
@@ -104,6 +116,7 @@ def test_connect_to_non_default_database():
     config.DATABASE_NAME = None
 
 
+@mark_sync_test
 @pytest.mark.parametrize(
     "url", ["bolt://user:password", "http://user:password@localhost:7687"]
 )
@@ -112,17 +125,18 @@ def test_wrong_url_format(url):
         ValueError,
         match=rf"Expecting url format: bolt://user:password@localhost:7687 got {url}",
     ):
-        adb.set_connection(url=url)
+        db.set_connection(url=url)
 
 
+@mark_sync_test
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])
 def test_connect_to_aura(protocol):
     cypher_return = "hello world"
     default_cypher_query = f"RETURN '{cypher_return}'"
-    adb.close_connection()
+    db.close_connection()
 
     _set_connection(protocol=protocol)
-    result, _ = adb.cypher_query(default_cypher_query)
+    result, _ = db.cypher_query(default_cypher_query)
 
     assert len(result) > 0
     assert result[0][0] == cypher_return
@@ -134,4 +148,4 @@ def _set_connection(protocol):
     AURA_TEST_DB_HOSTNAME = os.environ["AURA_TEST_DB_HOSTNAME"]
 
     database_url = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
-    adb.set_connection(url=database_url)
+    db.set_connection(url=database_url)
