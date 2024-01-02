@@ -9,14 +9,24 @@ The following example uses a recursive relationship for economy, but the
 idea remains the same: "Instantiate the correct type of node at the end of 
 a relationship as specified by the model"
 """
-
-import datetime
-import os
+from test._async_compat import mark_sync_test
 import random
 
 import pytest
 
-import neomodel
+from neomodel import (
+    StructuredRel,
+    StructuredNode,
+    DateTimeProperty,
+    FloatProperty,
+    StringProperty,
+    UniqueIdProperty,
+    RelationshipTo,
+    RelationshipClassRedefined,
+    RelationshipClassNotDefined,
+)
+from neomodel.sync_.core import db
+from neomodel.exceptions import NodeClassNotDefined, NodeClassAlreadyDefined
 
 try:
     basestring
@@ -25,7 +35,7 @@ except NameError:
 
 
 # Set up a very simple model for the tests
-class PersonalRelationship(neomodel.AsyncStructuredRel):
+class PersonalRelationship(StructuredRel):
     """
     A very simple relationship between two basePersons that simply records
     the date at which an acquaintance was established.
@@ -33,16 +43,16 @@ class PersonalRelationship(neomodel.AsyncStructuredRel):
     basePerson without any further effort.
     """
 
-    on_date = neomodel.DateTimeProperty(default_now=True)
+    on_date = DateTimeProperty(default_now=True)
 
 
-class BasePerson(neomodel.AsyncStructuredNode):
+class BasePerson(StructuredNode):
     """
     Base class for defining some basic sort of an actor.
     """
 
-    name = neomodel.StringProperty(required=True, unique_index=True)
-    friends_with = neomodel.AsyncRelationshipTo(
+    name = StringProperty(required=True, unique_index=True)
+    friends_with = RelationshipTo(
         "BasePerson", "FRIENDS_WITH", model=PersonalRelationship
     )
 
@@ -52,7 +62,7 @@ class TechnicalPerson(BasePerson):
     A Technical person specialises BasePerson by adding their expertise.
     """
 
-    expertise = neomodel.StringProperty(required=True)
+    expertise = StringProperty(required=True)
 
 
 class PilotPerson(BasePerson):
@@ -61,15 +71,15 @@ class PilotPerson(BasePerson):
     can operate.
     """
 
-    airplane = neomodel.StringProperty(required=True)
+    airplane = StringProperty(required=True)
 
 
-class BaseOtherPerson(neomodel.AsyncStructuredNode):
+class BaseOtherPerson(StructuredNode):
     """
     An obviously "wrong" class of actor to befriend BasePersons with.
     """
 
-    car_color = neomodel.StringProperty(required=True)
+    car_color = StringProperty(required=True)
 
 
 class SomePerson(BaseOtherPerson):
@@ -81,6 +91,7 @@ class SomePerson(BaseOtherPerson):
 
 
 # Test cases
+@mark_sync_test
 def test_automatic_result_resolution():
     """
     Node objects at the end of relationships are instantiated to their
@@ -88,9 +99,17 @@ def test_automatic_result_resolution():
     """
 
     # Create a few entities
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
+    B = (
+        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
+    )[0]
+    C = (
+        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
+    )[0]
 
     # Add connections
     A.friends_with.connect(B)
@@ -106,6 +125,7 @@ def test_automatic_result_resolution():
     C.delete()
 
 
+@mark_sync_test
 def test_recursive_automatic_result_resolution():
     """
     Node objects are instantiated to native Python objects, both at the top
@@ -114,15 +134,29 @@ def test_recursive_automatic_result_resolution():
     """
 
     # Create a few entities
-    A = TechnicalPerson.get_or_create({"name": "Grumpier", "expertise": "Grumpiness"})[
-        0
-    ]
-    B = TechnicalPerson.get_or_create({"name": "Happier", "expertise": "Grumpiness"})[0]
-    C = TechnicalPerson.get_or_create({"name": "Sleepier", "expertise": "Pillows"})[0]
-    D = TechnicalPerson.get_or_create({"name": "Sneezier", "expertise": "Pillows"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpier", "expertise": "Grumpiness"}
+        )
+    )[0]
+    B = (
+        TechnicalPerson.get_or_create(
+            {"name": "Happier", "expertise": "Grumpiness"}
+        )
+    )[0]
+    C = (
+        TechnicalPerson.get_or_create(
+            {"name": "Sleepier", "expertise": "Pillows"}
+        )
+    )[0]
+    D = (
+        TechnicalPerson.get_or_create(
+            {"name": "Sneezier", "expertise": "Pillows"}
+        )
+    )[0]
 
     # Retrieve mixed results, both at the top level and nested
-    L, _ = neomodel.adb.cypher_query(
+    L, _ = db.cypher_query(
         "MATCH (a:TechnicalPerson) "
         "WHERE a.expertise='Grumpiness' "
         "WITH collect(a) as Alpha "
@@ -146,6 +180,7 @@ def test_recursive_automatic_result_resolution():
     D.delete()
 
 
+@mark_sync_test
 def test_validation_with_inheritance_from_db():
     """
     Objects descending from the specified class of a relationship's end-node are
@@ -154,16 +189,28 @@ def test_validation_with_inheritance_from_db():
 
     # Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
+    B = (
+        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
+    )[0]
+    C = (
+        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
+    )[0]
 
     # Pilot Persons
-    D = PilotPerson.get_or_create(
-        {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
+    D = (
+        PilotPerson.get_or_create(
+            {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
+        )
     )[0]
-    E = PilotPerson.get_or_create(
-        {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
+    E = (
+        PilotPerson.get_or_create(
+            {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
+        )
     )[0]
 
     # TechnicalPersons can befriend PilotPersons and vice-versa and that's fine
@@ -198,6 +245,7 @@ def test_validation_with_inheritance_from_db():
     E.delete()
 
 
+@mark_sync_test
 def test_validation_enforcement_to_db():
     """
     If a connection between wrong types is attempted, raise an exception
@@ -205,16 +253,28 @@ def test_validation_enforcement_to_db():
 
     # Create a few entities
     # Technical Persons
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
-    B = TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})[0]
-    C = TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
+    B = (
+        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
+    )[0]
+    C = (
+        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
+    )[0]
 
     # Pilot Persons
-    D = PilotPerson.get_or_create(
-        {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
+    D = (
+        PilotPerson.get_or_create(
+            {"name": "Porco Rosso", "airplane": "Savoia-Marchetti"}
+        )
     )[0]
-    E = PilotPerson.get_or_create(
-        {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
+    E = (
+        PilotPerson.get_or_create(
+            {"name": "Jack Dalton", "airplane": "Beechcraft Model 18"}
+        )
     )[0]
 
     # Some Person
@@ -241,6 +301,7 @@ def test_validation_enforcement_to_db():
     F.delete()
 
 
+@mark_sync_test
 def test_failed_result_resolution():
     """
     A Neo4j driver node FROM the database contains labels that are unaware to
@@ -249,33 +310,43 @@ def test_failed_result_resolution():
     """
 
     class RandomPerson(BasePerson):
-        randomness = neomodel.FloatProperty(default=random.random)
+        randomness = FloatProperty(default=random.random)
 
     # A Technical Person...
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
 
     # A Random Person...
-    B = RandomPerson.get_or_create({"name": "Mad Hatter"})[0]
+    B = (RandomPerson.get_or_create({"name": "Mad Hatter"}))[0]
 
     A.friends_with.connect(B)
 
     # Simulate the condition where the definition of class RandomPerson is not
     # known yet.
-    del neomodel.adb._NODE_CLASS_REGISTRY[frozenset(["RandomPerson", "BasePerson"])]
+    del db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson", "BasePerson"])]
 
     # Now try to instantiate a RandomPerson
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
     with pytest.raises(
-        neomodel.exceptions.NodeClassNotDefined,
+        NodeClassNotDefined,
         match=r"Node with labels .* does not resolve to any of the known objects.*",
     ):
-        for some_friend in A.friends_with:
+        friends = A.friends_with.all()
+        for some_friend in friends:
             print(some_friend.name)
 
     A.delete()
     B.delete()
 
 
+@mark_sync_test
 def test_node_label_mismatch():
     """
     A Neo4j driver node FROM the database contains a superset of the known
@@ -283,19 +354,25 @@ def test_node_label_mismatch():
     """
 
     class SuperTechnicalPerson(TechnicalPerson):
-        superness = neomodel.FloatProperty(default=1.0)
+        superness = FloatProperty(default=1.0)
 
     class UltraTechnicalPerson(SuperTechnicalPerson):
-        ultraness = neomodel.FloatProperty(default=3.1415928)
+        ultraness = FloatProperty(default=3.1415928)
 
     # Create a TechnicalPerson...
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
     # ...that is connected to an UltraTechnicalPerson
-    F = UltraTechnicalPerson(name="Chewbaka", expertise="Aarrr wgh ggwaaah").save()
+    F = UltraTechnicalPerson(
+        name="Chewbaka", expertise="Aarrr wgh ggwaaah"
+    ).save()
     A.friends_with.connect(F)
 
     # Forget about the UltraTechnicalPerson
-    del neomodel.adb._NODE_CLASS_REGISTRY[
+    del db._NODE_CLASS_REGISTRY[
         frozenset(
             [
                 "UltraTechnicalPerson",
@@ -309,15 +386,20 @@ def test_node_label_mismatch():
     # Recall a TechnicalPerson and enumerate its friends.
     # One of them is UltraTechnicalPerson which would be returned as a valid
     # node to a friends_with query but is currently unknown to the node class registry.
-    A = TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"})[0]
-    with pytest.raises(neomodel.exceptions.NodeClassNotDefined):
-        for some_friend in A.friends_with:
+    A = (
+        TechnicalPerson.get_or_create(
+            {"name": "Grumpy", "expertise": "Grumpiness"}
+        )
+    )[0]
+    with pytest.raises(NodeClassNotDefined):
+        friends = A.friends_with.all()
+        for some_friend in friends:
             print(some_friend.name)
 
 
 def test_attempted_class_redefinition():
     """
-    A neomodel.StructuredNode class is attempted to be redefined.
+    A StructuredNode class is attempted to be redefined.
     """
 
     def redefine_class_locally():
@@ -325,15 +407,16 @@ def test_attempted_class_redefinition():
         # SomePerson here.
         # The internal structure of the SomePerson entity does not matter at all here.
         class SomePerson(BaseOtherPerson):
-            uid = neomodel.UniqueIdProperty()
+            uid = UniqueIdProperty()
 
     with pytest.raises(
-        neomodel.exceptions.NodeClassAlreadyDefined,
+        NodeClassAlreadyDefined,
         match=r"Class .* with labels .* already defined:.*",
     ):
         redefine_class_locally()
 
 
+@mark_sync_test
 def test_relationship_result_resolution():
     """
     A query returning a "Relationship" object can now instantiate it to a data model class
@@ -350,7 +433,7 @@ def test_relationship_result_resolution():
     C.friends_with.connect(D)
     D.friends_with.connect(E)
 
-    query_data = neomodel.adb.cypher_query(
+    query_data = db.cypher_query(
         "MATCH (a:PilotPerson)-[r:FRIENDS_WITH]->(b:PilotPerson) "
         "WHERE a.airplane='Gee Bee Model R' and b.airplane='Gee Bee Model R' "
         "RETURN DISTINCT r",
@@ -361,6 +444,7 @@ def test_relationship_result_resolution():
     assert isinstance(query_data[0][0][0], PersonalRelationship)
 
 
+@mark_sync_test
 def test_properly_inherited_relationship():
     """
     A relationship class extends an existing relationship model that must extended the same previously associated
@@ -370,11 +454,11 @@ def test_properly_inherited_relationship():
     # Extends an existing relationship by adding the "relationship_strength" attribute.
     # `ExtendedPersonalRelationship` will now substitute `PersonalRelationship` EVERYWHERE in the system.
     class ExtendedPersonalRelationship(PersonalRelationship):
-        relationship_strength = neomodel.FloatProperty(default=random.random)
+        relationship_strength = FloatProperty(default=random.random)
 
     # Extends SomePerson, establishes "enriched" relationships with any BaseOtherPerson
     class ExtendedSomePerson(SomePerson):
-        friends_with = neomodel.AsyncRelationshipTo(
+        friends_with = RelationshipTo(
             "BaseOtherPerson",
             "FRIENDS_WITH",
             model=ExtendedPersonalRelationship,
@@ -388,7 +472,7 @@ def test_properly_inherited_relationship():
     A.friends_with.connect(B)
     A.friends_with.connect(C)
 
-    query_data = neomodel.adb.cypher_query(
+    query_data = db.cypher_query(
         "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
         "RETURN DISTINCT r",
         resolve_objects=True,
@@ -403,20 +487,21 @@ def test_improperly_inherited_relationship():
     :return:
     """
 
-    class NewRelationship(neomodel.AsyncStructuredRel):
-        profile_match_factor = neomodel.FloatProperty()
+    class NewRelationship(StructuredRel):
+        profile_match_factor = FloatProperty()
 
     with pytest.raises(
-        neomodel.RelationshipClassRedefined,
+        RelationshipClassRedefined,
         match=r"Relationship of type .* redefined as .*",
     ):
 
         class NewSomePerson(SomePerson):
-            friends_with = neomodel.AsyncRelationshipTo(
+            friends_with = RelationshipTo(
                 "BaseOtherPerson", "FRIENDS_WITH", model=NewRelationship
             )
 
 
+@mark_sync_test
 def test_resolve_inexistent_relationship():
     """
     Attempting to resolve an inexistent relationship should raise an exception
@@ -424,13 +509,13 @@ def test_resolve_inexistent_relationship():
     """
 
     # Forget about the FRIENDS_WITH Relationship.
-    del neomodel.adb._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
+    del db._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
 
     with pytest.raises(
-        neomodel.RelationshipClassNotDefined,
+        RelationshipClassNotDefined,
         match=r"Relationship of type .* does not resolve to any of the known objects.*",
     ):
-        query_data = neomodel.adb.cypher_query(
+        query_data = db.cypher_query(
             "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
             "RETURN DISTINCT r",
             resolve_objects=True,

@@ -1,12 +1,14 @@
 import pickle
+from test._async_compat import mark_sync_test
 
-from neomodel import AsyncStructuredNode, DoesNotExist, StringProperty
+from neomodel import StructuredNode, DoesNotExist, StringProperty
 
 
-class EPerson(AsyncStructuredNode):
+class EPerson(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
+@mark_sync_test
 def test_object_does_not_exist():
     try:
         EPerson.nodes.get(name="johnny")

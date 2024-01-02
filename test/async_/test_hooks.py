@@ -1,3 +1,4 @@
+from test._async_compat import mark_async_test
 from neomodel import AsyncStructuredNode, StringProperty
 
 HOOKS_CALLED = {}
@@ -22,9 +23,10 @@ class HookTest(AsyncStructuredNode):
         HOOKS_CALLED["post_delete"] = 1
 
 
-def test_hooks():
-    ht = HookTest(name="k").save()
-    ht.delete()
+@mark_async_test
+async def test_hooks():
+    ht = await HookTest(name="k").save()
+    await ht.delete()
     assert "pre_save" in HOOKS_CALLED
     assert "post_save" in HOOKS_CALLED
     assert "post_create" in HOOKS_CALLED

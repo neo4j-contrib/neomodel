@@ -1,23 +1,25 @@
 import pytest
 from pytest import raises
+from test._async_compat import mark_sync_test
 
 from neomodel import (
-    AsyncStructuredNode,
+    StructuredNode,
     IntegerProperty,
     StringProperty,
     UniqueProperty,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 from neomodel.exceptions import ConstraintValidationFailed
 
 
-class Human(AsyncStructuredNode):
+class Human(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
 
 
+@mark_sync_test
 def test_unique_error():
-    adb.install_labels(Human)
+    db.install_labels(Human)
     Human(name="j1m", age=13).save()
     try:
         Human(name="j1m", age=14).save()
@@ -28,19 +30,21 @@ def test_unique_error():
         assert False, "UniqueProperty not raised."
 
 
+@mark_sync_test
 @pytest.mark.skipif(
-    not adb.edition_is_enterprise(), reason="Skipping test for community edition"
+    not db.edition_is_enterprise(), reason="Skipping test for community edition"
 )
 def test_existence_constraint_error():
-    adb.cypher_query(
+    db.cypher_query(
         "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
     )
     with raises(ConstraintValidationFailed, match=r"must have the property"):
         Human(name="Scarlett").save()
 
-    adb.cypher_query("DROP CONSTRAINT test_existence_constraint")
+    db.cypher_query("DROP CONSTRAINT test_existence_constraint")
 
 
+@mark_sync_test
 def test_optional_properties_dont_get_indexed():
     Human(name="99", age=99).save()
     h = Human.nodes.get(age=99)
@@ -53,21 +57,24 @@ def test_optional_properties_dont_get_indexed():
     assert h.name == "98"
 
 
+@mark_sync_test
 def test_escaped_chars():
     _name = "sarah:test"
     Human(name=_name, age=3).save()
     r = Human.nodes.filter(name=_name)
-    assert r
-    assert r[0].name == _name
+    first_r = r[0]
+    assert first_r.name == _name
 
 
+@mark_sync_test
 def test_does_not_exist():
     with raises(Human.DoesNotExist):
         Human.nodes.get(name="XXXX")
 
 
+@mark_sync_test
 def test_custom_label_name():
-    class Giraffe(AsyncStructuredNode):
+    class Giraffe(StructuredNode):
         __label__ = "Giraffes"
         name = StringProperty(unique_index=True)
 

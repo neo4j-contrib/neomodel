@@ -4,13 +4,8 @@ Provides a test case for issue 600 - "Pull request #592 cause an error in case o
 The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/600
 """
 
-import datetime
-import os
-import random
-
-import pytest
-
-import neomodel
+from test._async_compat import mark_sync_test
+from neomodel import StructuredNode, Relationship, StructuredRel
 
 try:
     basestring
@@ -18,7 +13,7 @@ except NameError:
     basestring = str
 
 
-class Class1(neomodel.AsyncStructuredRel):
+class Class1(StructuredRel):
     pass
 
 
@@ -30,36 +25,37 @@ class SubClass2(Class1):
     pass
 
 
-class RelationshipDefinerSecondSibling(neomodel.AsyncStructuredNode):
-    rel_1 = neomodel.AsyncRelationship(
+class RelationshipDefinerSecondSibling(StructuredNode):
+    rel_1 = Relationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=Class1
     )
-    rel_2 = neomodel.AsyncRelationship(
+    rel_2 = Relationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=SubClass1
     )
-    rel_3 = neomodel.AsyncRelationship(
+    rel_3 = Relationship(
         "RelationshipDefinerSecondSibling", "SOME_REL_LABEL", model=SubClass2
     )
 
 
-class RelationshipDefinerParentLast(neomodel.AsyncStructuredNode):
-    rel_2 = neomodel.AsyncRelationship(
+class RelationshipDefinerParentLast(StructuredNode):
+    rel_2 = Relationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass1
     )
-    rel_3 = neomodel.AsyncRelationship(
+    rel_3 = Relationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=SubClass2
     )
-    rel_1 = neomodel.AsyncRelationship(
+    rel_1 = Relationship(
         "RelationshipDefinerParentLast", "SOME_REL_LABEL", model=Class1
     )
 
 
 # Test cases
+@mark_sync_test
 def test_relationship_definer_second_sibling():
     # Create a few entities
-    A = RelationshipDefinerSecondSibling.get_or_create({})[0]
-    B = RelationshipDefinerSecondSibling.get_or_create({})[0]
-    C = RelationshipDefinerSecondSibling.get_or_create({})[0]
+    A = (RelationshipDefinerSecondSibling.get_or_create({}))[0]
+    B = (RelationshipDefinerSecondSibling.get_or_create({}))[0]
+    C = (RelationshipDefinerSecondSibling.get_or_create({}))[0]
 
     # Add connections
     A.rel_1.connect(B)
@@ -72,11 +68,12 @@ def test_relationship_definer_second_sibling():
     C.delete()
 
 
+@mark_sync_test
 def test_relationship_definer_parent_last():
     # Create a few entities
-    A = RelationshipDefinerParentLast.get_or_create({})[0]
-    B = RelationshipDefinerParentLast.get_or_create({})[0]
-    C = RelationshipDefinerParentLast.get_or_create({})[0]
+    A = (RelationshipDefinerParentLast.get_or_create({}))[0]
+    B = (RelationshipDefinerParentLast.get_or_create({}))[0]
+    C = (RelationshipDefinerParentLast.get_or_create({}))[0]
 
     # Add connections
     A.rel_1.connect(B)

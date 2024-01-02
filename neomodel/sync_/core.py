@@ -552,6 +552,7 @@ class Database(local):
             version_tag
         )
 
+    @ensure_connection
     def edition_is_enterprise(self) -> bool:
         """Returns true if the database edition is enterprise
 

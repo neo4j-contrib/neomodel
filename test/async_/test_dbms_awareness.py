@@ -1,4 +1,5 @@
 from pytest import mark
+from test._async_compat import mark_async_test
 
 from neomodel.async_.core import adb
 from neomodel.util import version_tag_to_integer
@@ -17,11 +18,12 @@ async def test_version_awareness():
     assert not adb.version_is_higher_than("5.8")
 
 
+@mark_async_test
 async def test_edition_awareness():
     if adb.database_edition == "enterprise":
-        assert adb.edition_is_enterprise()
+        assert await adb.edition_is_enterprise()
     else:
-        assert not adb.edition_is_enterprise()
+        assert not await adb.edition_is_enterprise()
 
 
 def test_version_tag_to_integer():

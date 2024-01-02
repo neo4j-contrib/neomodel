@@ -1,4 +1,5 @@
 from pytest import mark
+from test._async_compat import mark_sync_test
 
 from neomodel.sync_.core import db
 from neomodel.util import version_tag_to_integer
@@ -17,6 +18,7 @@ def test_version_awareness():
     assert not db.version_is_higher_than("5.8")
 
 
+@mark_sync_test
 def test_edition_awareness():
     if db.database_edition == "enterprise":
         assert db.edition_is_enterprise()

@@ -554,7 +554,8 @@ class AsyncDatabase(local):
             version_tag
         )
 
-    def edition_is_enterprise(self) -> bool:
+    @ensure_connection
+    async def edition_is_enterprise(self) -> bool:
         """Returns true if the database edition is enterprise
 
         Returns:
