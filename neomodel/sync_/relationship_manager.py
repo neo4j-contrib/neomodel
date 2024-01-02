@@ -3,15 +3,10 @@ import inspect
 import sys
 from importlib import import_module
 
-from neomodel.sync_.core import db
-from neomodel.sync_.match import (
-    NodeSet,
-    Traversal,
-    _rel_helper,
-    _rel_merge_helper,
-)
-from neomodel.sync_.relationship import StructuredRel
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
+from neomodel.sync_.core import db
+from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
+from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
     EITHER,
     INCOMING,
@@ -133,7 +128,8 @@ class RelationshipManager(object):
             self.source.cypher(q, params)
             return True
 
-        rel_ = self.source.cypher(q + " RETURN r", params)[0][0][0]
+        results = self.source.cypher(q + " RETURN r", params)
+        rel_ = results[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), node)
 
         if hasattr(rel_instance, "post_save"):

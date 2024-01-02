@@ -22,7 +22,6 @@ from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
 from neomodel import config
-from neomodel.sync_.property_manager import PropertyManager
 from neomodel.exceptions import (
     ConstraintValidationFailed,
     DoesNotExist,
@@ -34,6 +33,7 @@ from neomodel.exceptions import (
 )
 from neomodel.hooks import hooks
 from neomodel.properties import Property
+from neomodel.sync_.property_manager import PropertyManager
 from neomodel.util import (
     _get_node_properties,
     _UnsavedNode,

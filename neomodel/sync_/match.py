@@ -4,10 +4,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from neomodel.sync_.core import StructuredNode, db
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty
+from neomodel.sync_.core import StructuredNode, db
 from neomodel.util import INCOMING, OUTGOING
 
 

@@ -1,8 +1,8 @@
+from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
     ZeroOrMore,
 )
-from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 
 
 class ZeroOrOne(RelationshipManager):

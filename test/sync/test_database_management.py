@@ -1,76 +1,79 @@
 import pytest
+from test._async_compat import mark_sync_test
 from neo4j.exceptions import AuthError
 
 from neomodel import (
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    RelationshipTo,
+    StructuredNode,
+    StructuredRel,
     IntegerProperty,
     StringProperty,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 
 
-class City(AsyncStructuredNode):
+class City(StructuredNode):
     name = StringProperty()
 
 
-class InCity(AsyncStructuredRel):
+class InCity(StructuredRel):
     creation_year = IntegerProperty(index=True)
 
 
-class Venue(AsyncStructuredNode):
+class Venue(StructuredNode):
     name = StringProperty(unique_index=True)
     creator = StringProperty(index=True)
-    in_city = AsyncRelationshipTo(City, relation_type="IN", model=InCity)
+    in_city = RelationshipTo(City, relation_type="IN", model=InCity)
 
 
+@mark_sync_test
 def test_clear_database():
     venue = Venue(name="Royal Albert Hall", creator="Queen Victoria").save()
     city = City(name="London").save()
     venue.in_city.connect(city)
 
     # Clear only the data
-    adb.clear_neo4j_database()
-    database_is_populated, _ = adb.cypher_query(
+    db.clear_neo4j_database()
+    database_is_populated, _ = db.cypher_query(
         "MATCH (a) return count(a)>0 as database_is_populated"
     )
 
     assert database_is_populated[0][0] is False
 
-    indexes = adb.list_indexes(exclude_token_lookup=True)
-    constraints = adb.list_constraints()
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    constraints = db.list_constraints()
     assert len(indexes) > 0
     assert len(constraints) > 0
 
     # Clear constraints and indexes too
-    adb.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
+    db.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
 
-    indexes = adb.list_indexes(exclude_token_lookup=True)
-    constraints = adb.list_constraints()
+    indexes = db.list_indexes(exclude_token_lookup=True)
+    constraints = db.list_constraints()
     assert len(indexes) == 0
     assert len(constraints) == 0
 
 
+@mark_sync_test
 def test_change_password():
     prev_password = "foobarbaz"
     new_password = "newpassword"
     prev_url = f"bolt://neo4j:{prev_password}@localhost:7687"
     new_url = f"bolt://neo4j:{new_password}@localhost:7687"
 
-    adb.change_neo4j_password("neo4j", new_password)
-    adb.close_connection()
+    db.change_neo4j_password("neo4j", new_password)
+    db.close_connection()
 
-    adb.set_connection(url=new_url)
-    adb.close_connection()
+    db.set_connection(url=new_url)
+    db.close_connection()
 
     with pytest.raises(AuthError):
-        adb.set_connection(url=prev_url)
+        db.set_connection(url=prev_url)
 
-    adb.close_connection()
+    db.close_connection()
 
-    adb.set_connection(url=new_url)
-    adb.change_neo4j_password("neo4j", prev_password)
-    adb.close_connection()
+    db.set_connection(url=new_url)
+    db.change_neo4j_password("neo4j", prev_password)
+    db.close_connection()
 
-    adb.set_connection(url=prev_url)
+    db.set_connection(url=prev_url)

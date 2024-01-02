@@ -133,7 +133,8 @@ class AsyncRelationshipManager(object):
             await self.source.cypher(q, params)
             return True
 
-        rel_ = await self.source.cypher(q + " RETURN r", params)[0][0][0]
+        results = await self.source.cypher(q + " RETURN r", params)
+        rel_ = results[0][0][0]
         rel_instance = self._set_start_end_cls(rel_model.inflate(rel_), node)
 
         if hasattr(rel_instance, "post_save"):
