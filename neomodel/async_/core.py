@@ -541,7 +541,8 @@ class AsyncDatabase(local):
 
         return constraints_as_dict
 
-    def version_is_higher_than(self, version_tag: str) -> bool:
+    @ensure_connection
+    async def version_is_higher_than(self, version_tag: str) -> bool:
         """Returns true if the database version is higher or equal to a given tag
 
         Args:
@@ -750,7 +751,7 @@ class AsyncDatabase(local):
     async def _create_relationship_constraint(
         self, relationship_type: str, property_name: str, stdout
     ):
-        if self.version_is_higher_than("5.7"):
+        if await self.version_is_higher_than("5.7"):
             try:
                 await self.cypher_query(
                     f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 

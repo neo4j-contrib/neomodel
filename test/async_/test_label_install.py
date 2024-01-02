@@ -1,4 +1,5 @@
 import pytest
+from test._async_compat import mark_async_test
 
 from neomodel import (
     AsyncRelationshipTo,
@@ -6,12 +7,9 @@ from neomodel import (
     AsyncStructuredRel,
     StringProperty,
     UniqueIdProperty,
-    config,
 )
 from neomodel.async_.core import adb
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
-
-config.AUTO_INSTALL_LABELS = False
 
 
 class NodeWithIndex(AsyncStructuredNode):
@@ -45,61 +43,50 @@ class SomeNotUniqueNode(AsyncStructuredNode):
     id_ = UniqueIdProperty(db_property="id")
 
 
-config.AUTO_INSTALL_LABELS = True
-
-
-def test_labels_were_not_installed():
-    bob = NodeWithConstraint(name="bob").save()
-    bob2 = NodeWithConstraint(name="bob").save()
-    bob3 = NodeWithConstraint(name="bob").save()
-    assert bob.element_id != bob3.element_id
-
-    for n in NodeWithConstraint.nodes.all():
-        n.delete()
-
-
-def test_install_all():
-    adb.drop_constraints()
-    adb.install_labels(AbstractNode)
+@mark_async_test
+async def test_install_all():
+    await adb.drop_constraints()
+    await adb.install_labels(AbstractNode)
     # run install all labels
-    adb.install_all_labels()
+    await adb.install_all_labels()
 
-    indexes = adb.list_indexes()
+    indexes = await adb.list_indexes()
     index_names = [index["name"] for index in indexes]
     assert "index_INDEXED_REL_indexed_rel_prop" in index_names
 
-    constraints = adb.list_constraints()
+    constraints = await adb.list_constraints()
     constraint_names = [constraint["name"] for constraint in constraints]
     assert "constraint_unique_NodeWithConstraint_name" in constraint_names
     assert "constraint_unique_SomeNotUniqueNode_id" in constraint_names
 
     # remove constraint for above test
-    _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
+    await _drop_constraints_for_label_and_property("NoConstraintsSetup", "name")
 
 
-def test_install_label_twice(capsys):
+@mark_async_test
+async def test_install_label_twice(capsys):
     expected_std_out = (
         "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
     )
-    adb.install_labels(AbstractNode)
-    adb.install_labels(AbstractNode)
+    await adb.install_labels(AbstractNode)
+    await adb.install_labels(AbstractNode)
 
-    adb.install_labels(NodeWithIndex)
-    adb.install_labels(NodeWithIndex, quiet=False)
+    await adb.install_labels(NodeWithIndex)
+    await adb.install_labels(NodeWithIndex, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
-    adb.install_labels(NodeWithConstraint)
-    adb.install_labels(NodeWithConstraint, quiet=False)
+    await adb.install_labels(NodeWithConstraint)
+    await adb.install_labels(NodeWithConstraint, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
-    adb.install_labels(OtherNodeWithRelationship)
-    adb.install_labels(OtherNodeWithRelationship, quiet=False)
+    await adb.install_labels(OtherNodeWithRelationship)
+    await adb.install_labels(OtherNodeWithRelationship, quiet=False)
     captured = capsys.readouterr()
     assert expected_std_out in captured.out
 
-    if adb.version_is_higher_than("5.7"):
+    if await adb.version_is_higher_than("5.7"):
 
         class UniqueIndexRelationship(AsyncStructuredRel):
             unique_index_rel_prop = StringProperty(unique_index=True)
@@ -109,24 +96,25 @@ def test_install_label_twice(capsys):
                 NodeWithRelationship, "UNIQUE_INDEX_REL", model=UniqueIndexRelationship
             )
 
-        adb.install_labels(OtherNodeWithUniqueIndexRelationship)
-        adb.install_labels(OtherNodeWithUniqueIndexRelationship, quiet=False)
+        await adb.install_labels(OtherNodeWithUniqueIndexRelationship)
+        await adb.install_labels(OtherNodeWithUniqueIndexRelationship, quiet=False)
         captured = capsys.readouterr()
         assert expected_std_out in captured.out
 
 
-def test_install_labels_db_property(capsys):
-    adb.drop_constraints()
-    adb.install_labels(SomeNotUniqueNode, quiet=False)
+@mark_async_test
+async def test_install_labels_db_property(capsys):
+    await adb.drop_constraints()
+    await adb.install_labels(SomeNotUniqueNode, quiet=False)
     captured = capsys.readouterr()
     assert "id" in captured.out
     # make sure that the id_ constraint doesn't exist
-    constraint_names = _drop_constraints_for_label_and_property(
+    constraint_names = await _drop_constraints_for_label_and_property(
         "SomeNotUniqueNode", "id_"
     )
     assert constraint_names == []
     # make sure the id constraint exists and can be removed
-    _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
+    await _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
 
 
 @pytest.mark.skipif(
@@ -151,8 +139,9 @@ def test_relationship_unique_index_not_supported():
             )
 
 
+@mark_async_test
 @pytest.mark.skipif(not adb.version_is_higher_than("5.7"), reason="Supported from 5.7")
-def test_relationship_unique_index():
+async def test_relationship_unique_index():
     class UniqueIndexRelationshipBis(AsyncStructuredRel):
         name = StringProperty(unique_index=True)
 
@@ -166,21 +155,23 @@ def test_relationship_unique_index():
             model=UniqueIndexRelationshipBis,
         )
 
-    adb.install_labels(UniqueIndexRelationshipBis)
-    node1 = NodeWithUniqueIndexRelationship().save()
-    node2 = TargetNodeForUniqueIndexRelationship().save()
-    node3 = TargetNodeForUniqueIndexRelationship().save()
-    rel1 = node1.has_rel.connect(node2, {"name": "rel1"})
+    await adb.install_labels(NodeWithUniqueIndexRelationship)
+    node1 = await NodeWithUniqueIndexRelationship().save()
+    node2 = await TargetNodeForUniqueIndexRelationship().save()
+    node3 = await TargetNodeForUniqueIndexRelationship().save()
+    rel1 = await node1.has_rel.connect(node2, {"name": "rel1"})
 
     with pytest.raises(
         ConstraintValidationFailed,
         match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
     ):
-        rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
+        rel2 = await node1.has_rel.connect(node3, {"name": "rel1"})
 
 
-def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
-    results, meta = adb.cypher_query("SHOW CONSTRAINTS")
+async def _drop_constraints_for_label_and_property(
+    label: str = None, property: str = None
+):
+    results, meta = await adb.cypher_query("SHOW CONSTRAINTS")
     results_as_dict = [dict(zip(meta, row)) for row in results]
     constraint_names = [
         constraint
@@ -188,6 +179,6 @@ def _drop_constraints_for_label_and_property(label: str = None, property: str = 
         if constraint["labelsOrTypes"] == label and constraint["properties"] == property
     ]
     for constraint_name in constraint_names:
-        adb.cypher_query(f"DROP CONSTRAINT {constraint_name}")
+        await adb.cypher_query(f"DROP CONSTRAINT {constraint_name}")
 
     return constraint_names

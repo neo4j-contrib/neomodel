@@ -539,6 +539,7 @@ class Database(local):
 
         return constraints_as_dict
 
+    @ensure_connection
     def version_is_higher_than(self, version_tag: str) -> bool:
         """Returns true if the database version is higher or equal to a given tag
 

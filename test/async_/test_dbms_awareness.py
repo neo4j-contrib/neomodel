@@ -10,12 +10,12 @@ from neomodel.util import version_tag_to_integer
 )
 async def test_version_awareness():
     assert adb.database_version == "5.7.0"
-    assert adb.version_is_higher_than("5.7")
-    assert adb.version_is_higher_than("5.6.0")
-    assert adb.version_is_higher_than("5")
-    assert adb.version_is_higher_than("4")
+    assert await adb.version_is_higher_than("5.7")
+    assert await adb.version_is_higher_than("5.6.0")
+    assert await adb.version_is_higher_than("5")
+    assert await adb.version_is_higher_than("4")
 
-    assert not adb.version_is_higher_than("5.8")
+    assert not await adb.version_is_higher_than("5.8")
 
 
 @mark_async_test
