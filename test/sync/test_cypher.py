@@ -146,10 +146,10 @@ def test_numpy_integration():
 
     array = to_ndarray(
         db.cypher_query(
-            "MATCH (a:UserNP) RETURN a.name AS name, a.email AS email"
+            "MATCH (a:UserNP) RETURN a.name AS name, a.email AS email ORDER BY name"
         )
     )
 
     assert isinstance(array, ndarray)
     assert array.shape == (2, 2)
-    assert array[0][0] == "jimly"
+    assert array[0][0] == "jimlu"
