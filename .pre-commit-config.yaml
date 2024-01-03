@@ -10,3 +10,7 @@ repos:
         entry: bin/make-unasync
         language: system
         files: "^(neomodel/async_|test/async_)/.*"
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
