@@ -247,6 +247,7 @@ def apply_unasync(files):
         paths = list(ASYNC_DIR.rglob("*"))
         paths += list(ASYNC_CONTRIB_DIR.rglob("*"))
         paths += list(ASYNC_INTEGRATION_TEST_DIR.rglob("*"))
+        paths += list(ASYNC_INTEGRATION_TEST_CONTRIB_DIR.rglob("*"))
     else:
         paths = [ROOT_DIR / Path(f) for f in files]
     filtered_paths = []
