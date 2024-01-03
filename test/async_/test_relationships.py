@@ -1,5 +1,6 @@
-from pytest import raises
 from test._async_compat import mark_async_test
+
+from pytest import raises
 
 from neomodel import (
     AsyncOne,

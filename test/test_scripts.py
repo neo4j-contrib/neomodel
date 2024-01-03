@@ -4,9 +4,9 @@ import pytest
 
 from neomodel import (
     RelationshipTo,
+    StringProperty,
     StructuredNode,
     StructuredRel,
-    StringProperty,
     config,
 )
 from neomodel.sync_.core import db

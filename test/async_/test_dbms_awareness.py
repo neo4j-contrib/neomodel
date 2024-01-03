@@ -1,5 +1,6 @@
-from pytest import mark
 from test._async_compat import mark_async_test
+
+from pytest import mark
 
 from neomodel.async_.core import adb
 from neomodel.util import version_tag_to_integer

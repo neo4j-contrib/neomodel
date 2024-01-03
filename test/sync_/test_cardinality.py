@@ -1,19 +1,19 @@
 from test._async_compat import mark_sync_test
+
 from pytest import raises
 
 from neomodel import (
-    One,
-    OneOrMore,
-    RelationshipTo,
-    StructuredNode,
-    ZeroOrOne,
     AttemptedCardinalityViolation,
     CardinalityViolation,
     IntegerProperty,
+    One,
+    OneOrMore,
+    RelationshipTo,
     StringProperty,
+    StructuredNode,
     ZeroOrMore,
+    ZeroOrOne,
 )
-
 from neomodel.sync_.core import db
 
 
@@ -32,13 +32,9 @@ class Car(StructuredNode):
 class Monkey(StructuredNode):
     name = StringProperty()
     dryers = RelationshipTo("HairDryer", "OWNS_DRYER", cardinality=ZeroOrMore)
-    driver = RelationshipTo(
-        "ScrewDriver", "HAS_SCREWDRIVER", cardinality=ZeroOrOne
-    )
+    driver = RelationshipTo("ScrewDriver", "HAS_SCREWDRIVER", cardinality=ZeroOrOne)
     car = RelationshipTo("Car", "HAS_CAR", cardinality=OneOrMore)
-    toothbrush = RelationshipTo(
-        "ToothBrush", "HAS_TOOTHBRUSH", cardinality=One
-    )
+    toothbrush = RelationshipTo("ToothBrush", "HAS_TOOTHBRUSH", cardinality=One)
 
 
 class ToothBrush(StructuredNode):

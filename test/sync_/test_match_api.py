@@ -5,22 +5,17 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
-    RelationshipFrom,
-    RelationshipTo,
-    StructuredNode,
-    StructuredRel,
     DateTimeProperty,
     IntegerProperty,
     Q,
+    RelationshipFrom,
+    RelationshipTo,
     StringProperty,
-)
-from neomodel.sync_.match import (
-    NodeSet,
-    QueryBuilder,
-    Traversal,
-    Optional,
+    StructuredNode,
+    StructuredRel,
 )
 from neomodel.exceptions import MultipleNodesReturned
+from neomodel.sync_.match import NodeSet, Optional, QueryBuilder, Traversal
 
 
 class SupplierRel(StructuredRel):
@@ -36,9 +31,7 @@ class Supplier(StructuredNode):
 
 class Species(StructuredNode):
     name = StringProperty()
-    coffees = RelationshipFrom(
-        "Coffee", "COFFEE SPECIES", model=StructuredRel
-    )
+    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
 
 
 class Coffee(StructuredNode):
@@ -125,9 +118,7 @@ def test_simple_traverse_with_filter():
     tesco = Supplier(name="Sainsburys", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
-    qb = QueryBuilder(
-        NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now())
-    )
+    qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
 
     results = qb.build_ast()._execute()
 
@@ -489,9 +480,7 @@ def test_traversal_filter_left_hand_statement():
     nescafe_gold.suppliers.connect(lidl)
 
     lidl_supplier = (
-        NodeSet(Coffee.nodes.filter(price=11).suppliers)
-        .filter(delivery_cost=3)
-        .all()
+        NodeSet(Coffee.nodes.filter(price=11).suppliers).filter(delivery_cost=3).all()
     )
 
     assert lidl in lidl_supplier

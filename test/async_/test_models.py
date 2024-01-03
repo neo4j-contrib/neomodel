@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 from datetime import datetime
-
 from test._async_compat import mark_async_test
+
 from pytest import raises
 
 from neomodel import (

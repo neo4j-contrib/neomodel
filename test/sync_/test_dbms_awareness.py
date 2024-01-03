@@ -1,5 +1,6 @@
-from pytest import mark
 from test._async_compat import mark_sync_test
+
+from pytest import mark
 
 from neomodel.sync_.core import db
 from neomodel.util import version_tag_to_integer

@@ -1,19 +1,19 @@
 from __future__ import print_function
 
 from datetime import datetime
-
 from test._async_compat import mark_sync_test
+
 from pytest import raises
 
 from neomodel import (
-    StructuredNode,
-    StructuredRel,
     DateProperty,
     IntegerProperty,
     StringProperty,
+    StructuredNode,
+    StructuredRel,
 )
-from neomodel.sync_.core import db
 from neomodel.exceptions import RequiredProperty, UniqueProperty
+from neomodel.sync_.core import db
 
 
 class User(StructuredNode):

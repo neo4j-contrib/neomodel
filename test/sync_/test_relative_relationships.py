@@ -1,6 +1,7 @@
-from neomodel import RelationshipTo, StructuredNode, StringProperty
-from test.sync_.test_relationships import Country
 from test._async_compat import mark_sync_test
+from test.sync_.test_relationships import Country
+
+from neomodel import RelationshipTo, StringProperty, StructuredNode
 
 
 class Cat(StructuredNode):

@@ -3,11 +3,11 @@ from test._async_compat import mark_sync_test
 from pytest import raises
 
 from neomodel import (
+    IntegerProperty,
     RelationshipFrom,
     RelationshipTo,
-    StructuredNode,
-    IntegerProperty,
     StringProperty,
+    StructuredNode,
     UniqueIdProperty,
     config,
 )
@@ -24,15 +24,11 @@ class UniqueUser(StructuredNode):
 
 @mark_sync_test
 def test_unique_id_property_batch():
-    users = UniqueUser.create(
-        {"name": "bob", "age": 2}, {"name": "ben", "age": 3}
-    )
+    users = UniqueUser.create({"name": "bob", "age": 2}, {"name": "ben", "age": 3})
 
     assert users[0].uid != users[1].uid
 
-    users = UniqueUser.get_or_create(
-        {"uid": users[0].uid}, {"name": "bill", "age": 4}
-    )
+    users = UniqueUser.get_or_create({"uid": users[0].uid}, {"name": "bill", "age": 4})
 
     assert users[0].name == "bob"
     assert users[1].uid

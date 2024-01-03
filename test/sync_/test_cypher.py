@@ -6,7 +6,7 @@ from neo4j.exceptions import ClientError as CypherError
 from numpy import ndarray
 from pandas import DataFrame, Series
 
-from neomodel import StructuredNode, StringProperty
+from neomodel import StringProperty, StructuredNode
 from neomodel.sync_.core import db
 
 
@@ -94,9 +94,7 @@ def test_pandas_integration():
 
     # Test to_dataframe
     df = to_dataframe(
-        db.cypher_query(
-            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
-        )
+        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email")
     )
 
     assert isinstance(df, DataFrame)
@@ -105,9 +103,7 @@ def test_pandas_integration():
 
     # Also test passing an index and dtype to to_dataframe
     df = to_dataframe(
-        db.cypher_query(
-            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
-        ),
+        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"),
         index=df["email"],
         dtype=str,
     )
@@ -115,9 +111,7 @@ def test_pandas_integration():
     assert df.index.inferred_type == "string"
 
     # Next test to_series
-    series = to_series(
-        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name")
-    )
+    series = to_series(db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name"))
 
     assert isinstance(series, Series)
     assert series.shape == (2,)

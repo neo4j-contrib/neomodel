@@ -1,5 +1,6 @@
 from test._async_compat import mark_sync_test
-from neomodel import StructuredNode, StringProperty
+
+from neomodel import StringProperty, StructuredNode
 
 HOOKS_CALLED = {}
 

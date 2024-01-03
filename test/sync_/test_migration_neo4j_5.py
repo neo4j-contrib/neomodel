@@ -1,12 +1,13 @@
-import pytest
 from test._async_compat import mark_sync_test
 
+import pytest
+
 from neomodel import (
+    IntegerProperty,
     RelationshipTo,
+    StringProperty,
     StructuredNode,
     StructuredRel,
-    IntegerProperty,
-    StringProperty,
 )
 from neomodel.sync_.core import db
 

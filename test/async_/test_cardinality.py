@@ -1,4 +1,5 @@
 from test._async_compat import mark_async_test
+
 from pytest import raises
 
 from neomodel import (
@@ -6,14 +7,13 @@ from neomodel import (
     AsyncOneOrMore,
     AsyncRelationshipTo,
     AsyncStructuredNode,
+    AsyncZeroOrMore,
     AsyncZeroOrOne,
     AttemptedCardinalityViolation,
     CardinalityViolation,
     IntegerProperty,
     StringProperty,
-    AsyncZeroOrMore,
 )
-
 from neomodel.async_.core import adb
 
 

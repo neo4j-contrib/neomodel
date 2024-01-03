@@ -1,7 +1,7 @@
 from multiprocessing.pool import ThreadPool as Pool
 from test._async_compat import mark_sync_test
 
-from neomodel import StructuredNode, StringProperty
+from neomodel import StringProperty, StructuredNode
 from neomodel.sync_.core import db
 
 

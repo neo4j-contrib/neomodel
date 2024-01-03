@@ -1,15 +1,16 @@
-import pytest
 from test._async_compat import mark_sync_test
+
+import pytest
 
 from neomodel import (
     RelationshipTo,
+    StringProperty,
     StructuredNode,
     StructuredRel,
-    StringProperty,
     UniqueIdProperty,
 )
-from neomodel.sync_.core import db
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
+from neomodel.sync_.core import db
 
 
 class NodeWithIndex(StructuredNode):
@@ -117,9 +118,7 @@ def test_install_labels_db_property(capsys):
     _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
 
 
-@pytest.mark.skipif(
-    db.version_is_higher_than("5.7"), reason="Not supported before 5.7"
-)
+@pytest.mark.skipif(db.version_is_higher_than("5.7"), reason="Not supported before 5.7")
 def test_relationship_unique_index_not_supported():
     class UniqueIndexRelationship(StructuredRel):
         name = StringProperty(unique_index=True)
@@ -168,9 +167,7 @@ def test_relationship_unique_index():
         rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
 
 
-def _drop_constraints_for_label_and_property(
-    label: str = None, property: str = None
-):
+def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
     results, meta = db.cypher_query("SHOW CONSTRAINTS")
     results_as_dict = [dict(zip(meta, row)) for row in results]
     constraint_names = [

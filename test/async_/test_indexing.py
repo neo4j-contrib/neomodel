@@ -1,6 +1,7 @@
+from test._async_compat import mark_async_test
+
 import pytest
 from pytest import raises
-from test._async_compat import mark_async_test
 
 from neomodel import (
     AsyncStructuredNode,

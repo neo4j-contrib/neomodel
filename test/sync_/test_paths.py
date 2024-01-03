@@ -1,11 +1,12 @@
 from test._async_compat import mark_sync_test
+
 from neomodel import (
+    IntegerProperty,
     NeomodelPath,
     RelationshipTo,
+    StringProperty,
     StructuredNode,
     StructuredRel,
-    IntegerProperty,
-    StringProperty,
     UniqueIdProperty,
 )
 from neomodel.sync_.core import db

@@ -1,9 +1,9 @@
 import os
-
 from test._async_compat import mark_async_test
 from test.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
+
 import pytest
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.debug import watch
 
 from neomodel import AsyncStructuredNode, StringProperty, config

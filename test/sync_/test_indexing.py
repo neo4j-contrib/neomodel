@@ -1,15 +1,11 @@
-import pytest
-from pytest import raises
 from test._async_compat import mark_sync_test
 
-from neomodel import (
-    StructuredNode,
-    IntegerProperty,
-    StringProperty,
-    UniqueProperty,
-)
-from neomodel.sync_.core import db
+import pytest
+from pytest import raises
+
+from neomodel import IntegerProperty, StringProperty, StructuredNode, UniqueProperty
 from neomodel.exceptions import ConstraintValidationFailed
+from neomodel.sync_.core import db
 
 
 class Human(StructuredNode):

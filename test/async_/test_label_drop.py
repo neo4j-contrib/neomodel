@@ -1,5 +1,6 @@
-from neo4j.exceptions import ClientError
 from test._async_compat import mark_async_test
+
+from neo4j.exceptions import ClientError
 
 from neomodel import AsyncStructuredNode, StringProperty
 from neomodel.async_.core import adb

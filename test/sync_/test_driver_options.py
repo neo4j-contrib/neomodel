@@ -1,10 +1,11 @@
-import pytest
 from test._async_compat import mark_sync_test
+
+import pytest
 from neo4j.exceptions import ClientError
 from pytest import raises
 
-from neomodel.sync_.core import db
 from neomodel.exceptions import FeatureNotSupported
+from neomodel.sync_.core import db
 
 
 @mark_sync_test

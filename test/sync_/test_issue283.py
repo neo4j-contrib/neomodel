@@ -9,24 +9,24 @@ The following example uses a recursive relationship for economy, but the
 idea remains the same: "Instantiate the correct type of node at the end of 
 a relationship as specified by the model"
 """
-from test._async_compat import mark_sync_test
 import random
+from test._async_compat import mark_sync_test
 
 import pytest
 
 from neomodel import (
-    StructuredRel,
-    StructuredNode,
     DateTimeProperty,
     FloatProperty,
-    StringProperty,
-    UniqueIdProperty,
-    RelationshipTo,
-    RelationshipClassRedefined,
     RelationshipClassNotDefined,
+    RelationshipClassRedefined,
+    RelationshipTo,
+    StringProperty,
+    StructuredNode,
+    StructuredRel,
+    UniqueIdProperty,
 )
+from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 from neomodel.sync_.core import db
-from neomodel.exceptions import NodeClassNotDefined, NodeClassAlreadyDefined
 
 try:
     basestring
@@ -99,17 +99,11 @@ def test_automatic_result_resolution():
     """
 
     # Create a few entities
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
-    B = (
-        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
-    )[0]
-    C = (
-        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
+    B = (TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"}))[0]
+    C = (TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"}))[0]
 
     # Add connections
     A.friends_with.connect(B)
@@ -135,25 +129,13 @@ def test_recursive_automatic_result_resolution():
 
     # Create a few entities
     A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpier", "expertise": "Grumpiness"}
-        )
+        TechnicalPerson.get_or_create({"name": "Grumpier", "expertise": "Grumpiness"})
     )[0]
-    B = (
-        TechnicalPerson.get_or_create(
-            {"name": "Happier", "expertise": "Grumpiness"}
-        )
-    )[0]
-    C = (
-        TechnicalPerson.get_or_create(
-            {"name": "Sleepier", "expertise": "Pillows"}
-        )
-    )[0]
-    D = (
-        TechnicalPerson.get_or_create(
-            {"name": "Sneezier", "expertise": "Pillows"}
-        )
-    )[0]
+    B = (TechnicalPerson.get_or_create({"name": "Happier", "expertise": "Grumpiness"}))[
+        0
+    ]
+    C = (TechnicalPerson.get_or_create({"name": "Sleepier", "expertise": "Pillows"}))[0]
+    D = (TechnicalPerson.get_or_create({"name": "Sneezier", "expertise": "Pillows"}))[0]
 
     # Retrieve mixed results, both at the top level and nested
     L, _ = db.cypher_query(
@@ -189,17 +171,11 @@ def test_validation_with_inheritance_from_db():
 
     # Create a few entities
     # Technical Persons
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
-    B = (
-        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
-    )[0]
-    C = (
-        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
+    B = (TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"}))[0]
+    C = (TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"}))[0]
 
     # Pilot Persons
     D = (
@@ -253,17 +229,11 @@ def test_validation_enforcement_to_db():
 
     # Create a few entities
     # Technical Persons
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
-    B = (
-        TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"})
-    )[0]
-    C = (
-        TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"})
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
+    B = (TechnicalPerson.get_or_create({"name": "Happy", "expertise": "Unicorns"}))[0]
+    C = (TechnicalPerson.get_or_create({"name": "Sleepy", "expertise": "Pillows"}))[0]
 
     # Pilot Persons
     D = (
@@ -313,11 +283,9 @@ def test_failed_result_resolution():
         randomness = FloatProperty(default=random.random)
 
     # A Technical Person...
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
 
     # A Random Person...
     B = (RandomPerson.get_or_create({"name": "Mad Hatter"}))[0]
@@ -329,11 +297,9 @@ def test_failed_result_resolution():
     del db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson", "BasePerson"])]
 
     # Now try to instantiate a RandomPerson
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
     with pytest.raises(
         NodeClassNotDefined,
         match=r"Node with labels .* does not resolve to any of the known objects.*",
@@ -360,15 +326,11 @@ def test_node_label_mismatch():
         ultraness = FloatProperty(default=3.1415928)
 
     # Create a TechnicalPerson...
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
     # ...that is connected to an UltraTechnicalPerson
-    F = UltraTechnicalPerson(
-        name="Chewbaka", expertise="Aarrr wgh ggwaaah"
-    ).save()
+    F = UltraTechnicalPerson(name="Chewbaka", expertise="Aarrr wgh ggwaaah").save()
     A.friends_with.connect(F)
 
     # Forget about the UltraTechnicalPerson
@@ -386,11 +348,9 @@ def test_node_label_mismatch():
     # Recall a TechnicalPerson and enumerate its friends.
     # One of them is UltraTechnicalPerson which would be returned as a valid
     # node to a friends_with query but is currently unknown to the node class registry.
-    A = (
-        TechnicalPerson.get_or_create(
-            {"name": "Grumpy", "expertise": "Grumpiness"}
-        )
-    )[0]
+    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
+        0
+    ]
     with pytest.raises(NodeClassNotDefined):
         friends = A.friends_with.all()
         for some_friend in friends:

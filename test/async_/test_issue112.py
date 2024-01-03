@@ -1,4 +1,5 @@
 from test._async_compat import mark_async_test
+
 from neomodel import AsyncRelationshipTo, AsyncStructuredNode
 
 

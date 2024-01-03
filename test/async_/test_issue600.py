@@ -5,7 +5,8 @@ The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/600
 """
 
 from test._async_compat import mark_async_test
-from neomodel import AsyncStructuredNode, AsyncRelationship, AsyncStructuredRel
+
+from neomodel import AsyncRelationship, AsyncStructuredNode, AsyncStructuredRel
 
 try:
     basestring

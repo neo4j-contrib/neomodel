@@ -9,24 +9,24 @@ The following example uses a recursive relationship for economy, but the
 idea remains the same: "Instantiate the correct type of node at the end of 
 a relationship as specified by the model"
 """
-from test._async_compat import mark_async_test
 import random
+from test._async_compat import mark_async_test
 
 import pytest
 
 from neomodel import (
-    AsyncStructuredRel,
+    AsyncRelationshipTo,
     AsyncStructuredNode,
+    AsyncStructuredRel,
     DateTimeProperty,
     FloatProperty,
+    RelationshipClassNotDefined,
+    RelationshipClassRedefined,
     StringProperty,
     UniqueIdProperty,
-    AsyncRelationshipTo,
-    RelationshipClassRedefined,
-    RelationshipClassNotDefined,
 )
 from neomodel.async_.core import adb
-from neomodel.exceptions import NodeClassNotDefined, NodeClassAlreadyDefined
+from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 try:
     basestring

@@ -1,5 +1,6 @@
-import pytest
 from test._async_compat import mark_async_test
+
+import pytest
 from neo4j.exceptions import ClientError
 from pytest import raises
 

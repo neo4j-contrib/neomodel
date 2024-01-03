@@ -1,11 +1,10 @@
 from datetime import date, datetime
-
 from test._async_compat import mark_sync_test
+
 from pytest import mark, raises
 from pytz import timezone
 
 from neomodel import StructuredNode
-from neomodel.sync_.core import db
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -25,6 +24,7 @@ from neomodel.properties import (
     StringProperty,
     UniqueIdProperty,
 )
+from neomodel.sync_.core import db
 from neomodel.util import _get_node_properties
 
 
@@ -247,9 +247,7 @@ def test_independent_property_name():
     assert not "name_" in node_properties
     assert not hasattr(x, "name")
     assert hasattr(x, "name_")
-    assert (TestDBNamePropertyNode.nodes.filter(name_="jim").all())[
-        0
-    ].name_ == x.name_
+    assert (TestDBNamePropertyNode.nodes.filter(name_="jim").all())[0].name_ == x.name_
     assert (TestDBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
 
     x.delete()

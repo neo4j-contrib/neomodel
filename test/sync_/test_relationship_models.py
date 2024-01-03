@@ -5,13 +5,13 @@ import pytz
 from pytest import raises
 
 from neomodel import (
-    Relationship,
-    RelationshipTo,
-    StructuredNode,
-    StructuredRel,
     DateTimeProperty,
     DeflateError,
+    Relationship,
+    RelationshipTo,
     StringProperty,
+    StructuredNode,
+    StructuredRel,
 )
 
 HOOKS_CALLED = {"pre_save": 0, "post_save": 0}
@@ -70,9 +70,7 @@ def test_direction_connect_with_rel_model():
     paul = Badger(name="Paul the badger").save()
     ian = Stoat(name="Ian the stoat").save()
 
-    rel = ian.hates.connect(
-        paul, {"reason": "thinks paul should bath more often"}
-    )
+    rel = ian.hates.connect(paul, {"reason": "thinks paul should bath more often"})
     assert isinstance(rel.since, datetime)
     assert isinstance(rel, FriendRel)
     assert rel.reason.startswith("thinks")
