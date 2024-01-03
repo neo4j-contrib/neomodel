@@ -5,12 +5,14 @@ For more information please see: https://github.com/neo4j-contrib/neomodel/issue
 """
 
 import random
+from test._async_compat import mark_async_test
 
 import neo4j.spatial
 import pytest
 
 import neomodel
 import neomodel.contrib.spatial_properties
+
 from .test_spatial_datatypes import (
     basic_type_assertions,
     check_and_skip_neo4j_least_version,
@@ -154,7 +156,8 @@ def test_deflate():
         )
 
 
-def test_default_value():
+@mark_async_test
+async def test_default_value():
     """
     Tests that the default value passing mechanism works as expected with NeomodelPoint values.
     :return:
@@ -181,10 +184,12 @@ def test_default_value():
     )
 
     # Save an object
-    an_object = LocalisableEntity().save()
+    an_object = await LocalisableEntity().save()
     coords = an_object.location.coords[0]
     # Retrieve it
-    retrieved_object = LocalisableEntity.nodes.get(identifier=an_object.identifier)
+    retrieved_object = await LocalisableEntity.nodes.get(
+        identifier=an_object.identifier
+    )
     # Check against an independently created value
     assert (
         retrieved_object.location
@@ -192,7 +197,8 @@ def test_default_value():
     ), ("Default value assignment failed.")
 
 
-def test_array_of_points():
+@mark_async_test
+async def test_array_of_points():
     """
     Tests that Arrays of Points work as expected.
 
@@ -214,14 +220,14 @@ def test_array_of_points():
         340, "This version does not support spatial data types."
     )
 
-    an_object = AnotherLocalisableEntity(
+    an_object = await AnotherLocalisableEntity(
         locations=[
             neomodel.contrib.spatial_properties.NeomodelPoint((0.0, 0.0)),
             neomodel.contrib.spatial_properties.NeomodelPoint((1.0, 0.0)),
         ]
     ).save()
 
-    retrieved_object = AnotherLocalisableEntity.nodes.get(
+    retrieved_object = await AnotherLocalisableEntity.nodes.get(
         identifier=an_object.identifier
     )
 
@@ -234,7 +240,8 @@ def test_array_of_points():
     ], "Array of Points incorrect values."
 
 
-def test_simple_storage_retrieval():
+@mark_async_test
+async def test_simple_storage_retrieval():
     """
     Performs a simple Create, Retrieve via .save(), .get() which, due to the way Q objects operate, tests the
     __copy__, __deepcopy__ operations of NeomodelPoint.
@@ -251,12 +258,12 @@ def test_simple_storage_retrieval():
         340, "This version does not support spatial data types."
     )
 
-    a_restaurant = TestStorageRetrievalProperty(
+    a_restaurant = await TestStorageRetrievalProperty(
         description="Milliways",
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0)),
     ).save()
 
-    a_property = TestStorageRetrievalProperty.nodes.get(
+    a_property = await TestStorageRetrievalProperty.nodes.get(
         location=neomodel.contrib.spatial_properties.NeomodelPoint((0, 0))
     )
 
