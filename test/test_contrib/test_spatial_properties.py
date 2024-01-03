@@ -4,7 +4,6 @@ Provides a test case for issue 374 - "Support for Point property type".
 For more information please see: https://github.com/neo4j-contrib/neomodel/issues/374
 """
 
-import os
 import random
 
 import neo4j.spatial
@@ -12,7 +11,7 @@ import pytest
 
 import neomodel
 import neomodel.contrib.spatial_properties
-from neomodel.test_spatial_datatypes import (
+from .test_spatial_datatypes import (
     basic_type_assertions,
     check_and_skip_neo4j_least_version,
 )
