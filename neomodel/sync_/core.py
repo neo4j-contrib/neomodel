@@ -1431,9 +1431,10 @@ class StructuredNode(NodeBase):
         :rtype: list
         """
         self._pre_action_check("labels")
-        return self.cypher(
+        result = self.cypher(
             f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
-        )[0][0][0]
+        )
+        return result[0][0][0]
 
     def _pre_action_check(self, action):
         if hasattr(self, "deleted") and self.deleted:
@@ -1451,9 +1452,10 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("refresh")
         if hasattr(self, "element_id"):
-            request = self.cypher(
+            results = self.cypher(
                 f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
-            )[0]
+            )
+            request = results[0]
             if not request or not request[0]:
                 raise self.__class__.DoesNotExist("Can't refresh non existent node")
             node = self.inflate(request[0][0])

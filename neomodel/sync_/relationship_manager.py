@@ -165,7 +165,8 @@ class RelationshipManager(object):
             + my_rel
             + f" WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        rels = self.source.cypher(q, {"them": node.element_id})[0]
+        results = self.source.cypher(q, {"them": node.element_id})
+        rels = results[0]
         if not rels:
             return
 
@@ -185,7 +186,8 @@ class RelationshipManager(object):
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
         q = f"MATCH {my_rel} WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r "
-        rels = self.source.cypher(q, {"them": node.element_id})[0]
+        results = self.source.cypher(q, {"them": node.element_id})
+        rels = results[0]
         if not rels:
             return []
 

@@ -1,24 +1,25 @@
 from pytest import raises
+from test._async_compat import mark_sync_test
 
 from neomodel import (
-    AsyncOne,
-    AsyncRelationship,
-    AsyncRelationshipFrom,
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    One,
+    Relationship,
+    RelationshipFrom,
+    RelationshipTo,
+    StructuredNode,
+    StructuredRel,
     IntegerProperty,
     Q,
     StringProperty,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 
 
-class PersonWithRels(AsyncStructuredNode):
+class PersonWithRels(StructuredNode):
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True)
-    is_from = AsyncRelationshipTo("Country", "IS_FROM")
-    knows = AsyncRelationship("PersonWithRels", "KNOWS")
+    is_from = RelationshipTo("Country", "IS_FROM")
+    knows = Relationship("PersonWithRels", "KNOWS")
 
     @property
     def special_name(self):
@@ -28,10 +29,10 @@ class PersonWithRels(AsyncStructuredNode):
         return "I have no powers"
 
 
-class Country(AsyncStructuredNode):
+class Country(StructuredNode):
     code = StringProperty(unique_index=True)
-    inhabitant = AsyncRelationshipFrom(PersonWithRels, "IS_FROM")
-    president = AsyncRelationshipTo(PersonWithRels, "PRESIDENT", cardinality=AsyncOne)
+    inhabitant = RelationshipFrom(PersonWithRels, "IS_FROM")
+    president = RelationshipTo(PersonWithRels, "PRESIDENT", cardinality=One)
 
 
 class SuperHero(PersonWithRels):
@@ -41,6 +42,7 @@ class SuperHero(PersonWithRels):
         return "I have powers"
 
 
+@mark_sync_test
 def test_actions_on_deleted_node():
     u = PersonWithRels(name="Jim2", age=3).save()
     u.delete()
@@ -54,6 +56,7 @@ def test_actions_on_deleted_node():
         u.save()
 
 
+@mark_sync_test
 def test_bidirectional_relationships():
     u = PersonWithRels(name="Jim", age=3).save()
     assert u
@@ -61,26 +64,27 @@ def test_bidirectional_relationships():
     de = Country(code="DE").save()
     assert de
 
-    assert not u.is_from
+    assert not u.is_from.all()
 
     assert u.is_from.__class__.__name__ == "ZeroOrMore"
     u.is_from.connect(de)
 
-    assert len(u.is_from) == 1
+    assert len(u.is_from.all()) == 1
 
     assert u.is_from.is_connected(de)
 
-    b = u.is_from.all()[0]
+    b = (u.is_from.all())[0]
     assert b.__class__.__name__ == "Country"
     assert b.code == "DE"
 
-    s = b.inhabitant.all()[0]
+    s = (b.inhabitant.all())[0]
     assert s.name == "Jim"
 
     u.is_from.disconnect(b)
     assert not u.is_from.is_connected(b)
 
 
+@mark_sync_test
 def test_either_direction_connect():
     rey = PersonWithRels(name="Rey", age=3).save()
     sakis = PersonWithRels(name="Sakis", age=3).save()
@@ -92,19 +96,21 @@ def test_either_direction_connect():
 
     result, _ = sakis.cypher(
         f"""MATCH (us), (them)
-            WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(them)=$them
+            WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
         {"them": rey.element_id},
     )
     assert int(result[0][0]) == 1
 
     rel = rey.knows.relationship(sakis)
-    assert isinstance(rel, AsyncStructuredRel)
+    assert isinstance(rel, StructuredRel)
 
     rels = rey.knows.all_relationships(sakis)
-    assert isinstance(rels[0], AsyncStructuredRel)
+    assert isinstance(rels[0], StructuredRel)
 
 
+# TODO : Make async-independent test to test .filter and not .filter.all() ?
+@mark_sync_test
 def test_search_and_filter_and_exclude():
     fred = PersonWithRels(name="Fred", age=13).save()
     zz = Country(code="ZZ").save()
@@ -129,6 +135,7 @@ def test_search_and_filter_and_exclude():
     assert len(result) == 3
 
 
+@mark_sync_test
 def test_custom_methods():
     u = PersonWithRels(name="Joe90", age=13).save()
     assert u.special_power() == "I have no powers"
@@ -137,6 +144,7 @@ def test_custom_methods():
     assert u.special_name == "Joe91"
 
 
+@mark_sync_test
 def test_valid_reconnection():
     p = PersonWithRels(name="ElPresidente", age=93).save()
     assert p
@@ -159,6 +167,7 @@ def test_valid_reconnection():
     assert c.president.is_connected(pp)
 
 
+@mark_sync_test
 def test_valid_replace():
     brady = PersonWithRels(name="Tom Brady", age=40).save()
     assert brady
@@ -174,17 +183,18 @@ def test_valid_replace():
 
     brady.knows.connect(gronk)
     brady.knows.connect(colbert)
-    assert len(brady.knows) == 2
+    assert len(brady.knows.all()) == 2
     assert brady.knows.is_connected(gronk)
     assert brady.knows.is_connected(colbert)
 
     brady.knows.replace(hanks)
-    assert len(brady.knows) == 1
+    assert len(brady.knows.all()) == 1
     assert brady.knows.is_connected(hanks)
     assert not brady.knows.is_connected(gronk)
     assert not brady.knows.is_connected(colbert)
 
 
+@mark_sync_test
 def test_props_relationship():
     u = PersonWithRels(name="Mar", age=20).save()
     assert u

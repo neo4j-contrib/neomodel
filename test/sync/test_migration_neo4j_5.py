@@ -1,44 +1,46 @@
 import pytest
+from test._async_compat import mark_sync_test
 
 from neomodel import (
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    RelationshipTo,
+    StructuredNode,
+    StructuredRel,
     IntegerProperty,
     StringProperty,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 
 
-class Album(AsyncStructuredNode):
+class Album(StructuredNode):
     name = StringProperty()
 
 
-class Released(AsyncStructuredRel):
+class Released(StructuredRel):
     year = IntegerProperty()
 
 
-class Band(AsyncStructuredNode):
+class Band(StructuredNode):
     name = StringProperty()
-    released = AsyncRelationshipTo(Album, relation_type="RELEASED", model=Released)
+    released = RelationshipTo(Album, relation_type="RELEASED", model=Released)
 
 
+@mark_sync_test
 def test_read_elements_id():
     the_hives = Band(name="The Hives").save()
     lex_hives = Album(name="Lex Hives").save()
     released_rel = the_hives.released.connect(lex_hives)
 
     # Validate element_id properties
-    assert lex_hives.element_id == the_hives.released.single().element_id
+    assert lex_hives.element_id == (the_hives.released.single()).element_id
     assert released_rel._start_node_element_id == the_hives.element_id
     assert released_rel._end_node_element_id == lex_hives.element_id
 
     # Validate id properties
     # Behaviour is dependent on Neo4j version
-    if adb.database_version.startswith("4"):
+    if db.database_version.startswith("4"):
         # Nodes' ids
         assert lex_hives.id == int(lex_hives.element_id)
-        assert lex_hives.id == the_hives.released.single().id
+        assert lex_hives.id == (the_hives.released.single()).id
         # Relationships' ids
         assert isinstance(released_rel.element_id, int)
         assert released_rel.element_id == released_rel.id

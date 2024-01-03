@@ -3,26 +3,24 @@ import subprocess
 import pytest
 
 from neomodel import (
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    RelationshipTo,
+    StructuredNode,
+    StructuredRel,
     StringProperty,
     config,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 
 
-class ScriptsTestRel(AsyncStructuredRel):
-    some_unique_property = StringProperty(
-        unique_index=adb.version_is_higher_than("5.7")
-    )
+class ScriptsTestRel(StructuredRel):
+    some_unique_property = StringProperty(unique_index=db.version_is_higher_than("5.7"))
     some_index_property = StringProperty(index=True)
 
 
-class ScriptsTestNode(AsyncStructuredNode):
+class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
-    rel = AsyncRelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
+    rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
 
 
 def test_neomodel_install_labels():
@@ -36,26 +34,26 @@ def test_neomodel_install_labels():
     assert result.returncode == 0
 
     result = subprocess.run(
-        ["neomodel_install_labels", "test/test_scripts.py", "--db", adb.url],
+        ["neomodel_install_labels", "test/test_scripts.py", "--db", db.url],
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0
     assert "Setting up indexes and constraints" in result.stdout
-    constraints = adb.list_constraints()
+    constraints = db.list_constraints()
     parsed_constraints = [
         (element["type"], element["labelsOrTypes"], element["properties"])
         for element in constraints
     ]
     assert ("UNIQUENESS", ["ScriptsTestNode"], ["personal_id"]) in parsed_constraints
-    if adb.version_is_higher_than("5.7"):
+    if db.version_is_higher_than("5.7"):
         assert (
             "RELATIONSHIP_UNIQUENESS",
             ["REL"],
             ["some_unique_property"],
         ) in parsed_constraints
-    indexes = adb.list_indexes()
+    indexes = db.list_indexes()
     parsed_indexes = [
         (element["labelsOrTypes"], element["properties"]) for element in indexes
     ]
@@ -83,8 +81,8 @@ def test_neomodel_remove_labels():
         "Dropping unique constraint and index on label ScriptsTestNode" in result.stdout
     )
     assert result.returncode == 0
-    constraints = adb.list_constraints()
-    indexes = adb.list_indexes(exclude_token_lookup=True)
+    constraints = db.list_constraints()
+    indexes = db.list_indexes(exclude_token_lookup=True)
     assert len(constraints) == 0
     assert len(indexes) == 0
 
@@ -108,9 +106,9 @@ def test_neomodel_inspect_database(script_flavour):
     assert "usage: neomodel_inspect_database" in result.stdout
     assert result.returncode == 0
 
-    adb.clear_neo4j_database()
-    adb.install_labels(ScriptsTestNode)
-    adb.install_labels(ScriptsTestRel)
+    db.clear_neo4j_database()
+    db.install_labels(ScriptsTestNode)
+    db.install_labels(ScriptsTestRel)
 
     # Create a few nodes and a rel, with indexes and constraints
     node1 = ScriptsTestNode(personal_id="1", name="test").save()
@@ -119,7 +117,7 @@ def test_neomodel_inspect_database(script_flavour):
 
     # Create a node with all the parsable property types
     # Also create a node with no properties
-    adb.cypher_query(
+    db.cypher_query(
         """
         CREATE (:EveryPropertyTypeNode {
             string_property: "Hello World",
@@ -155,7 +153,7 @@ def test_neomodel_inspect_database(script_flavour):
     # Check that all the expected lines are here
     file_path = (
         f"test/data/neomodel_inspect_database_output{script_flavour}.txt"
-        if adb.version_is_higher_than("5.7")
+        if db.version_is_higher_than("5.7")
         else f"test/data/neomodel_inspect_database_output_pre_5_7{script_flavour}.txt"
     )
     with open(file_path, "r") as f:

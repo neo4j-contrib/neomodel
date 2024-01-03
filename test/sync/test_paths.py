@@ -1,16 +1,17 @@
+from test._async_compat import mark_sync_test
 from neomodel import (
-    AsyncNeomodelPath,
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    NeomodelPath,
+    RelationshipTo,
+    StructuredNode,
+    StructuredRel,
     IntegerProperty,
     StringProperty,
     UniqueIdProperty,
-    adb,
 )
+from neomodel.sync_.core import db
 
 
-class PersonLivesInCity(AsyncStructuredRel):
+class PersonLivesInCity(StructuredRel):
     """
     Relationship with data that will be instantiated as "stand-alone"
     """
@@ -18,24 +19,25 @@ class PersonLivesInCity(AsyncStructuredRel):
     some_num = IntegerProperty(index=True, default=12)
 
 
-class CountryOfOrigin(AsyncStructuredNode):
+class CountryOfOrigin(StructuredNode):
     code = StringProperty(unique_index=True, required=True)
 
 
-class CityOfResidence(AsyncStructuredNode):
+class CityOfResidence(StructuredNode):
     name = StringProperty(required=True)
-    country = AsyncRelationshipTo(CountryOfOrigin, "FROM_COUNTRY")
+    country = RelationshipTo(CountryOfOrigin, "FROM_COUNTRY")
 
 
-class PersonOfInterest(AsyncStructuredNode):
+class PersonOfInterest(StructuredNode):
     uid = UniqueIdProperty()
     name = StringProperty(unique_index=True)
     age = IntegerProperty(index=True, default=0)
 
-    country = AsyncRelationshipTo(CountryOfOrigin, "IS_FROM")
-    city = AsyncRelationshipTo(CityOfResidence, "LIVES_IN", model=PersonLivesInCity)
+    country = RelationshipTo(CountryOfOrigin, "IS_FROM")
+    city = RelationshipTo(CityOfResidence, "LIVES_IN", model=PersonLivesInCity)
 
 
+@mark_sync_test
 def test_path_instantiation():
     """
     Neo4j driver paths should be instantiated as neomodel paths, with all of
@@ -66,7 +68,7 @@ def test_path_instantiation():
     p4.city.connect(ct2)
 
     # Retrieve a single path
-    q = adb.cypher_query(
+    q = db.cypher_query(
         "MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1",
         resolve_objects=True,
     )
@@ -75,13 +77,13 @@ def test_path_instantiation():
     path_nodes = path_object.nodes
     path_rels = path_object.relationships
 
-    assert type(path_object) is AsyncNeomodelPath
+    assert type(path_object) is NeomodelPath
     assert type(path_nodes[0]) is CityOfResidence
     assert type(path_nodes[1]) is PersonOfInterest
     assert type(path_nodes[2]) is CountryOfOrigin
 
     assert type(path_rels[0]) is PersonLivesInCity
-    assert type(path_rels[1]) is AsyncStructuredRel
+    assert type(path_rels[1]) is StructuredRel
 
     c1.delete()
     c2.delete()

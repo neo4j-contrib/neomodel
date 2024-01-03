@@ -170,7 +170,8 @@ class AsyncRelationshipManager(object):
             + my_rel
             + f" WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        rels = await self.source.cypher(q, {"them": node.element_id})[0]
+        results = await self.source.cypher(q, {"them": node.element_id})
+        rels = results[0]
         if not rels:
             return
 
@@ -190,7 +191,8 @@ class AsyncRelationshipManager(object):
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
         q = f"MATCH {my_rel} WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r "
-        rels = await self.source.cypher(q, {"them": node.element_id})[0]
+        results = await self.source.cypher(q, {"them": node.element_id})
+        rels = results[0]
         if not rels:
             return []
 

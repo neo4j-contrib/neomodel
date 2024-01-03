@@ -1,9 +1,11 @@
 from datetime import date, datetime
 
+from test._async_compat import mark_sync_test
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import AsyncStructuredNode, adb, config
+from neomodel import StructuredNode
+from neomodel.sync_.core import db
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -24,8 +26,6 @@ from neomodel.properties import (
     UniqueIdProperty,
 )
 from neomodel.util import _get_node_properties
-
-config.AUTO_INSTALL_LABELS = True
 
 
 class FooBar:
@@ -60,8 +60,9 @@ def test_string_property_exceeds_max_length():
     ), "StringProperty max_length test passed but values do not match."
 
 
+@mark_sync_test
 def test_string_property_w_choice():
-    class TestChoices(AsyncStructuredNode):
+    class TestChoices(StructuredNode):
         SEXES = {"F": "Female", "M": "Male", "O": "Other"}
         sex = StringProperty(required=True, choices=SEXES)
 
@@ -185,8 +186,9 @@ def test_json():
     assert prop.inflate('{"test": [1, 2, 3]}') == value
 
 
+@mark_sync_test
 def test_default_value():
-    class DefaultTestValue(AsyncStructuredNode):
+    class DefaultTestValue(StructuredNode):
         name_xx = StringProperty(default="jim", index=True)
 
     a = DefaultTestValue()
@@ -194,17 +196,19 @@ def test_default_value():
     a.save()
 
 
+@mark_sync_test
 def test_default_value_callable():
     def uid_generator():
         return "xx"
 
-    class DefaultTestValueTwo(AsyncStructuredNode):
+    class DefaultTestValueTwo(StructuredNode):
         uid = StringProperty(default=uid_generator, index=True)
 
     a = DefaultTestValueTwo().save()
     assert a.uid == "xx"
 
 
+@mark_sync_test
 def test_default_value_callable_type():
     # check our object gets converted to str without serializing and reload
     def factory():
@@ -214,7 +218,7 @@ def test_default_value_callable_type():
 
         return Foo()
 
-    class DefaultTestValueThree(AsyncStructuredNode):
+    class DefaultTestValueThree(StructuredNode):
         uid = StringProperty(default=factory, index=True)
 
     x = DefaultTestValueThree()
@@ -225,8 +229,9 @@ def test_default_value_callable_type():
     assert x.uid == "123"
 
 
+@mark_sync_test
 def test_independent_property_name():
-    class TestDBNamePropertyNode(AsyncStructuredNode):
+    class TestDBNamePropertyNode(StructuredNode):
         name_ = StringProperty(db_property="name")
 
     x = TestDBNamePropertyNode()
@@ -234,7 +239,7 @@ def test_independent_property_name():
     x.save()
 
     # check database property name on low level
-    results, meta = adb.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
+    results, meta = db.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
     node_properties = _get_node_properties(results[0][0])
     assert node_properties["name"] == "jim"
 
@@ -242,24 +247,27 @@ def test_independent_property_name():
     assert not "name_" in node_properties
     assert not hasattr(x, "name")
     assert hasattr(x, "name_")
-    assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
-    assert TestDBNamePropertyNode.nodes.get(name_="jim").name_ == x.name_
+    assert (TestDBNamePropertyNode.nodes.filter(name_="jim").all())[
+        0
+    ].name_ == x.name_
+    assert (TestDBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
 
     x.delete()
 
 
+@mark_sync_test
 def test_independent_property_name_get_or_create():
-    class TestNode(AsyncStructuredNode):
+    class TestNode(StructuredNode):
         uid = UniqueIdProperty()
         name_ = StringProperty(db_property="name", required=True)
 
     # create the node
     TestNode.get_or_create({"uid": 123, "name_": "jim"})
     # test that the node is retrieved correctly
-    x = TestNode.get_or_create({"uid": 123, "name_": "jim"})[0]
+    x = (TestNode.get_or_create({"uid": 123, "name_": "jim"}))[0]
 
     # check database property name on low level
-    results, meta = adb.cypher_query("MATCH (n:TestNode) RETURN n")
+    results, _ = db.cypher_query("MATCH (n:TestNode) RETURN n")
     node_properties = _get_node_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
@@ -331,6 +339,7 @@ def test_email_property():
         prop.deflate("foo@example")
 
 
+@mark_sync_test
 def test_uid_property():
     prop = UniqueIdProperty()
     prop.name = "uid"
@@ -338,19 +347,20 @@ def test_uid_property():
     myuid = prop.default_value()
     assert len(myuid)
 
-    class CheckMyId(AsyncStructuredNode):
+    class CheckMyId(StructuredNode):
         uid = UniqueIdProperty()
 
     cmid = CheckMyId().save()
     assert len(cmid.uid)
 
 
-class ArrayProps(AsyncStructuredNode):
+class ArrayProps(StructuredNode):
     uid = StringProperty(unique_index=True)
     untyped_arr = ArrayProperty()
     typed_arr = ArrayProperty(IntegerProperty())
 
 
+@mark_sync_test
 def test_array_properties():
     # untyped
     ap1 = ArrayProps(uid="1", untyped_arr=["Tim", "Bob"]).save()
@@ -377,8 +387,9 @@ def test_illegal_array_base_prop_raises():
         ArrayProperty(StringProperty(index=True))
 
 
+@mark_sync_test
 def test_indexed_array():
-    class IndexArray(AsyncStructuredNode):
+    class IndexArray(StructuredNode):
         ai = ArrayProperty(unique_index=True)
 
     b = IndexArray(ai=[1, 2]).save()
@@ -386,8 +397,9 @@ def test_indexed_array():
     assert b.element_id == c.element_id
 
 
+@mark_sync_test
 def test_unique_index_prop_not_required():
-    class ConstrainedTestNode(AsyncStructuredNode):
+    class ConstrainedTestNode(StructuredNode):
         required_property = StringProperty(required=True)
         unique_property = StringProperty(unique_index=True)
         unique_required_property = StringProperty(unique_index=True, required=True)
@@ -406,7 +418,7 @@ def test_unique_index_prop_not_required():
     x.save()
 
     # check database property name on low level
-    results, meta = adb.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
+    results, meta = db.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
     node_properties = _get_node_properties(results[0][0])
     assert node_properties["unique_required_property"] == "unique and required"
 
@@ -414,10 +426,12 @@ def test_unique_index_prop_not_required():
     x.delete()
 
 
+@mark_sync_test
 def test_unique_index_prop_enforced():
-    class UniqueNullableNameNode(AsyncStructuredNode):
+    class UniqueNullableNameNode(StructuredNode):
         name = StringProperty(unique_index=True)
 
+    db.install_labels(UniqueNullableNameNode)
     # Nameless
     x = UniqueNullableNameNode()
     x.save()
@@ -432,7 +446,7 @@ def test_unique_index_prop_enforced():
         a.save()
 
     # Check nodes are in database
-    results, meta = adb.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
+    results, _ = db.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
     assert len(results) == 3
 
     # Delete nodes afterwards

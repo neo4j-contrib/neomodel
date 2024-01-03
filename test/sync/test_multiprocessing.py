@@ -1,9 +1,11 @@
 from multiprocessing.pool import ThreadPool as Pool
+from test._async_compat import mark_sync_test
 
-from neomodel import AsyncStructuredNode, StringProperty, adb
+from neomodel import StructuredNode, StringProperty
+from neomodel.sync_.core import db
 
 
-class ThingyMaBob(AsyncStructuredNode):
+class ThingyMaBob(StructuredNode):
     name = StringProperty(unique_index=True, required=True)
 
 
@@ -13,9 +15,11 @@ def thing_create(name):
     return thing.name, name
 
 
+@mark_sync_test
 def test_concurrency():
     with Pool(5) as p:
         results = p.map(thing_create, range(50))
-        for returned, sent in results:
+        for to_unpack in results:
+            returned, sent = to_unpack
             assert returned == sent
-        adb.close_connection()
+        db.close_connection()

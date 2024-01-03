@@ -681,7 +681,7 @@ class AsyncQueryBuilder:
         results, _ = await adb.cypher_query(query, self._query_params)
         return int(results[0][0])
 
-    def _contains(self, node_element_id):
+    async def _contains(self, node_element_id):
         # inject id = into ast
         if not self._ast.return_clause:
             print(self._ast.additional_return)
@@ -690,7 +690,7 @@ class AsyncQueryBuilder:
         place_holder = self._register_place_holder(ident + "_contains")
         self._ast.where.append(f"{adb.get_id_method()}({ident}) = ${place_holder}")
         self._query_params[place_holder] = node_element_id
-        return self._count() >= 1
+        return await self._count() >= 1
 
     async def _execute(self, lazy=False):
         if lazy:

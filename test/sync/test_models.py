@@ -2,20 +2,21 @@ from __future__ import print_function
 
 from datetime import datetime
 
+from test._async_compat import mark_sync_test
 from pytest import raises
 
 from neomodel import (
-    AsyncStructuredNode,
-    AsyncStructuredRel,
+    StructuredNode,
+    StructuredRel,
     DateProperty,
     IntegerProperty,
     StringProperty,
 )
-from neomodel.async_.core import adb
+from neomodel.sync_.core import db
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
-class User(AsyncStructuredNode):
+class User(StructuredNode):
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
@@ -28,12 +29,13 @@ class User(AsyncStructuredNode):
         self.email = value
 
 
-class NodeWithoutProperty(AsyncStructuredNode):
+class NodeWithoutProperty(StructuredNode):
     pass
 
 
+@mark_sync_test
 def test_issue_233():
-    class BaseIssue233(AsyncStructuredNode):
+    class BaseIssue233(StructuredNode):
         __abstract_node__ = True
 
         def __getitem__(self, item):
@@ -51,13 +53,10 @@ def test_issue_72():
     assert user.age is None
 
 
+@mark_sync_test
 def test_required():
-    try:
+    with raises(RequiredProperty):
         User(age=3).save()
-    except RequiredProperty:
-        assert True
-    else:
-        assert False
 
 
 def test_repr_and_str():
@@ -67,6 +66,7 @@ def test_repr_and_str():
     assert True
 
 
+@mark_sync_test
 def test_get_and_get_or_none():
     u = User(email="robin@test.com", age=3)
     assert u.save()
@@ -81,6 +81,7 @@ def test_get_and_get_or_none():
     assert n is None
 
 
+@mark_sync_test
 def test_first_and_first_or_none():
     u = User(email="matt@test.com", age=24)
     assert u.save()
@@ -105,6 +106,7 @@ def test_bare_init_without_save():
     assert User().element_id is None
 
 
+@mark_sync_test
 def test_save_to_model():
     u = User(email="jim@test.com", age=3)
     assert u.save()
@@ -113,24 +115,28 @@ def test_save_to_model():
     assert u.age == 3
 
 
+@mark_sync_test
 def test_save_node_without_properties():
     n = NodeWithoutProperty()
     assert n.save()
     assert n.element_id is not None
 
 
+@mark_sync_test
 def test_unique():
-    adb.install_labels(User)
+    db.install_labels(User)
     User(email="jim1@test.com", age=3).save()
     with raises(UniqueProperty):
         User(email="jim1@test.com", age=3).save()
 
 
+@mark_sync_test
 def test_update_unique():
     u = User(email="jimxx@test.com", age=3).save()
     u.save()  # this shouldn't fail
 
 
+@mark_sync_test
 def test_update():
     user = User(email="jim2@test.com", age=3).save()
     assert user
@@ -141,6 +147,7 @@ def test_update():
     assert jim.email == "jim2000@test.com"
 
 
+@mark_sync_test
 def test_save_through_magic_property():
     user = User(email_alias="blah@test.com", age=8).save()
     assert user.email_alias == "blah@test.com"
@@ -156,14 +163,15 @@ def test_save_through_magic_property():
     assert user2
 
 
-class Customer2(AsyncStructuredNode):
+class Customer2(StructuredNode):
     __label__ = "customers"
     email = StringProperty(unique_index=True, required=True)
     age = IntegerProperty(index=True)
 
 
+@mark_sync_test
 def test_not_updated_on_unique_error():
-    adb.install_labels(Customer2)
+    db.install_labels(Customer2)
     Customer2(email="jim@bob.com", age=7).save()
     test = Customer2(email="jim1@bob.com", age=2).save()
     test.email = "jim@bob.com"
@@ -171,10 +179,11 @@ def test_not_updated_on_unique_error():
         test.save()
     customers = Customer2.nodes.all()
     assert customers[0].email != customers[1].email
-    assert Customer2.nodes.get(email="jim@bob.com").age == 7
-    assert Customer2.nodes.get(email="jim1@bob.com").age == 2
+    assert (Customer2.nodes.get(email="jim@bob.com")).age == 7
+    assert (Customer2.nodes.get(email="jim1@bob.com")).age == 2
 
 
+@mark_sync_test
 def test_label_not_inherited():
     class Customer3(Customer2):
         address = StringProperty()
@@ -190,6 +199,7 @@ def test_label_not_inherited():
     assert "Customer3" in c.labels()
 
 
+@mark_sync_test
 def test_refresh():
     c = Customer2(email="my@email.com", age=16).save()
     c.my_custom_prop = "value"
@@ -209,7 +219,7 @@ def test_refresh():
 
     assert c.age == 20
 
-    if adb.database_version.startswith("4"):
+    if db.database_version.startswith("4"):
         c = Customer2.inflate(999)
     else:
         c = Customer2.inflate("4:xxxxxx:999")
@@ -217,6 +227,7 @@ def test_refresh():
         c.refresh()
 
 
+@mark_sync_test
 def test_setting_value_to_none():
     c = Customer2(email="alice@bob.com", age=42).save()
     assert c.age is not None
@@ -228,8 +239,9 @@ def test_setting_value_to_none():
     assert copy.age is None
 
 
+@mark_sync_test
 def test_inheritance():
-    class User(AsyncStructuredNode):
+    class User(StructuredNode):
         __abstract_node__ = True
         name = StringProperty(unique_index=True)
 
@@ -247,11 +259,12 @@ def test_inheritance():
     assert jim.balance == 350
     assert len(jim.inherited_labels()) == 1
     assert len(jim.labels()) == 1
-    assert jim.labels()[0] == "Shopper"
+    assert (jim.labels())[0] == "Shopper"
 
 
+@mark_sync_test
 def test_inherited_optional_labels():
-    class BaseOptional(AsyncStructuredNode):
+    class BaseOptional(StructuredNode):
         __optional_labels__ = ["Alive"]
         name = StringProperty(unique_index=True)
 
@@ -274,6 +287,7 @@ def test_inherited_optional_labels():
     assert set(henry.inherited_optional_labels()) == {"Alive", "RewardsMember"}
 
 
+@mark_sync_test
 def test_mixins():
     class UserMixin:
         name = StringProperty(unique_index=True)
@@ -286,7 +300,7 @@ def test_mixins():
             self.balance = self.balance + int(amount)
             self.save()
 
-    class Shopper2(AsyncStructuredNode, UserMixin, CreditMixin):
+    class Shopper2(StructuredNode, UserMixin, CreditMixin):
         pass
 
     jim = Shopper2(name="jimmy", balance=300).save()
@@ -296,11 +310,12 @@ def test_mixins():
     assert jim.balance == 350
     assert len(jim.inherited_labels()) == 1
     assert len(jim.labels()) == 1
-    assert jim.labels()[0] == "Shopper2"
+    assert (jim.labels())[0] == "Shopper2"
 
 
+@mark_sync_test
 def test_date_property():
-    class DateTest(AsyncStructuredNode):
+    class DateTest(StructuredNode):
         birthdate = DateProperty()
 
     user = DateTest(birthdate=datetime.now()).save()
@@ -310,36 +325,36 @@ def test_reserved_property_keys():
     error_match = r".*is not allowed as it conflicts with neomodel internals.*"
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesDeletedNode(AsyncStructuredNode):
+        class ReservedPropertiesDeletedNode(StructuredNode):
             deleted = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesIdNode(AsyncStructuredNode):
+        class ReservedPropertiesIdNode(StructuredNode):
             id = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesElementIdNode(AsyncStructuredNode):
+        class ReservedPropertiesElementIdNode(StructuredNode):
             element_id = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesIdRel(AsyncStructuredRel):
+        class ReservedPropertiesIdRel(StructuredRel):
             id = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesElementIdRel(AsyncStructuredRel):
+        class ReservedPropertiesElementIdRel(StructuredRel):
             element_id = StringProperty()
 
     error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesSourceRel(AsyncStructuredRel):
+        class ReservedPropertiesSourceRel(StructuredRel):
             source = StringProperty()
 
     with raises(ValueError, match=error_match):
 
-        class ReservedPropertiesTargetRel(AsyncStructuredRel):
+        class ReservedPropertiesTargetRel(StructuredRel):
             target = StringProperty()

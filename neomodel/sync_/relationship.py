@@ -123,7 +123,7 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        test = db.cypher_query(
+        results = db.cypher_query(
             f"""
             MATCH (aNode)
             WHERE {db.get_id_method()}(aNode)=$start_node_element_id
@@ -132,7 +132,7 @@ class StructuredRel(StructuredRelBase):
             {"start_node_element_id": self._start_node_element_id},
             resolve_objects=True,
         )
-        return test[0][0][0]
+        return results[0][0][0]
 
     def end_node(self):
         """
@@ -140,7 +140,7 @@ class StructuredRel(StructuredRelBase):
 
         :return: StructuredNode
         """
-        return db.cypher_query(
+        results = db.cypher_query(
             f"""
             MATCH (aNode)
             WHERE {db.get_id_method()}(aNode)=$end_node_element_id
@@ -148,7 +148,8 @@ class StructuredRel(StructuredRelBase):
             """,
             {"end_node_element_id": self._end_node_element_id},
             resolve_objects=True,
-        )[0][0][0]
+        )
+        return results[0][0][0]
 
     @classmethod
     def inflate(cls, rel):

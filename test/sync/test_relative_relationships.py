@@ -1,13 +1,15 @@
-from neomodel import AsyncRelationshipTo, AsyncStructuredNode, StringProperty
-from neomodel.test_relationships import Country
+from neomodel import RelationshipTo, StructuredNode, StringProperty
+from test.sync_.test_relationships import Country
+from test._async_compat import mark_sync_test
 
 
-class Cat(AsyncStructuredNode):
+class Cat(StructuredNode):
     name = StringProperty()
     # Relationship is defined using a relative class path
-    is_from = AsyncRelationshipTo(".test_relationships.Country", "IS_FROM")
+    is_from = RelationshipTo(".test_relationships.Country", "IS_FROM")
 
 
+@mark_sync_test
 def test_relative_relationship():
     a = Cat(name="snufkin").save()
     assert a
