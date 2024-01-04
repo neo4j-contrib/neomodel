@@ -40,15 +40,15 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 # Upcoming breaking changes notice - \>=5.3
 
 Based on Python version [status](https://devguide.python.org/versions/),
-neomodel will be dropping support for Python 3.7 in the next release
-(5.3). This does not mean neomodel will stop working on Python 3.7, but
+neomodel will be dropping support for Python 3.7 in an upcoming release
+(5.3 or later). This does not mean neomodel will stop working on Python 3.7, but
 it will no longer be tested against it. Instead, we will try to add
 support for Python 3.12.
 
-Another potential breaking change coming up is adding async support to
-neomodel. But we do not know when this will happen yet, or if it will
-actually be a breaking change. We will definitely push this in a major
-release though. More to come on that later.
+Another source of upcoming breaking changes is the addition async support to
+neomodel. No date is set yet, but the work has progressed a lot in the past weeks ;
+and it will be part of a major release (potentially 6.0 to avoid misunderstandings).
+You can see the progress in [this branch](https://github.com/neo4j-contrib/neomodel/tree/task/async).
 
 Finally, we are looking at refactoring some standalone methods into the
 Database() class. More to come on that later.
