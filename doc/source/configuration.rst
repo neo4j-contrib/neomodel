@@ -66,7 +66,7 @@ Change/Close the connection
 
 Optionally, you can change the connection at any time by calling ``set_connection``::
 
-    from neomodel import db
+    from neomodel.sync_.core import db
     # Using URL - auto-managed
     db.set_connection(url='bolt://neo4j:neo4j@localhost:7687')
 
@@ -78,7 +78,7 @@ The new connection url will be applied to the current thread or process.
 Since Neo4j version 5, driver auto-close is deprecated. Make sure to close the connection anytime you want to replace it,
 as well as at the end of your application's lifecycle by calling ``close_connection``::
 
-    from neomodel import db
+    from neomodel.sync_.core import db
     db.close_connection()
 
     # If you then want a new connection
@@ -119,14 +119,7 @@ with something like: ::
 Enable automatic index and constraint creation
 ----------------------------------------------
 
-After the definition of a `StructuredNode`, Neomodel can install the corresponding 
-constraints and indexes at compile time. However this method is only recommended for testing::
-
-    from neomodel import config
-    # before loading your node definitions
-    config.AUTO_INSTALL_LABELS = True
-
-Neomodel also provides the :ref:`neomodel_install_labels` script for this task,
+Neomodel provides the :ref:`neomodel_install_labels` script for this task,
 however if you want to handle this manually see below.
 
 Install indexes and constraints for a single class::
@@ -145,6 +138,9 @@ Or for an entire 'schema' ::
     # Found yourapp.models.User
     # + Creating unique constraint for name on label User for class yourapp.models.User
     # ...
+
+.. note::
+    config.AUTO_INSTALL_LABELS has been removed from neomodel in version 6.0
 
 Require timezones on DateTimeProperty
 -------------------------------------

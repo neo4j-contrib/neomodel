@@ -39,7 +39,7 @@ labels, the `__optional_labels__` property must be defined as a list of strings:
         __optional_labels__ = ["SuperSaver", "SeniorDiscount"]
         balance = IntegerProperty(index=True)
 
-.. warning:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
+.. note:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
 
 
 Mixins

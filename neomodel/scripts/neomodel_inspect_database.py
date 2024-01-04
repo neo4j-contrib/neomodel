@@ -1,7 +1,7 @@
 """
 .. _neomodel_inspect_database:
 
-``_neomodel_inspect_database``
+``neomodel_inspect_database``
 ---------------------------
 
 ::

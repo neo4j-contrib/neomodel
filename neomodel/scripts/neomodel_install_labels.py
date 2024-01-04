@@ -14,6 +14,8 @@
     If a connection URL is not specified, the tool will look up the environment 
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+
+    Note : this script only has a synchronous mode.
     
     positional arguments:
       <someapp.models/app.py>

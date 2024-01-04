@@ -22,6 +22,7 @@ Querying the graph
 
 neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
+    from neomodel.sync_.core import db
     results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
 
@@ -104,7 +105,7 @@ and cardinality will be default (ZeroOrMore).
     Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
     guess wrong on edge cases.
 
-.. warning:: 
+.. note:: 
 
     The script relies on the method apoc.meta.cypher.types to parse property types. So APOC must be installed on your Neo4j server
     for this script to work.
@@ -246,7 +247,7 @@ the following syntax::
 
     Person.nodes.all().fetch_relations('city__country', Optional('country'))
 
-.. warning::
+.. note::
 
    This feature is still a work in progress for extending path traversal and fecthing.
    It currently stops at returning the resolved objects as they are returned in Cypher.
@@ -255,4 +256,35 @@ the following syntax::
    These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
 
    If you want to go further in the resolution process, you have to develop your own parser (for now).
+
+
+Async neomodel
+==============
+
+neomodel supports asynchronous operations using the async support of neo4j driver. The examples below take a few of the above examples,
+but rewritten for async::
+
+    from neomodel.async_.core import adb
+    results, meta = await adb.cypher_query("RETURN 'Hello World' as message")
+
+OGM with async ::
+
+    # Note that properties do not change, but nodes and relationships now have an Async prefix
+    from neomodel import (AsyncStructuredNode, StringProperty, IntegerProperty,
+        UniqueIdProperty, AsyncRelationshipTo)
+
+    class Country(AsyncStructuredNode):
+        code = StringProperty(unique_index=True, required=True)
+
+    class City(AsyncStructuredNode):
+        name = StringProperty(required=True)
+        country = AsyncRelationshipTo(Country, 'FROM_COUNTRY')
+
+    # Operations that interact with the database are now async
+    # Return all nodes
+    all_nodes = await Country.nodes.all()
+
+    # Relationships
+    germany = await Country(code='DE').save()
+    await jim.country.connect(germany)
 

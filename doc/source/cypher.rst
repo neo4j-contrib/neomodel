@@ -19,7 +19,7 @@ Stand alone
 Outside of a `StructuredNode`::
 
     # for standalone queries
-    from neomodel import db
+    from neomodel.sync_.core import db
     results, meta = db.cypher_query(query, params, resolve_objects=True)
 
 The ``resolve_objects`` parameter automatically inflates the returned nodes to their defined classes (this is turned **off** by default). See :ref:`automatic_class_resolution` for details and possible pitfalls.
@@ -40,7 +40,7 @@ First, you need to install pandas by yourself. We do not include it by default t
 
 You can use the `pandas` integration to return a `DataFrame` or `Series` object::
 
-    from neomodel import db
+    from neomodel.sync_.core import db
     from neomodel.integration.pandas import to_dataframe, to_series
 
     df = to_dataframe(db.cypher_query("MATCH (a:Person) RETURN a.name AS name, a.born AS born"))
@@ -59,7 +59,7 @@ First, you need to install numpy by yourself. We do not include it by default to
 
 You can use the `numpy` integration to return a `ndarray` object::
 
-    from neomodel import db
+    from neomodel.sync_.core import db
     from neomodel.integration.numpy import to_ndarray
 
     array = to_ndarray(db.cypher_query("MATCH (a:Person) RETURN a.name AS name, a.born AS born"))
