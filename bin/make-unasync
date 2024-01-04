@@ -17,8 +17,6 @@ ASYNC_CONTRIB_DIR = ROOT_DIR / "neomodel" / "contrib" / "async_"
 SYNC_CONTRIB_DIR = ROOT_DIR / "neomodel" / "contrib" / "sync_"
 ASYNC_INTEGRATION_TEST_DIR = ROOT_DIR / "test" / "async_"
 SYNC_INTEGRATION_TEST_DIR = ROOT_DIR / "test" / "sync_"
-# ASYNC_INTEGRATION_TEST_CONTRIB_DIR = ROOT_DIR / "test" / "test_contrib" / "async_"
-# SYNC_INTEGRATION_TEST_CONTRIB_DIR = ROOT_DIR / "test" / "test_contrib" / "sync_"
 UNASYNC_SUFFIX = ".unasync"
 
 PY_FILE_EXTENSIONS = {".py"}
@@ -236,18 +234,12 @@ def apply_unasync(files):
             todir=str(SYNC_INTEGRATION_TEST_DIR),
             additional_replacements=additional_test_replacements,
         ),
-        # CustomRule(
-        #     fromdir=str(ASYNC_INTEGRATION_TEST_CONTRIB_DIR),
-        #     todir=str(SYNC_INTEGRATION_TEST_CONTRIB_DIR),
-        #     additional_replacements=additional_test_replacements,
-        # ),
     ]
 
     if not files:
         paths = list(ASYNC_DIR.rglob("*"))
         paths += list(ASYNC_CONTRIB_DIR.rglob("*"))
         paths += list(ASYNC_INTEGRATION_TEST_DIR.rglob("*"))
-        # paths += list(ASYNC_INTEGRATION_TEST_CONTRIB_DIR.rglob("*"))
     else:
         paths = [ROOT_DIR / Path(f) for f in files]
     filtered_paths = []
