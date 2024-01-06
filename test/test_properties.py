@@ -3,14 +3,7 @@ from datetime import date, datetime
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import (
-    Relationship,
-    StructuredNode,
-    StructuredRel,
-    config,
-    db,
-    get_graph_entity_properties,
-)
+from neomodel import Relationship, StructuredNode, StructuredRel, config, db
 from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,
@@ -31,6 +24,7 @@ from neomodel.properties import (
     StringProperty,
     UniqueIdProperty,
 )
+from neomodel.util import get_graph_entity_properties
 
 config.AUTO_INSTALL_LABELS = True
 
@@ -284,6 +278,40 @@ def test_independent_property_name():
     # -- cleanup --
 
     x.delete()
+
+
+def test_independent_property_name_for_semi_structured():
+    class TestDBNamePropertySemiStructuredNode(SemiStructuredNode):
+        title_ = StringProperty(db_property="title")
+
+    semi = TestDBNamePropertySemiStructuredNode(title_="sir", extra="data")
+    semi.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query(
+        "MATCH (n:TestDBNamePropertySemiStructuredNode) RETURN n"
+    )
+    node_properties = get_graph_entity_properties(results[0][0])
+    assert node_properties["title"] == "sir"
+    assert not "title_" in node_properties
+    assert node_properties["extra"] == "data"
+
+    # check python class property name at a high level
+    assert hasattr(semi, "title_")
+    assert not hasattr(semi, "title")
+    assert hasattr(semi, "extra")
+    from_filter = TestDBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all()[
+        0
+    ]
+    assert from_filter.title_ == "sir"
+    assert not hasattr(from_filter, "title")
+    assert from_filter.extra == "data"
+    from_get = TestDBNamePropertySemiStructuredNode.nodes.get(title_="sir")
+    assert from_get.title_ == "sir"
+    assert not hasattr(from_get, "title")
+    assert from_get.extra == "data"
+
+    semi.delete()
 
 
 def test_independent_property_name_get_or_create():

@@ -12,12 +12,7 @@ from neomodel.exceptions import (
 )
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
-from neomodel.util import (
-    Database,
-    _UnsavedNode,
-    classproperty,
-    get_graph_entity_properties,
-)
+from neomodel.util import Database, _UnsavedNode, classproperty
 
 db = Database()
 
