@@ -3,7 +3,15 @@ from datetime import date, datetime
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode, config, db
+from neomodel import (
+    Relationship,
+    StructuredNode,
+    StructuredRel,
+    config,
+    db,
+    get_graph_entity_properties,
+)
+from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -23,7 +31,6 @@ from neomodel.properties import (
     StringProperty,
     UniqueIdProperty,
 )
-from neomodel.util import _get_node_properties
 
 config.AUTO_INSTALL_LABELS = True
 
@@ -225,9 +232,19 @@ def test_default_value_callable_type():
     assert x.uid == "123"
 
 
+class TestDBNamePropertyRel(StructuredRel):
+    known_for = StringProperty(db_property="knownFor")
+
+
+# This must be defined outside of the test, otherwise the `Relationship` definition cannot look up
+# `TestDBNamePropertyNode`
+class TestDBNamePropertyNode(StructuredNode):
+    name_ = StringProperty(db_property="name")
+    knows = Relationship("TestDBNamePropertyNode", "KNOWS", model=TestDBNamePropertyRel)
+
+
 def test_independent_property_name():
-    class TestDBNamePropertyNode(StructuredNode):
-        name_ = StringProperty(db_property="name")
+    # -- test node --
 
     x = TestDBNamePropertyNode()
     x.name_ = "jim"
@@ -235,15 +252,36 @@ def test_independent_property_name():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
-    node_properties = _get_node_properties(results[0][0])
+    node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
+    assert "name_" not in node_properties
 
-    node_properties = _get_node_properties(results[0][0])
-    assert not "name_" in node_properties
+    # check python class property name at a high level
     assert not hasattr(x, "name")
     assert hasattr(x, "name_")
     assert TestDBNamePropertyNode.nodes.filter(name_="jim").all()[0].name_ == x.name_
     assert TestDBNamePropertyNode.nodes.get(name_="jim").name_ == x.name_
+
+    # -- test relationship --
+
+    r = x.knows.connect(x)
+    r.known_for = "10 years"
+    r.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query(
+        "MATCH (:TestDBNamePropertyNode)-[r:KNOWS]->(:TestDBNamePropertyNode) RETURN r"
+    )
+    rel_properties = get_graph_entity_properties(results[0][0])
+    assert rel_properties["knownFor"] == "10 years"
+    assert not "known_for" in node_properties
+
+    # check python class property name at a high level
+    assert not hasattr(r, "knownFor")
+    assert hasattr(r, "known_for")
+    assert x.knows.relationship(x).known_for == r.known_for
+
+    # -- cleanup --
 
     x.delete()
 
@@ -260,7 +298,7 @@ def test_independent_property_name_get_or_create():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    node_properties = _get_node_properties(results[0][0])
+    node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
 
@@ -407,7 +445,7 @@ def test_unique_index_prop_not_required():
 
     # check database property name on low level
     results, meta = db.cypher_query("MATCH (n:ConstrainedTestNode) RETURN n")
-    node_properties = _get_node_properties(results[0][0])
+    node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["unique_required_property"] == "unique and required"
 
     # delete node afterwards

@@ -12,7 +12,12 @@ from neomodel.exceptions import (
 )
 from neomodel.hooks import hooks
 from neomodel.properties import Property, PropertyManager
-from neomodel.util import Database, _get_node_properties, _UnsavedNode, classproperty
+from neomodel.util import (
+    Database,
+    _UnsavedNode,
+    classproperty,
+    get_graph_entity_properties,
+)
 
 db = Database()
 
@@ -666,20 +671,7 @@ class StructuredNode(NodeBase):
             snode = cls()
             snode.element_id_property = node
         else:
-            node_properties = _get_node_properties(node)
-            props = {}
-            for key, prop in cls.__all_properties__:
-                # map property name from database to object property
-                db_property = prop.db_property or key
-
-                if db_property in node_properties:
-                    props[key] = prop.inflate(node_properties[db_property], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
-
-            snode = cls(**props)
+            snode = super().inflate(node)
             snode.element_id_property = node.element_id
 
         return snode

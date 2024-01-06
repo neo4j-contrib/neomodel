@@ -1,6 +1,6 @@
+from neomodel import get_graph_entity_properties
 from neomodel.core import StructuredNode
 from neomodel.exceptions import DeflateConflict, InflateConflict
-from neomodel.util import _get_node_properties
 
 
 class SemiStructuredNode(StructuredNode):
@@ -33,7 +33,7 @@ class SemiStructuredNode(StructuredNode):
             props = {}
             node_properties = {}
             for key, prop in cls.__all_properties__:
-                node_properties = _get_node_properties(node)
+                node_properties = get_graph_entity_properties(node)
                 if key in node_properties:
                     props[key] = prop.inflate(node_properties[key], node)
                 elif prop.has_default:
@@ -57,7 +57,7 @@ class SemiStructuredNode(StructuredNode):
     def deflate(cls, node_props, obj=None, skip_empty=False):
         deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
         for key in [k for k in node_props if k not in deflated]:
-            if hasattr(cls, key) and (getattr(cls,key).required or not skip_empty):
+            if hasattr(cls, key) and (getattr(cls, key).required or not skip_empty):
                 raise DeflateConflict(cls, key, deflated[key], obj.element_id)
 
         node_props.update(deflated)

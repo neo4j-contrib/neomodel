@@ -662,9 +662,11 @@ class _UnsavedNode:
         return self.__repr__()
 
 
-def _get_node_properties(node):
-    """Get the properties from a neo4j.vx.types.graph.Node object."""
-    return node._properties
+def get_graph_entity_properties(entity):
+    """
+    Get the properties from a neo4j.graph.Entity (neo4j.graph.Node or neo4j.graph.Relationship) object.
+    """
+    return entity._properties
 
 
 def enumerate_traceback(initial_frame):
