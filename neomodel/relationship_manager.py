@@ -15,7 +15,7 @@ from .match import (
     _rel_merge_helper,
 )
 from .relationship import StructuredRel
-from .util import _get_node_properties, enumerate_traceback
+from .util import enumerate_traceback, get_graph_entity_properties
 
 # basestring python 3.x fallback
 try:
@@ -231,7 +231,7 @@ class RelationshipManager(object):
             {"old": old_node.element_id},
         )
         if result:
-            node_properties = _get_node_properties(result[0][0])
+            node_properties = get_graph_entity_properties(result[0][0])
             existing_properties = node_properties.keys()
         else:
             raise NotConnected("reconnect", self.source, old_node)
