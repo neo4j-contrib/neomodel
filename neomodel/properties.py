@@ -96,7 +96,7 @@ class PropertyManager:
         """
         deflated = {}
         for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            db_property = property.db_property or name
+            db_property = property.get_db_property_name(name)
             if properties.get(name) is not None:
                 deflated[db_property] = property.deflate(properties[name], obj)
             elif property.has_default:
@@ -119,7 +119,7 @@ class PropertyManager:
         """
         inflated = {}
         for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            db_property = property.db_property or name
+            db_property = property.get_db_property_name(name)
             if db_property in graph_entity:
                 inflated[name] = property.inflate(
                     graph_entity[db_property], graph_entity
@@ -240,6 +240,13 @@ class Property:
                 return self.default()
             return self.default
         raise ValueError("No default value specified")
+
+    def get_db_property_name(self, attribute_name):
+        """
+        Returns the name that should be used for the property in the database. This is db_property if supplied upon
+        construction, otherwise the given attribute_name from the model is used.
+        """
+        return self.db_property or attribute_name
 
     @property
     def is_indexed(self):

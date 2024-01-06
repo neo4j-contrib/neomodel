@@ -192,7 +192,7 @@ def _create_relationship_constraint(relationship_type: str, property_name: str, 
 
 def _install_node(cls, name, property, quiet, stdout):
     # Create indexes and constraints for node property
-    db_property = property.db_property or name
+    db_property = property.get_db_property_name(name)
     if property.index:
         if not quiet:
             stdout.write(
@@ -220,7 +220,7 @@ def _install_relationship(cls, relationship, quiet, stdout):
         for prop_name, property in relationship_cls.defined_properties(
             aliases=False, rels=False
         ).items():
-            db_property = property.db_property or prop_name
+            db_property = property.get_db_property_name(prop_name)
             if property.index:
                 if not quiet:
                     stdout.write(
@@ -451,7 +451,7 @@ class StructuredNode(NodeBase):
         n_merge_labels = ":".join(cls.inherited_labels())
         n_merge_prm = ", ".join(
             (
-                f"{getattr(cls, p).db_property or p}: params.create.{getattr(cls, p).db_property or p}"
+                f"{getattr(cls, p).get_db_property_name(p)}: params.create.{getattr(cls, p).get_db_property_name(p)}"
                 for p in cls.__required_properties__
             )
         )
