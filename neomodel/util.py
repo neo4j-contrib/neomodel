@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import warnings
+from functools import wraps
 from threading import local
 from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
@@ -578,6 +579,7 @@ class TransactionProxy:
             self.last_bookmark = self.db.commit()
 
     def __call__(self, func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             with self:
                 return func(*args, **kwargs)
