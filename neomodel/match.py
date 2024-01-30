@@ -1,5 +1,6 @@
 import inspect
 import re
+import secrets
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
@@ -380,11 +381,13 @@ class QueryBuilder:
     def build_source(self, source):
         if isinstance(source, Traversal):
             return self.build_traversal(source)
+        
         if isinstance(source, NodeSet):
             if inspect.isclass(source.source) and issubclass(
                 source.source, StructuredNode
             ):
-                ident = self.build_label(source.source.__label__.lower(), source.source)
+                varpfx = source.source.__label__.lower() + "_" + secrets.token_hex(2)
+                ident = self.build_label(varpfx, source.source)
             else:
                 ident = self.build_source(source.source)
 
@@ -498,7 +501,7 @@ class QueryBuilder:
         return rhs_name
 
     def build_node(self, node):
-        ident = node.__class__.__name__.lower()
+        ident = node.__class__.__name__.lower() + "_" + secrets.token_hex(2)
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
@@ -627,7 +630,7 @@ class QueryBuilder:
         if self._ast.match:
             query += " MATCH "
             query += " MATCH ".join(i for i in self._ast.match)
-
+            
         if self._ast.optional_match:
             query += " OPTIONAL MATCH "
             query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
@@ -685,7 +688,6 @@ class QueryBuilder:
     def _contains(self, node_element_id):
         # inject id = into ast
         if not self._ast.return_clause:
-            print(self._ast.additional_return)
             self._ast.return_clause = self._ast.additional_return[0]
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
@@ -705,6 +707,7 @@ class QueryBuilder:
                     f"{db.get_id_method()}({item})"
                     for item in self._ast.additional_return
                 ]
+
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
