@@ -255,33 +255,95 @@ def process_filter_args(cls, kwargs):
     return output
 
 
-def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    # handle special operators
-    if operator == _SPECIAL_OPERATOR_IN:
-        if not isinstance(filter_value, tuple) and not isinstance(filter_value, list):
-            raise ValueError(
-                f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
-            )
-        if isinstance(property_obj, ArrayProperty):
-            deflated_value = property_obj.deflate(filter_value)
-            operator = _SPECIAL_OPERATOR_ARRAY_IN
-        else:
-            deflated_value = [property_obj.deflate(v) for v in filter_value]
-    elif operator == _SPECIAL_OPERATOR_ISNULL:
-        if not isinstance(filter_value, bool):
-            raise ValueError(
-                f"Value must be a bool for isnull operation on {filter_key}"
-            )
-        operator = "IS NULL" if filter_value else "IS NOT NULL"
-        deflated_value = None
-    elif operator in _REGEX_OPERATOR_TABLE.values():
+def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
+    """
+    Transform in operator to a cypher filter
+
+    Args:
+        operator (str): operator to transform
+        filter_key (str): filter key
+        filter_value (str): filter value
+        property_obj (object): property object
+
+    Returns:
+        tuple: operator, deflated_value
+    """
+    if not isinstance(filter_value, tuple) and not isinstance(filter_value, list):
+        raise ValueError(
+            f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
+        )
+    if isinstance(property_obj, ArrayProperty):
         deflated_value = property_obj.deflate(filter_value)
-        if not isinstance(deflated_value, str):
-            raise ValueError(f"Must be a string value for {filter_key}")
-        if operator in _STRING_REGEX_OPERATOR_TABLE.values():
-            deflated_value = re.escape(deflated_value)
-        deflated_value = operator.format(deflated_value)
-        operator = _SPECIAL_OPERATOR_REGEX
+        operator = _SPECIAL_OPERATOR_ARRAY_IN
+    else:
+        deflated_value = [property_obj.deflate(v) for v in filter_value]
+
+    return operator, deflated_value
+
+
+def transform_null_operator_to_filter(filter_key, filter_value):
+    """
+    Transform null operator to a cypher filter
+
+    Args:
+        filter_key (str): filter key
+        filter_value (str): filter value
+
+    Returns:
+        tuple: operator, deflated_value
+    """
+    if not isinstance(filter_value, bool):
+        raise ValueError(f"Value must be a bool for isnull operation on {filter_key}")
+    operator = "IS NULL" if filter_value else "IS NOT NULL"
+    deflated_value = None
+    return operator, deflated_value
+
+
+def transform_regex_operator_to_filter(
+    operator, filter_key, filter_value, property_obj
+):
+    """
+    Transform regex operator to a cypher filter
+
+    Args:
+        operator (str): operator to transform
+        filter_key (str): filter key
+        filter_value (str): filter value
+        property_obj (object): property object
+
+    Returns:
+        tuple: operator, deflated_value
+    """
+
+    deflated_value = property_obj.deflate(filter_value)
+    if not isinstance(deflated_value, str):
+        raise ValueError(f"Must be a string value for {filter_key}")
+    if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+        deflated_value = re.escape(deflated_value)
+    deflated_value = operator.format(deflated_value)
+    operator = _SPECIAL_OPERATOR_REGEX
+    return operator, deflated_value
+
+
+def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
+    if operator == _SPECIAL_OPERATOR_IN:
+        operator, deflated_value = transform_in_operator_to_filter(
+            operator=operator,
+            filter_key=filter_key,
+            filter_value=filter_value,
+            property_obj=property_obj,
+        )
+    elif operator == _SPECIAL_OPERATOR_ISNULL:
+        operator, deflated_value = transform_null_operator_to_filter(
+            filter_key=filter_key, filter_value=filter_value
+        )
+    elif operator in _REGEX_OPERATOR_TABLE.values():
+        operator, deflated_value = transform_regex_operator_to_filter(
+            operator=operator,
+            filter_key=filter_key,
+            filter_value=filter_value,
+            property_obj=property_obj,
+        )
     else:
         deflated_value = property_obj.deflate(filter_value)
 
