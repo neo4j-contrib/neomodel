@@ -7,7 +7,7 @@ from typing import Optional
 from .core import StructuredNode, db
 from .exceptions import MultipleNodesReturned
 from .match_q import Q, QBase
-from .properties import AliasProperty
+from .properties import AliasProperty, ArrayProperty
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
@@ -150,6 +150,7 @@ def _rel_merge_helper(
 
 # special operators
 _SPECIAL_OPERATOR_IN = "IN"
+_SPECIAL_OPERATOR_ARRAY_IN = "any(x IN {ident}.{prop} WHERE x IN {val})"
 _SPECIAL_OPERATOR_INSENSITIVE = "(?i)"
 _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
@@ -261,7 +262,11 @@ def transform_operator_to_filter(operator, filter_key, filter_value, property_ob
             raise ValueError(
                 f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
             )
-        deflated_value = [property_obj.deflate(v) for v in filter_value]
+        if isinstance(property_obj, ArrayProperty):
+            deflated_value = property_obj.deflate(filter_value)
+            operator = _SPECIAL_OPERATOR_ARRAY_IN
+        else:
+            deflated_value = [property_obj.deflate(v) for v in filter_value]
     elif operator == _SPECIAL_OPERATOR_ISNULL:
         if not isinstance(filter_value, bool):
             raise ValueError(
@@ -572,7 +577,14 @@ class QueryBuilder:
                         statement = f"{ident}.{prop} {operator}"
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = f"{ident}.{prop} {operator} ${place_holder}"
+                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+                            statement = operator.format(
+                                ident=ident,
+                                prop=prop,
+                                val=f"${place_holder}",
+                            )
+                        else:
+                            statement = f"{ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
                     target.append(statement)
         ret = f" {q.connector} ".join(target)
@@ -607,7 +619,15 @@ class QueryBuilder:
                         )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
+                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+                            statement = operator.format(
+                                ident=ident,
+                                prop=prop,
+                                val=f"${place_holder}",
+                            )
+                            statement = f"{'NOT' if negate else ''} {statement}"
+                        else:
+                            statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
