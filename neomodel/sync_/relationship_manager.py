@@ -64,6 +64,9 @@ class RelationshipManager(object):
 
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
+    def __await__(self):
+        return self.all().__await__()
+
     def _check_node(self, obj):
         """check for valid node i.e correct class and is saved"""
         if not issubclass(type(obj), self.definition["node_class"]):

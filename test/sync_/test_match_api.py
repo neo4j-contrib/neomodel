@@ -46,10 +46,6 @@ class Extension(StructuredNode):
     extension = RelationshipTo("Extension", "extension")
 
 
-# TODO : Maybe split these tests into separate async and sync (not transpiled)
-# That would allow to test "Coffee.nodes" for sync instead of Coffee.nodes.all()
-
-
 @mark_sync_test
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
@@ -165,18 +161,18 @@ def test_len_and_iter_and_bool():
 
     Coffee(name="Icelands finest").save()
 
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         iterations += 1
         c.delete()
 
     assert iterations > 0
 
-    assert len(Coffee.nodes.all()) == 0
+    assert len(Coffee.nodes) == 0
 
 
 @mark_sync_test
 def test_slice():
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         c.delete()
 
     Coffee(name="Icelands finest").save()
@@ -203,6 +199,8 @@ def test_issue_208():
     b.suppliers.connect(l, {"courier": "fedex"})
     b.suppliers.connect(a, {"courier": "dhl"})
 
+    # TODO : Find a way to not need the .all() here
+    # Note : Check AsyncTraversal match
     assert len(b.suppliers.match(courier="fedex").all())
     assert len(b.suppliers.match(courier="dhl").all())
 
@@ -212,15 +210,17 @@ def test_issue_589():
     node1 = Extension().save()
     node2 = Extension().save()
     node1.extension.connect(node2)
+    # TODO : Find a way to not need the .all() here
+    # Note : Check AsyncRelationshipDefinition (parent of AsyncRelationshipTo / From)
     assert node2 in node1.extension.all()
 
 
-# TODO : Fix the ValueError not raised
 @mark_sync_test
 def test_contains():
     expensive = Coffee(price=1000, name="Pricey").save()
     asda = Coffee(name="Asda", price=1).save()
 
+    # TODO : Find a way to not need the .all() here
     assert expensive in Coffee.nodes.filter(price__gt=999).all()
     assert asda not in Coffee.nodes.filter(price__gt=999).all()
 
@@ -235,17 +235,18 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         c.delete()
 
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
 
-    assert Coffee.nodes.order_by("price")[0].price == 5
-    assert Coffee.nodes.order_by("-price")[0].price == 35
+    assert (Coffee.nodes.order_by("price")[0]).price == 5
+    assert (Coffee.nodes.order_by("-price")[0]).price == 35
 
     ns = Coffee.nodes.order_by("-price")
+    # TODO : Method fails
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast.order_by
     ns = ns.order_by(None)
@@ -276,7 +277,7 @@ def test_order_by():
 
 @mark_sync_test
 def test_extra_filters():
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         c.delete()
 
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
@@ -284,6 +285,7 @@ def test_extra_filters():
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
     c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
 
+    # TODO : Remove some .all() when filter is updated
     coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5]).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
     assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
@@ -351,7 +353,7 @@ def test_empty_filters():
     ``NodeSet`` object.
     """
 
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         c.delete()
 
     c1 = Coffee(name="Super", price=5, id_=1).save()
@@ -378,7 +380,7 @@ def test_empty_filters():
 @mark_sync_test
 def test_q_filters():
     # Test where no children and self.connector != conn ?
-    for c in Coffee.nodes.all():
+    for c in Coffee.nodes:
         c.delete()
 
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()

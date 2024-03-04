@@ -53,10 +53,6 @@ class Extension(AsyncStructuredNode):
     extension = AsyncRelationshipTo("Extension", "extension")
 
 
-# TODO : Maybe split these tests into separate async and sync (not transpiled)
-# That would allow to test "Coffee.nodes" for sync instead of Coffee.nodes.all()
-
-
 @mark_async_test
 async def test_filter_exclude_via_labels():
     await Coffee(name="Java", price=99).save()
@@ -174,18 +170,18 @@ async def test_len_and_iter_and_bool():
 
     await Coffee(name="Icelands finest").save()
 
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         iterations += 1
         await c.delete()
 
     assert iterations > 0
 
-    assert len(await Coffee.nodes.all()) == 0
+    assert len(await Coffee.nodes) == 0
 
 
 @mark_async_test
 async def test_slice():
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         await c.delete()
 
     await Coffee(name="Icelands finest").save()
@@ -212,6 +208,8 @@ async def test_issue_208():
     await b.suppliers.connect(l, {"courier": "fedex"})
     await b.suppliers.connect(a, {"courier": "dhl"})
 
+    # TODO : Find a way to not need the .all() here
+    # Note : Check AsyncTraversal match
     assert len(await b.suppliers.match(courier="fedex").all())
     assert len(await b.suppliers.match(courier="dhl").all())
 
@@ -221,15 +219,17 @@ async def test_issue_589():
     node1 = await Extension().save()
     node2 = await Extension().save()
     await node1.extension.connect(node2)
+    # TODO : Find a way to not need the .all() here
+    # Note : Check AsyncRelationshipDefinition (parent of AsyncRelationshipTo / From)
     assert node2 in await node1.extension.all()
 
 
-# TODO : Fix the ValueError not raised
 @mark_async_test
 async def test_contains():
     expensive = await Coffee(price=1000, name="Pricey").save()
     asda = await Coffee(name="Asda", price=1).save()
 
+    # TODO : Find a way to not need the .all() here
     assert expensive in await Coffee.nodes.filter(price__gt=999).all()
     assert asda not in await Coffee.nodes.filter(price__gt=999).all()
 
@@ -244,17 +244,18 @@ async def test_contains():
 
 @mark_async_test
 async def test_order_by():
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         await c.delete()
 
     c1 = await Coffee(name="Icelands finest", price=5).save()
     c2 = await Coffee(name="Britains finest", price=10).save()
     c3 = await Coffee(name="Japans finest", price=35).save()
 
-    assert Coffee.nodes.order_by("price")[0].price == 5
-    assert Coffee.nodes.order_by("-price")[0].price == 35
+    assert (await Coffee.nodes.order_by("price")[0]).price == 5
+    assert (await Coffee.nodes.order_by("-price")[0]).price == 35
 
     ns = await Coffee.nodes.order_by("-price")
+    # TODO : Method fails
     qb = AsyncQueryBuilder(ns).build_ast()
     assert qb._ast.order_by
     ns = ns.order_by(None)
@@ -285,7 +286,7 @@ async def test_order_by():
 
 @mark_async_test
 async def test_extra_filters():
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         await c.delete()
 
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()
@@ -293,6 +294,7 @@ async def test_extra_filters():
     c3 = await Coffee(name="Japans finest", price=35, id_=3).save()
     c4 = await Coffee(name="US extra-fine", price=None, id_=4).save()
 
+    # TODO : Remove some .all() when filter is updated
     coffees_5_10 = await Coffee.nodes.filter(price__in=[10, 5]).all()
     assert len(coffees_5_10) == 2, "unexpected number of results"
     assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
@@ -360,7 +362,7 @@ async def test_empty_filters():
     ``NodeSet`` object.
     """
 
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         await c.delete()
 
     c1 = await Coffee(name="Super", price=5, id_=1).save()
@@ -387,7 +389,7 @@ async def test_empty_filters():
 @mark_async_test
 async def test_q_filters():
     # Test where no children and self.connector != conn ?
-    for c in await Coffee.nodes.all():
+    for c in await Coffee.nodes:
         await c.delete()
 
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()

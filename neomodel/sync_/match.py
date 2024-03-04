@@ -822,6 +822,9 @@ class NodeSet(BaseSet):
 
         self.relations_to_fetch: list = []
 
+    def __await__(self):
+        return self.all().__await__()
+
     def _get(self, limit=None, lazy=False, **kwargs):
         self.filter(**kwargs)
         if limit:
