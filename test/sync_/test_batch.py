@@ -89,7 +89,7 @@ def test_batch_validation():
 
 @mark_sync_test
 def test_batch_index_violation():
-    for u in Customer.nodes.all():
+    for u in Customer.nodes:
         u.delete()
 
     users = Customer.create(

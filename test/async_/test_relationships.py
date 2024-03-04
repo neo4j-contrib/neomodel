@@ -110,7 +110,6 @@ async def test_either_direction_connect():
     assert isinstance(rels[0], AsyncStructuredRel)
 
 
-# TODO : Make async-independent test to test .filter and not .filter.all() ?
 @mark_async_test
 async def test_search_and_filter_and_exclude():
     fred = await PersonWithRels(name="Fred", age=13).save()

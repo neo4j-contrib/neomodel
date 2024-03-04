@@ -177,7 +177,7 @@ async def test_not_updated_on_unique_error():
     test.email = "jim@bob.com"
     with raises(UniqueProperty):
         await test.save()
-    customers = await Customer2.nodes.all()
+    customers = await Customer2.nodes
     assert customers[0].email != customers[1].email
     assert (await Customer2.nodes.get(email="jim@bob.com")).age == 7
     assert (await Customer2.nodes.get(email="jim1@bob.com")).age == 2

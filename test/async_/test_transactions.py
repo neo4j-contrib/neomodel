@@ -15,7 +15,7 @@ class APerson(AsyncStructuredNode):
 
 @mark_async_test
 async def test_rollback_and_commit_transaction():
-    for p in await APerson.nodes.all():
+    for p in await APerson.nodes:
         await p.delete()
 
     await APerson(name="Roger").save()
@@ -24,13 +24,13 @@ async def test_rollback_and_commit_transaction():
     await APerson(name="Terry S").save()
     await adb.rollback()
 
-    assert len(await APerson.nodes.all()) == 1
+    assert len(await APerson.nodes) == 1
 
     await adb.begin()
     await APerson(name="Terry S").save()
     await adb.commit()
 
-    assert len(await APerson.nodes.all()) == 2
+    assert len(await APerson.nodes) == 2
 
 
 @adb.transaction
@@ -43,7 +43,7 @@ async def in_a_tx(*names):
 @mark_async_test
 async def test_transaction_decorator():
     await adb.install_labels(APerson)
-    for p in await APerson.nodes.all():
+    for p in await APerson.nodes:
         await p.delete()
 
     # should work
@@ -54,7 +54,7 @@ async def test_transaction_decorator():
     with raises(UniqueProperty):
         await in_a_tx("Jim", "Roger")
 
-    assert "Jim" not in [p.name async for p in await APerson.nodes.all()]
+    assert "Jim" not in [p.name async for p in await APerson.nodes]
 
 
 @mark_async_test
@@ -71,14 +71,14 @@ async def test_transaction_as_a_context():
 
 @mark_async_test
 async def test_query_inside_transaction():
-    for p in await APerson.nodes.all():
+    for p in await APerson.nodes:
         await p.delete()
 
     with adb.transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()
 
-        assert len([p.name for p in await APerson.nodes.all()]) == 2
+        assert len([p.name for p in await APerson.nodes]) == 2
 
 
 @mark_async_test
@@ -86,7 +86,7 @@ async def test_read_transaction():
     await APerson(name="Johnny").save()
 
     with adb.read_transaction:
-        people = await APerson.nodes.all()
+        people = await APerson.nodes
         assert people
 
     with raises(TransactionError):
@@ -122,7 +122,7 @@ async def in_a_tx(*names):
 
 @mark_async_test
 async def test_bookmark_transaction_decorator():
-    for p in await APerson.nodes.all():
+    for p in await APerson.nodes:
         await p.delete()
 
     # should work
@@ -134,7 +134,7 @@ async def test_bookmark_transaction_decorator():
     with raises(UniqueProperty):
         await in_a_tx("Jane", "Ruth")
 
-    assert "Jane" not in [p.name for p in await APerson.nodes.all()]
+    assert "Jane" not in [p.name for p in await APerson.nodes]
 
 
 @mark_async_test
@@ -184,13 +184,13 @@ async def test_bookmark_passed_in_to_context(spy_on_db_begin):
 
 @mark_async_test
 async def test_query_inside_bookmark_transaction():
-    for p in await APerson.nodes.all():
+    for p in await APerson.nodes:
         await p.delete()
 
     with adb.transaction as transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()
 
-        assert len([p.name for p in await APerson.nodes.all()]) == 2
+        assert len([p.name for p in await APerson.nodes]) == 2
 
     assert isinstance(transaction.last_bookmark, Bookmarks)

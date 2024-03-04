@@ -93,7 +93,7 @@ async def test_batch_validation():
 
 @mark_async_test
 async def test_batch_index_violation():
-    for u in await Customer.nodes.all():
+    for u in await Customer.nodes:
         await u.delete()
 
     users = await Customer.create(

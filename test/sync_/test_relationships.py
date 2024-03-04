@@ -110,7 +110,6 @@ def test_either_direction_connect():
     assert isinstance(rels[0], StructuredRel)
 
 
-# TODO : Make async-independent test to test .filter and not .filter.all() ?
 @mark_sync_test
 def test_search_and_filter_and_exclude():
     fred = PersonWithRels(name="Fred", age=13).save()

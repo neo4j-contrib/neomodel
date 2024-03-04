@@ -15,7 +15,7 @@ class APerson(StructuredNode):
 
 @mark_sync_test
 def test_rollback_and_commit_transaction():
-    for p in APerson.nodes.all():
+    for p in APerson.nodes:
         p.delete()
 
     APerson(name="Roger").save()
@@ -24,13 +24,13 @@ def test_rollback_and_commit_transaction():
     APerson(name="Terry S").save()
     db.rollback()
 
-    assert len(APerson.nodes.all()) == 1
+    assert len(APerson.nodes) == 1
 
     db.begin()
     APerson(name="Terry S").save()
     db.commit()
 
-    assert len(APerson.nodes.all()) == 2
+    assert len(APerson.nodes) == 2
 
 
 @db.transaction
@@ -43,7 +43,7 @@ def in_a_tx(*names):
 @mark_sync_test
 def test_transaction_decorator():
     db.install_labels(APerson)
-    for p in APerson.nodes.all():
+    for p in APerson.nodes:
         p.delete()
 
     # should work
@@ -54,7 +54,7 @@ def test_transaction_decorator():
     with raises(UniqueProperty):
         in_a_tx("Jim", "Roger")
 
-    assert "Jim" not in [p.name for p in APerson.nodes.all()]
+    assert "Jim" not in [p.name for p in APerson.nodes]
 
 
 @mark_sync_test
@@ -71,14 +71,14 @@ def test_transaction_as_a_context():
 
 @mark_sync_test
 def test_query_inside_transaction():
-    for p in APerson.nodes.all():
+    for p in APerson.nodes:
         p.delete()
 
     with db.transaction:
         APerson(name="Alice").save()
         APerson(name="Bob").save()
 
-        assert len([p.name for p in APerson.nodes.all()]) == 2
+        assert len([p.name for p in APerson.nodes]) == 2
 
 
 @mark_sync_test
@@ -86,7 +86,7 @@ def test_read_transaction():
     APerson(name="Johnny").save()
 
     with db.read_transaction:
-        people = APerson.nodes.all()
+        people = APerson.nodes
         assert people
 
     with raises(TransactionError):
@@ -122,7 +122,7 @@ def in_a_tx(*names):
 
 @mark_sync_test
 def test_bookmark_transaction_decorator():
-    for p in APerson.nodes.all():
+    for p in APerson.nodes:
         p.delete()
 
     # should work
@@ -134,7 +134,7 @@ def test_bookmark_transaction_decorator():
     with raises(UniqueProperty):
         in_a_tx("Jane", "Ruth")
 
-    assert "Jane" not in [p.name for p in APerson.nodes.all()]
+    assert "Jane" not in [p.name for p in APerson.nodes]
 
 
 @mark_sync_test
@@ -184,13 +184,13 @@ def test_bookmark_passed_in_to_context(spy_on_db_begin):
 
 @mark_sync_test
 def test_query_inside_bookmark_transaction():
-    for p in APerson.nodes.all():
+    for p in APerson.nodes:
         p.delete()
 
     with db.transaction as transaction:
         APerson(name="Alice").save()
         APerson(name="Bob").save()
 
-        assert len([p.name for p in APerson.nodes.all()]) == 2
+        assert len([p.name for p in APerson.nodes]) == 2
 
     assert isinstance(transaction.last_bookmark, Bookmarks)
