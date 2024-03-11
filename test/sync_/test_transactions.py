@@ -39,7 +39,8 @@ def in_a_tx(*names):
         APerson(name=n).save()
 
 
-# TODO : understand how to make @adb.transaction work with async
+# TODO : This fails with no support for context manager protocol
+# Possibly the transaction decorator is the issue
 @mark_sync_test
 def test_transaction_decorator():
     db.install_labels(APerson)
@@ -62,7 +63,7 @@ def test_transaction_as_a_context():
     with db.transaction:
         APerson(name="Tim").save()
 
-    assert APerson.nodes.filter(name="Tim").all()
+    assert APerson.nodes.filter(name="Tim")
 
     with raises(UniqueProperty):
         with db.transaction:
@@ -120,6 +121,7 @@ def in_a_tx(*names):
         APerson(name=n).save()
 
 
+# TODO : FIx this once decorator is fixed
 @mark_sync_test
 def test_bookmark_transaction_decorator():
     for p in APerson.nodes:
@@ -154,7 +156,7 @@ def test_bookmark_transaction_as_a_context():
 @pytest.fixture
 def spy_on_db_begin(monkeypatch):
     spy_calls = []
-    original_begin = db.begin
+    original_begin = db.begin()
 
     def begin_spy(*args, **kwargs):
         spy_calls.append((args, kwargs))
@@ -164,6 +166,7 @@ def spy_on_db_begin(monkeypatch):
     return spy_calls
 
 
+# TODO : Fix this test
 @mark_sync_test
 def test_bookmark_passed_in_to_context(spy_on_db_begin):
     transaction = db.transaction

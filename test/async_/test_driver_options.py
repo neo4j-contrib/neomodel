@@ -34,11 +34,11 @@ async def test_impersonate_unauthorized():
 )
 async def test_impersonate_multiple_transactions():
     with adb.impersonate(user="troygreene"):
-        with adb.transaction:
+        async with adb.transaction:
             results, _ = await adb.cypher_query("RETURN 'Doo Wacko !'")
             assert results[0][0] == "Doo Wacko !"
 
-        with adb.transaction:
+        async with adb.transaction:
             results, _ = await adb.cypher_query("SHOW CURRENT USER")
             assert results[0][0] == "troygreene"
 

@@ -911,11 +911,13 @@ class TransactionProxy:
 
     @ensure_connection
     def __enter__(self):
+        print("aenter called")
         self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        print("aexit called")
         if exc_value:
             self.db.rollback()
 
@@ -931,6 +933,7 @@ class TransactionProxy:
     def __call__(self, func):
         def wrapper(*args, **kwargs):
             with self:
+                print("call called")
                 return func(*args, **kwargs)
 
         return wrapper

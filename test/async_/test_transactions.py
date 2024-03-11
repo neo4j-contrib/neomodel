@@ -39,7 +39,8 @@ async def in_a_tx(*names):
         await APerson(name=n).save()
 
 
-# TODO : understand how to make @adb.transaction work with async
+# TODO : This fails with no support for context manager protocol
+# Possibly the transaction decorator is the issue
 @mark_async_test
 async def test_transaction_decorator():
     await adb.install_labels(APerson)
@@ -59,13 +60,13 @@ async def test_transaction_decorator():
 
 @mark_async_test
 async def test_transaction_as_a_context():
-    with adb.transaction:
+    async with adb.transaction:
         await APerson(name="Tim").save()
 
-    assert await APerson.nodes.filter(name="Tim").all()
+    assert await APerson.nodes.filter(name="Tim")
 
     with raises(UniqueProperty):
-        with adb.transaction:
+        async with adb.transaction:
             await APerson(name="Tim").save()
 
 
@@ -74,7 +75,7 @@ async def test_query_inside_transaction():
     for p in await APerson.nodes:
         await p.delete()
 
-    with adb.transaction:
+    async with adb.transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()
 
@@ -85,12 +86,12 @@ async def test_query_inside_transaction():
 async def test_read_transaction():
     await APerson(name="Johnny").save()
 
-    with adb.read_transaction:
+    async with adb.read_transaction:
         people = await APerson.nodes
         assert people
 
     with raises(TransactionError):
-        with adb.read_transaction:
+        async with adb.read_transaction:
             with raises(ClientError) as e:
                 await APerson(name="Gina").save()
             assert e.value.code == "Neo.ClientError.Statement.AccessMode"
@@ -98,7 +99,7 @@ async def test_read_transaction():
 
 @mark_async_test
 async def test_write_transaction():
-    with adb.write_transaction:
+    async with adb.write_transaction:
         await APerson(name="Amelia").save()
 
     amelia = await APerson.nodes.get(name="Amelia")
@@ -120,6 +121,7 @@ async def in_a_tx(*names):
         await APerson(name=n).save()
 
 
+# TODO : FIx this once decorator is fixed
 @mark_async_test
 async def test_bookmark_transaction_decorator():
     for p in await APerson.nodes:
@@ -139,22 +141,22 @@ async def test_bookmark_transaction_decorator():
 
 @mark_async_test
 async def test_bookmark_transaction_as_a_context():
-    with adb.transaction as transaction:
-        APerson(name="Tanya").save()
+    async with adb.transaction as transaction:
+        await APerson(name="Tanya").save()
     assert isinstance(transaction.last_bookmark, Bookmarks)
 
-    assert APerson.nodes.filter(name="Tanya")
+    assert await APerson.nodes.filter(name="Tanya")
 
     with raises(UniqueProperty):
-        with adb.transaction as transaction:
-            APerson(name="Tanya").save()
+        async with adb.transaction as transaction:
+            await APerson(name="Tanya").save()
     assert not hasattr(transaction, "last_bookmark")
 
 
 @pytest.fixture
 async def spy_on_db_begin(monkeypatch):
     spy_calls = []
-    original_begin = adb.begin
+    original_begin = await adb.begin()
 
     def begin_spy(*args, **kwargs):
         spy_calls.append((args, kwargs))
@@ -164,17 +166,18 @@ async def spy_on_db_begin(monkeypatch):
     return spy_calls
 
 
+# TODO : Fix this test
 @mark_async_test
 async def test_bookmark_passed_in_to_context(spy_on_db_begin):
     transaction = adb.transaction
-    with transaction:
+    async with transaction:
         pass
 
     assert (await spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
     last_bookmark = transaction.last_bookmark
 
     transaction.bookmarks = last_bookmark
-    with transaction:
+    async with transaction:
         pass
     assert spy_on_db_begin[-1] == (
         (),
@@ -187,7 +190,7 @@ async def test_query_inside_bookmark_transaction():
     for p in await APerson.nodes:
         await p.delete()
 
-    with adb.transaction as transaction:
+    async with adb.transaction as transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()
 
