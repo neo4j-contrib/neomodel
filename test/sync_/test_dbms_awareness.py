@@ -6,6 +6,7 @@ from neomodel.sync_.core import db
 from neomodel.util import version_tag_to_integer
 
 
+# TODO : This calling database_version should be async
 @mark.skipif(
     db.database_version != "5.7.0", reason="Testing a specific database version"
 )

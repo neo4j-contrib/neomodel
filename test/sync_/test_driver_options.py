@@ -9,30 +9,27 @@ from neomodel.sync_.core import db
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    not db.edition_is_enterprise(), reason="Skipping test for community edition"
-)
 def test_impersonate():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
     with db.impersonate(user="troygreene"):
         results, _ = db.cypher_query("RETURN 'Doo Wacko !'")
         assert results[0][0] == "Doo Wacko !"
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    not db.edition_is_enterprise(), reason="Skipping test for community edition"
-)
 def test_impersonate_unauthorized():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
     with db.impersonate(user="unknownuser"):
         with raises(ClientError):
             _ = db.cypher_query("RETURN 'Gabagool'")
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    not db.edition_is_enterprise(), reason="Skipping test for community edition"
-)
 def test_impersonate_multiple_transactions():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
     with db.impersonate(user="troygreene"):
         with db.transaction:
             results, _ = db.cypher_query("RETURN 'Doo Wacko !'")
@@ -47,10 +44,9 @@ def test_impersonate_multiple_transactions():
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    db.edition_is_enterprise(), reason="Skipping test for enterprise edition"
-)
 def test_impersonate_community():
+    if db.edition_is_enterprise():
+        pytest.skip("Skipping test for enterprise edition")
     with raises(FeatureNotSupported):
         with db.impersonate(user="troygreene"):
             _ = db.cypher_query("RETURN 'Gabagoogoo'")

@@ -79,11 +79,9 @@ async def test_config_driver_works():
 
 
 @mark_async_test
-@pytest.mark.skipif(
-    adb.database_edition != "enterprise",
-    reason="Skipping test for community edition - no multi database in CE",
-)
 async def test_connect_to_non_default_database():
+    if not await adb.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition - no multi database in CE")
     database_name = "pastries"
     await adb.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
     await adb.close_connection()

@@ -27,10 +27,9 @@ def test_unique_error():
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    not db.edition_is_enterprise(), reason="Skipping test for community edition"
-)
 def test_existence_constraint_error():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
     db.cypher_query(
         "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
     )

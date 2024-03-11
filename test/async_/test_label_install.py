@@ -118,10 +118,10 @@ async def test_install_labels_db_property(capsys):
     await _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
 
 
-@pytest.mark.skipif(
-    adb.version_is_higher_than("5.7"), reason="Not supported before 5.7"
-)
 def test_relationship_unique_index_not_supported():
+    if adb.version_is_higher_than("5.7"):
+        pytest.skip("Not supported before 5.7")
+
     class UniqueIndexRelationship(AsyncStructuredRel):
         name = StringProperty(unique_index=True)
 
@@ -141,8 +141,10 @@ def test_relationship_unique_index_not_supported():
 
 
 @mark_async_test
-@pytest.mark.skipif(not adb.version_is_higher_than("5.7"), reason="Supported from 5.7")
 async def test_relationship_unique_index():
+    if not adb.version_is_higher_than("5.7"):
+        pytest.skip("Not supported before 5.7")
+
     class UniqueIndexRelationshipBis(AsyncStructuredRel):
         name = StringProperty(unique_index=True)
 

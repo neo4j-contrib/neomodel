@@ -77,11 +77,9 @@ def test_config_driver_works():
 
 
 @mark_sync_test
-@pytest.mark.skipif(
-    db.database_edition != "enterprise",
-    reason="Skipping test for community edition - no multi database in CE",
-)
 def test_connect_to_non_default_database():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition - no multi database in CE")
     database_name = "pastries"
     db.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
     db.close_connection()

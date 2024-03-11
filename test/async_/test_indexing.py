@@ -32,10 +32,9 @@ async def test_unique_error():
 
 
 @mark_async_test
-@pytest.mark.skipif(
-    not adb.edition_is_enterprise(), reason="Skipping test for community edition"
-)
 async def test_existence_constraint_error():
+    if not await adb.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
     await adb.cypher_query(
         "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
     )

@@ -2,8 +2,6 @@ import neo4j
 
 from neomodel._version import __version__
 
-AUTO_INSTALL_LABELS = False
-
 # Use this to connect with automatically created driver
 # The following options are the default ones that will be used as driver config
 DATABASE_URL = "bolt://neo4j:foobarbaz@localhost:7687"

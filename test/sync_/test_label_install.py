@@ -118,8 +118,10 @@ def test_install_labels_db_property(capsys):
     _drop_constraints_for_label_and_property("SomeNotUniqueNode", "id")
 
 
-@pytest.mark.skipif(db.version_is_higher_than("5.7"), reason="Not supported before 5.7")
 def test_relationship_unique_index_not_supported():
+    if db.version_is_higher_than("5.7"):
+        pytest.skip("Not supported before 5.7")
+
     class UniqueIndexRelationship(StructuredRel):
         name = StringProperty(unique_index=True)
 
@@ -139,8 +141,10 @@ def test_relationship_unique_index_not_supported():
 
 
 @mark_sync_test
-@pytest.mark.skipif(not db.version_is_higher_than("5.7"), reason="Supported from 5.7")
 def test_relationship_unique_index():
+    if not db.version_is_higher_than("5.7"):
+        pytest.skip("Not supported before 5.7")
+
     class UniqueIndexRelationshipBis(StructuredRel):
         name = StringProperty(unique_index=True)
 
