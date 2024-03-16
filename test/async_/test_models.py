@@ -219,7 +219,8 @@ async def test_refresh():
 
     assert c.age == 20
 
-    if adb.database_version.startswith("4"):
+    _db_version = await adb.database_version
+    if _db_version.startswith("4"):
         c = Customer2.inflate(999)
     else:
         c = Customer2.inflate("4:xxxxxx:999")

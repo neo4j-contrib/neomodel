@@ -45,14 +45,14 @@ async def test_cypher():
 
     jim = await User2(email="jim1@test.com").save()
     data, meta = await jim.cypher(
-        f"MATCH (a) WHERE {adb.get_id_method()}(a)=$self RETURN a.email"
+        f"MATCH (a) WHERE {await adb.get_id_method()}(a)=$self RETURN a.email"
     )
     assert data[0][0] == "jim1@test.com"
     assert "a.email" in meta
 
     data, meta = await jim.cypher(
         f"""
-            MATCH (a) WHERE {adb.get_id_method()}(a)=$self
+            MATCH (a) WHERE {await adb.get_id_method()}(a)=$self
             MATCH (a)<-[:USER2]-(b)
             RETURN a, b, 3
         """
@@ -64,7 +64,9 @@ async def test_cypher():
 async def test_cypher_syntax_error():
     jim = await User2(email="jim1@test.com").save()
     try:
-        await jim.cypher(f"MATCH a WHERE {adb.get_id_method()}(a)={{self}} RETURN xx")
+        await jim.cypher(
+            f"MATCH a WHERE {await adb.get_id_method()}(a)={{self}} RETURN xx"
+        )
     except CypherError as e:
         assert hasattr(e, "message")
         assert hasattr(e, "code")

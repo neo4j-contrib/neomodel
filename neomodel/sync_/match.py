@@ -731,14 +731,24 @@ class BaseSet:
         :return: list of nodes
         :rtype: list
         """
-        return self.query_cls(self).build_ast()._execute(lazy)
+        ast = self.query_cls(self).build_ast()
+        return ast._execute(lazy)
 
     def __iter__(self):
-        for i in self.query_cls(self).build_ast()._execute():
+        ast = self.query_cls(self).build_ast()
+        for i in ast._execute():
             yield i
 
+    # TODO : Add tests for sync to check that len(Label.nodes) is still working
+    # Because async tests will now check for Coffee.nodes.get_len()
+    # Also add documenation for get_len, check_bool, etc...
+    # Documentation should explain that in sync, assert node1.extension is more efficient than
+    # assert node1.extension.check_bool() because it counts using native Cypher
+    # Same for len(Extension.nodes) vs Extension.nodes.__len__
+    # With note that async does not have a choice
     def __len__(self):
-        return self.query_cls(self).build_ast()._count()
+        ast = self.query_cls(self).build_ast()
+        return ast._count()
 
     def __bool__(self):
         """
@@ -746,7 +756,8 @@ class BaseSet:
         :return: True if the set contains any nodes, False otherwise
         :rtype: bool
         """
-        _count = self.query_cls(self).build_ast()._count()
+        ast = self.query_cls(self).build_ast()
+        _count = ast._count()
         return _count > 0
 
     def __nonzero__(self):
@@ -760,7 +771,8 @@ class BaseSet:
     def __contains__(self, obj):
         if isinstance(obj, StructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
-                return self.query_cls(self).build_ast()._contains(obj.element_id)
+                ast = self.query_cls(self).build_ast()
+                return ast._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")
@@ -781,7 +793,8 @@ class BaseSet:
             self.skip = key
             self.limit = 1
 
-            _items = self.query_cls(self).build_ast()._execute()
+            ast = self.query_cls(self).build_ast()
+            _items = ast._execute()
             return _items[0]
 
         return None
@@ -829,7 +842,8 @@ class NodeSet(BaseSet):
         self.filter(**kwargs)
         if limit:
             self.limit = limit
-        return self.query_cls(self).build_ast()._execute(lazy)
+        ast = self.query_cls(self).build_ast()
+        return ast._execute(lazy)
 
     def get(self, lazy=False, **kwargs):
         """
@@ -1000,6 +1014,9 @@ class Traversal(BaseSet):
                        a documentation here.
     :type defintion: :class:`dict`
     """
+
+    def __await__(self):
+        return self.all().__await__()
 
     def __init__(self, source, name, definition):
         """

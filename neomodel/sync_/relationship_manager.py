@@ -349,7 +349,8 @@ class RelationshipManager(object):
         :return: StructuredNode
         """
         try:
-            return self[0]
+            rels = self
+            return rels[0]
         except IndexError:
             pass
 

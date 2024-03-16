@@ -97,7 +97,7 @@ async def test_either_direction_connect():
 
     result, _ = await sakis.cypher(
         f"""MATCH (us), (them)
-            WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(them)=$them
+            WHERE {await adb.get_id_method()}(us)=$self and {await adb.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
         {"them": rey.element_id},
     )

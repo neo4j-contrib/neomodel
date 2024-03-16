@@ -69,7 +69,7 @@ class AsyncRelationshipManager(object):
 
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
-    async def __await__(self):
+    def __await__(self):
         return self.all().__await__()
 
     def _check_node(self, obj):
@@ -126,7 +126,7 @@ class AsyncRelationshipManager(object):
             **self.definition,
         )
         q = (
-            f"MATCH (them), (us) WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self "
+            f"MATCH (them), (us) WHERE {await adb.get_id_method()}(them)=$them and {await adb.get_id_method()}(us)=$self "
             "MERGE" + new_rel
         )
 
@@ -171,7 +171,7 @@ class AsyncRelationshipManager(object):
         q = (
             "MATCH "
             + my_rel
-            + f" WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
+            + f" WHERE {await adb.get_id_method()}(them)=$them and {await adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
         results = await self.source.cypher(q, {"them": node.element_id})
         rels = results[0]
@@ -193,7 +193,7 @@ class AsyncRelationshipManager(object):
         self._check_node(node)
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
-        q = f"MATCH {my_rel} WHERE {adb.get_id_method()}(them)=$them and {adb.get_id_method()}(us)=$self RETURN r "
+        q = f"MATCH {my_rel} WHERE {await adb.get_id_method()}(them)=$them and {await adb.get_id_method()}(us)=$self RETURN r "
         results = await self.source.cypher(q, {"them": node.element_id})
         rels = results[0]
         if not rels:
@@ -234,7 +234,7 @@ class AsyncRelationshipManager(object):
         # get list of properties on the existing rel
         result, _ = await self.source.cypher(
             f"""
-                MATCH (us), (old) WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(old)=$old
+                MATCH (us), (old) WHERE {await adb.get_id_method()}(us)=$self and {await adb.get_id_method()}(old)=$old
                 MATCH {old_rel} RETURN r
             """,
             {"old": old_node.element_id},
@@ -249,7 +249,7 @@ class AsyncRelationshipManager(object):
         new_rel = _rel_merge_helper(lhs="us", rhs="new", ident="r2", **self.definition)
         q = (
             "MATCH (us), (old), (new) "
-            f"WHERE {adb.get_id_method()}(us)=$self and {adb.get_id_method()}(old)=$old and {adb.get_id_method()}(new)=$new "
+            f"WHERE {await adb.get_id_method()}(us)=$self and {await adb.get_id_method()}(old)=$old and {await adb.get_id_method()}(new)=$new "
             "MATCH " + old_rel
         )
         q += " MERGE" + new_rel
@@ -272,7 +272,7 @@ class AsyncRelationshipManager(object):
         """
         rel = _rel_helper(lhs="a", rhs="b", ident="r", **self.definition)
         q = f"""
-                MATCH (a), (b) WHERE {adb.get_id_method()}(a)=$self and {adb.get_id_method()}(b)=$them
+                MATCH (a), (b) WHERE {await adb.get_id_method()}(a)=$self and {await adb.get_id_method()}(b)=$them
                 MATCH {rel} DELETE r
             """
         await self.source.cypher(q, {"them": node.element_id})
@@ -286,7 +286,11 @@ class AsyncRelationshipManager(object):
         """
         rhs = "b:" + self.definition["node_class"].__label__
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
-        q = f"MATCH (a) WHERE {adb.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
+        q = (
+            f"MATCH (a) WHERE {await adb.get_id_method()}(a)=$self MATCH "
+            + rel
+            + " DELETE r"
+        )
         await self.source.cypher(q)
 
     @check_source
@@ -356,7 +360,8 @@ class AsyncRelationshipManager(object):
         :return: StructuredNode
         """
         try:
-            return await self[0]
+            rels = await self
+            return rels[0]
         except IndexError:
             pass
 
@@ -380,20 +385,20 @@ class AsyncRelationshipManager(object):
     async def __aiter__(self):
         return self._new_traversal().__aiter__()
 
-    def __len__(self):
-        return self._new_traversal().__len__()
+    async def get_len(self):
+        return await self._new_traversal().get_len()
 
-    def __bool__(self):
-        return self._new_traversal().check_bool()
+    async def check_bool(self):
+        return await self._new_traversal().check_bool()
 
-    def __nonzero__(self):
+    async def check_nonzero(self):
         return self._new_traversal().check_nonzero()
 
-    def __contains__(self, obj):
-        return self._new_traversal().__contains__(obj)
+    async def check_contains(self, obj):
+        return self._new_traversal().check_contains(obj)
 
-    def __getitem__(self, key):
-        return self._new_traversal().__getitem__(key)
+    async def get_item(self, key):
+        return self._new_traversal().get_item(key)
 
 
 class AsyncRelationshipDefinition:

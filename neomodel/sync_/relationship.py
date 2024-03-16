@@ -49,27 +49,18 @@ class StructuredRel(StructuredRelBase):
 
     @property
     def element_id(self):
-        return (
-            int(self.element_id_property)
-            if db.database_version.startswith("4")
-            else self.element_id_property
-        )
+        if hasattr(self, "element_id_property"):
+            return self.element_id_property
 
     @property
     def _start_node_element_id(self):
-        return (
-            int(self._start_node_element_id_property)
-            if db.database_version.startswith("4")
-            else self._start_node_element_id_property
-        )
+        if hasattr(self, "_start_node_element_id_property"):
+            return self._start_node_element_id_property
 
     @property
     def _end_node_element_id(self):
-        return (
-            int(self._end_node_element_id_property)
-            if db.database_version.startswith("4")
-            else self._end_node_element_id_property
-        )
+        if hasattr(self, "_end_node_element_id_property"):
+            return self._end_node_element_id_property
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property

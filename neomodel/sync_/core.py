@@ -52,6 +52,16 @@ STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
+    """Decorator that ensures a connection is established before executing the decorated function.
+
+    Args:
+        func (callable): The function to be decorated.
+
+    Returns:
+        callable: The decorated function.
+
+    """
+
     def wrapper(self, *args, **kwargs):
         # Sort out where to find url
         if hasattr(self, "db"):
@@ -60,10 +70,10 @@ def ensure_connection(func):
             _db = self
 
         if not _db.driver:
-            if hasattr(config, "DRIVER") and config.DRIVER:
-                _db.set_connection(driver=config.DRIVER)
-            elif config.DATABASE_URL:
+            if hasattr(config, "DATABASE_URL") and config.DATABASE_URL:
                 _db.set_connection(url=config.DATABASE_URL)
+            elif hasattr(config, "DRIVER") and config.DRIVER:
+                _db.set_connection(driver=config.DRIVER)
 
         return func(self, *args, **kwargs)
 
@@ -194,6 +204,7 @@ class Database(local):
         self.driver.close()
         self.driver = None
 
+    # TODO : Make this async and turn on muck-spreader
     @property
     def database_version(self):
         if self._database_version is None:
@@ -232,7 +243,8 @@ class Database(local):
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
-        if self.database_edition != "enterprise":
+        db_edition = self.database_edition
+        if db_edition != "enterprise":
             raise FeatureNotSupported(
                 "Impersonation is only available in Neo4j Enterprise edition"
             )
@@ -504,7 +516,8 @@ class Database(local):
         return results, meta
 
     def get_id_method(self) -> str:
-        if self.database_version.startswith("4"):
+        db_version = self.database_version
+        if db_version.startswith("4"):
             return "id"
         else:
             return "elementId"
@@ -549,9 +562,8 @@ class Database(local):
         Returns:
             bool: True if the database version is higher or equal to the given version
         """
-        return version_tag_to_integer(self.database_version) >= version_tag_to_integer(
-            version_tag
-        )
+        db_version = self.database_version
+        return version_tag_to_integer(db_version) >= version_tag_to_integer(version_tag)
 
     @ensure_connection
     def edition_is_enterprise(self) -> bool:
@@ -560,7 +572,8 @@ class Database(local):
         Returns:
             bool: True if the database edition is enterprise
         """
-        return self.database_edition == "enterprise"
+        edition = self.database_edition
+        return edition == "enterprise"
 
     def change_neo4j_password(self, user, new_password):
         self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
@@ -1121,14 +1134,11 @@ class StructuredNode(NodeBase):
 
         return NodeSet(cls)
 
+    # TODO : Update places where element_id is expected to be an int (where id(n)=$element_id)
     @property
     def element_id(self):
         if hasattr(self, "element_id_property"):
-            return (
-                int(self.element_id_property)
-                if db.database_version.startswith("4")
-                else self.element_id_property
-            )
+            return self.element_id_property
         return None
 
     # Version 4.4 support - id is deprecated in version 5.x
@@ -1312,7 +1322,11 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        params.update({"self": self.element_id})
+        db_version = db.database_version
+        element_id = (
+            int(self.element_id) if db_version.startswith("4") else self.element_id
+        )
+        params.update({"self": element_id})
         return db.cypher_query(query, params)
 
     @hooks

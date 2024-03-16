@@ -37,7 +37,7 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if await super().__len__():
+        if await super().get_len():
             raise AttemptedCardinalityViolation(
                 f"Node already has {self} can't connect more"
             )
@@ -77,7 +77,7 @@ class AsyncOneOrMore(AsyncRelationshipManager):
         :param node:
         :return:
         """
-        if await super().__len__() < 2:
+        if await super().get_len() < 2:
             raise AttemptedCardinalityViolation("One or more expected")
         return await super().disconnect(node)
 
@@ -130,6 +130,6 @@ class AsyncOne(AsyncRelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
-        if await super().__len__():
+        if await super().get_len():
             raise AttemptedCardinalityViolation("Node already has one relationship")
         return await super().connect(node, properties)

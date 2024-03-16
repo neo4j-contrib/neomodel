@@ -40,7 +40,8 @@ async def setup_neo4j_session(request, event_loop):
     await adb.cypher_query(
         "CREATE OR REPLACE USER troygreene SET PASSWORD 'foobarbaz' CHANGE NOT REQUIRED"
     )
-    if adb.database_edition == "enterprise":
+    db_edition = await adb.database_edition
+    if db_edition == "enterprise":
         await adb.cypher_query("GRANT ROLE publisher TO troygreene")
         await adb.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 

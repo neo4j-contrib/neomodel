@@ -52,6 +52,16 @@ STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func):
+    """Decorator that ensures a connection is established before executing the decorated function.
+
+    Args:
+        func (callable): The function to be decorated.
+
+    Returns:
+        callable: The decorated function.
+
+    """
+
     async def wrapper(self, *args, **kwargs):
         # Sort out where to find url
         if hasattr(self, "db"):
@@ -60,10 +70,10 @@ def ensure_connection(func):
             _db = self
 
         if not _db.driver:
-            if hasattr(config, "DRIVER") and config.DRIVER:
-                await _db.set_connection(driver=config.DRIVER)
-            elif config.DATABASE_URL:
+            if hasattr(config, "DATABASE_URL") and config.DATABASE_URL:
                 await _db.set_connection(url=config.DATABASE_URL)
+            elif hasattr(config, "DRIVER") and config.DRIVER:
+                await _db.set_connection(driver=config.DRIVER)
 
         return await func(self, *args, **kwargs)
 
@@ -194,17 +204,18 @@ class AsyncDatabase(local):
         await self.driver.close()
         self.driver = None
 
+    # TODO : Make this async and turn on muck-spreader
     @property
-    def database_version(self):
+    async def database_version(self):
         if self._database_version is None:
-            self._update_database_version()
+            await self._update_database_version()
 
         return self._database_version
 
     @property
-    def database_edition(self):
+    async def database_edition(self):
         if self._database_edition is None:
-            self._update_database_version()
+            await self._update_database_version()
 
         return self._database_edition
 
@@ -223,7 +234,7 @@ class AsyncDatabase(local):
     def read_transaction(self):
         return AsyncTransactionProxy(self, access_mode="READ")
 
-    def impersonate(self, user: str) -> "ImpersonationHandler":
+    async def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
 
         Args:
@@ -232,7 +243,8 @@ class AsyncDatabase(local):
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
-        if self.database_edition != "enterprise":
+        db_edition = await self.database_edition
+        if db_edition != "enterprise":
             raise FeatureNotSupported(
                 "Impersonation is only available in Neo4j Enterprise edition"
             )
@@ -505,8 +517,9 @@ class AsyncDatabase(local):
 
         return results, meta
 
-    def get_id_method(self) -> str:
-        if self.database_version.startswith("4"):
+    async def get_id_method(self) -> str:
+        db_version = await self.database_version
+        if db_version.startswith("4"):
             return "id"
         else:
             return "elementId"
@@ -551,9 +564,8 @@ class AsyncDatabase(local):
         Returns:
             bool: True if the database version is higher or equal to the given version
         """
-        return version_tag_to_integer(self.database_version) >= version_tag_to_integer(
-            version_tag
-        )
+        db_version = await self.database_version
+        return version_tag_to_integer(db_version) >= version_tag_to_integer(version_tag)
 
     @ensure_connection
     async def edition_is_enterprise(self) -> bool:
@@ -562,7 +574,8 @@ class AsyncDatabase(local):
         Returns:
             bool: True if the database edition is enterprise
         """
-        return self.database_edition == "enterprise"
+        edition = await self.database_edition
+        return edition == "enterprise"
 
     async def change_neo4j_password(self, user, new_password):
         await self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
@@ -767,7 +780,7 @@ class AsyncDatabase(local):
                     raise
         else:
             raise FeatureNotSupported(
-                f"Unique indexes on relationships are not supported in Neo4j version {self.database_version}. Please upgrade to Neo4j 5.7 or higher."
+                f"Unique indexes on relationships are not supported in Neo4j version {await self.database_version}. Please upgrade to Neo4j 5.7 or higher."
             )
 
     async def _install_node(self, cls, name, property, quiet, stdout):
@@ -1125,14 +1138,11 @@ class AsyncStructuredNode(NodeBase):
 
         return AsyncNodeSet(cls)
 
+    # TODO : Update places where element_id is expected to be an int (where id(n)=$element_id)
     @property
     def element_id(self):
         if hasattr(self, "element_id_property"):
-            return (
-                int(self.element_id_property)
-                if adb.database_version.startswith("4")
-                else self.element_id_property
-            )
+            return self.element_id_property
         return None
 
     # Version 4.4 support - id is deprecated in version 5.x
@@ -1148,7 +1158,7 @@ class AsyncStructuredNode(NodeBase):
     # methods
 
     @classmethod
-    def _build_merge_query(
+    async def _build_merge_query(
         cls, merge_params, update_existing=False, lazy=False, relationship=None
     ):
         """
@@ -1187,7 +1197,7 @@ class AsyncStructuredNode(NodeBase):
             from neomodel.async_.match import _rel_helper
 
             query_params["source_id"] = relationship.source.element_id
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE {adb.get_id_method()}(source) = $source_id\n "
+            query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             query += _rel_helper(
@@ -1205,7 +1215,7 @@ class AsyncStructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f"RETURN {adb.get_id_method()}(n)"
+            query += f"RETURN {await adb.get_id_method()}(n)"
         else:
             query += "RETURN n"
 
@@ -1236,7 +1246,7 @@ class AsyncStructuredNode(NodeBase):
 
         # close query
         if lazy:
-            query += f" RETURN {adb.get_id_method()}(n)"
+            query += f" RETURN {await adb.get_id_method()}(n)"
         else:
             query += " RETURN n"
 
@@ -1285,7 +1295,7 @@ class AsyncStructuredNode(NodeBase):
                     ),
                 }
             )
-        query, params = cls._build_merge_query(
+        query, params = await cls._build_merge_query(
             create_or_update_params,
             update_existing=True,
             relationship=relationship,
@@ -1316,7 +1326,11 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        params.update({"self": self.element_id})
+        db_version = await adb.database_version
+        element_id = (
+            int(self.element_id) if db_version.startswith("4") else self.element_id
+        )
+        params.update({"self": element_id})
         return await adb.cypher_query(query, params)
 
     @hooks
@@ -1328,7 +1342,7 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("delete")
         await self.cypher(
-            f"MATCH (self) WHERE {adb.get_id_method()}(self)=$self DETACH DELETE self"
+            f"MATCH (self) WHERE {await adb.get_id_method()}(self)=$self DETACH DELETE self"
         )
         delattr(self, "element_id_property")
         self.deleted = True
@@ -1357,7 +1371,7 @@ class AsyncStructuredNode(NodeBase):
         get_or_create_params = [
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
-        query, params = cls._build_merge_query(
+        query, params = await cls._build_merge_query(
             get_or_create_params, relationship=relationship, lazy=lazy
         )
 
@@ -1439,7 +1453,7 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("labels")
         result = await self.cypher(
-            f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self " "RETURN labels(n)"
+            f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self " "RETURN labels(n)"
         )
         return result[0][0][0]
 
@@ -1460,7 +1474,7 @@ class AsyncStructuredNode(NodeBase):
         self._pre_action_check("refresh")
         if hasattr(self, "element_id"):
             results = await self.cypher(
-                f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self RETURN n"
+                f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self RETURN n"
             )
             request = results[0]
             if not request or not request[0]:
@@ -1483,7 +1497,7 @@ class AsyncStructuredNode(NodeBase):
         if hasattr(self, "element_id_property"):
             # update
             params = self.deflate(self.__properties__, self)
-            query = f"MATCH (n) WHERE {adb.get_id_method()}(n)=$self\n"
+            query = f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self\n"
 
             if params:
                 query += "SET "

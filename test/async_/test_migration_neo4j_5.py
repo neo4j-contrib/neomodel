@@ -38,7 +38,8 @@ async def test_read_elements_id():
 
     # Validate id properties
     # Behaviour is dependent on Neo4j version
-    if adb.database_version.startswith("4"):
+    db_version = await adb.database_version
+    if db_version.startswith("4"):
         # Nodes' ids
         assert lex_hives.id == int(lex_hives.element_id)
         assert lex_hives.id == (await the_hives.released.single()).id

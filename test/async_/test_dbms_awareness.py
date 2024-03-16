@@ -1,17 +1,17 @@
 from test._async_compat import mark_async_test
 
-from pytest import mark
+import pytest
 
 from neomodel.async_.core import adb
 from neomodel.util import version_tag_to_integer
 
 
-# TODO : This calling database_version should be async
-@mark.skipif(
-    adb.database_version != "5.7.0", reason="Testing a specific database version"
-)
+@mark_async_test
 async def test_version_awareness():
-    assert adb.database_version == "5.7.0"
+    db_version = await adb.database_version
+    if db_version != "5.7.0":
+        pytest.skip("Testing a specific database version")
+    assert db_version == "5.7.0"
     assert await adb.version_is_higher_than("5.7")
     assert await adb.version_is_higher_than("5.6.0")
     assert await adb.version_is_higher_than("5")
@@ -22,7 +22,8 @@ async def test_version_awareness():
 
 @mark_async_test
 async def test_edition_awareness():
-    if adb.database_edition == "enterprise":
+    db_edition = await adb.database_edition
+    if db_edition == "enterprise":
         assert await adb.edition_is_enterprise()
     else:
         assert not await adb.edition_is_enterprise()

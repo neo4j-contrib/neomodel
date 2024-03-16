@@ -362,12 +362,12 @@ class AsyncQueryBuilder:
         self._ident_count = 0
         self._node_counters = defaultdict(int)
 
-    def build_ast(self):
+    async def build_ast(self):
         if hasattr(self.node_set, "relations_to_fetch"):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
-        self.build_source(self.node_set)
+        await self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
             self._ast.skip = self.node_set.skip
@@ -376,16 +376,16 @@ class AsyncQueryBuilder:
 
         return self
 
-    def build_source(self, source):
+    async def build_source(self, source):
         if isinstance(source, AsyncTraversal):
-            return self.build_traversal(source)
+            return await self.build_traversal(source)
         if isinstance(source, AsyncNodeSet):
             if inspect.isclass(source.source) and issubclass(
                 source.source, AsyncStructuredNode
             ):
                 ident = self.build_label(source.source.__label__.lower(), source.source)
             else:
-                ident = self.build_source(source.source)
+                ident = await self.build_source(source.source)
 
             self.build_additional_match(ident, source)
 
@@ -402,7 +402,7 @@ class AsyncQueryBuilder:
 
             return ident
         if isinstance(source, AsyncStructuredNode):
-            return self.build_node(source)
+            return await self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
     def create_ident(self):
@@ -416,7 +416,7 @@ class AsyncQueryBuilder:
         else:
             self._ast.order_by = [f"{ident}.{p}" for p in source.order_by_elements]
 
-    def build_traversal(self, traversal):
+    async def build_traversal(self, traversal):
         """
         traverse a relationship from a node to a set of nodes
         """
@@ -425,7 +425,7 @@ class AsyncQueryBuilder:
 
         # build source
         rel_ident = self.create_ident()
-        lhs_ident = self.build_source(traversal.source)
+        lhs_ident = await self.build_source(traversal.source)
         traversal_ident = f"{traversal.name}_{rel_ident}"
         rhs_ident = traversal_ident + rhs_label
         self._ast.return_clause = traversal_ident
@@ -496,12 +496,12 @@ class AsyncQueryBuilder:
             self._ast.match.append(stmt)
         return rhs_name
 
-    def build_node(self, node):
+    async def build_node(self, node):
         ident = node.__class__.__name__.lower()
         place_holder = self._register_place_holder(ident)
 
         # Hack to emulate START to lookup a node by id
-        _node_lookup = f"MATCH ({ident}) WHERE {adb.get_id_method()}({ident})=${place_holder} WITH {ident}"
+        _node_lookup = f"MATCH ({ident}) WHERE {await adb.get_id_method()}({ident})=${place_holder} WITH {ident}"
         self._ast.lookup = _node_lookup
 
         self._query_params[place_holder] = node.element_id
@@ -688,7 +688,9 @@ class AsyncQueryBuilder:
             self._ast.return_clause = self._ast.additional_return[0]
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
-        self._ast.where.append(f"{adb.get_id_method()}({ident}) = ${place_holder}")
+        self._ast.where.append(
+            f"{await adb.get_id_method()}({ident}) = ${place_holder}"
+        )
         self._query_params[place_holder] = node_element_id
         return await self._count() >= 1
 
@@ -697,11 +699,11 @@ class AsyncQueryBuilder:
             # inject id() into return or return_set
             if self._ast.return_clause:
                 self._ast.return_clause = (
-                    f"{adb.get_id_method()}({self._ast.return_clause})"
+                    f"{await adb.get_id_method()}({self._ast.return_clause})"
                 )
             else:
                 self._ast.additional_return = [
-                    f"{adb.get_id_method()}({item})"
+                    f"{await adb.get_id_method()}({item})"
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
@@ -733,14 +735,24 @@ class AsyncBaseSet:
         :return: list of nodes
         :rtype: list
         """
-        return await self.query_cls(self).build_ast()._execute(lazy)
+        ast = await self.query_cls(self).build_ast()
+        return await ast._execute(lazy)
 
     async def __aiter__(self):
-        async for i in await self.query_cls(self).build_ast()._execute():
+        ast = await self.query_cls(self).build_ast()
+        async for i in await ast._execute():
             yield i
 
-    async def __len__(self):
-        return await self.query_cls(self).build_ast()._count()
+    # TODO : Add tests for sync to check that len(Label.nodes) is still working
+    # Because async tests will now check for Coffee.nodes.get_len()
+    # Also add documenation for get_len, check_bool, etc...
+    # Documentation should explain that in sync, assert node1.extension is more efficient than
+    # assert node1.extension.check_bool() because it counts using native Cypher
+    # Same for len(Extension.nodes) vs Extension.nodes.__len__
+    # With note that async does not have a choice
+    async def get_len(self):
+        ast = await self.query_cls(self).build_ast()
+        return await ast._count()
 
     async def check_bool(self):
         """
@@ -748,7 +760,8 @@ class AsyncBaseSet:
         :return: True if the set contains any nodes, False otherwise
         :rtype: bool
         """
-        _count = await self.query_cls(self).build_ast()._count()
+        ast = await self.query_cls(self).build_ast()
+        _count = ast._count()
         return _count > 0
 
     async def check_nonzero(self):
@@ -759,15 +772,16 @@ class AsyncBaseSet:
         """
         return await self.check_bool()
 
-    def __contains__(self, obj):
+    async def check_contains(self, obj):
         if isinstance(obj, AsyncStructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
-                return self.query_cls(self).build_ast()._contains(obj.element_id)
+                ast = await self.query_cls(self).build_ast()
+                return await ast._contains(obj.element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")
 
-    async def __getitem__(self, key):
+    async def get_item(self, key):
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -783,7 +797,8 @@ class AsyncBaseSet:
             self.skip = key
             self.limit = 1
 
-            _items = await self.query_cls(self).build_ast()._execute()
+            ast = await self.query_cls(self).build_ast()
+            _items = ast._execute()
             return _items[0]
 
         return None
@@ -831,7 +846,8 @@ class AsyncNodeSet(AsyncBaseSet):
         self.filter(**kwargs)
         if limit:
             self.limit = limit
-        return await self.query_cls(self).build_ast()._execute(lazy)
+        ast = await self.query_cls(self).build_ast()
+        return await ast._execute(lazy)
 
     async def get(self, lazy=False, **kwargs):
         """
@@ -1002,6 +1018,9 @@ class AsyncTraversal(AsyncBaseSet):
                        a documentation here.
     :type defintion: :class:`dict`
     """
+
+    def __await__(self):
+        return self.all().__await__()
 
     def __init__(self, source, name, definition):
         """

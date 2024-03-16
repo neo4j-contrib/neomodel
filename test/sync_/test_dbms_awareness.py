@@ -1,17 +1,17 @@
 from test._async_compat import mark_sync_test
 
-from pytest import mark
+import pytest
 
 from neomodel.sync_.core import db
 from neomodel.util import version_tag_to_integer
 
 
-# TODO : This calling database_version should be async
-@mark.skipif(
-    db.database_version != "5.7.0", reason="Testing a specific database version"
-)
+@mark_sync_test
 def test_version_awareness():
-    assert db.database_version == "5.7.0"
+    db_version = db.database_version
+    if db_version != "5.7.0":
+        pytest.skip("Testing a specific database version")
+    assert db_version == "5.7.0"
     assert db.version_is_higher_than("5.7")
     assert db.version_is_higher_than("5.6.0")
     assert db.version_is_higher_than("5")
@@ -22,7 +22,8 @@ def test_version_awareness():
 
 @mark_sync_test
 def test_edition_awareness():
-    if db.database_edition == "enterprise":
+    db_edition = db.database_edition
+    if db_edition == "enterprise":
         assert db.edition_is_enterprise()
     else:
         assert not db.edition_is_enterprise()

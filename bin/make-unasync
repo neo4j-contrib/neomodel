@@ -209,11 +209,17 @@ def apply_unasync(files):
         "async_": "sync_",
         "check_bool": "__bool__",
         "check_nonzero": "__nonzero__",
+        "check_contains": "__contains__",
+        "get_item": "__getitem__",
+        "get_len": "__len__",
     }
     additional_test_replacements = {
         "async_": "sync_",
         "check_bool": "__bool__",
         "check_nonzero": "__nonzero__",
+        "check_contains": "__contains__",
+        "get_item": "__getitem__",
+        "get_len": "__len__",
         "adb": "db",
         "mark_async_test": "mark_sync_test",
         "mark_async_session_auto_fixture": "mark_sync_session_auto_fixture",

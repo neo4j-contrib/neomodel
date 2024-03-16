@@ -49,27 +49,18 @@ class AsyncStructuredRel(StructuredRelBase):
 
     @property
     def element_id(self):
-        return (
-            int(self.element_id_property)
-            if adb.database_version.startswith("4")
-            else self.element_id_property
-        )
+        if hasattr(self, "element_id_property"):
+            return self.element_id_property
 
     @property
     def _start_node_element_id(self):
-        return (
-            int(self._start_node_element_id_property)
-            if adb.database_version.startswith("4")
-            else self._start_node_element_id_property
-        )
+        if hasattr(self, "_start_node_element_id_property"):
+            return self._start_node_element_id_property
 
     @property
     def _end_node_element_id(self):
-        return (
-            int(self._end_node_element_id_property)
-            if adb.database_version.startswith("4")
-            else self._end_node_element_id_property
-        )
+        if hasattr(self, "_end_node_element_id_property"):
+            return self._end_node_element_id_property
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
@@ -109,7 +100,7 @@ class AsyncStructuredRel(StructuredRelBase):
         :return: self
         """
         props = self.deflate(self.__properties__)
-        query = f"MATCH ()-[r]->() WHERE {adb.get_id_method()}(r)=$self "
+        query = f"MATCH ()-[r]->() WHERE {await adb.get_id_method()}(r)=$self "
         query += "".join([f" SET r.{key} = ${key}" for key in props])
         props["self"] = self.element_id
 
@@ -126,7 +117,7 @@ class AsyncStructuredRel(StructuredRelBase):
         results = await adb.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE {adb.get_id_method()}(aNode)=$start_node_element_id
+            WHERE {await adb.get_id_method()}(aNode)=$start_node_element_id
             RETURN aNode
             """,
             {"start_node_element_id": self._start_node_element_id},
@@ -143,7 +134,7 @@ class AsyncStructuredRel(StructuredRelBase):
         results = await adb.cypher_query(
             f"""
             MATCH (aNode)
-            WHERE {adb.get_id_method()}(aNode)=$end_node_element_id
+            WHERE {await adb.get_id_method()}(aNode)=$end_node_element_id
             RETURN aNode
             """,
             {"end_node_element_id": self._end_node_element_id},

@@ -116,7 +116,8 @@ def test_simple_traverse_with_filter():
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
 
-    results = qb.build_ast()._execute()
+    _ast = qb.build_ast()
+    results = _ast._execute()
 
     assert qb._ast.lookup
     assert qb._ast.match
@@ -144,14 +145,16 @@ def test_double_traverse():
 @mark_sync_test
 def test_count():
     Coffee(name="Nescafe Gold", price=99).save()
-    count = QueryBuilder(NodeSet(source=Coffee)).build_ast()._count()
+    ast = QueryBuilder(NodeSet(source=Coffee)).build_ast()
+    count = ast._count()
     assert count > 0
 
     Coffee(name="Kawa", price=27).save()
     node_set = NodeSet(source=Coffee)
     node_set.skip = 1
     node_set.limit = 1
-    count = QueryBuilder(node_set).build_ast()._count()
+    ast = QueryBuilder(node_set).build_ast()
+    count = ast._count()
     assert count == 1
 
 
@@ -181,7 +184,7 @@ def test_slice():
 
     # TODO : Make slice work with async
     # Doing await (Coffee.nodes.all())[1:] fetches without slicing
-    assert len(list(Coffee.nodes.all()[1:])) == 2
+    assert len(list((Coffee.nodes)[1:])) == 2
     assert len(list(Coffee.nodes.all()[:1])) == 1
     assert isinstance(Coffee.nodes[1], Coffee)
     assert isinstance(Coffee.nodes[0], Coffee)
@@ -199,20 +202,19 @@ def test_issue_208():
     b.suppliers.connect(l, {"courier": "fedex"})
     b.suppliers.connect(a, {"courier": "dhl"})
 
-    # TODO : Find a way to not need the .all() here
-    # Note : Check AsyncTraversal match
-    assert len(b.suppliers.match(courier="fedex").all())
-    assert len(b.suppliers.match(courier="dhl").all())
+    assert len(b.suppliers.match(courier="fedex"))
+    assert len(b.suppliers.match(courier="dhl"))
 
 
 @mark_sync_test
 def test_issue_589():
     node1 = Extension().save()
     node2 = Extension().save()
+    # TODO : ALso test await node1.extension.check_contains(node2)
+    # This is the way to pick only a single relationship using async
+    assert node2 not in node1.extension
     node1.extension.connect(node2)
-    # TODO : Find a way to not need the .all() here
-    # Note : Check AsyncRelationshipDefinition (parent of AsyncRelationshipTo / From)
-    assert node2 in node1.extension.all()
+    assert node2 in node1.extension
 
 
 @mark_sync_test
@@ -220,10 +222,10 @@ def test_contains():
     expensive = Coffee(price=1000, name="Pricey").save()
     asda = Coffee(name="Asda", price=1).save()
 
-    # TODO : Find a way to not need the .all() here
-    assert expensive in Coffee.nodes.filter(price__gt=999).all()
-    assert asda not in Coffee.nodes.filter(price__gt=999).all()
+    assert expensive in Coffee.nodes.filter(price__gt=999)
+    assert asda not in Coffee.nodes.filter(price__gt=999)
 
+    # TODO : Fix this test
     # bad value raises
     with raises(ValueError):
         2 in Coffee.nodes
@@ -285,23 +287,22 @@ def test_extra_filters():
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
     c4 = Coffee(name="US extra-fine", price=None, id_=4).save()
 
-    # TODO : Remove some .all() when filter is updated
-    coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5]).all()
+    coffees_5_10 = Coffee.nodes.filter(price__in=[10, 5])
     assert len(coffees_5_10) == 2, "unexpected number of results"
     assert c1 in coffees_5_10, "doesnt contain 5 price coffee"
     assert c2 in coffees_5_10, "doesnt contain 10 price coffee"
 
-    finest_coffees = Coffee.nodes.filter(name__iendswith=" Finest").all()
+    finest_coffees = Coffee.nodes.filter(name__iendswith=" Finest")
     assert len(finest_coffees) == 3, "unexpected number of results"
     assert c1 in finest_coffees, "doesnt contain 1st finest coffee"
     assert c2 in finest_coffees, "doesnt contain 2nd finest coffee"
     assert c3 in finest_coffees, "doesnt contain 3rd finest coffee"
 
-    unpriced_coffees = Coffee.nodes.filter(price__isnull=True).all()
+    unpriced_coffees = Coffee.nodes.filter(price__isnull=True)
     assert len(unpriced_coffees) == 1, "unexpected number of results"
     assert c4 in unpriced_coffees, "doesnt contain unpriced coffee"
 
-    coffees_with_id_gte_3 = Coffee.nodes.filter(id___gte=3).all()
+    coffees_with_id_gte_3 = Coffee.nodes.filter(id___gte=3)
     assert len(coffees_with_id_gte_3) == 2, "unexpected number of results"
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
@@ -310,7 +311,7 @@ def test_extra_filters():
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        Coffee.nodes.filter(elementId="4:xxx:111").all()
+        Coffee.nodes.filter(elementId="4:xxx:111")
 
 
 def test_traversal_definition_keys_are_valid():
