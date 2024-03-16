@@ -22,7 +22,7 @@ Querying the graph
 
 neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
     results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
 
@@ -264,7 +264,7 @@ Async neomodel
 neomodel supports asynchronous operations using the async support of neo4j driver. The examples below take a few of the above examples,
 but rewritten for async::
 
-    from neomodel.async_.core import adb
+    from neomodel import adb
     results, meta = await adb.cypher_query("RETURN 'Hello World' as message")
 
 OGM with async ::
@@ -282,9 +282,34 @@ OGM with async ::
 
     # Operations that interact with the database are now async
     # Return all nodes
-    all_nodes = await Country.nodes.all()
+    # Note that the nodes object is awaitable as is
+    all_nodes = await Country.nodes
 
     # Relationships
     germany = await Country(code='DE').save()
     await jim.country.connect(germany)
+
+Most _dunder_ methods for nodes and relationships had to be overriden to support async operations. The following methods are supported ::
+
+    # Examples below are taken from the various tests. Please check them for more examples.
+    # Length
+    dogs_bonanza = await Dog.nodes.get_len()
+    # Sync equivalent - __len__
+    dogs_bonanza = len(Dog.nodes)
+
+    # Existence
+    assert not await Customer.nodes.filter(email="jim7@aol.com").check_bool()
+    # Sync equivalent - __bool__
+    assert not Customer.nodes.filter(email="jim7@aol.com")
+    # Also works for check_nonzero => __nonzero__
+
+    # Contains
+    assert await Coffee.nodes.check_contains(aCoffeeNode)
+    # Sync equivalent - __contains__
+    assert aCoffeeNode in Coffee.nodes
+
+    # Get item
+    assert len(list((await Coffee.nodes)[1:])) == 2
+    # Sync equivalent - __getitem__
+    assert len(list(Coffee.nodes[1:])) == 2
 

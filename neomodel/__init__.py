@@ -6,17 +6,7 @@ from neomodel.async_.cardinality import (
     AsyncZeroOrMore,
     AsyncZeroOrOne,
 )
-from neomodel.async_.core import (
-    AsyncStructuredNode,
-    adb,
-    change_neo4j_password,
-    clear_neo4j_database,
-    drop_constraints,
-    drop_indexes,
-    install_all_labels,
-    install_labels,
-    remove_all_labels,
-)
+from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.match import AsyncNodeSet, AsyncTraversal
 from neomodel.async_.path import AsyncNeomodelPath
 from neomodel.async_.relationship import AsyncStructuredRel
@@ -46,7 +36,17 @@ from neomodel.properties import (
     UniqueIdProperty,
 )
 from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
-from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.core import (
+    StructuredNode,
+    change_neo4j_password,
+    clear_neo4j_database,
+    db,
+    drop_constraints,
+    drop_indexes,
+    install_all_labels,
+    install_labels,
+    remove_all_labels,
+)
 from neomodel.sync_.match import NodeSet, Traversal
 from neomodel.sync_.path import NeomodelPath
 from neomodel.sync_.property_manager import PropertyManager

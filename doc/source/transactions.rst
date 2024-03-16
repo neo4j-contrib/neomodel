@@ -13,7 +13,7 @@ Basic usage
 
 Transactions can be used via a context manager::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
 
     with db.transaction:
         Person(name='Bob').save()
@@ -171,7 +171,7 @@ Impersonation
 Impersonation (`see Neo4j driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#impersonated-user-ref>``)
 can be enabled via a context manager::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
 
     with db.impersonate(user="writeuser"):
         Person(name='Bob').save()
@@ -186,7 +186,7 @@ or as a function decorator::
 
 This can be mixed with other context manager like transactions::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
 
     @db.impersonate(user="tempuser")
     # Both transactions will be run as the same impersonated user

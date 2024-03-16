@@ -239,7 +239,6 @@ async def test_contains():
     assert expensive in await Coffee.nodes.filter(price__gt=999)
     assert asda not in await Coffee.nodes.filter(price__gt=999)
 
-    # TODO : Good example for documentation
     # bad value raises
     with raises(ValueError, match=r"Expecting StructuredNode instance"):
         if AsyncUtil.is_async_code:

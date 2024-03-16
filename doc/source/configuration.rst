@@ -59,14 +59,14 @@ Note that you have to manage the driver's lifecycle yourself.
 
 However, everything else is still handled by neomodel : sessions, transactions, etc...
 
-NB : Only the synchronous driver will work in this way. The asynchronous driver is not supported yet.
+NB : Only the synchronous driver will work in this way. See the next section for the preferred method, and how to pass an async driver instance.
 
 Change/Close the connection
 ---------------------------
 
 Optionally, you can change the connection at any time by calling ``set_connection``::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
     # Using URL - auto-managed
     db.set_connection(url='bolt://neo4j:neo4j@localhost:7687')
 
@@ -78,7 +78,7 @@ The new connection url will be applied to the current thread or process.
 Since Neo4j version 5, driver auto-close is deprecated. Make sure to close the connection anytime you want to replace it,
 as well as at the end of your application's lifecycle by calling ``close_connection``::
 
-    from neomodel.sync_.core import db
+    from neomodel import db
     db.close_connection()
 
     # If you then want a new connection
@@ -140,7 +140,7 @@ Or for an entire 'schema' ::
     # ...
 
 .. note::
-    config.AUTO_INSTALL_LABELS has been removed from neomodel in version 6.0
+    config.AUTO_INSTALL_LABELS has been removed from neomodel in version 5.3
 
 Require timezones on DateTimeProperty
 -------------------------------------

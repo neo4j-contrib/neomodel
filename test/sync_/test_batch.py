@@ -11,6 +11,7 @@ from neomodel import (
     UniqueIdProperty,
     config,
 )
+from neomodel._async_compat.util import Util
 from neomodel.exceptions import DeflateError, UniqueProperty
 
 config.AUTO_INSTALL_LABELS = True
@@ -103,7 +104,10 @@ def test_batch_index_violation():
         )
 
     # not found
-    assert not Customer.nodes.filter(email="jim7@aol.com").__bool__()
+    if Util.is_async_code:
+        assert not Customer.nodes.filter(email="jim7@aol.com").__bool__()
+    else:
+        assert not Customer.nodes.filter(email="jim7@aol.com")
 
 
 class Dog(StructuredNode):
