@@ -8,8 +8,8 @@ from neomodel import (
     AsyncStructuredRel,
     IntegerProperty,
     StringProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 
 
 class Album(AsyncStructuredNode):

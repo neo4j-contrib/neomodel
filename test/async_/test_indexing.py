@@ -8,8 +8,8 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     UniqueProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 from neomodel.exceptions import ConstraintValidationFailed
 
 

@@ -9,8 +9,8 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
+    db,
 )
-from neomodel.sync_.core import db
 
 
 class City(StructuredNode):
@@ -41,6 +41,7 @@ def test_clear_database():
 
     assert database_is_populated[0][0] is False
 
+    db.install_all_labels()
     indexes = db.list_indexes(exclude_token_lookup=True)
     constraints = db.list_constraints()
     assert len(indexes) > 0

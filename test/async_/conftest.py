@@ -5,8 +5,7 @@ from test._async_compat import mark_async_session_auto_fixture
 
 import pytest
 
-from neomodel import config
-from neomodel.async_.core import adb
+from neomodel import adb, config
 
 
 @mark_async_session_auto_fixture

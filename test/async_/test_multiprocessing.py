@@ -1,8 +1,7 @@
 from multiprocessing.pool import ThreadPool as Pool
 from test._async_compat import mark_async_test
 
-from neomodel import AsyncStructuredNode, StringProperty
-from neomodel.async_.core import adb
+from neomodel import AsyncStructuredNode, StringProperty, adb
 
 
 class ThingyMaBob(AsyncStructuredNode):

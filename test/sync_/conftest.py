@@ -5,8 +5,7 @@ from test._async_compat import mark_sync_session_auto_fixture
 
 import pytest
 
-from neomodel import config
-from neomodel.sync_.core import db
+from neomodel import config, db
 
 
 @mark_sync_session_auto_fixture

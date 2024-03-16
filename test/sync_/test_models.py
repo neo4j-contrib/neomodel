@@ -11,9 +11,9 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
+    db,
 )
 from neomodel.exceptions import RequiredProperty, UniqueProperty
-from neomodel.sync_.core import db
 
 
 class User(StructuredNode):

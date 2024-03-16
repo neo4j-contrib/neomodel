@@ -4,7 +4,7 @@ from test._async_compat import mark_sync_test
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode
+from neomodel import StructuredNode, db
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -24,7 +24,6 @@ from neomodel.properties import (
     StringProperty,
     UniqueIdProperty,
 )
-from neomodel.sync_.core import db
 from neomodel.util import _get_node_properties
 
 

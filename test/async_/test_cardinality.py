@@ -13,8 +13,8 @@ from neomodel import (
     CardinalityViolation,
     IntegerProperty,
     StringProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 
 
 class HairDryer(AsyncStructuredNode):

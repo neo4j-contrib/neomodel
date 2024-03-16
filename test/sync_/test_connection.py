@@ -6,8 +6,7 @@ import pytest
 from neo4j import Driver, GraphDatabase
 from neo4j.debug import watch
 
-from neomodel import StringProperty, StructuredNode, config
-from neomodel.sync_.core import db
+from neomodel import StringProperty, StructuredNode, config, db
 
 
 @mark_sync_test

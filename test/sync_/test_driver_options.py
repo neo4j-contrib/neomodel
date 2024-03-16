@@ -4,8 +4,8 @@ import pytest
 from neo4j.exceptions import ClientError
 from pytest import raises
 
+from neomodel import db
 from neomodel.exceptions import FeatureNotSupported
-from neomodel.sync_.core import db
 
 
 @mark_sync_test

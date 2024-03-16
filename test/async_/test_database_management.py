@@ -9,8 +9,8 @@ from neomodel import (
     AsyncStructuredRel,
     IntegerProperty,
     StringProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 
 
 class City(AsyncStructuredNode):
@@ -41,6 +41,7 @@ async def test_clear_database():
 
     assert database_is_populated[0][0] is False
 
+    await adb.install_all_labels()
     indexes = await adb.list_indexes(exclude_token_lookup=True)
     constraints = await adb.list_constraints()
     assert len(indexes) > 0

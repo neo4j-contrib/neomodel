@@ -13,8 +13,8 @@ from neomodel import (
     StructuredNode,
     ZeroOrMore,
     ZeroOrOne,
+    db,
 )
-from neomodel.sync_.core import db
 
 
 class HairDryer(StructuredNode):

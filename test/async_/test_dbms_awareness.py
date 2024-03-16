@@ -2,7 +2,7 @@ from test._async_compat import mark_async_test
 
 import pytest
 
-from neomodel.async_.core import adb
+from neomodel import adb
 from neomodel.util import version_tag_to_integer
 
 

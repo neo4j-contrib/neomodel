@@ -4,8 +4,7 @@ from test._async_compat import mark_async_test
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import AsyncStructuredNode
-from neomodel.async_.core import adb
+from neomodel import AsyncStructuredNode, adb
 from neomodel.exceptions import (
     DeflateError,
     InflateError,

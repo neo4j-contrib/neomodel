@@ -8,8 +8,8 @@ from neomodel import (
     AsyncStructuredRel,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
 
 
@@ -47,6 +47,7 @@ class SomeNotUniqueNode(AsyncStructuredNode):
 @mark_async_test
 async def test_install_all():
     await adb.drop_constraints()
+    await adb.drop_indexes()
     await adb.install_labels(AbstractNode)
     # run install all labels
     await adb.install_all_labels()
@@ -66,6 +67,8 @@ async def test_install_all():
 
 @mark_async_test
 async def test_install_label_twice(capsys):
+    await adb.drop_constraints()
+    await adb.drop_indexes()
     expected_std_out = (
         "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
     )

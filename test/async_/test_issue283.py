@@ -24,8 +24,8 @@ from neomodel import (
     RelationshipClassRedefined,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 try:

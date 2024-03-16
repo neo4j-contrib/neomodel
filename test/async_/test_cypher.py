@@ -6,8 +6,7 @@ from neo4j.exceptions import ClientError as CypherError
 from numpy import ndarray
 from pandas import DataFrame, Series
 
-from neomodel import AsyncStructuredNode, StringProperty
-from neomodel.async_.core import adb
+from neomodel import AsyncStructuredNode, StringProperty, adb
 
 
 class User2(AsyncStructuredNode):

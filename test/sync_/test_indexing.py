@@ -3,9 +3,8 @@ from test._async_compat import mark_sync_test
 import pytest
 from pytest import raises
 
-from neomodel import IntegerProperty, StringProperty, StructuredNode, UniqueProperty
+from neomodel import IntegerProperty, StringProperty, StructuredNode, UniqueProperty, db
 from neomodel.exceptions import ConstraintValidationFailed
-from neomodel.sync_.core import db
 
 
 class Human(StructuredNode):

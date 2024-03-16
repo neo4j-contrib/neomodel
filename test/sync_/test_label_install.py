@@ -8,9 +8,9 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    db,
 )
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
-from neomodel.sync_.core import db
 
 
 class NodeWithIndex(StructuredNode):
@@ -47,6 +47,7 @@ class SomeNotUniqueNode(StructuredNode):
 @mark_sync_test
 def test_install_all():
     db.drop_constraints()
+    db.drop_indexes()
     db.install_labels(AbstractNode)
     # run install all labels
     db.install_all_labels()
@@ -66,6 +67,8 @@ def test_install_all():
 
 @mark_sync_test
 def test_install_label_twice(capsys):
+    db.drop_constraints()
+    db.drop_indexes()
     expected_std_out = (
         "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
     )

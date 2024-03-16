@@ -1,5 +1,5 @@
 # pep8: noqa
-# TODO : Check imports here
+# TODO : Check imports sync + async
 from neomodel.async_.cardinality import (
     AsyncOne,
     AsyncOneOrMore,
@@ -8,6 +8,7 @@ from neomodel.async_.cardinality import (
 )
 from neomodel.async_.core import (
     AsyncStructuredNode,
+    adb,
     change_neo4j_password,
     clear_neo4j_database,
     drop_constraints,
@@ -45,7 +46,7 @@ from neomodel.properties import (
     UniqueIdProperty,
 )
 from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
-from neomodel.sync_.core import StructuredNode
+from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.match import NodeSet, Traversal
 from neomodel.sync_.path import NeomodelPath
 from neomodel.sync_.property_manager import PropertyManager

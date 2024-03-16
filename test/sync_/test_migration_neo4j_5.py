@@ -8,8 +8,8 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
+    db,
 )
-from neomodel.sync_.core import db
 
 
 class Album(StructuredNode):

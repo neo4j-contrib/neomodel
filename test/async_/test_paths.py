@@ -8,8 +8,8 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 
 
 class PersonLivesInCity(AsyncStructuredRel):

@@ -6,8 +6,7 @@ import pytest
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.debug import watch
 
-from neomodel import AsyncStructuredNode, StringProperty, config
-from neomodel.async_.core import adb
+from neomodel import AsyncStructuredNode, StringProperty, adb, config
 
 
 @mark_async_test

@@ -8,8 +8,8 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    db,
 )
-from neomodel.sync_.core import db
 
 
 class PersonLivesInCity(StructuredRel):

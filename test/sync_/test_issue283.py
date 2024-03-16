@@ -24,9 +24,9 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    db,
 )
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
-from neomodel.sync_.core import db
 
 try:
     basestring

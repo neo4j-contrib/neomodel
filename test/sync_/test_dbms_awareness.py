@@ -2,7 +2,7 @@ from test._async_compat import mark_sync_test
 
 import pytest
 
-from neomodel.sync_.core import db
+from neomodel import db
 from neomodel.util import version_tag_to_integer
 
 

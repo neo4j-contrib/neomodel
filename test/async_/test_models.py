@@ -11,8 +11,8 @@ from neomodel import (
     DateProperty,
     IntegerProperty,
     StringProperty,
+    adb,
 )
-from neomodel.async_.core import adb
 from neomodel.exceptions import RequiredProperty, UniqueProperty
 
 
