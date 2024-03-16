@@ -14,6 +14,7 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
 )
+from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.sync_.match import NodeSet, Optional, QueryBuilder, Traversal
 
@@ -182,12 +183,19 @@ def test_slice():
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
 
-    # TODO : Branch this for sync to remove the extra brackets ?
-    assert len(list((Coffee.nodes)[1:])) == 2
-    assert len(list((Coffee.nodes)[:1])) == 1
-    assert isinstance((Coffee.nodes)[1], Coffee)
-    assert isinstance((Coffee.nodes)[0], Coffee)
-    assert len(list((Coffee.nodes)[1:2])) == 1
+    # Branching tests because async needs extra brackets
+    if Util.is_async_code:
+        assert len(list((Coffee.nodes)[1:])) == 2
+        assert len(list((Coffee.nodes)[:1])) == 1
+        assert isinstance((Coffee.nodes)[1], Coffee)
+        assert isinstance((Coffee.nodes)[0], Coffee)
+        assert len(list((Coffee.nodes)[1:2])) == 1
+    else:
+        assert len(list(Coffee.nodes[1:])) == 2
+        assert len(list(Coffee.nodes[:1])) == 1
+        assert isinstance(Coffee.nodes[1], Coffee)
+        assert isinstance(Coffee.nodes[0], Coffee)
+        assert len(list(Coffee.nodes[1:2])) == 1
 
 
 @mark_sync_test
@@ -222,15 +230,20 @@ def test_contains():
     assert expensive in Coffee.nodes.filter(price__gt=999)
     assert asda not in Coffee.nodes.filter(price__gt=999)
 
-    # TODO : Branch this for async => should be "2 in Coffee.nodes"
-    # Good example for documentation
+    # TODO : Good example for documentation
     # bad value raises
     with raises(ValueError, match=r"Expecting StructuredNode instance"):
-        Coffee.nodes.__contains__(2)
+        if Util.is_async_code:
+            assert Coffee.nodes.__contains__(2)
+        else:
+            assert 2 in Coffee.nodes
 
     # unsaved
     with raises(ValueError, match=r"Unsaved node"):
-        Coffee.nodes.__contains__(Coffee())
+        if Util.is_async_code:
+            assert Coffee.nodes.__contains__(Coffee())
+        else:
+            assert Coffee() in Coffee.nodes
 
 
 @mark_sync_test
@@ -242,9 +255,12 @@ def test_order_by():
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
 
-    # TODO : Branch this for sync to remove the extra brackets ?
-    assert ((Coffee.nodes.order_by("price"))[0]).price == 5
-    assert ((Coffee.nodes.order_by("-price"))[0]).price == 35
+    if Util.is_async_code:
+        assert ((Coffee.nodes.order_by("price"))[0]).price == 5
+        assert ((Coffee.nodes.order_by("-price"))[0]).price == 35
+    else:
+        assert (Coffee.nodes.order_by("price")[0]).price == 5
+        assert (Coffee.nodes.order_by("-price")[0]).price == 35
 
     ns = Coffee.nodes.order_by("-price")
     qb = QueryBuilder(ns).build_ast()
@@ -517,17 +533,27 @@ def test_fetch_relations():
     )
     assert result[0][0] is None
 
-    # TODO : Branch the following two for sync to use len() and in instead of the dunder overrides
-    # len() should only consider Suppliers
-    count = (
-        Supplier.nodes.filter(name="Sainsburys")
-        .fetch_relations("coffees__species")
-        .__len__()
-    )
-    assert count == 1
+    if Util.is_async_code:
+        count = (
+            Supplier.nodes.filter(name="Sainsburys")
+            .fetch_relations("coffees__species")
+            .__len__()
+        )
+        assert count == 1
 
-    assert (
-        Supplier.nodes.fetch_relations("coffees__species")
-        .filter(name="Sainsburys")
-        .__contains__(tesco)
-    )
+        assert (
+            Supplier.nodes.fetch_relations("coffees__species")
+            .filter(name="Sainsburys")
+            .__contains__(tesco)
+        )
+    else:
+        count = len(
+            Supplier.nodes.filter(name="Sainsburys")
+            .fetch_relations("coffees__species")
+            .all()
+        )
+        assert count == 1
+
+        assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
+            name="Sainsburys"
+        )

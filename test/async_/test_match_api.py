@@ -14,6 +14,7 @@ from neomodel import (
     Q,
     StringProperty,
 )
+from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
@@ -191,12 +192,19 @@ async def test_slice():
     await Coffee(name="Britains finest").save()
     await Coffee(name="Japans finest").save()
 
-    # TODO : Branch this for sync to remove the extra brackets ?
-    assert len(list((await Coffee.nodes)[1:])) == 2
-    assert len(list((await Coffee.nodes)[:1])) == 1
-    assert isinstance((await Coffee.nodes)[1], Coffee)
-    assert isinstance((await Coffee.nodes)[0], Coffee)
-    assert len(list((await Coffee.nodes)[1:2])) == 1
+    # Branching tests because async needs extra brackets
+    if AsyncUtil.is_async_code:
+        assert len(list((await Coffee.nodes)[1:])) == 2
+        assert len(list((await Coffee.nodes)[:1])) == 1
+        assert isinstance((await Coffee.nodes)[1], Coffee)
+        assert isinstance((await Coffee.nodes)[0], Coffee)
+        assert len(list((await Coffee.nodes)[1:2])) == 1
+    else:
+        assert len(list(Coffee.nodes[1:])) == 2
+        assert len(list(Coffee.nodes[:1])) == 1
+        assert isinstance(Coffee.nodes[1], Coffee)
+        assert isinstance(Coffee.nodes[0], Coffee)
+        assert len(list(Coffee.nodes[1:2])) == 1
 
 
 @mark_async_test
@@ -231,15 +239,20 @@ async def test_contains():
     assert expensive in await Coffee.nodes.filter(price__gt=999)
     assert asda not in await Coffee.nodes.filter(price__gt=999)
 
-    # TODO : Branch this for async => should be "2 in Coffee.nodes"
-    # Good example for documentation
+    # TODO : Good example for documentation
     # bad value raises
     with raises(ValueError, match=r"Expecting StructuredNode instance"):
-        await Coffee.nodes.check_contains(2)
+        if AsyncUtil.is_async_code:
+            assert await Coffee.nodes.check_contains(2)
+        else:
+            assert 2 in Coffee.nodes
 
     # unsaved
     with raises(ValueError, match=r"Unsaved node"):
-        await Coffee.nodes.check_contains(Coffee())
+        if AsyncUtil.is_async_code:
+            assert await Coffee.nodes.check_contains(Coffee())
+        else:
+            assert Coffee() in Coffee.nodes
 
 
 @mark_async_test
@@ -251,9 +264,12 @@ async def test_order_by():
     c2 = await Coffee(name="Britains finest", price=10).save()
     c3 = await Coffee(name="Japans finest", price=35).save()
 
-    # TODO : Branch this for sync to remove the extra brackets ?
-    assert ((await Coffee.nodes.order_by("price"))[0]).price == 5
-    assert ((await Coffee.nodes.order_by("-price"))[0]).price == 35
+    if AsyncUtil.is_async_code:
+        assert ((await Coffee.nodes.order_by("price"))[0]).price == 5
+        assert ((await Coffee.nodes.order_by("-price"))[0]).price == 35
+    else:
+        assert (Coffee.nodes.order_by("price")[0]).price == 5
+        assert (Coffee.nodes.order_by("-price")[0]).price == 35
 
     ns = Coffee.nodes.order_by("-price")
     qb = await AsyncQueryBuilder(ns).build_ast()
@@ -528,17 +544,27 @@ async def test_fetch_relations():
     )
     assert result[0][0] is None
 
-    # TODO : Branch the following two for sync to use len() and in instead of the dunder overrides
-    # len() should only consider Suppliers
-    count = (
-        await Supplier.nodes.filter(name="Sainsburys")
-        .fetch_relations("coffees__species")
-        .get_len()
-    )
-    assert count == 1
+    if AsyncUtil.is_async_code:
+        count = (
+            await Supplier.nodes.filter(name="Sainsburys")
+            .fetch_relations("coffees__species")
+            .get_len()
+        )
+        assert count == 1
 
-    assert (
-        await Supplier.nodes.fetch_relations("coffees__species")
-        .filter(name="Sainsburys")
-        .check_contains(tesco)
-    )
+        assert (
+            await Supplier.nodes.fetch_relations("coffees__species")
+            .filter(name="Sainsburys")
+            .check_contains(tesco)
+        )
+    else:
+        count = len(
+            Supplier.nodes.filter(name="Sainsburys")
+            .fetch_relations("coffees__species")
+            .all()
+        )
+        assert count == 1
+
+        assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
+            name="Sainsburys"
+        )

@@ -13,6 +13,7 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
 )
+from neomodel._async_compat.util import Util
 
 HOOKS_CALLED = {"pre_save": 0, "post_save": 0}
 
@@ -130,9 +131,12 @@ def test_multiple_rels_exist_issue_223():
     rel_b = phill.hates.connect(ian, {"reason": "b"})
     assert rel_a.element_id != rel_b.element_id
 
-    # TODO : Branch this for sync to remove extra brackets
-    ian_a = (phill.hates.match(reason="a"))[0]
-    ian_b = (phill.hates.match(reason="b"))[0]
+    if Util.is_async_code:
+        ian_a = (phill.hates.match(reason="a"))[0]
+        ian_b = (phill.hates.match(reason="b"))[0]
+    else:
+        ian_a = phill.hates.match(reason="a")[0]
+        ian_b = phill.hates.match(reason="b")[0]
     assert ian_a.element_id == ian_b.element_id
 
 
