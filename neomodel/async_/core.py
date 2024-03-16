@@ -418,7 +418,7 @@ class AsyncDatabase(local):
         handle_unique=True,
         retry_on_session_expire=False,
         resolve_objects=False,
-    ) -> Tuple[list[list], Tuple[str, ...]]:
+    ):
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -471,7 +471,7 @@ class AsyncDatabase(local):
         handle_unique,
         retry_on_session_expire,
         resolve_objects,
-    ) -> Tuple[list[list], Tuple[str, ...]]:
+    ):
         try:
             # Retrieve the data
             start = time.time()
