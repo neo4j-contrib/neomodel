@@ -119,19 +119,19 @@ async def test_search_and_filter_and_exclude():
     await fred.is_from.connect(zz)
     await fred.is_from.connect(zx)
     await fred.is_from.connect(zt)
-    result = fred.is_from.filter(code="ZX")
+    result = await fred.is_from.filter(code="ZX")
     assert result[0].code == "ZX"
 
-    result = fred.is_from.filter(code="ZY")
+    result = await fred.is_from.filter(code="ZY")
     assert result[0].code == "ZY"
 
-    result = fred.is_from.exclude(code="ZZ").exclude(code="ZY")
+    result = await fred.is_from.exclude(code="ZZ").exclude(code="ZY")
     assert result[0].code == "ZX" and len(result) == 1
 
-    result = fred.is_from.exclude(Q(code__contains="Y"))
+    result = await fred.is_from.exclude(Q(code__contains="Y"))
     assert len(result) == 2
 
-    result = fred.is_from.filter(Q(code__contains="Z"))
+    result = await fred.is_from.filter(Q(code__contains="Z"))
     assert len(result) == 3
 
 

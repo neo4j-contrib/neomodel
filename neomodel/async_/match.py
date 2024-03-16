@@ -761,7 +761,7 @@ class AsyncBaseSet:
         :rtype: bool
         """
         ast = await self.query_cls(self).build_ast()
-        _count = ast._count()
+        _count = await ast._count()
         return _count > 0
 
     async def check_nonzero(self):

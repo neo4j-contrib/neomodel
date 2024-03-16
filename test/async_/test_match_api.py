@@ -126,7 +126,7 @@ async def test_simple_traverse_with_filter():
     )
 
     _ast = await qb.build_ast()
-    results = _ast._execute()
+    results = await _ast._execute()
 
     assert qb._ast.lookup
     assert qb._ast.match
@@ -191,13 +191,12 @@ async def test_slice():
     await Coffee(name="Britains finest").save()
     await Coffee(name="Japans finest").save()
 
-    # TODO : Make slice work with async
-    # Doing await (Coffee.nodes.all())[1:] fetches without slicing
+    # TODO : Branch this for sync to remove the extra brackets ?
     assert len(list((await Coffee.nodes)[1:])) == 2
-    assert len(list(Coffee.nodes.all()[:1])) == 1
-    assert isinstance(Coffee.nodes[1], Coffee)
-    assert isinstance(Coffee.nodes[0], Coffee)
-    assert len(list(Coffee.nodes.all()[1:2])) == 1
+    assert len(list((await Coffee.nodes)[:1])) == 1
+    assert isinstance((await Coffee.nodes)[1], Coffee)
+    assert isinstance((await Coffee.nodes)[0], Coffee)
+    assert len(list((await Coffee.nodes)[1:2])) == 1
 
 
 @mark_async_test
@@ -219,8 +218,6 @@ async def test_issue_208():
 async def test_issue_589():
     node1 = await Extension().save()
     node2 = await Extension().save()
-    # TODO : ALso test await node1.extension.check_contains(node2)
-    # This is the way to pick only a single relationship using async
     assert node2 not in await node1.extension
     await node1.extension.connect(node2)
     assert node2 in await node1.extension
@@ -234,14 +231,15 @@ async def test_contains():
     assert expensive in await Coffee.nodes.filter(price__gt=999)
     assert asda not in await Coffee.nodes.filter(price__gt=999)
 
-    # TODO : Fix this test
+    # TODO : Branch this for async => should be "2 in Coffee.nodes"
+    # Good example for documentation
     # bad value raises
-    with raises(ValueError):
-        2 in await Coffee.nodes
+    with raises(ValueError, match=r"Expecting StructuredNode instance"):
+        await Coffee.nodes.check_contains(2)
 
     # unsaved
-    with raises(ValueError):
-        Coffee() in await Coffee.nodes
+    with raises(ValueError, match=r"Unsaved node"):
+        await Coffee.nodes.check_contains(Coffee())
 
 
 @mark_async_test
@@ -253,11 +251,11 @@ async def test_order_by():
     c2 = await Coffee(name="Britains finest", price=10).save()
     c3 = await Coffee(name="Japans finest", price=35).save()
 
-    assert (await Coffee.nodes.order_by("price")[0]).price == 5
-    assert (await Coffee.nodes.order_by("-price")[0]).price == 35
+    # TODO : Branch this for sync to remove the extra brackets ?
+    assert ((await Coffee.nodes.order_by("price"))[0]).price == 5
+    assert ((await Coffee.nodes.order_by("-price"))[0]).price == 35
 
-    ns = await Coffee.nodes.order_by("-price")
-    # TODO : Method fails
+    ns = Coffee.nodes.order_by("-price")
     qb = await AsyncQueryBuilder(ns).build_ast()
     assert qb._ast.order_by
     ns = ns.order_by(None)
@@ -272,7 +270,7 @@ async def test_order_by():
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        Coffee.nodes.order_by("id")
+        await Coffee.nodes.order_by("id")
 
     # Test order by on a relationship
     l = await Supplier(name="lidl2").save()
@@ -280,7 +278,7 @@ async def test_order_by():
     await l.coffees.connect(c2)
     await l.coffees.connect(c3)
 
-    ordered_n = [n for n in await l.coffees.order_by("name").all()]
+    ordered_n = [n for n in await l.coffees.order_by("name")]
     assert ordered_n[0] == c2
     assert ordered_n[1] == c1
     assert ordered_n[2] == c3
@@ -530,17 +528,17 @@ async def test_fetch_relations():
     )
     assert result[0][0] is None
 
+    # TODO : Branch the following two for sync to use len() and in instead of the dunder overrides
     # len() should only consider Suppliers
-    count = len(
+    count = (
         await Supplier.nodes.filter(name="Sainsburys")
         .fetch_relations("coffees__species")
-        .all()
+        .get_len()
     )
     assert count == 1
 
     assert (
-        tesco
-        in await Supplier.nodes.fetch_relations("coffees__species")
+        await Supplier.nodes.fetch_relations("coffees__species")
         .filter(name="Sainsburys")
-        .all()
+        .check_contains(tesco)
     )

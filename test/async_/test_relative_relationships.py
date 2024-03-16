@@ -21,4 +21,4 @@ async def test_relative_relationship():
     # connecting an instance of the class defined above
     # the next statement will fail if there's a type mismatch
     await a.is_from.connect(c)
-    assert a.is_from.is_connected(c)
+    assert await a.is_from.is_connected(c)

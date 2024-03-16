@@ -182,13 +182,12 @@ def test_slice():
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
 
-    # TODO : Make slice work with async
-    # Doing await (Coffee.nodes.all())[1:] fetches without slicing
+    # TODO : Branch this for sync to remove the extra brackets ?
     assert len(list((Coffee.nodes)[1:])) == 2
-    assert len(list(Coffee.nodes.all()[:1])) == 1
-    assert isinstance(Coffee.nodes[1], Coffee)
-    assert isinstance(Coffee.nodes[0], Coffee)
-    assert len(list(Coffee.nodes.all()[1:2])) == 1
+    assert len(list((Coffee.nodes)[:1])) == 1
+    assert isinstance((Coffee.nodes)[1], Coffee)
+    assert isinstance((Coffee.nodes)[0], Coffee)
+    assert len(list((Coffee.nodes)[1:2])) == 1
 
 
 @mark_sync_test
@@ -210,8 +209,6 @@ def test_issue_208():
 def test_issue_589():
     node1 = Extension().save()
     node2 = Extension().save()
-    # TODO : ALso test await node1.extension.check_contains(node2)
-    # This is the way to pick only a single relationship using async
     assert node2 not in node1.extension
     node1.extension.connect(node2)
     assert node2 in node1.extension
@@ -225,14 +222,15 @@ def test_contains():
     assert expensive in Coffee.nodes.filter(price__gt=999)
     assert asda not in Coffee.nodes.filter(price__gt=999)
 
-    # TODO : Fix this test
+    # TODO : Branch this for async => should be "2 in Coffee.nodes"
+    # Good example for documentation
     # bad value raises
-    with raises(ValueError):
-        2 in Coffee.nodes
+    with raises(ValueError, match=r"Expecting StructuredNode instance"):
+        Coffee.nodes.__contains__(2)
 
     # unsaved
-    with raises(ValueError):
-        Coffee() in Coffee.nodes
+    with raises(ValueError, match=r"Unsaved node"):
+        Coffee.nodes.__contains__(Coffee())
 
 
 @mark_sync_test
@@ -244,11 +242,11 @@ def test_order_by():
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
 
-    assert (Coffee.nodes.order_by("price")[0]).price == 5
-    assert (Coffee.nodes.order_by("-price")[0]).price == 35
+    # TODO : Branch this for sync to remove the extra brackets ?
+    assert ((Coffee.nodes.order_by("price"))[0]).price == 5
+    assert ((Coffee.nodes.order_by("-price"))[0]).price == 35
 
     ns = Coffee.nodes.order_by("-price")
-    # TODO : Method fails
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast.order_by
     ns = ns.order_by(None)
@@ -271,7 +269,7 @@ def test_order_by():
     l.coffees.connect(c2)
     l.coffees.connect(c3)
 
-    ordered_n = [n for n in l.coffees.order_by("name").all()]
+    ordered_n = [n for n in l.coffees.order_by("name")]
     assert ordered_n[0] == c2
     assert ordered_n[1] == c1
     assert ordered_n[2] == c3
@@ -519,17 +517,17 @@ def test_fetch_relations():
     )
     assert result[0][0] is None
 
+    # TODO : Branch the following two for sync to use len() and in instead of the dunder overrides
     # len() should only consider Suppliers
-    count = len(
+    count = (
         Supplier.nodes.filter(name="Sainsburys")
         .fetch_relations("coffees__species")
-        .all()
+        .__len__()
     )
     assert count == 1
 
     assert (
-        tesco
-        in Supplier.nodes.fetch_relations("coffees__species")
+        Supplier.nodes.fetch_relations("coffees__species")
         .filter(name="Sainsburys")
-        .all()
+        .__contains__(tesco)
     )

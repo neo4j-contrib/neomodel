@@ -57,8 +57,7 @@ def test_escaped_chars():
     _name = "sarah:test"
     Human(name=_name, age=3).save()
     r = Human.nodes.filter(name=_name)
-    first_r = r[0]
-    assert first_r.name == _name
+    assert r[0].name == _name
 
 
 @mark_sync_test

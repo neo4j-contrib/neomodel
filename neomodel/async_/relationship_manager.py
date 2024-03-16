@@ -345,13 +345,13 @@ class AsyncRelationshipManager(object):
         """
         return AsyncNodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
-    def is_connected(self, node):
+    async def is_connected(self, node):
         """
         Check if a node is connected with this relationship type
         :param node:
         :return: bool
         """
-        return self._new_traversal().__contains__(node)
+        return await self._new_traversal().check_contains(node)
 
     async def single(self):
         """

@@ -130,8 +130,9 @@ def test_multiple_rels_exist_issue_223():
     rel_b = phill.hates.connect(ian, {"reason": "b"})
     assert rel_a.element_id != rel_b.element_id
 
-    ian_a = phill.hates.match(reason="a")[0]
-    ian_b = phill.hates.match(reason="b")[0]
+    # TODO : Branch this for sync to remove extra brackets
+    ian_a = (phill.hates.match(reason="a"))[0]
+    ian_b = (phill.hates.match(reason="b"))[0]
     assert ian_a.element_id == ian_b.element_id
 
 

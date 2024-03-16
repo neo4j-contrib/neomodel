@@ -121,7 +121,7 @@ def in_a_tx(*names):
         APerson(name=n).save()
 
 
-# TODO : FIx this once decorator is fixed
+# TODO : FIx this once in_a_tx is fixed
 @mark_sync_test
 def test_bookmark_transaction_decorator():
     for p in APerson.nodes:

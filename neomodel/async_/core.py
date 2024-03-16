@@ -204,7 +204,6 @@ class AsyncDatabase(local):
         await self.driver.close()
         self.driver = None
 
-    # TODO : Make this async and turn on muck-spreader
     @property
     async def database_version(self):
         if self._database_version is None:
@@ -998,8 +997,6 @@ class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
         return wrapper
 
 
-# TODO : Either deprecate auto_install_labels
-# Or make it work with async
 class NodeMeta(type):
     def __new__(mcs, name, bases, namespace):
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
@@ -1054,10 +1051,6 @@ class NodeMeta(type):
 
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
-
-            # TODO : See previous TODO comment
-            # if config.AUTO_INSTALL_LABELS:
-            #     await install_labels(cls, quiet=False)
 
             build_class_registry(cls)
 
@@ -1138,7 +1131,6 @@ class AsyncStructuredNode(NodeBase):
 
         return AsyncNodeSet(cls)
 
-    # TODO : Update places where element_id is expected to be an int (where id(n)=$element_id)
     @property
     def element_id(self):
         if hasattr(self, "element_id_property"):

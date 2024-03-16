@@ -112,7 +112,7 @@ def test_automatic_result_resolution():
 
     # If A is friends with B, then A's friends_with objects should be
     # TechnicalPerson (!NOT basePerson!)
-    assert type(A.friends_with[0]) is TechnicalPerson
+    assert type((A.friends_with)[0]) is TechnicalPerson
 
     A.delete()
     B.delete()
@@ -206,13 +206,13 @@ def test_validation_with_inheritance_from_db():
     # This now means that friends_with of a TechnicalPerson can
     # either be TechnicalPerson or Pilot Person (!NOT basePerson!)
 
-    assert (type(A.friends_with[0]) is TechnicalPerson) or (
-        type(A.friends_with[0]) is PilotPerson
+    assert (type((A.friends_with)[0]) is TechnicalPerson) or (
+        type((A.friends_with)[0]) is PilotPerson
     )
-    assert (type(A.friends_with[1]) is TechnicalPerson) or (
-        type(A.friends_with[1]) is PilotPerson
+    assert (type((A.friends_with)[1]) is TechnicalPerson) or (
+        type((A.friends_with)[1]) is PilotPerson
     )
-    assert type(D.friends_with[0]) is PilotPerson
+    assert type((D.friends_with)[0]) is PilotPerson
 
     A.delete()
     B.delete()

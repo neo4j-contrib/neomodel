@@ -61,9 +61,8 @@ async def test_optional_properties_dont_get_indexed():
 async def test_escaped_chars():
     _name = "sarah:test"
     await Human(name=_name, age=3).save()
-    r = Human.nodes.filter(name=_name)
-    first_r = await r[0]
-    assert first_r.name == _name
+    r = await Human.nodes.filter(name=_name)
+    assert r[0].name == _name
 
 
 @mark_async_test
