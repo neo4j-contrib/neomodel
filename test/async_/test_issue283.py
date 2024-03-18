@@ -116,6 +116,8 @@ async def test_automatic_result_resolution():
     await B.friends_with.connect(C)
     await C.friends_with.connect(A)
 
+    test = await A.friends_with
+
     # If A is friends with B, then A's friends_with objects should be
     # TechnicalPerson (!NOT basePerson!)
     assert type((await A.friends_with)[0]) is TechnicalPerson

@@ -110,6 +110,8 @@ def test_automatic_result_resolution():
     B.friends_with.connect(C)
     C.friends_with.connect(A)
 
+    test = A.friends_with
+
     # If A is friends with B, then A's friends_with objects should be
     # TechnicalPerson (!NOT basePerson!)
     assert type((A.friends_with)[0]) is TechnicalPerson

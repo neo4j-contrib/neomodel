@@ -99,7 +99,7 @@ def test_either_direction_connect():
         f"""MATCH (us), (them)
             WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(them)=$them
             MATCH (us)-[r:KNOWS]-(them) RETURN COUNT(r)""",
-        {"them": rey.element_id},
+        {"them": db.parse_element_id(rey.element_id)},
     )
     assert int(result[0][0]) == 1
 

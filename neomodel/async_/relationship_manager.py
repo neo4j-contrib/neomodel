@@ -130,7 +130,7 @@ class AsyncRelationshipManager(object):
             "MERGE" + new_rel
         )
 
-        params["them"] = node.element_id
+        params["them"] = await adb.parse_element_id(node.element_id)
 
         if not rel_model:
             await self.source.cypher(q, params)
@@ -173,7 +173,9 @@ class AsyncRelationshipManager(object):
             + my_rel
             + f" WHERE {await adb.get_id_method()}(them)=$them and {await adb.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        results = await self.source.cypher(q, {"them": node.element_id})
+        results = await self.source.cypher(
+            q, {"them": await adb.parse_element_id(node.element_id)}
+        )
         rels = results[0]
         if not rels:
             return
@@ -194,7 +196,9 @@ class AsyncRelationshipManager(object):
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
         q = f"MATCH {my_rel} WHERE {await adb.get_id_method()}(them)=$them and {await adb.get_id_method()}(us)=$self RETURN r "
-        results = await self.source.cypher(q, {"them": node.element_id})
+        results = await self.source.cypher(
+            q, {"them": await adb.parse_element_id(node.element_id)}
+        )
         rels = results[0]
         if not rels:
             return []
@@ -232,12 +236,14 @@ class AsyncRelationshipManager(object):
         old_rel = _rel_helper(lhs="us", rhs="old", ident="r", **self.definition)
 
         # get list of properties on the existing rel
+        old_node_element_id = await adb.parse_element_id(old_node.element_id)
+        new_node_element_id = await adb.parse_element_id(new_node.element_id)
         result, _ = await self.source.cypher(
             f"""
                 MATCH (us), (old) WHERE {await adb.get_id_method()}(us)=$self and {await adb.get_id_method()}(old)=$old
                 MATCH {old_rel} RETURN r
             """,
-            {"old": old_node.element_id},
+            {"old": old_node_element_id},
         )
         if result:
             node_properties = _get_node_properties(result[0][0])
@@ -259,7 +265,7 @@ class AsyncRelationshipManager(object):
         q += " WITH r DELETE r"
 
         await self.source.cypher(
-            q, {"old": old_node.element_id, "new": new_node.element_id}
+            q, {"old": old_node_element_id, "new": new_node_element_id}
         )
 
     @check_source
@@ -275,7 +281,9 @@ class AsyncRelationshipManager(object):
                 MATCH (a), (b) WHERE {await adb.get_id_method()}(a)=$self and {await adb.get_id_method()}(b)=$them
                 MATCH {rel} DELETE r
             """
-        await self.source.cypher(q, {"them": node.element_id})
+        await self.source.cypher(
+            q, {"them": await adb.parse_element_id(node.element_id)}
+        )
 
     @check_source
     async def disconnect_all(self):

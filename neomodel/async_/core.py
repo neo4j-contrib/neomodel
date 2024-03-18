@@ -523,6 +523,10 @@ class AsyncDatabase(local):
         else:
             return "elementId"
 
+    async def parse_element_id(self, element_id: str):
+        db_version = await self.database_version
+        return int(element_id) if db_version.startswith("4") else element_id
+
     async def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
         """Returns all indexes existing in the database
 
@@ -1188,7 +1192,9 @@ class AsyncStructuredNode(NodeBase):
 
             from neomodel.async_.match import _rel_helper
 
-            query_params["source_id"] = relationship.source.element_id
+            query_params["source_id"] = await adb.parse_element_id(
+                relationship.source.element_id
+            )
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
@@ -1318,10 +1324,7 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        db_version = await adb.database_version
-        element_id = (
-            int(self.element_id) if db_version.startswith("4") else self.element_id
-        )
+        element_id = await adb.parse_element_id(self.element_id)
         params.update({"self": element_id})
         return await adb.cypher_query(query, params)
 

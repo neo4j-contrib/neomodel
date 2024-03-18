@@ -125,7 +125,7 @@ class RelationshipManager(object):
             "MERGE" + new_rel
         )
 
-        params["them"] = node.element_id
+        params["them"] = db.parse_element_id(node.element_id)
 
         if not rel_model:
             self.source.cypher(q, params)
@@ -168,7 +168,7 @@ class RelationshipManager(object):
             + my_rel
             + f" WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r LIMIT 1"
         )
-        results = self.source.cypher(q, {"them": node.element_id})
+        results = self.source.cypher(q, {"them": db.parse_element_id(node.element_id)})
         rels = results[0]
         if not rels:
             return
@@ -189,7 +189,7 @@ class RelationshipManager(object):
 
         my_rel = _rel_helper(lhs="us", rhs="them", ident="r", **self.definition)
         q = f"MATCH {my_rel} WHERE {db.get_id_method()}(them)=$them and {db.get_id_method()}(us)=$self RETURN r "
-        results = self.source.cypher(q, {"them": node.element_id})
+        results = self.source.cypher(q, {"them": db.parse_element_id(node.element_id)})
         rels = results[0]
         if not rels:
             return []
@@ -227,12 +227,14 @@ class RelationshipManager(object):
         old_rel = _rel_helper(lhs="us", rhs="old", ident="r", **self.definition)
 
         # get list of properties on the existing rel
+        old_node_element_id = db.parse_element_id(old_node.element_id)
+        new_node_element_id = db.parse_element_id(new_node.element_id)
         result, _ = self.source.cypher(
             f"""
                 MATCH (us), (old) WHERE {db.get_id_method()}(us)=$self and {db.get_id_method()}(old)=$old
                 MATCH {old_rel} RETURN r
             """,
-            {"old": old_node.element_id},
+            {"old": old_node_element_id},
         )
         if result:
             node_properties = _get_node_properties(result[0][0])
@@ -253,7 +255,7 @@ class RelationshipManager(object):
         q += "".join([f" SET r2.{prop} = r.{prop}" for prop in existing_properties])
         q += " WITH r DELETE r"
 
-        self.source.cypher(q, {"old": old_node.element_id, "new": new_node.element_id})
+        self.source.cypher(q, {"old": old_node_element_id, "new": new_node_element_id})
 
     @check_source
     def disconnect(self, node):
@@ -268,7 +270,7 @@ class RelationshipManager(object):
                 MATCH (a), (b) WHERE {db.get_id_method()}(a)=$self and {db.get_id_method()}(b)=$them
                 MATCH {rel} DELETE r
             """
-        self.source.cypher(q, {"them": node.element_id})
+        self.source.cypher(q, {"them": db.parse_element_id(node.element_id)})
 
     @check_source
     def disconnect_all(self):

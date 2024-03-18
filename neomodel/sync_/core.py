@@ -521,6 +521,10 @@ class Database(local):
         else:
             return "elementId"
 
+    def parse_element_id(self, element_id: str):
+        db_version = self.database_version
+        return int(element_id) if db_version.startswith("4") else element_id
+
     def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
         """Returns all indexes existing in the database
 
@@ -1184,7 +1188,9 @@ class StructuredNode(NodeBase):
 
             from neomodel.sync_.match import _rel_helper
 
-            query_params["source_id"] = relationship.source.element_id
+            query_params["source_id"] = db.parse_element_id(
+                relationship.source.element_id
+            )
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
@@ -1314,10 +1320,7 @@ class StructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         params = params or {}
-        db_version = db.database_version
-        element_id = (
-            int(self.element_id) if db_version.startswith("4") else self.element_id
-        )
+        element_id = db.parse_element_id(self.element_id)
         params.update({"self": element_id})
         return db.cypher_query(query, params)
 

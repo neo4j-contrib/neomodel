@@ -504,7 +504,7 @@ class AsyncQueryBuilder:
         _node_lookup = f"MATCH ({ident}) WHERE {await adb.get_id_method()}({ident})=${place_holder} WITH {ident}"
         self._ast.lookup = _node_lookup
 
-        self._query_params[place_holder] = node.element_id
+        self._query_params[place_holder] = await adb.parse_element_id(node.element_id)
 
         self._ast.return_clause = ident
         self._ast.result_class = node.__class__
@@ -776,7 +776,8 @@ class AsyncBaseSet:
         if isinstance(obj, AsyncStructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 ast = await self.query_cls(self).build_ast()
-                return await ast._contains(obj.element_id)
+                obj_element_id = await adb.parse_element_id(obj.element_id)
+                return await ast._contains(obj_element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")

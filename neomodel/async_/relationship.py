@@ -102,7 +102,7 @@ class AsyncStructuredRel(StructuredRelBase):
         props = self.deflate(self.__properties__)
         query = f"MATCH ()-[r]->() WHERE {await adb.get_id_method()}(r)=$self "
         query += "".join([f" SET r.{key} = ${key}" for key in props])
-        props["self"] = self.element_id
+        props["self"] = await adb.parse_element_id(self.element_id)
 
         await adb.cypher_query(query, props)
 
@@ -120,7 +120,11 @@ class AsyncStructuredRel(StructuredRelBase):
             WHERE {await adb.get_id_method()}(aNode)=$start_node_element_id
             RETURN aNode
             """,
-            {"start_node_element_id": self._start_node_element_id},
+            {
+                "start_node_element_id": await adb.parse_element_id(
+                    self._start_node_element_id
+                )
+            },
             resolve_objects=True,
         )
         return results[0][0][0]
@@ -137,7 +141,11 @@ class AsyncStructuredRel(StructuredRelBase):
             WHERE {await adb.get_id_method()}(aNode)=$end_node_element_id
             RETURN aNode
             """,
-            {"end_node_element_id": self._end_node_element_id},
+            {
+                "end_node_element_id": await adb.parse_element_id(
+                    self._end_node_element_id
+                )
+            },
             resolve_objects=True,
         )
         return results[0][0][0]

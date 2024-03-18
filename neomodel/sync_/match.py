@@ -504,7 +504,7 @@ class QueryBuilder:
         _node_lookup = f"MATCH ({ident}) WHERE {db.get_id_method()}({ident})=${place_holder} WITH {ident}"
         self._ast.lookup = _node_lookup
 
-        self._query_params[place_holder] = node.element_id
+        self._query_params[place_holder] = db.parse_element_id(node.element_id)
 
         self._ast.return_clause = ident
         self._ast.result_class = node.__class__
@@ -772,7 +772,8 @@ class BaseSet:
         if isinstance(obj, StructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 ast = self.query_cls(self).build_ast()
-                return ast._contains(obj.element_id)
+                obj_element_id = db.parse_element_id(obj.element_id)
+                return ast._contains(obj_element_id)
             raise ValueError("Unsaved node: " + repr(obj))
 
         raise ValueError("Expecting StructuredNode instance")

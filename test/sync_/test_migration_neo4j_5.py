@@ -44,8 +44,8 @@ def test_read_elements_id():
         assert lex_hives.id == int(lex_hives.element_id)
         assert lex_hives.id == (the_hives.released.single()).id
         # Relationships' ids
-        assert isinstance(released_rel.element_id, int)
-        assert released_rel.element_id == released_rel.id
+        assert isinstance(released_rel.element_id, str)
+        assert int(released_rel.element_id) == released_rel.id
         assert released_rel._start_node_id == int(the_hives.element_id)
         assert released_rel._end_node_id == int(lex_hives.element_id)
     else:
