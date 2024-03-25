@@ -38,8 +38,6 @@ async def in_a_tx(*names):
         await APerson(name=n).save()
 
 
-# TODO : This fails with no support for context manager protocol
-# Possibly the transaction decorator is the issue
 @mark_async_test
 async def test_transaction_decorator():
     await adb.install_labels(APerson)
@@ -54,7 +52,7 @@ async def test_transaction_decorator():
     with raises(UniqueProperty):
         await in_a_tx("Jim", "Roger")
 
-    assert "Jim" not in [p.name async for p in await APerson.nodes]
+    assert "Jim" not in [p.name for p in await APerson.nodes]
 
 
 @mark_async_test
@@ -115,25 +113,24 @@ async def double_transaction():
 
 
 @adb.transaction.with_bookmark
-async def in_a_tx(*names):
+async def in_a_tx_with_bookmark(*names):
     for n in names:
         await APerson(name=n).save()
 
 
-# TODO : FIx this once in_a_tx is fixed
 @mark_async_test
 async def test_bookmark_transaction_decorator():
     for p in await APerson.nodes:
         await p.delete()
 
     # should work
-    result, bookmarks = await in_a_tx("Ruth", bookmarks=None)
+    result, bookmarks = await in_a_tx_with_bookmark("Ruth", bookmarks=None)
     assert result is None
     assert isinstance(bookmarks, Bookmarks)
 
     # should bail but raise correct error
     with raises(UniqueProperty):
-        await in_a_tx("Jane", "Ruth")
+        await in_a_tx_with_bookmark("Jane", "Ruth")
 
     assert "Jane" not in [p.name for p in await APerson.nodes]
 
@@ -153,9 +150,9 @@ async def test_bookmark_transaction_as_a_context():
 
 
 @pytest.fixture
-async def spy_on_db_begin(monkeypatch):
+def spy_on_db_begin(monkeypatch):
     spy_calls = []
-    original_begin = await adb.begin()
+    original_begin = adb.begin
 
     def begin_spy(*args, **kwargs):
         spy_calls.append((args, kwargs))
@@ -165,14 +162,13 @@ async def spy_on_db_begin(monkeypatch):
     return spy_calls
 
 
-# TODO : Fix this test
 @mark_async_test
 async def test_bookmark_passed_in_to_context(spy_on_db_begin):
     transaction = adb.transaction
     async with transaction:
         pass
 
-    assert (await spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
+    assert (spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
     last_bookmark = transaction.last_bookmark
 
     transaction.bookmarks = last_bookmark

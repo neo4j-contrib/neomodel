@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import warnings
+from asyncio import iscoroutinefunction
 from itertools import combinations
 from threading import local
 from typing import Optional, Sequence, Tuple
@@ -48,6 +49,7 @@ RULE_ALREADY_EXISTS = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
 INDEX_ALREADY_EXISTS = "Neo.ClientError.Schema.IndexAlreadyExists"
 CONSTRAINT_ALREADY_EXISTS = "Neo.ClientError.Schema.ConstraintAlreadyExists"
 STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg"
+NOT_COROUTINE_ERROR = "The decorated function must be a coroutine"
 
 
 # make sure the connection url has been set prior to executing the wrapped function
@@ -951,6 +953,9 @@ class AsyncTransactionProxy:
             self.last_bookmark = await self.db.commit()
 
     def __call__(self, func):
+        if not iscoroutinefunction(func):
+            raise TypeError(NOT_COROUTINE_ERROR)
+
         async def wrapper(*args, **kwargs):
             async with self:
                 print("call called")
@@ -961,6 +966,23 @@ class AsyncTransactionProxy:
     @property
     def with_bookmark(self):
         return BookmarkingAsyncTransactionProxy(self.db, self.access_mode)
+
+
+class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
+    def __call__(self, func):
+        if not iscoroutinefunction(func):
+            raise TypeError(NOT_COROUTINE_ERROR)
+
+        async def wrapper(*args, **kwargs):
+            self.bookmarks = kwargs.pop("bookmarks", None)
+
+            async with self:
+                result = await func(*args, **kwargs)
+                self.last_bookmark = None
+
+            return result, self.last_bookmark
+
+        return wrapper
 
 
 class ImpersonationHandler:
@@ -983,20 +1005,6 @@ class ImpersonationHandler:
         def wrapper(*args, **kwargs):
             with self:
                 return func(*args, **kwargs)
-
-        return wrapper
-
-
-class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
-    def __call__(self, func):
-        def wrapper(*args, **kwargs):
-            self.bookmarks = kwargs.pop("bookmarks", None)
-
-            with self:
-                result = func(*args, **kwargs)
-                self.last_bookmark = None
-
-            return result, self.last_bookmark
 
         return wrapper
 

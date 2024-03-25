@@ -8,6 +8,7 @@ import sys
 import tokenize as std_tokenize
 from pathlib import Path
 
+import black
 import isort
 import isort.files
 import unasync
@@ -260,13 +261,33 @@ def apply_unasync(files):
     return [Path(path) for rule in rules for path in rule.out_files]
 
 
+def apply_black(paths):
+    """Prettify generated sync code.
+
+    Since keywords are removed, black might expect a different result,
+    especially line breaks.
+    """
+    for path in paths:
+        with open(path, "r") as file:
+            code = file.read()
+
+        formatted_code = black.format_str(code, mode=black.FileMode())
+
+        with open(path, "w") as file:
+            file.write(formatted_code)
+
+    return paths
+
+
 def apply_isort(paths):
     """Sort imports in generated sync code.
 
     Since classes in imports are renamed from AsyncXyz to Xyz, the alphabetical
     order of the import can change.
     """
-    isort_config = isort.Config(settings_path=str(ROOT_DIR), quiet=True)
+    isort_config = isort.Config(
+        settings_path=str(ROOT_DIR), quiet=True, profile="black"
+    )
 
     for path in paths:
         isort.file(str(path), config=isort_config)
@@ -312,6 +333,7 @@ def main():
         files = sys.argv[1:]
     paths = apply_unasync(files)
     paths = apply_isort(paths)
+    paths = apply_black(paths)
     changed_paths = apply_changes(paths)
 
     if changed_paths:

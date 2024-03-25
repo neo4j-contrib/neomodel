@@ -7,6 +7,7 @@ from numpy import ndarray
 from pandas import DataFrame, Series
 
 from neomodel import StringProperty, StructuredNode, db
+from neomodel._async_compat.util import Util
 
 
 class User2(StructuredNode):
@@ -74,6 +75,10 @@ def test_cypher_syntax_error():
 @mark_sync_test
 @pytest.mark.parametrize("hide_available_pkg", ["pandas"], indirect=True)
 def test_pandas_not_installed(hide_available_pkg):
+    # We run only the async version, because this fails on second run
+    # because import error is thrown only when pandas.py is imported
+    if not Util.is_async_code:
+        pytest.skip("This test is only")
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
@@ -120,6 +125,10 @@ def test_pandas_integration():
 @mark_sync_test
 @pytest.mark.parametrize("hide_available_pkg", ["numpy"], indirect=True)
 def test_numpy_not_installed(hide_available_pkg):
+    # We run only the async version, because this fails on second run
+    # because import error is thrown only when pandas.py is imported
+    if not Util.is_async_code:
+        pytest.skip("This test is only")
     with pytest.raises(ImportError):
         with pytest.warns(
             UserWarning,
