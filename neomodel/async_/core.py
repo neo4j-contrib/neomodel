@@ -6,7 +6,7 @@ import warnings
 from asyncio import iscoroutinefunction
 from itertools import combinations
 from threading import local
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -23,6 +23,7 @@ from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
 from neomodel import config
+from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.exceptions import (
     ConstraintValidationFailed,
@@ -953,7 +954,7 @@ class AsyncTransactionProxy:
             self.last_bookmark = await self.db.commit()
 
     def __call__(self, func):
-        if not iscoroutinefunction(func):
+        if AsyncUtil.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
         async def wrapper(*args, **kwargs):
@@ -970,7 +971,7 @@ class AsyncTransactionProxy:
 
 class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
     def __call__(self, func):
-        if not iscoroutinefunction(func):
+        if AsyncUtil.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
         async def wrapper(*args, **kwargs):
