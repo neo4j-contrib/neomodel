@@ -16,9 +16,9 @@ class AliasTestNode(AsyncStructuredNode):
 
 @mark_async_test
 async def test_property_setup_hook():
-    tim = await AliasTestNode(long_name="tim").save()
+    timmy = await AliasTestNode(long_name="timmy").save()
     assert AliasTestNode.setup_hook_called
-    assert tim.name == "tim"
+    assert timmy.name == "timmy"
 
 
 @mark_async_test

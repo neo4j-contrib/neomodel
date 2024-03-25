@@ -62,7 +62,7 @@ testpaths = "test"
 
 [tool.isort]
 profile = 'black'
-src_paths = ['neomodel']
+src_paths = ['neomodel','test']
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = 'missing-module-docstring,redefined-builtin,missing-class-docstring,missing-function-docstring,consider-using-f-string,line-too-long'

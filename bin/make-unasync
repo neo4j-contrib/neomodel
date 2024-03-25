@@ -8,6 +8,8 @@ import sys
 import tokenize as std_tokenize
 from pathlib import Path
 
+import isort
+import isort.files
 import unasync
 
 ROOT_DIR = Path(__file__).parents[1].absolute()
@@ -258,6 +260,20 @@ def apply_unasync(files):
     return [Path(path) for rule in rules for path in rule.out_files]
 
 
+def apply_isort(paths):
+    """Sort imports in generated sync code.
+
+    Since classes in imports are renamed from AsyncXyz to Xyz, the alphabetical
+    order of the import can change.
+    """
+    isort_config = isort.Config(settings_path=str(ROOT_DIR), quiet=True)
+
+    for path in paths:
+        isort.file(str(path), config=isort_config)
+
+    return paths
+
+
 def apply_changes(paths):
     def files_equal(path1, path2):
         with open(path1, "rb") as f1:
@@ -295,6 +311,7 @@ def main():
     if len(sys.argv) >= 1:
         files = sys.argv[1:]
     paths = apply_unasync(files)
+    paths = apply_isort(paths)
     changed_paths = apply_changes(paths)
 
     if changed_paths:

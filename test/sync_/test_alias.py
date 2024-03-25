@@ -16,9 +16,9 @@ class AliasTestNode(StructuredNode):
 
 @mark_sync_test
 def test_property_setup_hook():
-    tim = AliasTestNode(long_name="tim").save()
+    timmy = AliasTestNode(long_name="timmy").save()
     assert AliasTestNode.setup_hook_called
-    assert tim.name == "tim"
+    assert timmy.name == "timmy"
 
 
 @mark_sync_test
