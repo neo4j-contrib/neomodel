@@ -28,23 +28,32 @@ def pytest_addoption(parser):
 
 @pytest.hookimpl
 def pytest_collection_modifyitems(items):
-    connect_to_aura_items = []
-    normal_items = []
+    async_items = []
+    sync_items = []
+    async_connect_to_aura_items = []
+    sync_connect_to_aura_items = []
 
-    # Separate all tests into two groups: those with "connect_to_aura" in their name, and all others
     for item in items:
+        # Check the directory of the item
+        directory = item.fspath.dirname.split("/")[-1]
+
         if "connect_to_aura" in item.name:
-            connect_to_aura_items.append(item)
+            if directory == "async_":
+                async_connect_to_aura_items.append(item)
+            elif directory == "sync_":
+                sync_connect_to_aura_items.append(item)
         else:
-            normal_items.append(item)
+            if directory == "async_":
+                async_items.append(item)
+            elif directory == "sync_":
+                sync_items.append(item)
 
-    # Add all normal tests back to the front of the list
-    new_order = normal_items
-
-    # Add all connect_to_aura tests to the end of the list
-    new_order.extend(connect_to_aura_items)
-
-    # Replace the original items list with the new order
+    new_order = (
+        async_items
+        + async_connect_to_aura_items
+        + sync_items
+        + sync_connect_to_aura_items
+    )
     items[:] = new_order
 
 
