@@ -1,15 +1,12 @@
-import asyncio
 import os
 import warnings
 from test._async_compat import mark_sync_session_auto_fixture
-
-import pytest
 
 from neomodel import config, db
 
 
 @mark_sync_session_auto_fixture
-def setup_neo4j_session(request, event_loop):
+def setup_neo4j_session(request):
     """
     Provides initial connection to the database and sets up the rest of the test suite
 
@@ -46,15 +43,6 @@ def setup_neo4j_session(request, event_loop):
 
 
 @mark_sync_session_auto_fixture
-def cleanup(event_loop):
+def cleanup():
     yield
     db.close_connection()
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Overrides pytest default function scoped event loop"""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
