@@ -22,6 +22,7 @@ Querying the graph
 
 neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
+    from neomodel import db
     results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
 
@@ -104,7 +105,7 @@ and cardinality will be default (ZeroOrMore).
     Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
     guess wrong on edge cases.
 
-.. warning:: 
+.. note:: 
 
     The script relies on the method apoc.meta.cypher.types to parse property types. So APOC must be installed on your Neo4j server
     for this script to work.
@@ -246,7 +247,7 @@ the following syntax::
 
     Person.nodes.all().fetch_relations('city__country', Optional('country'))
 
-.. warning::
+.. note::
 
    This feature is still a work in progress for extending path traversal and fecthing.
    It currently stops at returning the resolved objects as they are returned in Cypher.
@@ -255,4 +256,61 @@ the following syntax::
    These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
 
    If you want to go further in the resolution process, you have to develop your own parser (for now).
+
+
+Async neomodel
+==============
+
+neomodel supports asynchronous operations using the async support of neo4j driver. The examples below take a few of the above examples,
+but rewritten for async::
+
+    from neomodel import adb
+    results, meta = await adb.cypher_query("RETURN 'Hello World' as message")
+
+OGM with async ::
+
+    # Note that properties do not change, but nodes and relationships now have an Async prefix
+    from neomodel import (AsyncStructuredNode, StringProperty, IntegerProperty,
+        UniqueIdProperty, AsyncRelationshipTo)
+
+    class Country(AsyncStructuredNode):
+        code = StringProperty(unique_index=True, required=True)
+
+    class City(AsyncStructuredNode):
+        name = StringProperty(required=True)
+        country = AsyncRelationshipTo(Country, 'FROM_COUNTRY')
+
+    # Operations that interact with the database are now async
+    # Return all nodes
+    # Note that the nodes object is awaitable as is
+    all_nodes = await Country.nodes
+
+    # Relationships
+    germany = await Country(code='DE').save()
+    await jim.country.connect(germany)
+
+Most _dunder_ methods for nodes and relationships had to be overriden to support async operations. The following methods are supported ::
+
+    # Examples below are taken from the various tests. Please check them for more examples.
+    # Length
+    dogs_bonanza = await Dog.nodes.get_len()
+    # Sync equivalent - __len__
+    dogs_bonanza = len(Dog.nodes)
+    # Note that len(Dog.nodes) is more efficient than Dog.nodes.__len__
+
+    # Existence
+    assert not await Customer.nodes.filter(email="jim7@aol.com").check_bool()
+    # Sync equivalent - __bool__
+    assert not Customer.nodes.filter(email="jim7@aol.com")
+    # Also works for check_nonzero => __nonzero__
+
+    # Contains
+    assert await Coffee.nodes.check_contains(aCoffeeNode)
+    # Sync equivalent - __contains__
+    assert aCoffeeNode in Coffee.nodes
+
+    # Get item
+    assert len(list((await Coffee.nodes)[1:])) == 2
+    # Sync equivalent - __getitem__
+    assert len(list(Coffee.nodes[1:])) == 2
 

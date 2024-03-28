@@ -9,6 +9,7 @@ An Object Graph Mapper (OGM) for the Neo4j_ graph database, built on the awesome
 - Enforce your schema through cardinality restrictions.
 - Full transaction support.
 - Thread safe.
+- Async support.
 - pre/post save/delete hooks.
 - Django integration via django_neomodel_
 
@@ -40,6 +41,26 @@ To install from github::
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
+.. note::
+
+    **Breaking changes in 5.3**
+
+    Introducing support for asynchronous programming to neomodel required to introduce some breaking changes:
+
+    - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` (:ref:`neomodel_install_labels`) command instead.
+
+    **Deprecations in 5.3**
+
+    - Some standalone methods are moved into the Database() class and will be removed in a future release :
+        - change_neo4j_password
+        - clear_neo4j_database
+        - drop_constraints
+        - drop_indexes
+        - remove_all_labels
+        - install_labels
+        - install_all_labels
+    - Additionally, to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
+
 
 Contents
 ========
@@ -59,6 +80,8 @@ Contents
    configuration
    extending
    module_documentation
+   module_documentation_sync
+   module_documentation_async
 
 Indices and tables
 ==================

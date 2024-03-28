@@ -1,8 +1,6 @@
 import neo4j
 
-from ._version import __version__
-
-AUTO_INSTALL_LABELS = False
+from neomodel._version import __version__
 
 # Use this to connect with automatically created driver
 # The following options are the default ones that will be used as driver config
@@ -24,3 +22,6 @@ USER_AGENT = f"neomodel/v{__version__}"
 # DRIVER = neo4j.GraphDatabase().driver(
 #     "bolt://localhost:7687", auth=("neo4j", "foobarbaz")
 # )
+DRIVER = None
+# Use this to connect to a specific database when using the self-managed driver
+DATABASE_NAME = None

@@ -34,7 +34,7 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 
 # Documentation
 
-(Needs an update, but) Available on
+Available on
 [readthedocs](http://neomodel.readthedocs.org).
 
 # Upcoming breaking changes notice - \>=5.3
@@ -47,7 +47,7 @@ support for Python 3.12.
 
 Another source of upcoming breaking changes is the addition async support to
 neomodel. No date is set yet, but the work has progressed a lot in the past weeks ;
-and it will be part of a major release (potentially 6.0 to avoid misunderstandings).
+and it will be part of a major release.
 You can see the progress in [this branch](https://github.com/neo4j-contrib/neomodel/tree/task/async).
 
 Finally, we are looking at refactoring some standalone methods into the
@@ -112,3 +112,42 @@ against all supported Python interpreters and neo4j versions: :
 
     # in the project's root folder:
     $ sh ./tests-with-docker-compose.sh
+
+## Developing with async
+
+### Transpiling async -> sync
+
+We use [this great library](https://github.com/python-trio/unasync) to automatically transpile async code into its sync version.
+
+In other words, when contributing to neomodel, only update the `async` code in `neomodel/async_`, then run : :
+
+    bin/make-unasync
+    isort .
+    black .
+
+Note that you can also use the pre-commit hooks for this.
+
+### Specific async/sync code
+This transpiling script mainly does two things :
+
+- It removes the await keywords, and the Async prefixes in class names
+- It does some specific replacements, like `adb`->`db`, `mark_async_test`->`mark_sync_test`
+
+It might be that your code should only be run for `async`, or `sync` ; or you want different stubs to be run for `async` vs `sync`.
+You can use the following utility function for this - taken from the official [Neo4j python driver code](https://github.com/neo4j/neo4j-python-driver) :
+
+    # neomodel/async_/core.py
+    from neomodel._async_compat.util import AsyncUtil
+
+    # AsyncUtil.is_async_code is always True
+    if AsyncUtil.is_async_code:
+        # Specific async code
+        # This one gets run when in async mode
+        assert await Coffee.nodes.check_contains(2)
+    else:
+        # Specific sync code
+        # This one gest run when in sync mode
+        assert 2 in Coffee.nodes
+
+You can check [test_match_api](test/async_/test_match_api.py) for some good examples, and how it's transpiled into sync.
+

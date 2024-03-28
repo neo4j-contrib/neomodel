@@ -8,10 +8,8 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     config,
-    db,
-    install_labels,
-    util,
 )
+from neomodel.sync_.core import db
 
 
 class ScriptsTestRel(StructuredRel):
@@ -108,9 +106,9 @@ def test_neomodel_inspect_database(script_flavour):
     assert "usage: neomodel_inspect_database" in result.stdout
     assert result.returncode == 0
 
-    util.clear_neo4j_database(db)
-    install_labels(ScriptsTestNode)
-    install_labels(ScriptsTestRel)
+    db.clear_neo4j_database()
+    db.install_labels(ScriptsTestNode)
+    db.install_labels(ScriptsTestRel)
 
     # Create a few nodes and a rel, with indexes and constraints
     node1 = ScriptsTestNode(personal_id="1", name="test").save()

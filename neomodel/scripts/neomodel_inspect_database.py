@@ -1,7 +1,7 @@
 """
 .. _neomodel_inspect_database:
 
-``_neomodel_inspect_database``
+``neomodel_inspect_database``
 ---------------------------
 
 ::
@@ -17,6 +17,8 @@
 
     If a file is specified, the tool will write the class definitions to that file.
     If no file is specified, the tool will print the class definitions to stdout.
+
+    Note : this script only has a synchronous mode.
     
     options:
         -h, --help            show this help message and exit
@@ -33,7 +35,7 @@ import string
 import textwrap
 from os import environ
 
-from neomodel import db
+from neomodel.sync_.core import db
 
 IMPORTS = []
 
