@@ -3,6 +3,8 @@ from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.hooks import hooks
 from neomodel.properties import Property
 
+ELEMENT_ID_MIGRATION_NOTICE = "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
+
 
 class RelationshipMeta(type):
     def __new__(mcs, name, bases, dct):
@@ -67,30 +69,24 @@ class AsyncStructuredRel(StructuredRelBase):
     def id(self):
         try:
             return int(self.element_id_property)
-        except (TypeError, ValueError):
-            raise ValueError(
-                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
-            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(ELEMENT_ID_MIGRATION_NOTICE) from exc
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
     def _start_node_id(self):
         try:
             return int(self._start_node_element_id_property)
-        except (TypeError, ValueError):
-            raise ValueError(
-                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
-            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(ELEMENT_ID_MIGRATION_NOTICE) from exc
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
     def _end_node_id(self):
         try:
             return int(self._end_node_element_id_property)
-        except (TypeError, ValueError):
-            raise ValueError(
-                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
-            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(ELEMENT_ID_MIGRATION_NOTICE) from exc
 
     @hooks
     async def save(self):

@@ -739,13 +739,6 @@ class BaseSet:
         for i in ast._execute():
             yield i
 
-    # TODO : Add tests for sync to check that len(Label.nodes) is still working
-    # Because async tests will now check for Coffee.nodes.get_len()
-    # Also add documenation for get_len, check_bool, etc...
-    # Documentation should explain that in sync, assert node1.extension is more efficient than
-    # assert node1.extension.check_bool() because it counts using native Cypher
-    # Same for len(Extension.nodes) vs Extension.nodes.__len__
-    # With note that async does not have a choice
     def __len__(self):
         ast = self.query_cls(self).build_ast()
         return ast._count()

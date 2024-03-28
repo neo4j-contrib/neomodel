@@ -1,5 +1,4 @@
 # pep8: noqa
-# TODO : Check imports sync + async
 from neomodel.async_.cardinality import (
     AsyncOne,
     AsyncOneOrMore,
@@ -9,6 +8,7 @@ from neomodel.async_.cardinality import (
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.match import AsyncNodeSet, AsyncTraversal
 from neomodel.async_.path import AsyncNeomodelPath
+from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.async_.relationship_manager import (
     AsyncRelationship,

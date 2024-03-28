@@ -84,7 +84,6 @@ def test_deflate_inflate():
     try:
         prop.inflate("six")
     except InflateError as e:
-        assert True
         assert "inflate property" in str(e)
     else:
         assert False, "DeflateError not raised."

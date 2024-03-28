@@ -61,9 +61,8 @@ async def test_required():
 
 def test_repr_and_str():
     u = User(email="robin@test.com", age=3)
-    print(repr(u))
-    print(str(u))
-    assert True
+    assert repr(u) == "<User: {'email': 'robin@test.com', 'age': 3}>"
+    assert str(u) == "{'email': 'robin@test.com', 'age': 3}"
 
 
 @mark_async_test

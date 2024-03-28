@@ -296,6 +296,7 @@ Most _dunder_ methods for nodes and relationships had to be overriden to support
     dogs_bonanza = await Dog.nodes.get_len()
     # Sync equivalent - __len__
     dogs_bonanza = len(Dog.nodes)
+    # Note that len(Dog.nodes) is more efficient than Dog.nodes.__len__
 
     # Existence
     assert not await Customer.nodes.filter(email="jim7@aol.com").check_bool()
