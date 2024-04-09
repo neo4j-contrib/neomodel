@@ -67,6 +67,15 @@ To install from github:
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
+# Performance comparison
+
+You can find some performance tests made using Locust [in this repo](https://github.com/mariusconjeaud/neomodel-locust).
+
+Two learnings from this :
+
+* The wrapping of the driver made by neomodel is very thin performance-wise : it does not add a lot of overhead ;
+* When used in a concurrent fashion, async neomodel is faster than concurrent sync neomodel, and a lot of faster than serial queries.
+
 # Contributing
 
 Ideas, bugs, tests and pull requests always welcome. Please use
