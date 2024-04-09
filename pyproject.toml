@@ -6,7 +6,6 @@ authors = [
 maintainers = [
     {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
     {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
-    {name = "Cristina Escalante"},
 ]
 description = "An object mapper for the neo4j graph database."
 readme = "README.md"
@@ -35,7 +34,9 @@ changelog = "https://github.com/neo4j-contrib/neomodel/releases"
 
 [project.optional-dependencies]
 dev = [
+    "unasync",
     "pytest>=7.1",
+    "pytest-asyncio",
     "pytest-cov>=4.0",
     "pre-commit",
     "black",
@@ -61,7 +62,7 @@ testpaths = "test"
 
 [tool.isort]
 profile = 'black'
-src_paths = ['neomodel']
+src_paths = ['neomodel','test']
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = 'missing-module-docstring,redefined-builtin,missing-class-docstring,missing-function-docstring,consider-using-f-string,line-too-long'

@@ -1,24 +1,6 @@
-=====================
-Modules documentation
-=====================
-
-Database
-========
-.. module:: neomodel.util
-.. autoclass:: neomodel.util.Database
-  :members:
-  :undoc-members:
-  
-Core
-====
-.. automodule:: neomodel.core
-  :members:
-
-.. _semistructurednode_doc:
-
-``SemiStructuredNode``
-----------------------
-.. autoclass:: neomodel.contrib.SemiStructuredNode
+============
+General API
+============
 
 Properties
 ==========
@@ -32,43 +14,6 @@ Spatial Properties & Datatypes
   :members:
   :show-inheritance:
 
-Relationships
-=============
-.. automodule:: neomodel.relationship
-  :members:
-  :show-inheritance:
-
-.. automodule:: neomodel.relationship_manager
-  :members:
-  :show-inheritance:
-
-.. automodule:: neomodel.cardinality
-  :members:
-  :show-inheritance:
-
-Paths
-=====
-
-.. automodule:: neomodel.path
-  :members:
-  :show-inheritance:
-
-
-
-
-Match
-=====
-.. module:: neomodel.match
-.. autoclass:: neomodel.match.BaseSet
-   :members:
-   :undoc-members:
-.. autoclass:: neomodel.match.NodeSet
-   :members:
-   :undoc-members:
-.. autoclass:: neomodel.match.Traversal
-   :members:
-   :undoc-members:
-
 
 Exceptions
 ==========
@@ -78,8 +23,14 @@ Exceptions
    :undoc-members:
    :show-inheritance:
 
+
 Scripts
 =======
+
+.. automodule:: neomodel.scripts.neomodel_inspect_database
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 .. automodule:: neomodel.scripts.neomodel_install_labels
    :members:
@@ -90,4 +41,3 @@ Scripts
    :members:
    :undoc-members:
    :show-inheritance:
-
