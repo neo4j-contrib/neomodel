@@ -98,7 +98,9 @@ def test_pandas_integration():
 
     # Test to_dataframe
     df = to_dataframe(
-        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email")
+        db.cypher_query(
+            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email ORDER BY name"
+        )
     )
 
     assert isinstance(df, DataFrame)
@@ -107,7 +109,9 @@ def test_pandas_integration():
 
     # Also test passing an index and dtype to to_dataframe
     df = to_dataframe(
-        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"),
+        db.cypher_query(
+            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email ORDER BY name"
+        ),
         index=df["email"],
         dtype=str,
     )
@@ -115,7 +119,9 @@ def test_pandas_integration():
     assert df.index.inferred_type == "string"
 
     # Next test to_series
-    series = to_series(db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name"))
+    series = to_series(
+        db.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name ORDER BY name")
+    )
 
     assert isinstance(series, Series)
     assert series.shape == (2,)
@@ -136,7 +142,9 @@ def test_numpy_not_installed(hide_available_pkg):
         ):
             from neomodel.integration.numpy import to_ndarray
 
-            _ = to_ndarray(db.cypher_query("MATCH (a) RETURN a.name AS name"))
+            _ = to_ndarray(
+                db.cypher_query("MATCH (a) RETURN a.name AS name ORDER BY name")
+            )
 
 
 @mark_sync_test

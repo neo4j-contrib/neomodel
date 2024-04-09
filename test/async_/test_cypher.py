@@ -101,7 +101,7 @@ async def test_pandas_integration():
     # Test to_dataframe
     df = to_dataframe(
         await adb.cypher_query(
-            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
+            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email ORDER BY name"
         )
     )
 
@@ -112,7 +112,7 @@ async def test_pandas_integration():
     # Also test passing an index and dtype to to_dataframe
     df = to_dataframe(
         await adb.cypher_query(
-            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email"
+            "MATCH (a:UserPandas) RETURN a.name AS name, a.email AS email ORDER BY name"
         ),
         index=df["email"],
         dtype=str,
@@ -122,7 +122,9 @@ async def test_pandas_integration():
 
     # Next test to_series
     series = to_series(
-        await adb.cypher_query("MATCH (a:UserPandas) RETURN a.name AS name")
+        await adb.cypher_query(
+            "MATCH (a:UserPandas) RETURN a.name AS name ORDER BY name"
+        )
     )
 
     assert isinstance(series, Series)
@@ -144,7 +146,9 @@ async def test_numpy_not_installed(hide_available_pkg):
         ):
             from neomodel.integration.numpy import to_ndarray
 
-            _ = to_ndarray(await adb.cypher_query("MATCH (a) RETURN a.name AS name"))
+            _ = to_ndarray(
+                await adb.cypher_query("MATCH (a) RETURN a.name AS name ORDER BY name")
+            )
 
 
 @mark_async_test
