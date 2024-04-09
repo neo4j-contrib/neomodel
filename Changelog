@@ -1,3 +1,7 @@
+Version 5.3.0 2024-04
+* Add async support
+* Bumps neo4j (driver) to 5.19.0
+
 Version 5.2.1 2023-12
 * Add options to inspection script to skip heavy operations - rel props or cardinality inspection #767
 * Fixes database version parsing issues
