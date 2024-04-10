@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import sys
 import warnings
 from itertools import combinations
+from typing import Any
 
 from neo4j.exceptions import ClientError
 
@@ -378,12 +381,22 @@ class StructuredNode(NodeBase):
 
         super().__init__(*args, **kwargs)
 
-    def __eq__(self, other):
+    def __eq__(self, other: StructuredNode | Any) -> bool:
+        """
+        Compare two node objects.
+
+        If both nodes were persisted, compare them by their element_id.
+        Otherwise, compare them using object id in memory.
+
+        If `other` is not a node, always return False.
+        """
         if not isinstance(other, (StructuredNode,)):
             return False
-        if hasattr(self, "element_id") and hasattr(other, "element_id"):
+
+        if self.was_persisted and other.was_persisted:
             return self.element_id == other.element_id
-        return False
+
+        return id(self) == id(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -426,6 +439,13 @@ class StructuredNode(NodeBase):
             raise ValueError(
                 "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
             )
+
+    @property
+    def was_persisted(self) -> bool:
+        """
+        Shows status of node in the database. False, if node hasn't been saved yet, True otherwise.
+        """
+        return self.element_id is not None
 
     # methods
 
