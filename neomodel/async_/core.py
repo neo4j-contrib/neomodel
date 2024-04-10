@@ -4,6 +4,7 @@ import sys
 import time
 import warnings
 from asyncio import iscoroutinefunction
+from functools import wraps
 from itertools import combinations
 from threading import local
 from typing import Optional, Sequence
@@ -957,6 +958,7 @@ class AsyncTransactionProxy:
         if AsyncUtil.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
+        @wraps(func)
         async def wrapper(*args, **kwargs):
             async with self:
                 print("call called")
