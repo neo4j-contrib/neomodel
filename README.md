@@ -37,21 +37,18 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 Available on
 [readthedocs](http://neomodel.readthedocs.org).
 
-# Upcoming breaking changes notice - \>=5.3
+# New in 5.3.0
 
-Based on Python version [status](https://devguide.python.org/versions/),
+neomodel now supports asynchronous programming, thanks to the [Neo4j driver async API](https://neo4j.com/docs/api/python-driver/current/async_api.html). The [documentation](http://neomodel.readthedocs.org) has been updated accordingly, with an updated getting started section, and some specific documentation for the async API.
+
+# Breaking changes in 5.3.0
+
+- config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` script instead. _Note : this is because of the addition of async, but also because it might lead to uncontrolled creation of indexes/constraints. The script makes you more in control of said creation._
+- Based on Python version [status](https://devguide.python.org/versions/),
 neomodel will be dropping support for Python 3.7 in an upcoming release
-(5.3 or later). This does not mean neomodel will stop working on Python 3.7, but
-it will no longer be tested against it. Instead, we will try to add
-support for Python 3.12.
-
-Another source of upcoming breaking changes is the addition async support to
-neomodel. No date is set yet, but the work has progressed a lot in the past weeks ;
-and it will be part of a major release.
-You can see the progress in [this branch](https://github.com/neo4j-contrib/neomodel/tree/task/async).
-
-Finally, we are looking at refactoring some standalone methods into the
-Database() class. More to come on that later.
+(5.3 or later). _This does not mean neomodel will stop working on Python 3.7, but
+it will no longer be tested against it_
+- Some standalone methods have been refactored into the Database() class. Check the [documentation](http://neomodel.readthedocs.org) for a full list.
 
 # Installation
 
