@@ -41,7 +41,7 @@ Available on
 
 neomodel now supports asynchronous programming, thanks to the [Neo4j driver async API](https://neo4j.com/docs/api/python-driver/current/async_api.html). The [documentation](http://neomodel.readthedocs.org) has been updated accordingly, with an updated getting started section, and some specific documentation for the async API.
 
-# Breaking changes in 5.3.0
+# Breaking change in 5.3.0
 
 - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` script instead. _Note : this is because of the addition of async, but also because it might lead to uncontrolled creation of indexes/constraints. The script makes you more in control of said creation._
 - Based on Python version [status](https://devguide.python.org/versions/),
