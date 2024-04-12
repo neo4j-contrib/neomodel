@@ -5,6 +5,7 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
+    ArrayProperty,
     AsyncRelationshipFrom,
     AsyncRelationshipTo,
     AsyncStructuredNode,
@@ -37,6 +38,7 @@ class Supplier(AsyncStructuredNode):
 
 class Species(AsyncStructuredNode):
     name = StringProperty()
+    tags = ArrayProperty(StringProperty(), default=list)
     coffees = AsyncRelationshipFrom(
         "Coffee", "COFFEE SPECIES", model=AsyncStructuredRel
     )
@@ -567,3 +569,23 @@ async def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_async_test
+async def test_in_filter_with_array_property():
+    tags = ["smoother", "sweeter", "chocolate", "sugar"]
+    no_match = ["organic"]
+    arabica = await Species(name="Arabica", tags=tags).save()
+
+    assert arabica in await Species.nodes.filter(
+        tags__in=tags
+    ), "Species not found by tags given"
+    assert arabica in await Species.nodes.filter(
+        Q(tags__in=tags)
+    ), "Species not found with Q by tags given"
+    assert arabica not in await Species.nodes.filter(
+        ~Q(tags__in=tags)
+    ), "Species found by tags given in negated query"
+    assert arabica not in await Species.nodes.filter(
+        tags__in=no_match
+    ), "Species found by tags with not match tags given"

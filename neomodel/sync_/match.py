@@ -6,7 +6,7 @@ from typing import Optional
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
-from neomodel.properties import AliasProperty
+from neomodel.properties import AliasProperty, ArrayProperty
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.util import INCOMING, OUTGOING
 
@@ -257,13 +257,11 @@ def process_filter_args(cls, kwargs):
 def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
     """
     Transform in operator to a cypher filter
-
     Args:
         operator (str): operator to transform
         filter_key (str): filter key
         filter_value (str): filter value
         property_obj (object): property object
-
     Returns:
         tuple: operator, deflated_value
     """
@@ -283,11 +281,9 @@ def transform_in_operator_to_filter(operator, filter_key, filter_value, property
 def transform_null_operator_to_filter(filter_key, filter_value):
     """
     Transform null operator to a cypher filter
-
     Args:
         filter_key (str): filter key
         filter_value (str): filter value
-
     Returns:
         tuple: operator, deflated_value
     """
@@ -303,13 +299,11 @@ def transform_regex_operator_to_filter(
 ):
     """
     Transform regex operator to a cypher filter
-
     Args:
         operator (str): operator to transform
         filter_key (str): filter key
         filter_value (str): filter value
         property_obj (object): property object
-
     Returns:
         tuple: operator, deflated_value
     """
@@ -680,15 +674,7 @@ class QueryBuilder:
                         )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
-                            statement = operator.format(
-                                ident=ident,
-                                prop=prop,
-                                val=f"${place_holder}",
-                            )
-                            statement = f"{'NOT' if negate else ''} {statement}"
-                        else:
-                            statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
+                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 

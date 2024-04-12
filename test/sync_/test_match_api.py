@@ -33,8 +33,8 @@ class Supplier(StructuredNode):
 
 class Species(StructuredNode):
     name = StringProperty()
-    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
     tags = ArrayProperty(StringProperty(), default=list)
+    coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
 
 
 class Coffee(StructuredNode):
@@ -558,3 +558,23 @@ def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_sync_test
+def test_in_filter_with_array_property():
+    tags = ["smoother", "sweeter", "chocolate", "sugar"]
+    no_match = ["organic"]
+    arabica = Species(name="Arabica", tags=tags).save()
+
+    assert arabica in Species.nodes.filter(
+        tags__in=tags
+    ), "Species not found by tags given"
+    assert arabica in Species.nodes.filter(
+        Q(tags__in=tags)
+    ), "Species not found with Q by tags given"
+    assert arabica not in Species.nodes.filter(
+        ~Q(tags__in=tags)
+    ), "Species found by tags given in negated query"
+    assert arabica not in Species.nodes.filter(
+        tags__in=no_match
+    ), "Species found by tags with not match tags given"
