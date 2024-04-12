@@ -1,7 +1,8 @@
 Version 5.3.0 2024-04
 * Add async support
-* Bumps neo4j (driver) to 5.19.0
 * Breaking change : config.AUTO_INSTALL_LABELS has been removed. Please use the neomodel_install_labels script instead
+* Bumps neo4j (driver) to 5.19.0
+* Various improvement : functools wrap to TransactionProxy, fix node equality check, q filter for IN in arrays. Thanks to @giosava94, @OlehChyhyryn, @icapora
 
 Version 5.2.1 2023-12
 * Add options to inspection script to skip heavy operations - rel props or cardinality inspection #767
