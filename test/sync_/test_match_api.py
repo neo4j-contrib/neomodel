@@ -5,6 +5,7 @@ from pytest import raises
 
 from neomodel import (
     INCOMING,
+    ArrayProperty,
     DateTimeProperty,
     IntegerProperty,
     Q,
@@ -33,6 +34,7 @@ class Supplier(StructuredNode):
 class Species(StructuredNode):
     name = StringProperty()
     coffees = RelationshipFrom("Coffee", "COFFEE SPECIES", model=StructuredRel)
+    tags = ArrayProperty(StringProperty(), default=list)
 
 
 class Coffee(StructuredNode):
