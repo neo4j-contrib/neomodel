@@ -104,6 +104,13 @@ class Property:
             return self.default
         raise ValueError("No default value specified")
 
+    def get_db_property_name(self, attribute_name):
+        """
+        Returns the name that should be used for the property in the database. This is db_property if supplied upon
+        construction, otherwise the given attribute_name from the model is used.
+        """
+        return self.db_property or attribute_name
+
     @property
     def is_indexed(self):
         return self.unique_index or self.index
