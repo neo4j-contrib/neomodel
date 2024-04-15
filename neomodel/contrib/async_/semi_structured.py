@@ -1,6 +1,6 @@
 from neomodel.async_.core import AsyncStructuredNode
 from neomodel.exceptions import DeflateConflict, InflateConflict
-from neomodel.util import _get_node_properties
+from neomodel.util import get_graph_entity_properties
 
 
 class AsyncSemiStructuredNode(AsyncStructuredNode):
@@ -25,40 +25,44 @@ class AsyncSemiStructuredNode(AsyncStructuredNode):
 
     @classmethod
     def inflate(cls, node):
-        # support lazy loading
-        if isinstance(node, str) or isinstance(node, int):
-            snode = cls()
-            snode.element_id_property = node
-        else:
-            props = {}
-            node_properties = {}
-            for key, prop in cls.__all_properties__:
-                node_properties = _get_node_properties(node)
-                if key in node_properties:
-                    props[key] = prop.inflate(node_properties[key], node)
-                elif prop.has_default:
-                    props[key] = prop.default_value()
-                else:
-                    props[key] = None
-            # handle properties not defined on the class
-            for free_key in (x for x in node_properties if x not in props):
-                if hasattr(cls, free_key):
-                    raise InflateConflict(
-                        cls, free_key, node_properties[free_key], node.element_id
-                    )
-                props[free_key] = node_properties[free_key]
+        # Inflate all properties registered in the class definition
+        snode = super().inflate(node)
 
-            snode = cls(**props)
-            snode.element_id_property = node.element_id
+        # Node can be a string or int for lazy loading (See StructuredNode.inflate). In that case, `node` has nothing
+        # that can be unpacked further.
+        if not hasattr(node, "items"):
+            return snode
+
+        # Inflate all extra properties not registered in the class definition
+        registered_db_property_names = {
+            property.get_db_property_name(name)
+            for name, property in cls.defined_properties(
+                aliases=False, rels=False
+            ).items()
+        }
+        extra_keys = node.keys() - registered_db_property_names
+        for extra_key in extra_keys:
+            value = node[extra_key]
+            if hasattr(cls, extra_key):
+                raise InflateConflict(cls, extra_key, value, snode.element_id)
+            setattr(snode, extra_key, value)
 
         return snode
 
     @classmethod
     def deflate(cls, node_props, obj=None, skip_empty=False):
+        # Deflate all properties registered in the class definition
         deflated = super().deflate(node_props, obj, skip_empty=skip_empty)
-        for key in [k for k in node_props if k not in deflated]:
-            if hasattr(cls, key) and (getattr(cls, key).required or not skip_empty):
-                raise DeflateConflict(cls, key, deflated[key], obj.element_id)
 
-        node_props.update(deflated)
-        return node_props
+        # Deflate all extra properties not registered in the class definition
+        registered_names = cls.defined_properties(aliases=False, rels=False).keys()
+        extra_keys = node_props.keys() - registered_names
+        for extra_key in extra_keys:
+            value = node_props[extra_key]
+            if hasattr(cls, extra_key):
+                raise DeflateConflict(
+                    cls, extra_key, value, node_props.get("element_id")
+                )
+            deflated[extra_key] = node_props[extra_key]
+
+        return deflated

@@ -11,8 +11,8 @@ from neomodel.util import (
     EITHER,
     INCOMING,
     OUTGOING,
-    _get_node_properties,
     enumerate_traceback,
+    get_graph_entity_properties,
 )
 
 # basestring python 3.x fallback

@@ -73,10 +73,18 @@ class AsyncPropertyManager:
 
     @classmethod
     def deflate(cls, properties, obj=None, skip_empty=False):
-        # deflate dict ready to be stored
+        """
+        Deflate the properties of a PropertyManager subclass (a user-defined StructuredNode or StructuredRel) so that it
+        can be put into a neo4j.graph.Entity (a neo4j.graph.Node or neo4j.graph.Relationship) for storage. properties
+        can be constructed manually, or fetched from a PropertyManager subclass using __properties__.
+
+        Includes mapping from python class attribute name -> database property name (see Property.db_property).
+
+        Ignores any properties that are not defined as python attributes in the class definition.
+        """
         deflated = {}
         for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            db_property = property.db_property or name
+            db_property = property.get_db_property_name(name)
             if properties.get(name) is not None:
                 deflated[db_property] = property.deflate(properties[name], obj)
             elif property.has_default:
@@ -86,6 +94,27 @@ class AsyncPropertyManager:
             elif not skip_empty:
                 deflated[db_property] = None
         return deflated
+
+    @classmethod
+    def inflate(cls, graph_entity):
+        """
+        Inflate the properties of a neo4j.graph.Entity (a neo4j.graph.Node or neo4j.graph.Relationship) into an instance
+        of cls.
+        Includes mapping from database property name (see Property.db_property) -> python class attribute name.
+        Ignores any properties that are not defined as python attributes in the class definition.
+        """
+        inflated = {}
+        for name, property in cls.defined_properties(aliases=False, rels=False).items():
+            db_property = property.get_db_property_name(name)
+            if db_property in graph_entity:
+                inflated[name] = property.inflate(
+                    graph_entity[db_property], graph_entity
+                )
+            elif property.has_default:
+                inflated[name] = property.default_value()
+            else:
+                inflated[name] = None
+        return cls(**inflated)
 
     @classmethod
     def defined_properties(cls, aliases=True, properties=True, rels=True):

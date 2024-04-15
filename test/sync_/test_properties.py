@@ -4,7 +4,8 @@ from test._async_compat import mark_sync_test
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import StructuredNode, db
+from neomodel import Relationship, StructuredNode, StructuredRel, db
+from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,
     InflateError,
@@ -227,10 +228,20 @@ def test_default_value_callable_type():
     assert x.uid == "123"
 
 
+class TestDBNamePropertyRel(StructuredRel):
+    known_for = StringProperty(db_property="knownFor")
+
+
+# This must be defined outside of the test, otherwise the `Relationship` definition cannot look up
+# `TestDBNamePropertyNode`
+class TestDBNamePropertyNode(StructuredNode):
+    name_ = StringProperty(db_property="name")
+    knows = Relationship("TestDBNamePropertyNode", "KNOWS", model=TestDBNamePropertyRel)
+
+
 @mark_sync_test
 def test_independent_property_name():
     # -- test node --
-
     x = TestDBNamePropertyNode()
     x.name_ = "jim"
     x.save()
@@ -264,11 +275,47 @@ def test_independent_property_name():
     # check python class property name at a high level
     assert not hasattr(r, "knownFor")
     assert hasattr(r, "known_for")
-    assert x.knows.relationship(x).known_for == r.known_for
+    rel = x.knows.relationship(x)
+    assert rel.known_for == r.known_for
 
     # -- cleanup --
 
     x.delete()
+
+
+@mark_sync_test
+def test_independent_property_name_for_semi_structured():
+    class TestDBNamePropertySemiStructuredNode(SemiStructuredNode):
+        title_ = StringProperty(db_property="title")
+
+    semi = TestDBNamePropertySemiStructuredNode(title_="sir", extra="data")
+    semi.save()
+
+    # check database property name on low level
+    results, meta = db.cypher_query(
+        "MATCH (n:TestDBNamePropertySemiStructuredNode) RETURN n"
+    )
+    node_properties = get_graph_entity_properties(results[0][0])
+    assert node_properties["title"] == "sir"
+    # assert "title_" not in node_properties
+    assert node_properties["extra"] == "data"
+
+    # check python class property name at a high level
+    assert hasattr(semi, "title_")
+    assert not hasattr(semi, "title")
+    assert hasattr(semi, "extra")
+    from_filter = (
+        TestDBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all()
+    )[0]
+    assert from_filter.title_ == "sir"
+    # assert not hasattr(from_filter, "title")
+    assert from_filter.extra == "data"
+    from_get = TestDBNamePropertySemiStructuredNode.nodes.get(title_="sir")
+    assert from_get.title_ == "sir"
+    # assert not hasattr(from_get, "title")
+    assert from_get.extra == "data"
+
+    semi.delete()
 
 
 @mark_sync_test
@@ -284,7 +331,7 @@ def test_independent_property_name_get_or_create():
 
     # check database property name on low level
     results, _ = db.cypher_query("MATCH (n:TestNode) RETURN n")
-    node_properties = _get_node_properties(results[0][0])
+    node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
 

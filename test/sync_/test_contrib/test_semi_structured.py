@@ -1,6 +1,14 @@
 from test._async_compat import mark_sync_test
 
-from neomodel import IntegerProperty, StringProperty
+import pytest
+
+from neomodel import (
+    DeflateConflict,
+    InflateConflict,
+    IntegerProperty,
+    StringProperty,
+    db,
+)
 from neomodel.contrib import SemiStructuredNode
 
 
@@ -35,6 +43,7 @@ def test_save_empty_model():
     assert dummy.save()
 
 
+@mark_sync_test
 def test_inflate_conflict():
     class PersonForInflateTest(SemiStructuredNode):
         name = StringProperty()
@@ -58,6 +67,7 @@ def test_inflate_conflict():
         PersonForInflateTest.nodes.get(name="Tim")
 
 
+@mark_sync_test
 def test_deflate_conflict():
     class PersonForDeflateTest(SemiStructuredNode):
         name = StringProperty()

@@ -153,15 +153,7 @@ class AsyncStructuredRel(StructuredRelBase):
         :param rel:
         :return: StructuredRel
         """
-        props = {}
-        for key, prop in cls.defined_properties(aliases=False, rels=False).items():
-            if key in rel:
-                props[key] = prop.inflate(rel[key], obj=rel)
-            elif prop.has_default:
-                props[key] = prop.default_value()
-            else:
-                props[key] = None
-        srel = cls(**props)
+        srel = super().inflate(rel)
         srel._start_node_element_id_property = rel.start_node.element_id
         srel._end_node_element_id_property = rel.end_node.element_id
         srel.element_id_property = rel.element_id
