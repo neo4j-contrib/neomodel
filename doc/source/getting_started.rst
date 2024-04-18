@@ -8,7 +8,7 @@ Connecting
 Before executing any neomodel code, set the connection url::
 
     from neomodel import config
-    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
+    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'  # default
 
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
@@ -33,7 +33,7 @@ Below is a definition of three related nodes `Person`, `City` and `Country`: ::
     from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
         UniqueIdProperty, RelationshipTo)
 
-    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)
@@ -76,7 +76,7 @@ Database Inspection - Requires APOC
 ===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
 
-    $ neomodel_inspect_database -db bolt://neo4j:neo4j@localhost:7687 --write-to yourapp/models.py
+    $ neomodel_inspect_database -db bolt://neo4j_username:neo4j_password@localhost:7687 --write-to yourapp/models.py
 
 This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
 and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
@@ -114,7 +114,7 @@ Applying constraints and indexes
 After creating a model in Python, any constraints or indexes must be applied to Neo4j and ``neomodel`` provides a
 script (:ref:`neomodel_install_labels`) to automate this: ::
 
-    $ neomodel_install_labels yourapp.py someapp.models --db bolt://neo4j:neo4j@localhost:7687
+    $ neomodel_install_labels yourapp.py someapp.models --db bolt://neo4j_username:neo4j_password@localhost:7687
 
 It is important to execute this after altering the schema and observe the number of classes it reports.
 
@@ -126,7 +126,7 @@ Remove existing constraints and indexes
 Similarly, ``neomodel`` provides a script (:ref:`neomodel_remove_labels`) to automate the removal of all existing constraints and indexes from
 the database, when this is required: ::
 
-    $ neomodel_remove_labels --db bolt://neo4j:neo4j@localhost:7687
+    $ neomodel_remove_labels --db bolt://neo4j_username:neo4j_password@localhost:7687
 
 After executing, it will print all indexes and constraints it has removed.
 
