@@ -2,7 +2,6 @@ import functools
 import json
 import re
 import sys
-import types
 import uuid
 from datetime import date, datetime
 
@@ -10,115 +9,10 @@ import neo4j.time
 import pytz
 
 from neomodel import config
-from neomodel.exceptions import DeflateError, InflateError, RequiredProperty
+from neomodel.exceptions import DeflateError, InflateError
 
 if sys.version_info >= (3, 0):
     Unicode = str
-
-
-def display_for(key):
-    def display_choice(self):
-        return getattr(self.__class__, key).choices[getattr(self, key)]
-
-    return display_choice
-
-
-class PropertyManager:
-    """
-    Common methods for handling properties on node and relationship objects.
-    """
-
-    def __init__(self, **kwargs):
-        properties = getattr(self, "__all_properties__", None)
-        if properties is None:
-            properties = self.defined_properties(rels=False, aliases=False).items()
-        for name, property in properties:
-            if kwargs.get(name) is None:
-                if getattr(property, "has_default", False):
-                    setattr(self, name, property.default_value())
-                else:
-                    setattr(self, name, None)
-            else:
-                setattr(self, name, kwargs[name])
-
-            if getattr(property, "choices", None):
-                setattr(
-                    self,
-                    f"get_{name}_display",
-                    types.MethodType(display_for(name), self),
-                )
-
-            if name in kwargs:
-                del kwargs[name]
-
-        aliases = getattr(self, "__all_aliases__", None)
-        if aliases is None:
-            aliases = self.defined_properties(
-                aliases=True, rels=False, properties=False
-            ).items()
-        for name, property in aliases:
-            if name in kwargs:
-                setattr(self, name, kwargs[name])
-                del kwargs[name]
-
-        # undefined properties (for magic @prop.setters etc)
-        for name, property in kwargs.items():
-            setattr(self, name, property)
-
-    @property
-    def __properties__(self):
-        from .relationship_manager import RelationshipManager
-
-        return dict(
-            (name, value)
-            for name, value in vars(self).items()
-            if not name.startswith("_")
-            and not callable(value)
-            and not isinstance(
-                value,
-                (
-                    RelationshipManager,
-                    AliasProperty,
-                ),
-            )
-        )
-
-    @classmethod
-    def deflate(cls, properties, obj=None, skip_empty=False):
-        # deflate dict ready to be stored
-        deflated = {}
-        for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            db_property = property.db_property or name
-            if properties.get(name) is not None:
-                deflated[db_property] = property.deflate(properties[name], obj)
-            elif property.has_default:
-                deflated[db_property] = property.deflate(property.default_value(), obj)
-            elif property.required:
-                raise RequiredProperty(name, cls)
-            elif not skip_empty:
-                deflated[db_property] = None
-        return deflated
-
-    @classmethod
-    def defined_properties(cls, aliases=True, properties=True, rels=True):
-        from .relationship_manager import RelationshipDefinition
-
-        props = {}
-        for baseclass in reversed(cls.__mro__):
-            props.update(
-                dict(
-                    (name, property)
-                    for name, property in vars(baseclass).items()
-                    if (aliases and isinstance(property, AliasProperty))
-                    or (
-                        properties
-                        and isinstance(property, Property)
-                        and not isinstance(property, AliasProperty)
-                    )
-                    or (rels and isinstance(property, RelationshipDefinition))
-                )
-            )
-        return props
 
 
 def validator(fn):
@@ -209,6 +103,13 @@ class Property:
                 return self.default()
             return self.default
         raise ValueError("No default value specified")
+
+    def get_db_property_name(self, attribute_name):
+        """
+        Returns the name that should be used for the property in the database. This is db_property if supplied upon
+        construction, otherwise the given attribute_name from the model is used.
+        """
+        return self.db_property or attribute_name
 
     @property
     def is_indexed(self):
@@ -467,7 +368,7 @@ class DateProperty(Property):
 
 class DateTimeFormatProperty(Property):
     """
-    Store a datetime by custome format
+    Store a datetime by custom format
     :param default_now: If ``True``, the creation time (Local) will be used as default.
                         Defaults to ``False``.
     :param format:      Date format string, default is %Y-%m-%d

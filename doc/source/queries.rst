@@ -240,3 +240,19 @@ relationships to their relationship models *if such a model exists*. In other wo
 relationships with data (such as ``PersonLivesInCity`` above) will be instantiated to their
 respective objects or ``StrucuredRel`` otherwise. Relationships do not "reload" their 
 end-points (unless this is required).
+
+Async neomodel - Caveats
+========================
+
+Python does not support async dunder methods. This means that we had to implement some overrides for those.
+See the example below::
+
+    # This will not work as it uses the synchronous __bool__ method
+    assert await Customer.nodes.filter(prop="value")
+
+    # Do this instead
+    assert await Customer.nodes.filter(prop="value").check_bool()
+    assert await Customer.nodes.filter(prop="value").check_nonzero()
+
+    # Note : no changes are needed for sync so this still works :
+    assert Customer.nodes.filter(prop="value")
