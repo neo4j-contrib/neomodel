@@ -48,6 +48,7 @@ To install from github::
     Introducing support for asynchronous programming to neomodel required to introduce some breaking changes:
 
     - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` (:ref:`neomodel_install_labels`) command instead.
+    - The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
 
     **Deprecations in 5.3**
 
