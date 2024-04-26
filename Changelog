@@ -1,6 +1,7 @@
 Version 5.3.0 2024-04
 * Add async support
 * Breaking change : config.AUTO_INSTALL_LABELS has been removed. Please use the neomodel_install_labels script instead
+* Note that the Database class has been moved into neomodel.sync_.core
 * Bumps neo4j (driver) to 5.19.0
 * Various improvement : functools wrap to TransactionProxy, fix node equality check, q filter for IN in arrays, fix inflate on db_property. Thanks to @giosava94, @OlehChyhyryn, @icapora, @j-krose
 
