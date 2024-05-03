@@ -32,7 +32,7 @@ Adjust driver configuration - these options are only available for this connecti
     config.MAX_TRANSACTION_RETRY_TIME = 30.0  # default
     config.RESOLVER = None  # default
     config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES  # default
-    config.USER_AGENT = neomodel/v5.3.01  # default
+    config.USER_AGENT = neomodel/v5.3.1  # default
 
 Setting the database name, if different from the default one::
 
