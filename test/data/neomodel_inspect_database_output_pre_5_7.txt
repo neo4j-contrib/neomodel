@@ -5,6 +5,7 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", cardinality=ZeroOrOne, model="RelRel")
+    other_rel = RelationshipTo("ScriptsTestNode", "OTHER_REL", cardinality=ZeroOrOne)
 
 
 class RelRel(StructuredRel):
