@@ -126,13 +126,13 @@ class RelationshipInspector:
                 MATCH (n:`{start_label}`)-[r]->(m)
                 WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label, keys(r) AS properties, head(collect(r)) AS sampleRel
                 ORDER BY size(properties) DESC
-                RETURN rel_type, target_label, apoc.meta.cypher.types(properties(sampleRel)) AS properties LIMIT 1
+                RETURN DISTINCT rel_type, target_label, collect(DISTINCT apoc.meta.cypher.types(properties(sampleRel)))[0] AS properties
             """
         else:
             query = f"""
                 MATCH (n:`{start_label}`)-[r]->(m)
                 WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label
-                RETURN rel_type, target_label, {{}} AS properties LIMIT 1
+                RETURN rel_type, target_label, {{}} AS properties
             """
         result, _ = db.cypher_query(query)
         return [(record[0], record[1], record[2]) for record in result]

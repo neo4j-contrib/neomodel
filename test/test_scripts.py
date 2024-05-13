@@ -21,6 +21,7 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
+    other_rel = RelationshipTo("ScriptsTestNode", "OTHER_REL")
 
 
 def test_neomodel_install_labels():
@@ -113,7 +114,9 @@ def test_neomodel_inspect_database(script_flavour):
     # Create a few nodes and a rel, with indexes and constraints
     node1 = ScriptsTestNode(personal_id="1", name="test").save()
     node2 = ScriptsTestNode(personal_id="2", name="test").save()
+    node3 = ScriptsTestNode(personal_id="3", name="test").save()
     node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
+    node1.other_rel.connect(node3)
 
     # Create a node with all the parsable property types
     # Also create a node with no properties

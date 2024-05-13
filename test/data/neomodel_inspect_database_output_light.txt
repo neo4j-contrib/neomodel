@@ -5,6 +5,7 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL")
+    other_rel = RelationshipTo("ScriptsTestNode", "OTHER_REL")
 
 
 class EveryPropertyTypeNode(StructuredNode):
