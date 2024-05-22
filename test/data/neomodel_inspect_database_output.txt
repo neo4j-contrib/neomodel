@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, RelationshipTo, StructuredRel, ZeroOrOne, ArrayProperty, FloatProperty, BooleanProperty, DateTimeProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, RelationshipTo, StructuredRel, ZeroOrOne, ArrayProperty, FloatProperty, BooleanProperty, DateProperty, DateTimeProperty, IntegerProperty
 from neomodel.contrib.spatial_properties import PointProperty
 
 class ScriptsTestNode(StructuredNode):
