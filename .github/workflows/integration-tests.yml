@@ -42,4 +42,7 @@ jobs:
       run: |
         pytest --cov=neomodel --cov-report=html:coverage_report
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v3with:
+        token: ${{ secrets.CODECOV_TOKEN }}  # Ensure the token is used here
+        files: ./coverage.xml  # Specify paths to coverage files
+        fail_ci_if_error: true  # Optional: specify if CI should fail when codecov fails
