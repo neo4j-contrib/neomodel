@@ -19,6 +19,7 @@ class EveryPropertyTypeNode(StructuredNode):
     boolean_property = BooleanProperty()
     point_property = PointProperty(crs='wgs-84')
     string_property = StringProperty()
+    date_property = DateProperty()
     datetime_property = DateTimeProperty()
     integer_property = IntegerProperty()
 

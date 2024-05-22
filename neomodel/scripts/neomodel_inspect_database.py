@@ -55,6 +55,9 @@ def parse_prop_class(prop_type):
         elif prop_type == "BOOLEAN":
             _import = "BooleanProperty"
             prop_class = f"{_import}("
+        elif prop_type == "DATE":
+            _import = "DateProperty"
+            prop_class = f"{_import}("
         elif prop_type == "DATE_TIME":
             _import = "DateTimeProperty"
             prop_class = f"{_import}("
