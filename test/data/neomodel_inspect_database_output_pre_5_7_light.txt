@@ -1,4 +1,4 @@
-from neomodel import StructuredNode, StringProperty, RelationshipTo, ArrayProperty, FloatProperty, BooleanProperty, DateTimeProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, RelationshipTo, ArrayProperty, FloatProperty, BooleanProperty, DateProperty, DateTimeProperty, IntegerProperty
 from neomodel.contrib.spatial_properties import PointProperty
 
 class ScriptsTestNode(StructuredNode):
@@ -14,6 +14,7 @@ class EveryPropertyTypeNode(StructuredNode):
     boolean_property = BooleanProperty()
     point_property = PointProperty(crs='wgs-84')
     string_property = StringProperty()
+    date_property = DateProperty()
     datetime_property = DateTimeProperty()
     integer_property = IntegerProperty()
 

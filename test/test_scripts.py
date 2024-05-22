@@ -125,6 +125,7 @@ def test_neomodel_inspect_database(script_flavour):
         CREATE (:EveryPropertyTypeNode {
             string_property: "Hello World",
             boolean_property: true,
+            date_property: date("2020-01-01"),
             datetime_property: datetime("2020-01-01T00:00:00.000Z"),
             integer_property: 1,
             float_property: 1.0,
