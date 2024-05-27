@@ -63,7 +63,7 @@ async def test_filter_exclude_via_labels():
     node_set = AsyncNodeSet(Coffee)
     qb = await AsyncQueryBuilder(node_set).build_ast()
 
-    results = await qb._execute()
+    results = [node async for node in qb._execute()]
 
     assert "(coffee:Coffee)" in qb._ast.match
     assert qb._ast.result_class
@@ -76,7 +76,7 @@ async def test_filter_exclude_via_labels():
     node_set = node_set.filter(price__gt=2).exclude(price__gt=6, name="Java")
     qb = await AsyncQueryBuilder(node_set).build_ast()
 
-    results = await qb._execute()
+    results = [node async for node in qb._execute()]
     assert "(coffee:Coffee)" in qb._ast.match
     assert "NOT" in qb._ast.where[0]
     assert len(results) == 1
@@ -91,7 +91,7 @@ async def test_simple_has_via_label():
 
     ns = AsyncNodeSet(Coffee).has(suppliers=True)
     qb = await AsyncQueryBuilder(ns).build_ast()
-    results = await qb._execute()
+    results = [node async for node in qb._execute()]
     assert "COFFEE SUPPLIERS" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Nescafe"
@@ -99,7 +99,7 @@ async def test_simple_has_via_label():
     await Coffee(name="nespresso", price=99).save()
     ns = AsyncNodeSet(Coffee).has(suppliers=False)
     qb = await AsyncQueryBuilder(ns).build_ast()
-    results = await qb._execute()
+    results = [node async for node in qb._execute()]
     assert len(results) > 0
     assert "NOT" in qb._ast.where[0]
 
@@ -129,7 +129,7 @@ async def test_simple_traverse_with_filter():
     )
 
     _ast = await qb.build_ast()
-    results = await _ast._execute()
+    results = [node async for node in qb._execute()]
 
     assert qb._ast.lookup
     assert qb._ast.match
@@ -148,7 +148,7 @@ async def test_double_traverse():
     ns = AsyncNodeSet(AsyncNodeSet(source=nescafe).suppliers.match()).coffees.match()
     qb = await AsyncQueryBuilder(ns).build_ast()
 
-    results = await qb._execute()
+    results = [node async for node in qb._execute()]
     assert len(results) == 2
     assert results[0].name == "Decafe"
     assert results[1].name == "Nescafe plus"
@@ -589,3 +589,34 @@ async def test_in_filter_with_array_property():
     assert arabica not in await Species.nodes.filter(
         tags__in=no_match
     ), "Species found by tags with not match tags given"
+
+
+@mark_async_test
+async def test_async_iterator():
+    if AsyncUtil.is_async_code:
+        xxx = await Coffee(name="xxx", price=99).save()
+        yyy = await Coffee(name="yyy", price=11).save()
+        nodes = await Coffee.nodes
+        assert isinstance(nodes, list)
+        assert all(isinstance(i, Coffee) for i in nodes)
+
+        try:
+            for i in Coffee.nodes:
+                # make some iteration
+                print(i)
+        except Exception as e:
+            # SomeNode.nodes is not sync iterable as expected
+            print(e)
+
+        try:
+            async for node in Coffee.nodes:
+                print(node)
+        except Exception as e:
+            # SomeNode.nodes has __aiter__() method
+            # but it has a bug at
+            # neomodel.async_.match line 813
+            print(e)
+
+        # this works fine but this approach is not async as it fetches all nodes before iterating
+        for node in await Coffee.nodes:
+            print(node)
