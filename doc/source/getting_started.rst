@@ -8,7 +8,7 @@ Connecting
 Before executing any neomodel code, set the connection url::
 
     from neomodel import config
-    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'  # default
+    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'  # default
 
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
@@ -22,6 +22,7 @@ Querying the graph
 
 neomodel is mainly used as an OGM (see next section), but you can also use it for direct Cypher queries : ::
 
+    from neomodel import db
     results, meta = db.cypher_query("RETURN 'Hello World' as message")
 
 
@@ -33,7 +34,7 @@ Below is a definition of three related nodes `Person`, `City` and `Country`: ::
     from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
         UniqueIdProperty, RelationshipTo)
 
-    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)
@@ -76,12 +77,22 @@ Database Inspection - Requires APOC
 ===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
 
-    $ neomodel_inspect_database -db bolt://neo4j:neo4j@localhost:7687 --write-to yourapp/models.py
+    $ neomodel_inspect_database -db bolt://neo4j_username:neo4j_password@localhost:7687 --write-to yourapp/models.py
 
 This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
 and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
 
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
+
 Note that you can also print the output to the console instead of writing a file by omitting the ``--write-to`` option.
+
+If you have a database with a large number of nodes and relationships,
+this script can take a long time to run (during our tests, it took 30 seconds for 500k nodes and 1.3M relationships).
+You can speed it up by not scanning for relationship properties and/or relationship cardinality, using these options :
+``--no-rel-props`` and ``--no-rel-cardinality``.
+Note that this will still add relationship definition to your nodes, but without relationship models ;
+and cardinality will be default (ZeroOrMore).
 
 .. note::
 
@@ -94,7 +105,7 @@ Note that you can also print the output to the console instead of writing a file
     Finally, relationship cardinality is guessed from the database by looking at existing relationships, so it might
     guess wrong on edge cases.
 
-.. warning:: 
+.. note:: 
 
     The script relies on the method apoc.meta.cypher.types to parse property types. So APOC must be installed on your Neo4j server
     for this script to work.
@@ -104,18 +115,24 @@ Applying constraints and indexes
 After creating a model in Python, any constraints or indexes must be applied to Neo4j and ``neomodel`` provides a
 script (:ref:`neomodel_install_labels`) to automate this: ::
 
-    $ neomodel_install_labels yourapp.py someapp.models --db bolt://neo4j:neo4j@localhost:7687
+    $ neomodel_install_labels yourapp.py someapp.models --db bolt://neo4j_username:neo4j_password@localhost:7687
 
 It is important to execute this after altering the schema and observe the number of classes it reports.
+
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
 
 Remove existing constraints and indexes
 =======================================
 Similarly, ``neomodel`` provides a script (:ref:`neomodel_remove_labels`) to automate the removal of all existing constraints and indexes from
 the database, when this is required: ::
 
-    $ neomodel_remove_labels --db bolt://neo4j:neo4j@localhost:7687
+    $ neomodel_remove_labels --db bolt://neo4j_username:neo4j_password@localhost:7687
 
 After executing, it will print all indexes and constraints it has removed.
+
+Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
+your credentials.
 
 Create, Update, Delete operations
 =================================
@@ -230,7 +247,7 @@ the following syntax::
 
     Person.nodes.all().fetch_relations('city__country', Optional('country'))
 
-.. warning::
+.. note::
 
    This feature is still a work in progress for extending path traversal and fecthing.
    It currently stops at returning the resolved objects as they are returned in Cypher.
@@ -239,4 +256,61 @@ the following syntax::
    These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
 
    If you want to go further in the resolution process, you have to develop your own parser (for now).
+
+
+Async neomodel
+==============
+
+neomodel supports asynchronous operations using the async support of neo4j driver. The examples below take a few of the above examples,
+but rewritten for async::
+
+    from neomodel import adb
+    results, meta = await adb.cypher_query("RETURN 'Hello World' as message")
+
+OGM with async ::
+
+    # Note that properties do not change, but nodes and relationships now have an Async prefix
+    from neomodel import (AsyncStructuredNode, StringProperty, IntegerProperty,
+        UniqueIdProperty, AsyncRelationshipTo)
+
+    class Country(AsyncStructuredNode):
+        code = StringProperty(unique_index=True, required=True)
+
+    class City(AsyncStructuredNode):
+        name = StringProperty(required=True)
+        country = AsyncRelationshipTo(Country, 'FROM_COUNTRY')
+
+    # Operations that interact with the database are now async
+    # Return all nodes
+    # Note that the nodes object is awaitable as is
+    all_nodes = await Country.nodes
+
+    # Relationships
+    germany = await Country(code='DE').save()
+    await jim.country.connect(germany)
+
+Most _dunder_ methods for nodes and relationships had to be overriden to support async operations. The following methods are supported ::
+
+    # Examples below are taken from the various tests. Please check them for more examples.
+    # Length
+    dogs_bonanza = await Dog.nodes.get_len()
+    # Sync equivalent - __len__
+    dogs_bonanza = len(Dog.nodes)
+    # Note that len(Dog.nodes) is more efficient than Dog.nodes.__len__
+
+    # Existence
+    assert not await Customer.nodes.filter(email="jim7@aol.com").check_bool()
+    # Sync equivalent - __bool__
+    assert not Customer.nodes.filter(email="jim7@aol.com")
+    # Also works for check_nonzero => __nonzero__
+
+    # Contains
+    assert await Coffee.nodes.check_contains(aCoffeeNode)
+    # Sync equivalent - __contains__
+    assert aCoffeeNode in Coffee.nodes
+
+    # Get item
+    assert len(list((await Coffee.nodes)[1:])) == 2
+    # Sync equivalent - __getitem__
+    assert len(list(Coffee.nodes[1:])) == 2
 

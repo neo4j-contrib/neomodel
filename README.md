@@ -34,24 +34,22 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 
 # Documentation
 
-(Needs an update, but) Available on
+Available on
 [readthedocs](http://neomodel.readthedocs.org).
 
-# Upcoming breaking changes notice - \>=5.3
+# New in 5.3.0
 
-Based on Python version [status](https://devguide.python.org/versions/),
-neomodel will be dropping support for Python 3.7 in the next release
-(5.3). This does not mean neomodel will stop working on Python 3.7, but
-it will no longer be tested against it. Instead, we will try to add
-support for Python 3.12.
+neomodel now supports asynchronous programming, thanks to the [Neo4j driver async API](https://neo4j.com/docs/api/python-driver/current/async_api.html). The [documentation](http://neomodel.readthedocs.org) has been updated accordingly, with an updated getting started section, and some specific documentation for the async API.
 
-Another potential breaking change coming up is adding async support to
-neomodel. But we do not know when this will happen yet, or if it will
-actually be a breaking change. We will definitely push this in a major
-release though. More to come on that later.
+# Breaking changes in 5.3.0
 
-Finally, we are looking at refactoring some standalone methods into the
-Database() class. More to come on that later.
+- config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` script instead. _Note : this is because of the addition of async, but also because it might lead to uncontrolled creation of indexes/constraints. The script makes you more in control of said creation._
+- The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
+- Based on Python version [status](https://devguide.python.org/versions/),
+neomodel will be dropping support for Python 3.7 in an upcoming release
+(5.3 or later). _This does not mean neomodel will stop working on Python 3.7, but
+it will no longer be tested against it_
+- Some standalone methods have been refactored into the Database() class. Check the [documentation](http://neomodel.readthedocs.org) for a full list.
 
 # Installation
 
@@ -66,6 +64,15 @@ Install from pypi (recommended):
 To install from github:
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
+
+# Performance comparison
+
+You can find some performance tests made using Locust [in this repo](https://github.com/mariusconjeaud/neomodel-locust).
+
+Two learnings from this :
+
+* The wrapping of the driver made by neomodel is very thin performance-wise : it does not add a lot of overhead ;
+* When used in a concurrent fashion, async neomodel is faster than concurrent sync neomodel, and a lot of faster than serial queries.
 
 # Contributing
 
@@ -89,7 +96,7 @@ Ensure `dbms.security.auth_enabled=true` in your database configuration
 file. Setup a virtual environment, install neomodel for development and
 run the test suite: :
 
-    $ pip install -e '.[dev]'
+    $ pip install -e '.[dev,pandas,numpy]'
     $ pytest
 
 The tests in \"test_connection.py\" will fail locally if you don\'t
@@ -112,3 +119,42 @@ against all supported Python interpreters and neo4j versions: :
 
     # in the project's root folder:
     $ sh ./tests-with-docker-compose.sh
+
+## Developing with async
+
+### Transpiling async -> sync
+
+We use [this great library](https://github.com/python-trio/unasync) to automatically transpile async code into its sync version.
+
+In other words, when contributing to neomodel, only update the `async` code in `neomodel/async_`, then run : :
+
+    bin/make-unasync
+    isort .
+    black .
+
+Note that you can also use the pre-commit hooks for this.
+
+### Specific async/sync code
+This transpiling script mainly does two things :
+
+- It removes the await keywords, and the Async prefixes in class names
+- It does some specific replacements, like `adb`->`db`, `mark_async_test`->`mark_sync_test`
+
+It might be that your code should only be run for `async`, or `sync` ; or you want different stubs to be run for `async` vs `sync`.
+You can use the following utility function for this - taken from the official [Neo4j python driver code](https://github.com/neo4j/neo4j-python-driver) :
+
+    # neomodel/async_/core.py
+    from neomodel._async_compat.util import AsyncUtil
+
+    # AsyncUtil.is_async_code is always True
+    if AsyncUtil.is_async_code:
+        # Specific async code
+        # This one gets run when in async mode
+        assert await Coffee.nodes.check_contains(2)
+    else:
+        # Specific sync code
+        # This one gest run when in sync mode
+        assert 2 in Coffee.nodes
+
+You can check [test_match_api](test/async_/test_match_api.py) for some good examples, and how it's transpiled into sync.
+

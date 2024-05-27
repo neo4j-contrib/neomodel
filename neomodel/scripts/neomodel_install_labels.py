@@ -14,6 +14,8 @@
     If a connection URL is not specified, the tool will look up the environment 
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
+
+    Note : this script only has a synchronous mode.
     
     positional arguments:
       <someapp.models/app.py>
@@ -30,7 +32,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from importlib import import_module
 from os import environ, path
 
-from .. import db, install_all_labels
+from neomodel.sync_.core import db
 
 
 def load_python_module_or_file(name):
@@ -109,7 +111,7 @@ def main():
     print(f"Connecting to {bolt_url}")
     db.set_connection(url=bolt_url)
 
-    install_all_labels()
+    db.install_all_labels()
 
 
 if __name__ == "__main__":

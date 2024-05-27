@@ -32,7 +32,7 @@ Adjust driver configuration - these options are only available for this connecti
     config.MAX_TRANSACTION_RETRY_TIME = 30.0  # default
     config.RESOLVER = None  # default
     config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES  # default
-    config.USER_AGENT = neomodel/v5.2.1  # default
+    config.USER_AGENT = neomodel/v5.3.1  # default
 
 Setting the database name, if different from the default one::
 
@@ -59,7 +59,7 @@ Note that you have to manage the driver's lifecycle yourself.
 
 However, everything else is still handled by neomodel : sessions, transactions, etc...
 
-NB : Only the synchronous driver will work in this way. The asynchronous driver is not supported yet.
+NB : Only the synchronous driver will work in this way. See the next section for the preferred method, and how to pass an async driver instance.
 
 Change/Close the connection
 ---------------------------
@@ -119,14 +119,7 @@ with something like: ::
 Enable automatic index and constraint creation
 ----------------------------------------------
 
-After the definition of a `StructuredNode`, Neomodel can install the corresponding 
-constraints and indexes at compile time. However this method is only recommended for testing::
-
-    from neomodel import config
-    # before loading your node definitions
-    config.AUTO_INSTALL_LABELS = True
-
-Neomodel also provides the :ref:`neomodel_install_labels` script for this task,
+Neomodel provides the :ref:`neomodel_install_labels` script for this task,
 however if you want to handle this manually see below.
 
 Install indexes and constraints for a single class::
@@ -145,6 +138,9 @@ Or for an entire 'schema' ::
     # Found yourapp.models.User
     # + Creating unique constraint for name on label User for class yourapp.models.User
     # ...
+
+.. note::
+    config.AUTO_INSTALL_LABELS has been removed from neomodel in version 5.3
 
 Require timezones on DateTimeProperty
 -------------------------------------

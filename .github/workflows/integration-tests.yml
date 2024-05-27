@@ -5,7 +5,7 @@ name: Integration tests
 
 on:
   push:
-    branches: [ "master", "rc/**" ]
+    branches: [ "rc/**" ]
   pull_request:
     branches: [ "master", "rc/**" ]
 
@@ -43,3 +43,6 @@ jobs:
         pytest --cov=neomodel --cov-report=html:coverage_report
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}  # Ensure the token is used here
+        fail_ci_if_error: true  # Optional: specify if CI should fail when codecov fails

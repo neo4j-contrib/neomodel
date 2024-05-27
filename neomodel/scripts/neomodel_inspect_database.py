@@ -17,13 +17,17 @@
 
     If a file is specified, the tool will write the class definitions to that file.
     If no file is specified, the tool will print the class definitions to stdout.
+
+    Note : this script only has a synchronous mode.
     
     options:
-      -h, --help            show this help message and exit
-      --db bolt://neo4j:neo4j@localhost:7687
+        -h, --help            show this help message and exit
+        --db bolt://neo4j:neo4j@localhost:7687
                             Neo4j Server URL
-      -T, --write-to someapp/models.py
+        -T, --write-to someapp/models.py
                             File where to write output.
+        --no-rel-props        Do not inspect relationship properties
+        --no-rel-cardinality  Do not infer relationship cardinality
 """
 
 import argparse
@@ -31,7 +35,7 @@ import string
 import textwrap
 from os import environ
 
-from neomodel import db
+from neomodel.sync_.core import db
 
 IMPORTS = []
 
@@ -50,6 +54,9 @@ def parse_prop_class(prop_type):
             prop_class = f"{_import}("
         elif prop_type == "BOOLEAN":
             _import = "BooleanProperty"
+            prop_class = f"{_import}("
+        elif prop_type == "DATE":
+            _import = "DateProperty"
             prop_class = f"{_import}("
         elif prop_type == "DATE_TIME":
             _import = "DateTimeProperty"
@@ -116,13 +123,20 @@ class NodeInspector:
 
 class RelationshipInspector:
     @classmethod
-    def outgoing_relationships(cls, start_label):
-        query = f"""
-            MATCH (n:`{start_label}`)-[r]->(m)
-            WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label, keys(r) AS properties, head(collect(r)) AS sampleRel
-            ORDER BY size(properties) DESC
-            RETURN rel_type, target_label, apoc.meta.cypher.types(properties(sampleRel)) AS properties LIMIT 1
-        """
+    def outgoing_relationships(cls, start_label, get_properties: bool = True):
+        if get_properties:
+            query = f"""
+                MATCH (n:`{start_label}`)-[r]->(m)
+                WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label, keys(r) AS properties, head(collect(r)) AS sampleRel
+                ORDER BY size(properties) DESC
+                RETURN DISTINCT rel_type, target_label, collect(DISTINCT apoc.meta.cypher.types(properties(sampleRel)))[0] AS properties
+            """
+        else:
+            query = f"""
+                MATCH (n:`{start_label}`)-[r]->(m)
+                WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label
+                RETURN rel_type, target_label, {{}} AS properties
+            """
         result, _ = db.cypher_query(query)
         return [(record[0], record[1], record[2]) for record in result]
 
@@ -222,7 +236,9 @@ def parse_imports():
     return imports
 
 
-def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
+def build_rel_type_definition(
+    label, outgoing_relationships, defined_rel_types, infer_cardinality: bool = True
+):
     class_definition_append = ""
     rel_type_definitions = ""
 
@@ -241,9 +257,12 @@ def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
             rel_type
         )
 
-        cardinality = RelationshipInspector.infer_cardinality(rel_type, label)
+        cardinality_string = ""
+        if infer_cardinality:
+            cardinality = RelationshipInspector.infer_cardinality(rel_type, label)
+            cardinality_string += f", cardinality={cardinality}"
 
-        class_definition_append += f'    {clean_class_member_key(rel_name)} = RelationshipTo("{target_label}", "{rel_type}", cardinality={cardinality}'
+        class_definition_append += f'    {clean_class_member_key(rel_name)} = RelationshipTo("{target_label}", "{rel_type}"{cardinality_string}'
 
         if rel_props and rel_type not in defined_rel_types:
             rel_model_name = generate_rel_class_name(rel_type)
@@ -265,7 +284,11 @@ def build_rel_type_definition(label, outgoing_relationships, defined_rel_types):
     return class_definition_append
 
 
-def inspect_database(bolt_url):
+def inspect_database(
+    bolt_url,
+    get_relationship_properties: bool = True,
+    infer_relationship_cardinality: bool = True,
+):
     # Connect to the database
     print(f"Connecting to {bolt_url}")
     db.set_connection(bolt_url)
@@ -284,23 +307,32 @@ def inspect_database(bolt_url):
         indexed_properties = NodeInspector.get_indexed_properties_for_label(label)
 
         class_definition = f"class {class_name}(StructuredNode):\n"
-        class_definition += "".join(
-            [
-                build_prop_string(
-                    unique_properties, indexed_properties, prop, prop_type
-                )
-                for prop, prop_type in properties.items()
-            ]
-        )
+        if properties:
+            class_definition += "".join(
+                [
+                    build_prop_string(
+                        unique_properties, indexed_properties, prop, prop_type
+                    )
+                    for prop, prop_type in properties.items()
+                ]
+            )
 
-        outgoing_relationships = RelationshipInspector.outgoing_relationships(label)
+        outgoing_relationships = RelationshipInspector.outgoing_relationships(
+            label, get_relationship_properties
+        )
 
         if outgoing_relationships and "StructuredRel" not in IMPORTS:
             IMPORTS.append("RelationshipTo")
-            IMPORTS.append("StructuredRel")
+            # No rel properties = no rel classes
+            # Then StructuredRel import is not needed
+            if get_relationship_properties:
+                IMPORTS.append("StructuredRel")
 
         class_definition += build_rel_type_definition(
-            label, outgoing_relationships, defined_rel_types
+            label,
+            outgoing_relationships,
+            defined_rel_types,
+            infer_relationship_cardinality,
         )
 
         if not properties and not outgoing_relationships:
@@ -353,6 +385,20 @@ def main():
         help="File where to write output.",
     )
 
+    parser.add_argument(
+        "--no-rel-props",
+        dest="get_relationship_properties",
+        action="store_false",
+        help="Do not inspect relationship properties",
+    )
+
+    parser.add_argument(
+        "--no-rel-cardinality",
+        dest="infer_relationship_cardinality",
+        action="store_false",
+        help="Do not infer relationship cardinality",
+    )
+
     args = parser.parse_args()
 
     bolt_url = args.neo4j_bolt_url
@@ -364,12 +410,22 @@ def main():
     # Before connecting to the database
     if args.write_to:
         with open(args.write_to, "w") as file:
-            output = inspect_database(bolt_url=bolt_url)
+            output = inspect_database(
+                bolt_url=bolt_url,
+                get_relationship_properties=args.get_relationship_properties,
+                infer_relationship_cardinality=args.infer_relationship_cardinality,
+            )
             print(f"Writing to {args.write_to}")
             file.write(output)
     # If no file is specified, print to stdout
     else:
-        print(inspect_database(bolt_url=bolt_url))
+        print(
+            inspect_database(
+                bolt_url=bolt_url,
+                get_relationship_properties=args.get_relationship_properties,
+                infer_relationship_cardinality=args.infer_relationship_cardinality,
+            )
+        )
 
 
 if __name__ == "__main__":

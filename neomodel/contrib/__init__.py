@@ -1,1 +1,2 @@
-from .semi_structured import SemiStructuredNode
+from neomodel.contrib.async_.semi_structured import AsyncSemiStructuredNode
+from neomodel.contrib.sync_.semi_structured import SemiStructuredNode
