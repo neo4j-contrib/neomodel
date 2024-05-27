@@ -1,0 +1,196 @@
+{
+    "style": {
+        "node-color": "#ffffff",
+        "border-color": "#000000",
+        "caption-color": "#000000",
+        "arrow-color": "#000000",
+        "label-background-color": "#ffffff",
+        "directionality": "directed",
+        "arrow-width": 5
+    },
+    "nodes": [
+        {
+            "id": "n0",
+            "position": {
+                "x": 0,
+                "y": 0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Document"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "unique_prop": "str - unique",
+                "title": "str - required",
+                "publication_date": "date",
+                "number_of_words": "int",
+                "embedding": "list[float]"
+            }
+        },
+        {
+            "id": "n1",
+            "position": {
+                "x": 346.4101615137755,
+                "y": 199.99999999999997
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Author"
+            ],
+            "properties": {
+                "name": "str - index"
+            }
+        },
+        {
+            "id": "n2",
+            "position": {
+                "x": 2.4492935982947064e-14,
+                "y": 400.0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Approval"
+            ],
+            "properties": {
+                "approval_datetime": "datetime",
+                "approval_local_datetime": "datetime",
+                "approved": "bool"
+            }
+        },
+        {
+            "id": "n3",
+            "position": {
+                "x": -346.4101615137754,
+                "y": 200.00000000000014
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Description"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "content": "str"
+            }
+        },
+        {
+            "id": "n4",
+            "position": {
+                "x": -346.4101615137755,
+                "y": -199.99999999999991
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Abstract"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "content": "str"
+            }
+        },
+        {
+            "id": "n5",
+            "position": {
+                "x": -7.347880794884119e-14,
+                "y": -400.0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "AsyncNeighbour"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "name": "str"
+            }
+        },
+        {
+            "id": "n6",
+            "position": {
+                "x": 346.41016151377534,
+                "y": -200.00000000000017
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "OtherAsyncNeighbour"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "unique_prop": "str - unique",
+                "order": "int - required"
+            }
+        }
+    ],
+    "relationships": [
+        {
+            "id": "e0",
+            "type": "HAS_AUTHOR",
+            "style": {},
+            "properties": {},
+            "fromId": "n0",
+            "toId": "n1"
+        },
+        {
+            "id": "e1",
+            "type": "HAS_DESCRIPTION",
+            "style": {},
+            "properties": {},
+            "fromId": "n0",
+            "toId": "n3"
+        },
+        {
+            "id": "e2",
+            "type": "HAS_ABSTRACT",
+            "style": {},
+            "properties": {},
+            "fromId": "n0",
+            "toId": "n4"
+        },
+        {
+            "id": "e3",
+            "type": "APPROVED",
+            "style": {},
+            "properties": {},
+            "fromId": "n2",
+            "toId": "n0"
+        },
+        {
+            "id": "e4",
+            "type": "CITES",
+            "style": {},
+            "properties": {},
+            "fromId": "n0",
+            "toId": "n0"
+        },
+        {
+            "id": "e5",
+            "type": "APPROVED_BY",
+            "style": {},
+            "properties": {},
+            "fromId": "n2",
+            "toId": "n1"
+        },
+        {
+            "id": "e6",
+            "type": "HAS_ASYNC_NEIGHBOUR",
+            "style": {},
+            "properties": {},
+            "fromId": "n5",
+            "toId": "n5"
+        },
+        {
+            "id": "e7",
+            "type": "HAS_OTHER_ASYNC_NEIGHBOUR",
+            "style": {},
+            "properties": {},
+            "fromId": "n5",
+            "toId": "n6"
+        }
+    ]
+}

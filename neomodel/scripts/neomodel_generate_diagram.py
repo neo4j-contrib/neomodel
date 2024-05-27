@@ -36,6 +36,9 @@ import textwrap
 
 from neomodel import (
     ArrayProperty,
+    AsyncRelationshipFrom,
+    AsyncRelationshipTo,
+    AsyncStructuredNode,
     BooleanProperty,
     DateProperty,
     DateTimeFormatProperty,
@@ -46,8 +49,11 @@ from neomodel import (
     RelationshipTo,
     StringProperty,
     StructuredNode,
+    UniqueIdProperty,
 )
+from neomodel.contrib import AsyncSemiStructuredNode, SemiStructuredNode
 from neomodel.contrib.spatial_properties import PointProperty
+from neomodel.scripts.utils import load_python_module_or_file, recursive_list_classes
 
 
 def generate_plantuml(classes):
@@ -57,34 +63,35 @@ def generate_plantuml(classes):
     dot_output = "digraph G {\n"
     dot_output += "  node [shape=record];\n"
     for cls in classes:
-        if issubclass(cls, StructuredNode) and cls is not StructuredNode:
-            # Node label construction for properties
-            label = f"{cls.__name__}|{{"
-            properties = [
-                f"{p}: {type(v).__name__}"
-                for p, v in cls.__dict__.items()
-                if isinstance(v, property)
-            ]
-            label += "|".join(properties)
-            label += "}}"
+        # Node label construction for properties
+        label = f"{cls.__name__}|{{"
+        properties = [
+            f"{p}: {type(v).__name__}"
+            for p, v in cls.__dict__.items()
+            if isinstance(v, property)
+        ]
+        label += "|".join(properties)
+        label += "}}"
 
-            # Node definition
-            dot_output += f'  {cls.__name__} [label="{label}"];\n'
+        # Node definition
+        dot_output += f'  {cls.__name__} [label="{label}"];\n'
 
-            # Relationships
-            for rel_name, rel in cls.defined_properties(
-                aliases=False, properties=False
-            ).items():
-                target_cls = rel._raw_class
-                edge_label = f"{rel_name}: {rel.__class__.__name__}"
-                if isinstance(rel, RelationshipTo):
-                    dot_output += (
-                        f'  {cls.__name__} -> {target_cls} [label="{edge_label}"];\n'
-                    )
-                elif isinstance(rel, RelationshipFrom):
-                    dot_output += (
-                        f'  {target_cls} -> {cls.__name__} [label="{edge_label}"];\n'
-                    )
+        # Relationships
+        for rel_name, rel in cls.defined_properties(
+            aliases=False, properties=False
+        ).items():
+            target_cls = rel._raw_class
+            edge_label = f"{rel_name}: {rel.__class__.__name__}"
+            if isinstance(rel, RelationshipTo) or isinstance(rel, AsyncRelationshipTo):
+                dot_output += (
+                    f'  {cls.__name__} -> {target_cls} [label="{edge_label}"];\n'
+                )
+            elif isinstance(rel, RelationshipFrom) or isinstance(
+                rel, AsyncRelationshipFrom
+            ):
+                dot_output += (
+                    f'  {target_cls} -> {cls.__name__} [label="{edge_label}"];\n'
+                )
 
     dot_output += "}"
     diagram += dot_output
@@ -95,6 +102,8 @@ def generate_plantuml(classes):
 def transform_property_type(prop_definition):
     if isinstance(prop_definition, StringProperty):
         return "str"
+    elif isinstance(prop_definition, UniqueIdProperty):
+        return "id"
     elif isinstance(prop_definition, BooleanProperty):
         return "bool"
     elif isinstance(prop_definition, DateProperty):
@@ -185,8 +194,18 @@ def generate_arrows_json(classes):
                     "type": rel.definition["relation_type"],
                     "style": {},
                     "properties": {},
-                    "fromId": node_id,
-                    "toId": target_id if isinstance(rel, RelationshipTo) else node_id,
+                    "fromId": node_id
+                    if (
+                        isinstance(rel, RelationshipTo)
+                        or isinstance(rel, AsyncRelationshipTo)
+                    )
+                    else target_id,
+                    "toId": target_id
+                    if (
+                        isinstance(rel, RelationshipTo)
+                        or isinstance(rel, AsyncRelationshipTo)
+                    )
+                    else node_id,
                 }
             )
 
@@ -206,71 +225,6 @@ def generate_arrows_json(classes):
         },
         indent=4,
     )
-
-
-# Example neomodel classes
-class Patent(StructuredNode):
-    uid = StringProperty(unique_index=True)
-    docdb_id = StringProperty()
-    earliest_claim_date = DateProperty()
-    status = StringProperty()
-    application_date = DateProperty()
-    granted = StringProperty()
-    discontinuation_date = DateProperty()
-    kind = StringProperty()
-    doc_number = StringProperty()
-    title = StringProperty()
-    grant_date = DateProperty()
-    language = StringProperty()
-    publication_date = DateProperty()
-    doc_key = StringProperty()
-    application_number = StringProperty()
-    has_inventor = RelationshipTo("Inventor", "HAS_INVENTOR")
-    has_applicant = RelationshipTo("Applicant", "HAS_APPLICANT")
-    has_cpc = RelationshipTo("CPC", "HAS_CPC")
-    has_description = RelationshipTo("Description", "HAS_DESCRIPTION")
-    has_abstract = RelationshipTo("Abstract", "HAS_ABSTRACT")
-    simple_family = RelationshipTo("Patent", "SIMPLE_FAMILY")
-    extended_family = RelationshipTo("Patent", "EXTENDED_FAMILY")
-    has_owner = RelationshipTo("Owner", "HAS_OWNER")
-    has_claim = RelationshipTo("Claim", "HAS_CLAIM")
-
-
-class Claim(StructuredNode):
-    uid = StringProperty(unique_index=True)
-    content = StringProperty()
-    claim_number = IntegerProperty()
-    embedding = ArrayProperty(FloatProperty())
-
-
-class Inventor(StructuredNode):
-    name = StringProperty(index=True)
-
-
-class Applicant(StructuredNode):
-    name = StringProperty(index=True)
-
-
-class Owner(StructuredNode):
-    name = StringProperty(index=True)
-
-
-class CPC(StructuredNode):
-    symbol = StringProperty(unique_index=True)
-
-
-class IPCR(StructuredNode):
-    symbol = StringProperty(unique_index=True)
-
-
-class Description(StructuredNode):
-    uid = StringProperty(unique_index=True)
-    content = StringProperty()
-
-
-class Abstract(StructuredNode):
-    uid = StringProperty(unique_index=True)
-    content = StringProperty()
 
 
 def main():
@@ -293,6 +247,14 @@ def main():
     )
 
     parser.add_argument(
+        "apps",
+        metavar="<someapp/models/app.py>",
+        type=str,
+        nargs="+",
+        help="python modules or files with neomodel schema declarations.",
+    )
+
+    parser.add_argument(
         "-T",
         "--file-type",
         metavar="<arrows|puml>",
@@ -312,18 +274,14 @@ def main():
 
     args = parser.parse_args()
 
-    # Generate PlantUML
-    classes = [
-        Patent,
-        Claim,
-        Inventor,
-        Applicant,
-        Owner,
-        CPC,
-        IPCR,
-        Description,
-        Abstract,
-    ]  # Add all your neomodel classes here
+    for app in args.apps:
+        load_python_module_or_file(app)
+
+    classes = recursive_list_classes(StructuredNode, exclude_list=[SemiStructuredNode])
+    classes += recursive_list_classes(
+        AsyncStructuredNode, exclude_list=[AsyncSemiStructuredNode]
+    )
+
     filename = ""
     output = ""
     if args.file_type == "puml":
@@ -332,11 +290,11 @@ def main():
         filename, output = generate_arrows_json(classes)
     else:
         raise ValueError(f"Unsupported file type : {args.file_type}")
-    print(output)
 
     # Save to a file
     with open(os.path.join(args.write_to_dir, filename), "w", encoding="utf-8") as file:
         file.write(output)
+        print("Successfully wrote diagram to file : ", file.name)
 
 
 if __name__ == "__main__":

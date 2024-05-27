@@ -204,3 +204,38 @@ def test_neomodel_inspect_database(script_flavour):
     subprocess.run(
         ["rm", output_file],
     )
+
+
+def test_neomodel_generate_diagram():
+    result = subprocess.run(
+        ["neomodel_generate_diagram", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "usage: neomodel_generate_diagram" in result.stdout
+    assert result.returncode == 0
+
+    output_dir = "test/data"
+    result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "arrows",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.json", "r") as f:
+        model_diagram = f.read()
+    with open("test/data/expected_model_diagram.json", "r") as f:
+        expected_model_diagram = f.read()
+    assert model_diagram == expected_model_diagram
