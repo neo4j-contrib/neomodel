@@ -26,7 +26,6 @@
       --db bolt://neo4j:neo4j@localhost:7687
                             Neo4j Server URL
 """
-from __future__ import print_function
 
 import sys
 import textwrap
