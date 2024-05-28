@@ -595,6 +595,9 @@ async def test_in_filter_with_array_property():
 async def test_async_iterator():
     n = 10
     if AsyncUtil.is_async_code:
+        for c in await Coffee.nodes:
+            await c.delete()
+
         for i in range(n):
             await Coffee(name=f"xxx_{i}", price=i).save()
 
