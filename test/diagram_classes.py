@@ -14,6 +14,7 @@ from neomodel import (
     StructuredNode,
     UniqueIdProperty,
 )
+from neomodel.contrib.spatial_properties import PointProperty
 
 
 class Document(StructuredNode):
@@ -38,6 +39,12 @@ class Document(StructuredNode):
 
 class Author(StructuredNode):
     name = StringProperty(index=True)
+
+    in_office = RelationshipTo("Office", "IN_OFFICE")
+
+
+class Office(StructuredNode):
+    location = PointProperty(unique_index=True, crs="cartesian")
 
 
 class Approval(StructuredNode):

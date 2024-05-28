@@ -278,3 +278,19 @@ def test_neomodel_generate_diagram():
     with open("test/data/expected_model_diagram.puml", "r", encoding="utf-8") as f:
         expected_json = f.read()
     assert actual_json == expected_json
+
+    # Wrong format
+    wrong_result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "pdf",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Unsupported file type : pdf" in wrong_result.stderr

@@ -53,12 +53,10 @@
             "caption": "",
             "style": {},
             "labels": [
-                "Approval"
+                "Office"
             ],
             "properties": {
-                "approval_datetime": "datetime",
-                "approval_local_datetime": "datetime",
-                "approved": "bool"
+                "location": "point - unique"
             }
         },
         {
@@ -70,11 +68,12 @@
             "caption": "",
             "style": {},
             "labels": [
-                "Description"
+                "Approval"
             ],
             "properties": {
-                "uid": "id - unique",
-                "content": "str"
+                "approval_datetime": "datetime",
+                "approval_local_datetime": "datetime",
+                "approved": "bool"
             }
         },
         {
@@ -86,7 +85,7 @@
             "caption": "",
             "style": {},
             "labels": [
-                "Abstract"
+                "Description"
             ],
             "properties": {
                 "uid": "id - unique",
@@ -102,6 +101,22 @@
             "caption": "",
             "style": {},
             "labels": [
+                "Abstract"
+            ],
+            "properties": {
+                "uid": "id - unique",
+                "content": "str"
+            }
+        },
+        {
+            "id": "n6",
+            "position": {
+                "x": 346.41016151377534,
+                "y": -200.00000000000017
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
                 "AsyncNeighbour"
             ],
             "properties": {
@@ -110,10 +125,10 @@
             }
         },
         {
-            "id": "n6",
+            "id": "n7",
             "position": {
-                "x": 346.41016151377534,
-                "y": -200.00000000000017
+                "x": 1146.4101615137754,
+                "y": 0
             },
             "caption": "",
             "style": {},
@@ -142,7 +157,7 @@
             "style": {},
             "properties": {},
             "fromId": "n0",
-            "toId": "n3"
+            "toId": "n4"
         },
         {
             "id": "e2",
@@ -150,14 +165,14 @@
             "style": {},
             "properties": {},
             "fromId": "n0",
-            "toId": "n4"
+            "toId": "n5"
         },
         {
             "id": "e3",
             "type": "APPROVED",
             "style": {},
             "properties": {},
-            "fromId": "n2",
+            "fromId": "n3",
             "toId": "n0"
         },
         {
@@ -170,27 +185,35 @@
         },
         {
             "id": "e5",
-            "type": "APPROVED_BY",
+            "type": "IN_OFFICE",
             "style": {},
             "properties": {},
-            "fromId": "n2",
-            "toId": "n1"
+            "fromId": "n1",
+            "toId": "n2"
         },
         {
             "id": "e6",
-            "type": "HAS_ASYNC_NEIGHBOUR",
+            "type": "APPROVED_BY",
             "style": {},
             "properties": {},
-            "fromId": "n5",
-            "toId": "n5"
+            "fromId": "n3",
+            "toId": "n1"
         },
         {
             "id": "e7",
+            "type": "HAS_ASYNC_NEIGHBOUR",
+            "style": {},
+            "properties": {},
+            "fromId": "n6",
+            "toId": "n6"
+        },
+        {
+            "id": "e8",
             "type": "HAS_OTHER_ASYNC_NEIGHBOUR",
             "style": {},
             "properties": {},
-            "fromId": "n5",
-            "toId": "n6"
+            "fromId": "n6",
+            "toId": "n7"
         }
     ]
 }
