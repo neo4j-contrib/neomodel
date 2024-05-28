@@ -600,3 +600,11 @@ def test_async_iterator():
 
         # assert that generator runs loop above
         assert counter == n
+
+        counter = 0
+        for node in Coffee.nodes:
+            assert isinstance(node, Coffee)
+            counter += 1
+
+        # assert that generator runs loop above
+        assert counter == n
