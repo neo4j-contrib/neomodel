@@ -1,0 +1,241 @@
+{
+    "style": {
+        "node-color": "#ffffff",
+        "border-color": "#000000",
+        "caption-color": "#000000",
+        "arrow-color": "#000000",
+        "label-background-color": "#ffffff",
+        "directionality": "directed",
+        "arrow-width": 5
+    },
+    "nodes": [
+        {
+            "id": "n0",
+            "position": {
+                "x": 0,
+                "y": 0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Claim"
+            ],
+            "properties": {
+                "uid": "str - unique",
+                "content": "str",
+                "claim_number": "int",
+                "embedding": "list[float]"
+            }
+        },
+        {
+            "id": "n1",
+            "position": {
+                "x": 346.4101615137755,
+                "y": 199.99999999999997
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Inventor"
+            ],
+            "properties": {
+                "name": "str - index"
+            }
+        },
+        {
+            "id": "n2",
+            "position": {
+                "x": 2.4492935982947064e-14,
+                "y": 400.0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Applicant"
+            ],
+            "properties": {
+                "name": "str - index"
+            }
+        },
+        {
+            "id": "n3",
+            "position": {
+                "x": -346.4101615137754,
+                "y": 200.00000000000014
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Owner"
+            ],
+            "properties": {
+                "name": "str - index"
+            }
+        },
+        {
+            "id": "n4",
+            "position": {
+                "x": -346.4101615137755,
+                "y": -199.99999999999991
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "CPC"
+            ],
+            "properties": {
+                "symbol": "str - unique"
+            }
+        },
+        {
+            "id": "n5",
+            "position": {
+                "x": -7.347880794884119e-14,
+                "y": -400.0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "IPCR"
+            ],
+            "properties": {
+                "symbol": "str - unique"
+            }
+        },
+        {
+            "id": "n6",
+            "position": {
+                "x": 346.41016151377534,
+                "y": -200.00000000000017
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Description"
+            ],
+            "properties": {
+                "uid": "str - unique",
+                "content": "str"
+            }
+        },
+        {
+            "id": "n7",
+            "position": {
+                "x": 1146.4101615137754,
+                "y": 0
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Abstract"
+            ],
+            "properties": {
+                "uid": "str - unique",
+                "content": "str"
+            }
+        },
+        {
+            "id": "n8",
+            "position": {
+                "x": -399.99999999999983,
+                "y": 692.820323027551
+            },
+            "caption": "",
+            "style": {},
+            "labels": [
+                "Patent"
+            ],
+            "properties": {
+                "uid": "str - unique",
+                "docdb_id": "str",
+                "earliest_claim_date": "date",
+                "status": "str",
+                "application_date": "date",
+                "granted": "str",
+                "discontinuation_date": "date",
+                "kind": "str",
+                "doc_number": "str",
+                "title": "str",
+                "grant_date": "date",
+                "language": "str",
+                "publication_date": "date",
+                "doc_key": "str",
+                "application_number": "str"
+            }
+        }
+    ],
+    "relationships": [
+        {
+            "id": "e0",
+            "type": "HAS_INVENTOR",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n2"
+        },
+        {
+            "id": "e1",
+            "type": "HAS_APPLICANT",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n3"
+        },
+        {
+            "id": "e2",
+            "type": "HAS_CPC",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n5"
+        },
+        {
+            "id": "e3",
+            "type": "HAS_DESCRIPTION",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n7"
+        },
+        {
+            "id": "e4",
+            "type": "HAS_ABSTRACT",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n8"
+        },
+        {
+            "id": "e5",
+            "type": "SIMPLE_FAMILY",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n0"
+        },
+        {
+            "id": "e6",
+            "type": "EXTENDED_FAMILY",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n0"
+        },
+        {
+            "id": "e7",
+            "type": "HAS_OWNER",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n4"
+        },
+        {
+            "id": "e8",
+            "type": "HAS_CLAIM",
+            "style": {},
+            "properties": {},
+            "fromId": "n8",
+            "toId": "n1"
+        }
+    ]
+}

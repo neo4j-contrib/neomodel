@@ -2,7 +2,7 @@
 .. _neomodel_inspect_database:
 
 ``neomodel_inspect_database``
----------------------------
+-----------------------------
 
 ::
 

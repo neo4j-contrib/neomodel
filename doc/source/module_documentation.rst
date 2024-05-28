@@ -32,6 +32,11 @@ Scripts
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: neomodel.scripts.neomodel_generate_diagram
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: neomodel.scripts.neomodel_install_labels
    :members:
    :undoc-members:

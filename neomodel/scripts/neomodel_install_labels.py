@@ -27,45 +27,12 @@
                             Neo4j Server URL
 """
 
-import sys
 import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from importlib import import_module
-from os import environ, path
+from os import environ
 
+from neomodel.scripts.utils import load_python_module_or_file
 from neomodel.sync_.core import db
-
-
-def load_python_module_or_file(name):
-    """
-    Imports an existing python module or file into the current workspace.
-
-    In both cases, *the resource must exist*.
-
-    :param name: A string that refers either to a Python module or a source coe
-                 file to load in the current workspace.
-    :type name: str
-    """
-    # Is a file
-    if name.lower().endswith(".py"):
-        basedir = path.dirname(path.abspath(name))
-        # Add base directory to pythonpath
-        sys.path.append(basedir)
-        module_name = path.basename(name)[:-3]
-
-    else:  # A module
-        # Add current directory to pythonpath
-        sys.path.append(path.abspath(path.curdir))
-
-        module_name = name
-
-    if module_name.startswith("."):
-        pkg = module_name.split(".")[1]
-    else:
-        pkg = None
-
-    import_module(module_name, package=pkg)
-    print(f"Loaded {name}")
 
 
 def main():

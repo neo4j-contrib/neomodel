@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -204,3 +205,76 @@ def test_neomodel_inspect_database(script_flavour):
     subprocess.run(
         ["rm", output_file],
     )
+
+
+def test_neomodel_generate_diagram():
+    result = subprocess.run(
+        ["neomodel_generate_diagram", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "usage: neomodel_generate_diagram" in result.stdout
+    assert result.returncode == 0
+
+    output_dir = "test/data"
+
+    # Arrows
+    result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "arrows",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
+    assert result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.json", "r", encoding="utf-8") as f:
+        actual_json = json.loads(f.read())
+    with open("test/data/expected_model_diagram.json", "r", encoding="utf-8") as f:
+        expected_json = json.loads(f.read())
+    assert actual_json["style"] == expected_json["style"]
+    assert len(actual_json["nodes"]) == len(expected_json["nodes"])
+    assert len(actual_json["relationships"]) == len(expected_json["relationships"])
+
+    for index, node in enumerate(actual_json["nodes"]):
+        expected_node = expected_json["nodes"][index]
+        assert node["id"] == expected_node["id"]
+        assert node["labels"] == expected_node["labels"]
+        assert node["properties"] == expected_node["properties"]
+
+    assert actual_json["relationships"] == expected_json["relationships"]
+
+    # PlantUML
+    puml_result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "puml",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
+    assert puml_result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.puml", "r", encoding="utf-8") as f:
+        actual_json = f.read()
+    with open("test/data/expected_model_diagram.puml", "r", encoding="utf-8") as f:
+        expected_json = f.read()
+    assert actual_json == expected_json
