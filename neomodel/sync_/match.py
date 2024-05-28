@@ -781,8 +781,11 @@ class QueryBuilder:
         # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
         if results and len(results[0]) == 1:
-            return [n[0] for n in results]
-        return results
+            for n in results:
+                yield n[0]
+        else:
+            for result in results:
+                yield result
 
 
 class BaseSet:
@@ -802,12 +805,15 @@ class BaseSet:
         :rtype: list
         """
         ast = self.query_cls(self).build_ast()
-        return ast._execute(lazy)
+        results = [
+            node for node in ast._execute(lazy)
+        ]  # Collect all nodes asynchronously
+        return results
 
     def __iter__(self):
         ast = self.query_cls(self).build_ast()
-        for i in ast._execute():
-            yield i
+        for item in ast._execute():
+            yield item
 
     def __len__(self):
         ast = self.query_cls(self).build_ast()
@@ -858,8 +864,8 @@ class BaseSet:
             self.limit = 1
 
             ast = self.query_cls(self).build_ast()
-            _items = ast._execute()
-            return _items[0]
+            _first_item = [node for node in ast._execute()][0]
+            return _first_item
 
         return None
 
@@ -907,7 +913,8 @@ class NodeSet(BaseSet):
         if limit:
             self.limit = limit
         ast = self.query_cls(self).build_ast()
-        return ast._execute(lazy)
+        results = [node for node in ast._execute(lazy)]
+        return results
 
     def get(self, lazy=False, **kwargs):
         """

@@ -785,8 +785,11 @@ class AsyncQueryBuilder:
         # It seems that certain calls are only supposed to be focusing to the first
         # result item returned (?)
         if results and len(results[0]) == 1:
-            return [n[0] for n in results]
-        return results
+            for n in results:
+                yield n[0]
+        else:
+            for result in results:
+                yield result
 
 
 class AsyncBaseSet:
@@ -806,12 +809,15 @@ class AsyncBaseSet:
         :rtype: list
         """
         ast = await self.query_cls(self).build_ast()
-        return await ast._execute(lazy)
+        results = [
+            node async for node in ast._execute(lazy)
+        ]  # Collect all nodes asynchronously
+        return results
 
     async def __aiter__(self):
         ast = await self.query_cls(self).build_ast()
-        async for i in await ast._execute():
-            yield i
+        async for item in ast._execute():
+            yield item
 
     async def get_len(self):
         ast = await self.query_cls(self).build_ast()
@@ -862,8 +868,8 @@ class AsyncBaseSet:
             self.limit = 1
 
             ast = await self.query_cls(self).build_ast()
-            _items = ast._execute()
-            return _items[0]
+            _first_item = [node async for node in ast._execute()][0]
+            return _first_item
 
         return None
 
@@ -911,7 +917,8 @@ class AsyncNodeSet(AsyncBaseSet):
         if limit:
             self.limit = limit
         ast = await self.query_cls(self).build_ast()
-        return await ast._execute(lazy)
+        results = [node async for node in ast._execute(lazy)]
+        return results
 
     async def get(self, lazy=False, **kwargs):
         """
