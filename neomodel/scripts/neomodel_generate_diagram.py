@@ -2,11 +2,11 @@
 .. _neomodel_generate_diagram:
 
 ``neomodel_generate_diagram``
----------------------------
+-----------------------------
 
 ::
 
-    usage: _neomodel_generate_diagram [-h] [--file-type <puml|arrows>] [--write-to-dir <someapp/diagrams> ...]
+    usage: _neomodel_generate_diagram [-h] [--file-type <arrows|puml>] [--write-to-dir <someapp/diagrams> ...]
     
     Connects to a Neo4j database and inspects existing nodes and relationships.
     Infers the schema of the database and generates Python class definitions.
@@ -22,8 +22,8 @@
     
     options:
         -h, --help            show this help message and exit
-        -T, --file-type <puml|arrows>
-                            File type to produce. Accepts PlantUML (puml) or Arrows.app (arrows). Default is PlantUML.
+        -T, --file-type <arrows|puml>
+                            File type to produce. Accepts PlantUML (puml) or Arrows.app (arrows). Default is Arrows.
         -D, --write-to-dir someapp/diagrams
                             Directory where to write output file. Default is current directory.
 """
