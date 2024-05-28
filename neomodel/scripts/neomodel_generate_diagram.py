@@ -66,11 +66,10 @@ def generate_plantuml(classes):
         # Node label construction for properties
         label = f"{cls.__name__}|{{"
         properties = [
-            f"{p}: {type(v).__name__}"
-            for p, v in cls.__dict__.items()
-            if isinstance(v, property)
+            f"{prop}: {parse_property_key(cls.defined_properties(aliases=False, rels=False)[prop])}"
+            for prop in cls.defined_properties(aliases=False, rels=False)
         ]
-        label += "|".join(properties)
+        label += " \l ".join(properties)
         label += "}}"
 
         # Node definition
@@ -122,7 +121,7 @@ def transform_property_type(prop_definition):
         return "point"
 
 
-def arrows_property_key(prop_definition):
+def parse_property_key(prop_definition):
     output = transform_property_type(prop_definition)
 
     if (
@@ -172,7 +171,7 @@ def generate_arrows_json(classes):
                 "style": {},
                 "labels": [cls.__name__],
                 "properties": {
-                    prop: arrows_property_key(
+                    prop: parse_property_key(
                         cls.defined_properties(aliases=False, rels=False)[prop]
                     )
                     for prop in cls.defined_properties(aliases=False, rels=False)

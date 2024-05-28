@@ -1,0 +1,19 @@
+@startuml
+digraph G {
+  node [shape=record];
+  Document [label="Document|{uid: id - unique \l unique_prop: str - unique \l title: str - required \l publication_date: date \l number_of_words: int \l embedding: list[float]}}"];
+  Document -> Author [label="has_author: RelationshipTo"];
+  Document -> Description [label="has_description: RelationshipTo"];
+  Document -> Abstract [label="has_abstract: RelationshipTo"];
+  Approval -> Document [label="approved_by: RelationshipFrom"];
+  Document -> Document [label="cites: RelationshipTo"];
+  Author [label="Author|{name: str - index}}"];
+  Approval [label="Approval|{approval_datetime: datetime \l approval_local_datetime: datetime \l approved: bool}}"];
+  Approval -> Author [label="approved_by: RelationshipTo"];
+  Description [label="Description|{uid: id - unique \l content: str}}"];
+  Abstract [label="Abstract|{uid: id - unique \l content: str}}"];
+  AsyncNeighbour [label="AsyncNeighbour|{uid: id - unique \l name: str}}"];
+  AsyncNeighbour -> AsyncNeighbour [label="has_async_neighbour: AsyncRelationshipTo"];
+  AsyncNeighbour -> OtherAsyncNeighbour [label="has_other_async_neighbour: AsyncRelationshipTo"];
+  OtherAsyncNeighbour [label="OtherAsyncNeighbour|{uid: id - unique \l unique_prop: str - unique \l order: int - required}}"];
+}@enduml

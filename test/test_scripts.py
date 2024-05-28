@@ -218,6 +218,8 @@ def test_neomodel_generate_diagram():
     assert result.returncode == 0
 
     output_dir = "test/data"
+
+    # Arrows
     result = subprocess.run(
         [
             "neomodel_generate_diagram",
@@ -232,6 +234,7 @@ def test_neomodel_generate_diagram():
         check=False,
     )
     assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
     assert result.returncode == 0
 
     # Check that the output file is as expected
@@ -251,4 +254,27 @@ def test_neomodel_generate_diagram():
 
     assert actual_json["relationships"] == expected_json["relationships"]
 
-    # TODO : Add test for puml once ready
+    # PlantUML
+    puml_result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "puml",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
+    assert puml_result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.puml", "r", encoding="utf-8") as f:
+        actual_json = f.read()
+    with open("test/data/expected_model_diagram.puml", "r", encoding="utf-8") as f:
+        expected_json = f.read()
+    assert actual_json == expected_json
