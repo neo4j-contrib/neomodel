@@ -582,30 +582,21 @@ def test_in_filter_with_array_property():
 
 @mark_sync_test
 def test_async_iterator():
+    n = 10
     if Util.is_async_code:
-        xxx = Coffee(name="xxx", price=99).save()
-        yyy = Coffee(name="yyy", price=11).save()
+        for i in range(n):
+            Coffee(name=f"xxx_{i}", price=i).save()
+
         nodes = Coffee.nodes
+        # assert that nodes was created
         assert isinstance(nodes, list)
         assert all(isinstance(i, Coffee) for i in nodes)
+        assert len(nodes) == n
 
-        try:
-            for i in Coffee.nodes:
-                # make some iteration
-                print(i)
-        except Exception as e:
-            # SomeNode.nodes is not sync iterable as expected
-            print(e)
-
-        try:
-            for node in Coffee.nodes:
-                print(node)
-        except Exception as e:
-            # SomeNode.nodes has __aiter__() method
-            # but it has a bug at
-            # neomodel.async_.match line 813
-            print(e)
-
-        # this works fine but this approach is not async as it fetches all nodes before iterating
+        counter = 0
         for node in Coffee.nodes:
-            print(node)
+            assert isinstance(node, Coffee)
+            counter += 1
+
+        # assert that generator runs loop above
+        assert counter == n
