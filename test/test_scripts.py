@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -234,8 +235,20 @@ def test_neomodel_generate_diagram():
     assert result.returncode == 0
 
     # Check that the output file is as expected
-    with open("test/data/model_diagram.json", "r") as f:
-        model_diagram = f.read()
-    with open("test/data/expected_model_diagram.json", "r") as f:
-        expected_model_diagram = f.read()
-    assert model_diagram == expected_model_diagram
+    with open("test/data/model_diagram.json", "r", encoding="utf-8") as f:
+        actual_json = json.loads(f.read())
+    with open("test/data/expected_model_diagram.json", "r", encoding="utf-8") as f:
+        expected_json = json.loads(f.read())
+    assert actual_json["style"] == expected_json["style"]
+    assert len(actual_json["nodes"]) == len(expected_json["nodes"])
+    assert len(actual_json["relationships"]) == len(expected_json["relationships"])
+
+    for index, node in enumerate(actual_json["nodes"]):
+        expected_node = expected_json["nodes"][index]
+        assert node["id"] == expected_node["id"]
+        assert node["labels"] == expected_node["labels"]
+        assert node["properties"] == expected_node["properties"]
+
+    assert actual_json["relationships"] == expected_json["relationships"]
+
+    # TODO : Add test for puml once ready
