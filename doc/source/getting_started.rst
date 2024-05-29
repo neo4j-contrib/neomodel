@@ -134,6 +134,24 @@ After executing, it will print all indexes and constraints it has removed.
 Ommitting the ``--db`` argument will default to the ``NEO4J_BOLT_URL`` environment variable. This is useful for masking
 your credentials.
 
+Generate class diagram
+======================
+You can generate a class diagram of your models using the ``neomodel_generate_diagram`` command::
+
+    $ neomodel_generate_diagram models/my_models.py --file-type arrows --write-to-dir img
+
+You must specify a directory in which to lookup neomodel classes (nodes and rels). Typing '.' will search in your whole directory.
+
+You have the option to generate the diagram in different file types using ``--file-type`` : ``arrows``, ``puml`` (which uses the dot notation).
+
+Ommitting the ``--write-to-dir`` option will default to the current directory.
+
+.. note::
+
+    Property types and the presence of indexes, constraints and required rules will be displayed on the nodes.
+    
+    Relationship properties are not supported in the diagram generation.
+
 Create, Update, Delete operations
 =================================
 

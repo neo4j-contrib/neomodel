@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 import pytest
@@ -21,6 +22,7 @@ class ScriptsTestNode(StructuredNode):
     personal_id = StringProperty(unique_index=True)
     name = StringProperty(index=True)
     rel = RelationshipTo("ScriptsTestNode", "REL", model=ScriptsTestRel)
+    other_rel = RelationshipTo("ScriptsTestNode", "OTHER_REL")
 
 
 def test_neomodel_install_labels():
@@ -113,7 +115,9 @@ def test_neomodel_inspect_database(script_flavour):
     # Create a few nodes and a rel, with indexes and constraints
     node1 = ScriptsTestNode(personal_id="1", name="test").save()
     node2 = ScriptsTestNode(personal_id="2", name="test").save()
+    node3 = ScriptsTestNode(personal_id="3", name="test").save()
     node1.rel.connect(node2, {"some_unique_property": "1", "some_index_property": "2"})
+    node1.other_rel.connect(node3)
 
     # Create a node with all the parsable property types
     # Also create a node with no properties
@@ -122,6 +126,7 @@ def test_neomodel_inspect_database(script_flavour):
         CREATE (:EveryPropertyTypeNode {
             string_property: "Hello World",
             boolean_property: true,
+            date_property: date("2020-01-01"),
             datetime_property: datetime("2020-01-01T00:00:00.000Z"),
             integer_property: 1,
             float_property: 1.0,
@@ -200,3 +205,92 @@ def test_neomodel_inspect_database(script_flavour):
     subprocess.run(
         ["rm", output_file],
     )
+
+
+def test_neomodel_generate_diagram():
+    result = subprocess.run(
+        ["neomodel_generate_diagram", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "usage: neomodel_generate_diagram" in result.stdout
+    assert result.returncode == 0
+
+    output_dir = "test/data"
+
+    # Arrows
+    result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "arrows",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
+    assert result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.json", "r", encoding="utf-8") as f:
+        actual_json = json.loads(f.read())
+    with open("test/data/expected_model_diagram.json", "r", encoding="utf-8") as f:
+        expected_json = json.loads(f.read())
+    assert actual_json["style"] == expected_json["style"]
+    assert len(actual_json["nodes"]) == len(expected_json["nodes"])
+    assert len(actual_json["relationships"]) == len(expected_json["relationships"])
+
+    for index, node in enumerate(actual_json["nodes"]):
+        expected_node = expected_json["nodes"][index]
+        assert node["id"] == expected_node["id"]
+        assert node["labels"] == expected_node["labels"]
+        assert node["properties"] == expected_node["properties"]
+
+    assert actual_json["relationships"] == expected_json["relationships"]
+
+    # PlantUML
+    puml_result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "puml",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Loaded test/diagram_classes.py" in result.stdout
+    assert "Successfully wrote diagram to file" in result.stdout
+    assert puml_result.returncode == 0
+
+    # Check that the output file is as expected
+    with open("test/data/model_diagram.puml", "r", encoding="utf-8") as f:
+        actual_json = f.read()
+    with open("test/data/expected_model_diagram.puml", "r", encoding="utf-8") as f:
+        expected_json = f.read()
+    assert actual_json == expected_json
+
+    # Wrong format
+    wrong_result = subprocess.run(
+        [
+            "neomodel_generate_diagram",
+            "test/diagram_classes.py",
+            "--file-type",
+            "pdf",
+            "--write-to-dir",
+            output_dir,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "Unsupported file type : pdf" in wrong_result.stderr

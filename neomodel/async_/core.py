@@ -936,13 +936,11 @@ class AsyncTransactionProxy:
 
     @ensure_connection
     async def __aenter__(self):
-        print("aenter called")
         await self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        print("aexit called")
         if exc_value:
             await self.db.rollback()
 
@@ -962,7 +960,6 @@ class AsyncTransactionProxy:
         @wraps(func)
         async def wrapper(*args, **kwargs):
             async with self:
-                print("call called")
                 return await func(*args, **kwargs)
 
         return wrapper

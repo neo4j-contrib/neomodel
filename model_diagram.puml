@@ -1,0 +1,22 @@
+@startuml
+digraph G {
+  node [shape=record];
+  Patent [label="Patent|{}}"];
+  Patent -> Inventor [label="has_inventor: RelationshipTo"];
+  Patent -> Applicant [label="has_applicant: RelationshipTo"];
+  Patent -> CPC [label="has_cpc: RelationshipTo"];
+  Patent -> Description [label="has_description: RelationshipTo"];
+  Patent -> Abstract [label="has_abstract: RelationshipTo"];
+  Patent -> Patent [label="simple_family: RelationshipTo"];
+  Patent -> Patent [label="extended_family: RelationshipTo"];
+  Patent -> Owner [label="has_owner: RelationshipTo"];
+  Patent -> Claim [label="has_claim: RelationshipTo"];
+  Claim [label="Claim|{}}"];
+  Inventor [label="Inventor|{}}"];
+  Applicant [label="Applicant|{}}"];
+  Owner [label="Owner|{}}"];
+  CPC [label="CPC|{}}"];
+  IPCR [label="IPCR|{}}"];
+  Description [label="Description|{}}"];
+  Abstract [label="Abstract|{}}"];
+}@enduml

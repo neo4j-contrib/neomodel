@@ -2,11 +2,11 @@
 .. _neomodel_inspect_database:
 
 ``neomodel_inspect_database``
----------------------------
+-----------------------------
 
 ::
 
-    usage: _neomodel_inspect_database [-h] [--db bolt://neo4j:neo4j@localhost:7687] [--write-to <someapp/models.py> ...]
+    usage: neomodel_inspect_database [-h] [--db bolt://neo4j:neo4j@localhost:7687] [--write-to <someapp/models.py> ...]
     
     Connects to a Neo4j database and inspects existing nodes and relationships.
     Infers the schema of the database and generates Python class definitions.
@@ -54,6 +54,9 @@ def parse_prop_class(prop_type):
             prop_class = f"{_import}("
         elif prop_type == "BOOLEAN":
             _import = "BooleanProperty"
+            prop_class = f"{_import}("
+        elif prop_type == "DATE":
+            _import = "DateProperty"
             prop_class = f"{_import}("
         elif prop_type == "DATE_TIME":
             _import = "DateTimeProperty"
@@ -126,13 +129,13 @@ class RelationshipInspector:
                 MATCH (n:`{start_label}`)-[r]->(m)
                 WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label, keys(r) AS properties, head(collect(r)) AS sampleRel
                 ORDER BY size(properties) DESC
-                RETURN rel_type, target_label, apoc.meta.cypher.types(properties(sampleRel)) AS properties LIMIT 1
+                RETURN DISTINCT rel_type, target_label, collect(DISTINCT apoc.meta.cypher.types(properties(sampleRel)))[0] AS properties
             """
         else:
             query = f"""
                 MATCH (n:`{start_label}`)-[r]->(m)
                 WITH DISTINCT type(r) as rel_type, head(labels(m)) AS target_label
-                RETURN rel_type, target_label, {{}} AS properties LIMIT 1
+                RETURN rel_type, target_label, {{}} AS properties
             """
         result, _ = db.cypher_query(query)
         return [(record[0], record[1], record[2]) for record in result]

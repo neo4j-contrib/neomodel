@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 
 import pytest
@@ -32,10 +30,13 @@ def pytest_collection_modifyitems(items):
     sync_items = []
     async_connect_to_aura_items = []
     sync_connect_to_aura_items = []
+    root_items = []
 
     for item in items:
         # Check the directory of the item
         directory = item.fspath.dirname.split("/")[-1]
+        if directory == "test_contrib":
+            directory = item.fspath.dirname.split("/")[-2]
 
         if "connect_to_aura" in item.name:
             if directory == "async_":
@@ -47,11 +48,14 @@ def pytest_collection_modifyitems(items):
                 async_items.append(item)
             elif directory == "sync_":
                 sync_items.append(item)
+            else:
+                root_items.append(item)
 
     new_order = (
         async_items
         + async_connect_to_aura_items
         + sync_items
+        + root_items
         + sync_connect_to_aura_items
     )
     items[:] = new_order
