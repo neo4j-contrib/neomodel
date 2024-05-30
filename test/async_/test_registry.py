@@ -1,6 +1,6 @@
 from test._async_compat import mark_async_test
 
-from pytest import raises
+from pytest import raises, skip
 
 from neomodel import AsyncStructuredNode, StringProperty, adb, config
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
@@ -8,6 +8,8 @@ from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 @mark_async_test
 async def test_db_specific_classes():
+    if not await adb.edition_is_enterprise():
+        skip("Skipping test for community edition")
     db_one = "one"
     db_two = "two"
     await adb.cypher_query(f"CREATE DATABASE {db_one} IF NOT EXISTS")
