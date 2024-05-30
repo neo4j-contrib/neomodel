@@ -2,12 +2,25 @@ from test._async_compat import mark_sync_test
 
 from pytest import raises, skip
 
-from neomodel import StringProperty, StructuredNode, config, db
-from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
+from neomodel import (
+    DateProperty,
+    IntegerProperty,
+    RelationshipTo,
+    StringProperty,
+    StructuredNode,
+    StructuredRel,
+    config,
+    db,
+)
+from neomodel.exceptions import (
+    NodeClassAlreadyDefined,
+    NodeClassNotDefined,
+    RelationshipClassRedefined,
+)
 
 
 @mark_sync_test
-def test_db_specific_classes():
+def test_db_specific_node_labels():
     if not db.edition_is_enterprise():
         skip("Skipping test for community edition")
     db_one = "one"
@@ -59,7 +72,6 @@ def test_db_specific_classes():
     # This means that the auto object resolution is working
     assert patients[0][0] == patient1
 
-    # TODO : Note, this does NOT prevent from saving to the wrong database
     db.close_connection()
     db.set_connection(url=f"{config.DATABASE_URL}/{db_two}")
     db.clear_neo4j_database()
@@ -73,6 +85,17 @@ def test_db_specific_classes():
 
 @mark_sync_test
 def test_resolution_not_defined_class():
+    if not db.edition_is_enterprise():
+        skip("Skipping test for community edition")
+
+    class PatientX(StructuredNode):
+        __label__ = "Patient"
+        __target_databases__ = ["db_x"]
+        name = StringProperty()
+
     db.cypher_query("CREATE (n:Gabagool)")
-    with raises(NodeClassNotDefined):
+    with raises(
+        NodeClassNotDefined,
+        match=r"Node with labels Gabagool does not resolve to any of the known objects[\s\S]*Database-specific: db_x.*",
+    ):
         _ = db.cypher_query("MATCH (n:Gabagool) RETURN n", resolve_objects=True)

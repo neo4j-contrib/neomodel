@@ -2,12 +2,25 @@ from test._async_compat import mark_async_test
 
 from pytest import raises, skip
 
-from neomodel import AsyncStructuredNode, StringProperty, adb, config
-from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
+from neomodel import (
+    AsyncRelationshipTo,
+    AsyncStructuredNode,
+    AsyncStructuredRel,
+    DateProperty,
+    IntegerProperty,
+    StringProperty,
+    adb,
+    config,
+)
+from neomodel.exceptions import (
+    NodeClassAlreadyDefined,
+    NodeClassNotDefined,
+    RelationshipClassRedefined,
+)
 
 
 @mark_async_test
-async def test_db_specific_classes():
+async def test_db_specific_node_labels():
     if not await adb.edition_is_enterprise():
         skip("Skipping test for community edition")
     db_one = "one"
@@ -61,7 +74,6 @@ async def test_db_specific_classes():
     # This means that the auto object resolution is working
     assert patients[0][0] == patient1
 
-    # TODO : Note, this does NOT prevent from saving to the wrong database
     await adb.close_connection()
     await adb.set_connection(url=f"{config.DATABASE_URL}/{db_two}")
     await adb.clear_neo4j_database()
@@ -77,6 +89,17 @@ async def test_db_specific_classes():
 
 @mark_async_test
 async def test_resolution_not_defined_class():
+    if not await adb.edition_is_enterprise():
+        skip("Skipping test for community edition")
+
+    class PatientX(AsyncStructuredNode):
+        __label__ = "Patient"
+        __target_databases__ = ["db_x"]
+        name = StringProperty()
+
     await adb.cypher_query("CREATE (n:Gabagool)")
-    with raises(NodeClassNotDefined):
+    with raises(
+        NodeClassNotDefined,
+        match=r"Node with labels Gabagool does not resolve to any of the known objects[\s\S]*Database-specific: db_x.*",
+    ):
         _ = await adb.cypher_query("MATCH (n:Gabagool) RETURN n", resolve_objects=True)
