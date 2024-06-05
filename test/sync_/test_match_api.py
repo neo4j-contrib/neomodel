@@ -14,9 +14,10 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
+    UniqueIdProperty,
 )
 from neomodel._async_compat.util import Util
-from neomodel.exceptions import MultipleNodesReturned
+from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 from neomodel.sync_.match import NodeSet, Optional, QueryBuilder, Traversal
 
 
@@ -47,6 +48,28 @@ class Coffee(StructuredNode):
 
 class Extension(StructuredNode):
     extension = RelationshipTo("Extension", "extension")
+
+
+class CountryX(StructuredNode):
+    code = StringProperty(unique_index=True, required=True)
+    inhabitant = RelationshipFrom("PersonX", "IS_FROM")
+
+
+class CityX(StructuredNode):
+    name = StringProperty(required=True)
+    country = RelationshipTo(CountryX, "FROM_COUNTRY")
+
+
+class PersonX(StructuredNode):
+    uid = UniqueIdProperty()
+    name = StringProperty(unique_index=True)
+    age = IntegerProperty(index=True, default=0)
+
+    # traverse outgoing IS_FROM relations, inflate to Country objects
+    country = RelationshipTo(CountryX, "IS_FROM")
+
+    # traverse outgoing LIVES_IN relations, inflate to City objects
+    city = RelationshipTo(CityX, "LIVES_IN")
 
 
 @mark_sync_test
@@ -521,6 +544,7 @@ def test_fetch_relations():
         .fetch_relations("coffees__species")
         .all()
     )
+    assert len(result[0]) == 5
     assert arabica in result[0]
     assert robusta not in result[0]
     assert tesco in result[0]
@@ -558,6 +582,25 @@ def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_sync_test
+def test_issue_795():
+    jim = PersonX(name="Jim", age=3).save()  # Create
+    jim.age = 4
+    jim.save()  # Update, (with validation)
+
+    germany = CountryX(code="DE").save()
+    jim.country.connect(germany)
+    berlin = CityX(name="Berlin").save()
+    berlin.country.connect(germany)
+    jim.city.connect(berlin)
+
+    with raises(
+        RelationshipClassNotDefined,
+        match=r"[\s\S]*Note that when using the fetch_relations method, the relationship type must be defined in the model.*",
+    ):
+        _ = PersonX.nodes.fetch_relations("country").all()
 
 
 @mark_sync_test
