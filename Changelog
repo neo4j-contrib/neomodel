@@ -1,3 +1,6 @@
+Version 5.3.2 2024-06
+* Add DateTimeNeo4jFormatProperty for Neo4j native datetime format
+
 Version 5.3.1 2024-05
 * Add neomodel_generate_diagram script, which generates a graph model diagram based on your neomodel class definitions. Arrows and PlantUML dot options
 * Fix bug in async iterator async for MyClass.nodes
