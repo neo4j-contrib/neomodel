@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from test._async_compat import mark_async_test
 
 from neo4j import time
@@ -139,11 +139,26 @@ def test_datetime_neo4j_format():
     prop.name = "foo"
     prop.owner = FooBar
     some_datetime = datetime(2022, 12, 10, 14, 00, 00)
+    assert prop.has_default is False
+    assert prop.default is None
     assert prop.deflate(some_datetime) == time.DateTime(2022, 12, 10, 14, 00, 00)
     assert prop.inflate(time.DateTime(2022, 12, 10, 14, 00, 00)) == some_datetime
 
     with raises(ValueError, match=r"datetime object expected, got.*"):
         prop.deflate(1234)
+
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeNeo4jFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    secondProp = DateTimeNeo4jFormatProperty(default_now=True)
+    assert secondProp.has_default
+    assert (
+        timedelta(seconds=-2)
+        < secondProp.default - datetime.now()
+        < timedelta(seconds=2)
+    )
 
 
 def test_datetime_exceptions():
