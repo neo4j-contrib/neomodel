@@ -5,7 +5,7 @@ from neo4j import time
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import Relationship, StructuredNode, StructuredRel, db
+from neomodel import Relationship, StructuredNode, StructuredRel, config, db
 from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,
@@ -14,6 +14,7 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.properties import (
+    AliasProperty,
     ArrayProperty,
     BooleanProperty,
     DateProperty,
@@ -115,7 +116,7 @@ def test_deflate_inflate():
 
 
 def test_boolean_property():
-    prop = BooleanProperty()
+    prop = BooleanProperty(default=False)
     prop.name = "foo"
     prop.owner = FooBar
     assert prop.deflate(True) is True
@@ -123,7 +124,7 @@ def test_boolean_property():
     assert prop.inflate(True) is True
     assert prop.inflate(False) is False
 
-    assert prop.has_default is False
+    assert prop.default_value() is False
 
 
 def test_datetimes_timezones():
@@ -141,6 +142,18 @@ def test_datetimes_timezones():
     assert time1.utctimetuple() < time2.utctimetuple()
     assert time1.tzname() == "UTC"
 
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    prev_force_timezone = config.FORCE_TIMEZONE
+    config.FORCE_TIMEZONE = True
+    with raises(ValueError, match=r".*No timezone provided."):
+        prop.deflate(datetime.now())
+
+    config.FORCE_TIMEZONE = prev_force_timezone
+
 
 def test_date():
     prop = DateProperty()
@@ -149,6 +162,8 @@ def test_date():
     somedate = date(2012, 12, 15)
     assert prop.deflate(somedate) == "2012-12-15"
     assert prop.inflate("2012-12-15") == somedate
+
+    assert prop.inflate(time.DateTime(2007, 9, 27)) == date(2007, 9, 27)
 
 
 def test_datetime_format():
@@ -159,6 +174,22 @@ def test_datetime_format():
     some_datetime = datetime(2019, 3, 19, 15, 36, 25)
     assert prop.deflate(some_datetime) == "2019-03-19 15:36:25"
     assert prop.inflate("2019-03-19 15:36:25") == some_datetime
+
+    with raises(ValueError, match=r"datetime object expected, got.*"):
+        prop.deflate(1234)
+
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    secondProp = DateTimeFormatProperty(default_now=True)
+    assert secondProp.has_default
+    assert (
+        timedelta(seconds=-2)
+        < secondProp.default - datetime.now()
+        < timedelta(seconds=2)
+    )
 
 
 def test_datetime_neo4j_format():
@@ -512,6 +543,20 @@ def test_uid_property():
     cmid = CheckMyId().save()
     assert len(cmid.uid)
 
+    matched_exception = r".*argument ignored by.*"
+    # Test ignored arguments
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(required=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(unique_index=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(index=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(default="kakapo")
+
 
 class ArrayProps(StructuredNode):
     uid = StringProperty(unique_index=True)
@@ -621,3 +666,17 @@ def test_unique_index_prop_enforced():
     x.delete()
     y.delete()
     z.delete()
+
+
+def test_alias_property():
+    class AliasedClass(StructuredNode):
+        name = StringProperty(index=True)
+        national_id = IntegerProperty(unique_index=True)
+        alias = AliasProperty(to="name")
+        alias_national_id = AliasProperty(to="national_id")
+        whatever = StringProperty()
+        alias_whatever = AliasProperty(to="whatever")
+
+    assert AliasedClass.alias.index is True
+    assert AliasedClass.alias_national_id.unique_index is True
+    assert AliasedClass.alias_whatever.index is False
