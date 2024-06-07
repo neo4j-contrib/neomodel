@@ -15,6 +15,7 @@ from neomodel.exceptions import (
 )
 from neomodel.properties import (
     ArrayProperty,
+    BooleanProperty,
     DateProperty,
     DateTimeFormatProperty,
     DateTimeNeo4jFormatProperty,
@@ -26,6 +27,7 @@ from neomodel.properties import (
     RegexProperty,
     StringProperty,
     UniqueIdProperty,
+    validator,
 )
 from neomodel.util import get_graph_entity_properties
 
@@ -78,6 +80,12 @@ async def test_string_property_w_choice():
     node = await TestChoices(sex="M").save()
     assert node.get_sex_display() == "Male"
 
+    with raises(ValueError):
+
+        class WrongChoices(AsyncStructuredNode):
+            WRONG = "wrong"
+            wrong_prop = StringProperty(choices=WRONG)
+
 
 def test_deflate_inflate():
     prop = IntegerProperty(required=True)
@@ -97,6 +105,25 @@ def test_deflate_inflate():
         assert "deflate property" in str(e)
     else:
         assert False, "DeflateError not raised."
+
+    with raises(ValueError, match="Unknown Property method tartiflate"):
+
+        class CheeseProperty(IntegerProperty):
+            @validator
+            def tartiflate(self, value):
+                return int(value)
+
+
+def test_boolean_property():
+    prop = BooleanProperty()
+    prop.name = "foo"
+    prop.owner = FooBar
+    assert prop.deflate(True) is True
+    assert prop.deflate(False) is False
+    assert prop.inflate(True) is True
+    assert prop.inflate(False) is False
+
+    assert prop.has_default is False
 
 
 def test_datetimes_timezones():
@@ -203,6 +230,35 @@ def test_date_exceptions():
         assert False, "DeflateError not raised."
 
 
+def test_base_exceptions():
+    # default-required conflict
+    with raises(
+        ValueError,
+        match="The arguments `required` and `default` are mutually exclusive.",
+    ):
+        _ = StringProperty(default="kakapo", required=True)
+
+    # unique_index - index conflict
+    with raises(
+        ValueError,
+        match="The arguments `unique_index` and `index` are mutually exclusive.",
+    ):
+        _ = IntegerProperty(index=True, unique_index=True)
+
+    # no default value
+    kakapo = StringProperty()
+    with raises(ValueError, match="No default value specified"):
+        kakapo.default_value()
+
+    # missing normalize method
+    class WoopsProperty(NormalizedProperty):
+        pass
+
+    woops = WoopsProperty()
+    with raises(NotImplementedError, match="Specialize normalize method"):
+        woops.normalize("kakapo")
+
+
 def test_json():
     prop = JSONProperty()
     prop.name = "json"
@@ -212,6 +268,17 @@ def test_json():
 
     assert prop.deflate(value) == '{"test": [1, 2, 3]}'
     assert prop.inflate('{"test": [1, 2, 3]}') == value
+
+
+def test_indexed():
+    indexed = StringProperty(index=True)
+    assert indexed.is_indexed is True
+
+    unique_indexed = StringProperty(unique_index=True)
+    assert unique_indexed.is_indexed is True
+
+    not_indexed = StringProperty()
+    assert not_indexed.is_indexed is False
 
 
 @mark_async_test
@@ -476,6 +543,15 @@ async def test_array_properties():
     assert 1 in ap2.typed_arr
     ap2 = await ArrayProps.nodes.get(uid="2")
     assert 2 in ap2.typed_arr
+
+    class Kakapo:
+        pass
+
+    with raises(TypeError, match="Expecting neomodel Property"):
+        ArrayProperty(Kakapo)
+
+    with raises(TypeError, match="Cannot have nested ArrayProperty"):
+        ArrayProperty(ArrayProperty())
 
 
 def test_illegal_array_base_prop_raises():
