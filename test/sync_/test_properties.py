@@ -239,6 +239,9 @@ def test_datetime_exceptions():
     else:
         assert False, "DeflateError not raised."
 
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeProperty(default_now=True, default=datetime(1900, 1, 1, 0, 0, 0))
+
 
 def test_date_exceptions():
     prop = DateProperty()
