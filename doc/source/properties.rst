@@ -6,15 +6,15 @@ Property types
 
 The following properties are available on nodes and relationships:
 
-====================================================  ===========================================================
-:class:`~neomodel.properties.AliasProperty`           :class:`~neomodel.properties.IntegerProperty`
-:class:`~neomodel.properties.ArrayProperty`           :class:`~neomodel.properties.JSONProperty`
-:class:`~neomodel.properties.BooleanProperty`         :class:`~neomodel.properties.RegexProperty`
-:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty` (:ref:`Notes <properties_notes>`)
-:class:`~neomodel.properties.DateTimeProperty`        :class:`~neomodel.properties.UniqueIdProperty`
-:class:`~neomodel.properties.DateTimeFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
-:class:`~neomodel.properties.FloatProperty`           \
-====================================================  ===========================================================
+=========================================================  ===========================================================
+:class:`~neomodel.properties.AliasProperty`                :class:`~neomodel.properties.FloatProperty`   
+:class:`~neomodel.properties.ArrayProperty`                :class:`~neomodel.properties.IntegerProperty`
+:class:`~neomodel.properties.BooleanProperty`              :class:`~neomodel.properties.JSONProperty`
+:class:`~neomodel.properties.DateProperty`                 :class:`~neomodel.properties.RegexProperty`
+:class:`~neomodel.properties.DateTimeProperty`             :class:`~neomodel.properties.StringProperty` (:ref:`Notes <properties_notes>`)
+:class:`~neomodel.properties.DateTimeFormatProperty`       :class:`~neomodel.properties.UniqueIdProperty` 
+:class:`~neomodel.properties.DateTimeNeo4jFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
+=========================================================  ===========================================================
 
 
 Naming Convention

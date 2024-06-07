@@ -25,6 +25,7 @@ from neomodel.properties import (
     BooleanProperty,
     DateProperty,
     DateTimeFormatProperty,
+    DateTimeNeo4jFormatProperty,
     DateTimeProperty,
     EmailProperty,
     FloatProperty,
