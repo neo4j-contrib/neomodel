@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from test._async_compat import mark_async_test
 
+from neo4j import time
 from pytest import mark, raises
 from pytz import timezone
 
@@ -16,6 +17,7 @@ from neomodel.properties import (
     ArrayProperty,
     DateProperty,
     DateTimeFormatProperty,
+    DateTimeNeo4jFormatProperty,
     DateTimeProperty,
     EmailProperty,
     IntegerProperty,
@@ -130,6 +132,18 @@ def test_datetime_format():
     some_datetime = datetime(2019, 3, 19, 15, 36, 25)
     assert prop.deflate(some_datetime) == "2019-03-19 15:36:25"
     assert prop.inflate("2019-03-19 15:36:25") == some_datetime
+
+
+def test_datetime_neo4j_format():
+    prop = DateTimeNeo4jFormatProperty()
+    prop.name = "foo"
+    prop.owner = FooBar
+    some_datetime = datetime(2022, 12, 10, 14, 00, 00)
+    assert prop.deflate(some_datetime) == time.DateTime(2022, 12, 10, 14, 00, 00)
+    assert prop.inflate(time.DateTime(2022, 12, 10, 14, 00, 00)) == some_datetime
+
+    with raises(ValueError, match=r"datetime object expected, got.*"):
+        prop.deflate(1234)
 
 
 def test_datetime_exceptions():

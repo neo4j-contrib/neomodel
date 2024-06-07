@@ -4,7 +4,6 @@ import re
 import sys
 import uuid
 from datetime import date, datetime
-import neo4j.time
 
 import neo4j.time
 import pytz
@@ -448,25 +447,26 @@ class DateTimeProperty(Property):
         return float((value - epoch_date).total_seconds())
 
 
-class DateTimeFormatNeo4j(Property):
+class DateTimeNeo4jFormatProperty(Property):
     """
     Store a datetime by native neo4j format
-    
+
     :param default_now: If ``True``, the creation time (Local) will be used as default.
                         Defaults to ``False``.
 
     :type default_now:  :class:`bool`
     """
-    form_field_class = 'DateTimeFormatFieldNeo4j'
+
+    form_field_class = "DateTimeNeo4jFormatField"
 
     def __init__(self, default_now=False, **kwargs):
         if default_now:
-            if 'default' in kwargs:
-                raise ValueError('too many defaults')
-            kwargs['default'] = lambda: datetime.now()
+            if "default" in kwargs:
+                raise ValueError("too many defaults")
+            kwargs["default"] = datetime.now()
 
         self.format = format
-        super(DateTimeFormatNeo4j, self).__init__(**kwargs)
+        super(DateTimeNeo4jFormatProperty, self).__init__(**kwargs)
 
     @validator
     def inflate(self, value):
@@ -475,11 +475,10 @@ class DateTimeFormatNeo4j(Property):
     @validator
     def deflate(self, value):
         if not isinstance(value, datetime):
-            raise ValueError('datetime object expected, got {0}.'.format(type(value)))
+            raise ValueError("datetime object expected, got {0}.".format(type(value)))
         return neo4j.time.DateTime.from_native(value)
 
-    
-    
+
 class JSONProperty(Property):
     """
     Store a data structure as a JSON string.
