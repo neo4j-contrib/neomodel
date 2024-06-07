@@ -10,7 +10,7 @@ The following properties are available on nodes and relationships:
 :class:`~neomodel.properties.AliasProperty`           :class:`~neomodel.properties.IntegerProperty`
 :class:`~neomodel.properties.ArrayProperty`           :class:`~neomodel.properties.JSONProperty`
 :class:`~neomodel.properties.BooleanProperty`         :class:`~neomodel.properties.RegexProperty`
-:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty` (`Notes <http://www.google.com>`_)
+:class:`~neomodel.properties.DateProperty`            :class:`~neomodel.properties.StringProperty` (:ref:`Notes <properties_notes>`)
 :class:`~neomodel.properties.DateTimeProperty`        :class:`~neomodel.properties.UniqueIdProperty`
 :class:`~neomodel.properties.DateTimeFormatProperty`  :class:`~neomodel.contrib.spatial_properties.PointProperty`
 :class:`~neomodel.properties.FloatProperty`           \
@@ -54,7 +54,7 @@ Setting ``required=True`` makes the property mandatory. Mandatory properties can
 both ``required=True, default`` will result in a ``ValueError`` exception.
 
 It is worth noting here that ``required=False`` means that the property's value can also be ``None`` **in addition** to
-a valid valud. A value of ``None`` is **different** than a value of ``""`` and this can sometimes lead to logical
+a valid value. A value of ``None`` is **different** than a value of ``""`` and this can sometimes lead to logical
 errors.
 
 For example::
@@ -148,7 +148,7 @@ Other properties
 
 * `EmailProperty` - validate emails (via a regex).
 * `RegexProperty` - passing in a validator regex: `RegexProperty(expression=r'\d\w')`
-* `NormalProperty` - use one method (normalize) to inflate and deflate.
+* `NormalizedProperty` - use one method (normalize) to inflate and deflate.
 * `PointProperty` - store and validate :ref:`spatial_properties`
 
 Aliasing properties
@@ -179,6 +179,21 @@ This is useful when hiding graph properties behind a python property::
         def name(self, value):
             self.name_ = value
 
+Reserved properties
+===================
+
+To prevent conflicts with neomodel / Neo4j internals, the following properties are reserved, and will throw a ValueError if you try to define them in elements.
+
+* Nodes :
+    * deleted - used to mark an object for deletion by neomodel
+* Relationships :
+    * source - id of the source node for a relationship
+    * target - id of the target node
+* Both :
+    * id - internal Neo4j id of elements in version 4 ; deprecated in 5
+    * element_id - internal Neo4j id of elements in version 5
+
+.. _properties_notes:
 
 Notes
 =====

@@ -1,0 +1,81 @@
+[project]
+name = "neomodel"
+authors = [
+    {name = "Robin Edwards", email = "robin.ge@gmail.com"},
+]
+maintainers = [
+    {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
+    {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
+]
+description = "An object mapper for the neo4j graph database."
+readme = "README.md"
+keywords = ["graph", "neo4j", "ORM", "OGM", "mapper"]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    'Intended Audience :: Developers',
+    'Operating System :: OS Independent',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+]
+dependencies = [
+    "neo4j~=5.19.0",
+]
+requires-python = ">=3.7"
+dynamic = ["version"]
+
+[project.urls]
+documentation = "https://neomodel.readthedocs.io/en/latest/"
+repository = "http://github.com/neo4j-contrib/neomodel"
+changelog = "https://github.com/neo4j-contrib/neomodel/releases"
+
+[project.optional-dependencies]
+dev = [
+    "unasync",
+    "pytest>=7.1",
+    "pytest-asyncio",
+    "pytest-cov>=4.0",
+    "pre-commit",
+    "black",
+    "isort",
+    "Shapely>=2.0.0"
+]
+pandas = ["pandas"]
+numpy = ["numpy"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "neomodel._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["./"]
+
+[tool.pytest.ini_options]
+addopts = "--resetdb"
+testpaths = "test"
+
+[tool.isort]
+profile = 'black'
+src_paths = ['neomodel','test']
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = 'missing-module-docstring,redefined-builtin,missing-class-docstring,missing-function-docstring,consider-using-f-string,line-too-long'
+
+[tool.pylint.'BASIC']
+good-names = 'i,j,k,ex,_,e,fn,x,y,z,id,db,q'
+
+[tool.pylint.'DESIGN']
+max-attributes = 10
+max-args = 8
+
+[project.scripts]
+neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
+neomodel_remove_labels = "neomodel.scripts.neomodel_remove_labels:main"
+neomodel_inspect_database = "neomodel.scripts.neomodel_inspect_database:main"
+neomodel_generate_diagram = "neomodel.scripts.neomodel_generate_diagram:main"

@@ -21,15 +21,36 @@ Creating purely abstract classes is achieved using the `__abstract_node__` prope
             self.balance = self.balance + int(amount)
             self.save()
 
+
+Optional Labels
+---------------
+Sometimes it is useful to allow a node to have extra labels in addition to the
+ones Neomodel defines by default using class names.
+
+Nemodel constructs sets of labels to give to a node in Neo4j by looking at the
+names of the node classes that node is/inherits from. It also constructs a
+mapping of the reverse, expected node labels to node classes, in order to do
+object resolution.
+
+In order for object resolution to work on Node Classes that could have extra
+labels, the `__optional_labels__` property must be defined as a list of strings::
+
+    class Shopper(StructuredNode):
+        __optional_labels__ = ["SuperSaver", "SeniorDiscount"]
+        balance = IntegerProperty(index=True)
+
+.. note:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
+
+
 Mixins
 ------
 Mixins can be used to share functionality between nodes classes::
 
-    class UserMixin(object):
+    class UserMixin:
         name = StringProperty(unique_index=True)
         password = StringProperty()
 
-    class CreditMixin(object):
+    class CreditMixin:
         balance = IntegerProperty(index=True)
 
         def credit_account(self, amount):
@@ -67,7 +88,7 @@ a ``Product`` entity. One way to achieve this, would be to have ``Item``'s const
                 self.product = product
                 kwargs["uid"] = 'g.' + str(self.product.pk)
                 kwargs["name"] = self.product.product_name
-            super(Item, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
 
 Note here that it is impossible to automatically infer that ``product`` is a parameter that is only used in the
 derivation of ``Item``'s attributes and the objective is to preserve the ability to instantiate ``Item`` both via a

@@ -1,0 +1,48 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Integration tests
+
+on:
+  push:
+    branches: [ "rc/**" ]
+  pull_request:
+    branches: [ "master", "rc/**" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.11", "3.10", "3.9", "3.8", "3.7"]
+        neo4j-version: ["community", "enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - name: Creating Neo4j Container
+      run: |
+        chmod +x ./docker-scripts/docker-neo4j.sh
+        sh ./docker-scripts/docker-neo4j.sh ${{ matrix.neo4j-version }}
+        sleep 30s
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e '.[dev,pandas,numpy]'
+    - name: Test with pytest
+      env:
+        AURA_TEST_DB_USER: ${{ secrets.AURA_TEST_DB_USER }}
+        AURA_TEST_DB_PASSWORD: ${{ secrets.AURA_TEST_DB_PASSWORD }}
+        AURA_TEST_DB_HOSTNAME: ${{ secrets.AURA_TEST_DB_HOSTNAME }}
+      run: |
+        pytest --cov=neomodel --cov-report=html:coverage_report
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}  # Ensure the token is used here
+        fail_ci_if_error: true  # Optional: specify if CI should fail when codecov fails

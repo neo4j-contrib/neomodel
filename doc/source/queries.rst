@@ -186,3 +186,73 @@ For random ordering simply pass '?' to the order_by method::
 
     Coffee.nodes.order_by('?')
 
+Retrieving paths
+================
+
+You can retrieve a whole path of already instantiated objects corresponding to 
+the nodes and relationship classes with a single query.
+
+Suppose the following schema:
+
+::
+
+    class PersonLivesInCity(StructuredRel):
+        some_num = IntegerProperty(index=True, 
+                                   default=12)
+    
+    class CountryOfOrigin(StructuredNode):
+        code = StringProperty(unique_index=True, 
+                              required=True)
+    
+    class CityOfResidence(StructuredNode):
+        name = StringProperty(required=True)
+        country = RelationshipTo(CountryOfOrigin, 
+                                 'FROM_COUNTRY')
+    
+    class PersonOfInterest(StructuredNode):
+        uid = UniqueIdProperty()
+        name = StringProperty(unique_index=True)
+        age = IntegerProperty(index=True, 
+                              default=0)
+    
+        country = RelationshipTo(CountryOfOrigin, 
+                                 'IS_FROM')
+        city = RelationshipTo(CityOfResidence, 
+                              'LIVES_IN', 
+                              model=PersonLivesInCity)
+
+Then, paths can be retrieved with:
+
+::
+   
+    q = db.cypher_query("MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1", 
+                        resolve_objects = True)
+
+Notice here that ``resolve_objects`` is set to ``True``. This results in ``q`` being a 
+list of ``result, result_name`` and ``q[0][0][0]`` being a ``NeomodelPath`` object.
+
+``NeomodelPath`` ``nodes, relationships`` attributes contain already instantiated objects of the 
+nodes and relationships in the query, *in order of appearance*.
+
+It would be particularly useful to note here that each object is read exactly once from 
+the database. Therefore, nodes will be instantiated to their neomodel node objects and 
+relationships to their relationship models *if such a model exists*. In other words, 
+relationships with data (such as ``PersonLivesInCity`` above) will be instantiated to their
+respective objects or ``StrucuredRel`` otherwise. Relationships do not "reload" their 
+end-points (unless this is required).
+
+Async neomodel - Caveats
+========================
+
+Python does not support async dunder methods. This means that we had to implement some overrides for those.
+See the example below::
+
+    # This will not work as it uses the synchronous __bool__ method
+    assert await Customer.nodes.filter(prop="value")
+
+    # Do this instead
+    assert await Customer.nodes.filter(prop="value").check_bool()
+    assert await Customer.nodes.filter(prop="value").check_nonzero()
+
+    # Note : no changes are needed for sync so this still works :
+    assert Customer.nodes.filter(prop="value")

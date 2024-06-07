@@ -15,3 +15,10 @@ development.env
 .ropeproject
 \#*\#
 .eggs
+lib
+.vscode
+pyvenv.cfg
+coverage_report/
+.coverage*
+.DS_STORE
+cov.xml

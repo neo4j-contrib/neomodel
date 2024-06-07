@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.11.5
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+  - repo: local
+    hooks:
+      - id: unasync
+        name: unasync
+        entry: bin/make-unasync
+        language: python
+        files: "^(neomodel/async_|test/async_)/.*"
+        additional_dependencies: [unasync, isort, black]

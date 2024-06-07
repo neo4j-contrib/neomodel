@@ -35,15 +35,16 @@ ORM.
 import copy
 
 
-class QBase(object):
+class QBase:
     """
     A single internal node in the tree graph. A Node should be viewed as a
     connection (the root) with the children being either leaf nodes or other
     Node instances.
     """
+
     # Standard connector type. Clients usually won't use this at all and
     # subclasses will usually override the value.
-    default = 'DEFAULT'
+    default = "DEFAULT"
 
     def __init__(self, children=None, connector=None, negated=False):
         """Construct a new Node. If no connector is given, use the default."""
@@ -68,11 +69,14 @@ class QBase(object):
         return obj
 
     def __str__(self):
-        template = '(NOT ({0}: {1}))' if self.negated else '({0}: {1})'
-        return template.format(self.connector, ', '.join(str(c) for c in self.children))
+        return (
+            f"(NOT ({self.connector}: {', '.join(str(c) for c in self.children)}))"
+            if self.negated
+            else f"({self.connector}: {', '.join(str(c) for c in self.children)})"
+        )
 
     def __repr__(self):
-        return "<{0}: {1}>".format(self.__class__.__name__, self)
+        return f"<{self.__class__.__name__}: {self}>"
 
     def __deepcopy__(self, memodict):
         obj = QBase(connector=self.connector, negated=self.negated)
@@ -100,7 +104,9 @@ class QBase(object):
         return False
 
     def __hash__(self):
-        return hash((self.__class__, self.connector, self.negated) + tuple(self.children))
+        return hash(
+            (self.__class__, self.connector, self.negated) + tuple(self.children)
+        )
 
     def add(self, data, conn_type, squash=True):
         """
@@ -127,8 +133,11 @@ class QBase(object):
             return data
         if self.connector == conn_type:
             # We can reuse self.children to append or squash the node other.
-            if (isinstance(data, QBase) and not data.negated and
-                    (data.connector == conn_type or len(data) == 1)):
+            if (
+                isinstance(data, QBase)
+                and not data.negated
+                and (data.connector == conn_type or len(data) == 1)
+            ):
                 # We can squash the other node's children directly into this
                 # node. We are just doing (AB)(CD) == (ABCD) here, with the
                 # addition that if the length of the other node is 1 the
@@ -137,17 +146,16 @@ class QBase(object):
                 # self.connector.
                 self.children.extend(data.children)
                 return self
-            else:
-                # We could use perhaps additional logic here to see if some
-                # children could be used for pushdown here.
-                self.children.append(data)
-                return data
-        else:
-            obj = self._new_instance(self.children, self.connector,
-                                     self.negated)
-            self.connector = conn_type
-            self.children = [obj, data]
+
+            # We could use perhaps additional logic here to see if some
+            # children could be used for pushdown here.
+            self.children.append(data)
             return data
+
+        obj = self._new_instance(self.children, self.connector, self.negated)
+        self.connector = conn_type
+        self.children = [obj, data]
+        return data
 
     def negate(self):
         """Negate the sense of the root connector."""
@@ -159,15 +167,20 @@ class Q(QBase):
     Encapsulate filters as objects that can then be combined logically (using
     `&` and `|`).
     """
+
     # Connection types
-    AND = 'AND'
-    OR = 'OR'
+    AND = "AND"
+    OR = "OR"
     default = AND
 
     def __init__(self, *args, **kwargs):
-        connector = kwargs.pop('_connector', None)
-        negated = kwargs.pop('_negated', False)
-        super(Q, self).__init__(children=list(args) + sorted(kwargs.items()), connector=connector, negated=negated)
+        connector = kwargs.pop("_connector", None)
+        negated = kwargs.pop("_negated", False)
+        super().__init__(
+            children=list(args) + sorted(kwargs.items()),
+            connector=connector,
+            negated=negated,
+        )
 
     def _combine(self, other, conn):
         if not isinstance(other, Q):
@@ -177,7 +190,7 @@ class Q(QBase):
         if not other:
             return copy.deepcopy(self)
         # Or if this Q is empty, ignore it and just use `other`.
-        elif not self:
+        if not self:
             return copy.deepcopy(other)
 
         obj = type(self)()

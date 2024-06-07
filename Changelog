@@ -1,3 +1,99 @@
+Version 5.3.1 2024-05
+* Add neomodel_generate_diagram script, which generates a graph model diagram based on your neomodel class definitions. Arrows and PlantUML dot options
+* Fix bug in async iterator async for MyClass.nodes
+* Fix bugs in database inspection script (multiple rels per label, missing DateProperty type)
+
+Version 5.3.0 2024-04
+* Add async support
+* Breaking change : config.AUTO_INSTALL_LABELS has been removed. Please use the neomodel_install_labels script instead
+* Note that the Database class has been moved into neomodel.sync_.core
+* Bumps neo4j (driver) to 5.19.0
+* Various improvement : functools wrap to TransactionProxy, fix node equality check, q filter for IN in arrays, fix inflate on db_property. Thanks to @giosava94, @OlehChyhyryn, @icapora, @j-krose
+
+Version 5.2.1 2023-12
+* Add options to inspection script to skip heavy operations - rel props or cardinality inspection #767
+* Fixes database version parsing issues
+* Fixes bug when combining count with pagination #769
+* Bumps neo4j (driver) to 5.15.0
+
+Version 5.2.0 2023-11
+* Add an option to pass your own driver instead of relying on the automatically created one. See set_connection method. NB : only accepts the synchronous driver for now.
+* Add a close_connection method to explicitly close the driver to match Neo4j deprecation.
+* Add a DATABASE_NAME config option, available for both auto- and self-managed driver modes.
+* Add neomodel_inspect_database script, which inspects an existing database and creates neomodel class definitions for all objects.
+* Add support for pandas DataFrame and Series ; numpy Array
+* Add relationship uniqueness constraints - for Neo4j >= 5.7
+
+Version 5.1.2 2023-09
+* Raise ValueError on reserved keywords ; add tests #590 #623
+* Add support for relationship property uniqueness constraints. Introduced in Neo4j 5.7.
+* Fix various issues, including fetching self-referencing relationship with same name as node labels #589
+* Bumped neo4j-driver to 5.12.0
+
+Version 5.1.1 2023-08
+* Add impersonation
+* Bumped neo4j-driver to 5.11.0
+* Add automatic path inflation #715
+* Improve code quality and tooling
+
+Version 5.1.0 2023-07
+* Bumped neo4j-driver version to 5.10.0
+* Breaking change : When using neomodel along with Neo4j version 5, use StructuredNode and StructuredRel's element_id property instead of id. If you have Cypher queries which currently use the id() function, migrate them to elementId() instead.
+If you use Neo4j version 4.4, this change should be transparent to you, and you should keep using id() function in Cypher since elementId() is not implemented in 4.4.
+* Bump Shapely to >= 2.0.0
+* Fix schema scripts invocation
+* Removed custom __str__ method, part of NodeClassRegistry, from Database() (db) object.
+
+Version 5.0.1 2023-06
+* Removed deprecated methods StructuredRel.delete and RelationshipManager.search
+* Extended test coverage, fixed some typos, improve linting
+
+Version 5.0.0 2023-03
+* Confirmed support of Neo4j versions 5.x and 4.4 (LTS)
+* Dropped support of EOL Neo4j versions (4.3 and below)
+* Confirmed support of Python 3.11
+* Migrated RelationshipTo/RelationshipFrom from a method to a class for consistency.
+* Add support for relationship indexes
+* Auto-generated indexes now have a deterministic name
+* Code cleanup
+
+Version 4.0.10 2023-02-16
+* Maintenance release due to misconfiguration of pyproject.toml
+
+Version 4.0.9 2023-02-16
+* Update neo4j driver to 4.4.10
+* Confirmed support of all 4.x Neo4j versions (up to LTS version 4.4)
+* Update shapely to 1.8.1 to support Python 3.9 and 3.10
+* Drop support of Python 3.6
+* Up pytest requirement to 7.1 (Python 3.7+)
+* Update to latest version of setuptools for up-to-date build process
+
+Version 4.0.8 2021-12-14
+* Error handling to prepare for Neo4j update to 4.4 (thank you Alessandro Marchetti)
+* Fix "After ServiceUnavailable error, connection pool is broken and does not recover" (#551) thank you @olegchigirin 
+* Fix DateProperty inflate (#586) thank you @ralfeus
+* Use modern python API for metadata (#587) thank you Park, Yury
+
+Version 4.0.7 2021-10-19
+
+* Update neo4j driver to 4.3.6
+* Fix After ServiceUnavailable error, connection pool is broken and does not recover
+
+Version 4.0.6 2021-09-09
+* Fix calling install_all_labels twice fails #539
+* Fix issue with passwords with special chars #572
+
+Version 4.0.5 2021-07-26
+* Fix issue with secure schema
+
+Version 4.0.4 2021-07-01
+* Fix for docker tests (#479)
+* Add support for slow query log (#480)
+* Add support for multi databases (#556)
+* docker-compose-update (#561)
+* Provide additional configuration for neo4j-driver connection (#564)
+* Updated dependencies
+
 Version 4.0.3 2020-09-28
 * fix: "SemiStructuredNode can't have no props #493" (thank you @dmp593)
 * removed pytest as an installation requirement (#553) (thank you @mprahl)
