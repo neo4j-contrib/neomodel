@@ -206,10 +206,10 @@ def test_fulltext_index_conflict():
             "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNode) ON EACH [n.name]"
         )
 
-        class FullTextIndexNode(StructuredNode):
+        class FullTextIndexNodeConflict(StructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        db.install_labels(FullTextIndexNode)
+        db.install_labels(FullTextIndexNodeConflict)
 
     console_output = stream.getvalue()
     assert "There already exists an index" in console_output
@@ -224,10 +224,10 @@ def test_fulltext_index_not_supported():
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
 
-        class FullTextIndexNode(StructuredNode):
+        class FullTextIndexNodeOld(StructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        db.install_labels(FullTextIndexNode)
+        db.install_labels(FullTextIndexNodeOld)
 
 
 @mark_sync_test

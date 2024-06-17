@@ -207,10 +207,10 @@ async def test_fulltext_index_conflict():
             "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNode) ON EACH [n.name]"
         )
 
-        class FullTextIndexNode(AsyncStructuredNode):
+        class FullTextIndexNodeConflict(AsyncStructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        await adb.install_labels(FullTextIndexNode)
+        await adb.install_labels(FullTextIndexNodeConflict)
 
     console_output = stream.getvalue()
     assert "There already exists an index" in console_output
@@ -225,10 +225,10 @@ async def test_fulltext_index_not_supported():
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
 
-        class FullTextIndexNode(AsyncStructuredNode):
+        class FullTextIndexNodeOld(AsyncStructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        await adb.install_labels(FullTextIndexNode)
+        await adb.install_labels(FullTextIndexNodeOld)
 
 
 @mark_async_test
