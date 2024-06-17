@@ -269,14 +269,14 @@ async def test_rel_fulltext_index_conflict():
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
-        class FullTextIndexRelNode(AsyncStructuredNode):
+        class FullTextIndexRelConflictNode(AsyncStructuredNode):
             has_rel = AsyncRelationshipTo(
-                "FullTextIndexRelNode",
+                "FullTextIndexRelConflictNode",
                 "FULLTEXT_INDEX_REL_CONFLICT",
                 model=FullTextIndexRelConflict,
             )
 
-        await adb.install_labels(FullTextIndexRelNode)
+        await adb.install_labels(FullTextIndexRelConflictNode)
 
     console_output = stream.getvalue()
     assert "There already exists an index" in console_output
@@ -296,14 +296,14 @@ async def test_rel_fulltext_index_not_supported():
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
-        class FullTextIndexRelNode(AsyncStructuredNode):
+        class FullTextIndexRelOldNode(AsyncStructuredNode):
             has_rel = AsyncRelationshipTo(
-                "FullTextIndexRelNode",
+                "FullTextIndexRelOldNode",
                 "FULLTEXT_INDEX_REL_OLD",
                 model=FullTextIndexRelOld,
             )
 
-        await adb.install_labels(FullTextIndexRelNode)
+        await adb.install_labels(FullTextIndexRelOldNode)
 
 
 async def _drop_constraints_for_label_and_property(

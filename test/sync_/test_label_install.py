@@ -268,14 +268,14 @@ def test_rel_fulltext_index_conflict():
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
-        class FullTextIndexRelNode(StructuredNode):
+        class FullTextIndexRelConflictNode(StructuredNode):
             has_rel = RelationshipTo(
-                "FullTextIndexRelNode",
+                "FullTextIndexRelConflictNode",
                 "FULLTEXT_INDEX_REL_CONFLICT",
                 model=FullTextIndexRelConflict,
             )
 
-        db.install_labels(FullTextIndexRelNode)
+        db.install_labels(FullTextIndexRelConflictNode)
 
     console_output = stream.getvalue()
     assert "There already exists an index" in console_output
@@ -295,14 +295,14 @@ def test_rel_fulltext_index_not_supported():
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
-        class FullTextIndexRelNode(StructuredNode):
+        class FullTextIndexRelOldNode(StructuredNode):
             has_rel = RelationshipTo(
-                "FullTextIndexRelNode",
+                "FullTextIndexRelOldNode",
                 "FULLTEXT_INDEX_REL_OLD",
                 model=FullTextIndexRelOld,
             )
 
-        db.install_labels(FullTextIndexRelNode)
+        db.install_labels(FullTextIndexRelOldNode)
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):
