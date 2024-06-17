@@ -204,7 +204,7 @@ async def test_fulltext_index_conflict():
 
     with patch("sys.stdout", new=stream):
         await adb.cypher_query(
-            "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNode) ON EACH [n.name]"
+            "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNodeConflict) ON EACH [n.name]"
         )
 
         class FullTextIndexNodeConflict(AsyncStructuredNode):
@@ -261,7 +261,7 @@ async def test_rel_fulltext_index_conflict():
 
     with patch("sys.stdout", new=stream):
         await adb.cypher_query(
-            "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL]-() ON EACH [r.name]"
+            "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL_CONFLICT]-() ON EACH [r.name]"
         )
 
         class FullTextIndexRelConflict(AsyncStructuredRel):
