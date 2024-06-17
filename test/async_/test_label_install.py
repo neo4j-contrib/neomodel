@@ -241,7 +241,7 @@ async def test_rel_fulltext_index():
 
     class FullTextIndexRelNode(AsyncStructuredNode):
         has_rel = AsyncRelationshipTo(
-            FullTextIndexRel, "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+            "FullTextIndexRelNode", "FULLTEXT_INDEX_REL", model=FullTextIndexRel
         )
 
     await adb.install_labels(FullTextIndexRelNode)
@@ -264,14 +264,16 @@ async def test_rel_fulltext_index_conflict():
             "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL]-() ON EACH [r.name]"
         )
 
-        class FullTextIndexRel(AsyncStructuredRel):
+        class FullTextIndexRelConflict(AsyncStructuredRel):
             name = StringProperty(
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
         class FullTextIndexRelNode(AsyncStructuredNode):
             has_rel = AsyncRelationshipTo(
-                FullTextIndexRel, "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+                "FullTextIndexRelNode",
+                "FULLTEXT_INDEX_REL",
+                model=FullTextIndexRelConflict,
             )
 
         await adb.install_labels(FullTextIndexRelNode)

@@ -240,7 +240,7 @@ def test_rel_fulltext_index():
 
     class FullTextIndexRelNode(StructuredNode):
         has_rel = RelationshipTo(
-            FullTextIndexRel, "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+            "FullTextIndexRelNode", "FULLTEXT_INDEX_REL", model=FullTextIndexRel
         )
 
     db.install_labels(FullTextIndexRelNode)
@@ -263,14 +263,16 @@ def test_rel_fulltext_index_conflict():
             "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL]-() ON EACH [r.name]"
         )
 
-        class FullTextIndexRel(StructuredRel):
+        class FullTextIndexRelConflict(StructuredRel):
             name = StringProperty(
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
         class FullTextIndexRelNode(StructuredNode):
             has_rel = RelationshipTo(
-                FullTextIndexRel, "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+                "FullTextIndexRelNode",
+                "FULLTEXT_INDEX_REL",
+                model=FullTextIndexRelConflict,
             )
 
         db.install_labels(FullTextIndexRelNode)
