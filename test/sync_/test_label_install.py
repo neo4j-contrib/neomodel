@@ -271,7 +271,7 @@ def test_rel_fulltext_index_conflict():
         class FullTextIndexRelNode(StructuredNode):
             has_rel = RelationshipTo(
                 "FullTextIndexRelNode",
-                "FULLTEXT_INDEX_REL",
+                "FULLTEXT_INDEX_REL_CONFLICT",
                 model=FullTextIndexRelConflict,
             )
 
@@ -290,14 +290,16 @@ def test_rel_fulltext_index_not_supported():
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
 
-        class FullTextIndexRel(StructuredRel):
+        class FullTextIndexRelOld(StructuredRel):
             name = StringProperty(
                 fulltext_index=True, fulltext_eventually_consistent=True
             )
 
         class FullTextIndexRelNode(StructuredNode):
             has_rel = RelationshipTo(
-                FullTextIndexRel, "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+                "FullTextIndexRelNode",
+                "FULLTEXT_INDEX_REL_OLD",
+                model=FullTextIndexRelOld,
             )
 
         db.install_labels(FullTextIndexRelNode)
