@@ -738,6 +738,43 @@ class AsyncDatabase(local):
             else:
                 raise
 
+    async def _create_node_fulltext_index(
+        self,
+        label: str,
+        property_name: str,
+        stdout,
+        analyzer: str = None,
+        eventually_consistent: bool = False,
+    ):
+        if await self.version_is_higher_than("5.16"):
+            query = f"CREATE FULLTEXT INDEX fulltext_index_{label}_{property_name} FOR (n:{label}) ON EACH [n.{property_name}]"
+            if analyzer or eventually_consistent:
+                if analyzer is None:
+                    analyzer = "standard-no-stop-words"
+                query += f"""
+                    OPTIONS {{
+                        indexConfig: {{
+                            `fulltext.analyzer`: '{analyzer}',
+                            `fulltext.eventually_consistent`: {eventually_consistent}
+                        }}
+                    }}
+                """
+            query += ";"
+            try:
+                await self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
+            )
+
     async def _create_node_constraint(self, label: str, property_name: str, stdout):
         try:
             await self.cypher_query(
@@ -768,6 +805,43 @@ class AsyncDatabase(local):
                 stdout.write(f"{str(e)}\n")
             else:
                 raise
+
+    async def _create_relationship_fulltext_index(
+        self,
+        relationship_type: str,
+        property_name: str,
+        stdout,
+        analyzer: str = None,
+        eventually_consistent: bool = False,
+    ):
+        if await self.version_is_higher_than("5.16"):
+            query = f"CREATE FULLTEXT INDEX fulltext_index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON EACH [r.{property_name}]"
+            if analyzer or eventually_consistent:
+                if analyzer is None:
+                    analyzer = "standard-no-stop-words"
+                query += f"""
+                    OPTIONS {{
+                        indexConfig: {{
+                            `fulltext.analyzer`: '{analyzer}',
+                            `fulltext.eventually_consistent`: {eventually_consistent}
+                        }}
+                    }}
+                """
+            query += ";"
+            try:
+                await self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
+            )
 
     async def _create_relationship_constraint(
         self, relationship_type: str, property_name: str, stdout
@@ -812,6 +886,19 @@ class AsyncDatabase(local):
                 label=cls.__label__, property_name=db_property, stdout=stdout
             )
 
+        if property.fulltext_index:
+            if not quiet:
+                stdout.write(
+                    f" + Creating fulltext index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
+                )
+            await self._create_node_fulltext_index(
+                label=cls.__label__,
+                property_name=db_property,
+                stdout=stdout,
+                analyzer=property.fulltext_analyzer,
+                eventually_consistent=property.fulltext_eventually_consistent,
+            )
+
     async def _install_relationship(self, cls, relationship, quiet, stdout):
         # Create indexes and constraints for relationship property
         relationship_cls = relationship.definition["model"]
@@ -840,6 +927,19 @@ class AsyncDatabase(local):
                         relationship_type=relationship_type,
                         property_name=db_property,
                         stdout=stdout,
+                    )
+
+                if property.fulltext_index:
+                    if not quiet:
+                        stdout.write(
+                            f" + Creating fulltext index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
+                        )
+                    await self._create_relationship_fulltext_index(
+                        relationship_type=relationship_type,
+                        property_name=db_property,
+                        stdout=stdout,
+                        analyzer=property.fulltext_analyzer,
+                        eventually_consistent=property.fulltext_eventually_consistent,
                     )
 
 
