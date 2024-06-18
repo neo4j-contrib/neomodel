@@ -29,12 +29,14 @@ from neomodel.properties import (
     DateTimeProperty,
     EmailProperty,
     FloatProperty,
+    FulltextIndex,
     IntegerProperty,
     JSONProperty,
     NormalizedProperty,
     RegexProperty,
     StringProperty,
     UniqueIdProperty,
+    VectorIndex,
 )
 from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
 from neomodel.sync_.core import (
