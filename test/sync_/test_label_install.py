@@ -1,4 +1,6 @@
+import io
 from test._async_compat import mark_sync_test
+from unittest.mock import patch
 
 import pytest
 
@@ -21,8 +23,7 @@ class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class NodeWithRelationship(StructuredNode):
-    ...
+class NodeWithRelationship(StructuredNode): ...
 
 
 class IndexedRelationship(StructuredRel):
@@ -175,6 +176,135 @@ def test_relationship_unique_index():
         match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
     ):
         rel2 = node1.has_rel.connect(node3, {"name": "rel1"})
+
+
+@mark_sync_test
+def test_fulltext_index():
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexNode(StructuredNode):
+        name = StringProperty(fulltext_index=True, fulltext_eventually_consistent=True)
+
+    db.install_labels(FullTextIndexNode)
+    indexes = db.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FullTextIndexNode_name" in index_names
+
+    db.cypher_query("DROP INDEX fulltext_index_FullTextIndexNode_name")
+
+
+@mark_sync_test
+def test_fulltext_index_conflict():
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        db.cypher_query(
+            "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNodeConflict) ON EACH [n.name]"
+        )
+
+        class FullTextIndexNodeConflict(StructuredNode):
+            name = StringProperty(fulltext_index=True)
+
+        db.install_labels(FullTextIndexNodeConflict, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_sync_test
+def test_fulltext_index_not_supported():
+    if db.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexNodeOld(StructuredNode):
+            name = StringProperty(fulltext_index=True)
+
+        db.install_labels(FullTextIndexNodeOld)
+
+
+@mark_sync_test
+def test_rel_fulltext_index():
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexRel(StructuredRel):
+        name = StringProperty(fulltext_index=True, fulltext_eventually_consistent=True)
+
+    class FullTextIndexRelNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "FullTextIndexRelNode", "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+        )
+
+    db.install_labels(FullTextIndexRelNode)
+    indexes = db.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FULLTEXT_INDEX_REL_name" in index_names
+
+    db.cypher_query("DROP INDEX fulltext_index_FULLTEXT_INDEX_REL_name")
+
+
+@mark_sync_test
+def test_rel_fulltext_index_conflict():
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        db.cypher_query(
+            "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL_CONFLICT]-() ON EACH [r.name]"
+        )
+
+        class FullTextIndexRelConflict(StructuredRel):
+            name = StringProperty(
+                fulltext_index=True, fulltext_eventually_consistent=True
+            )
+
+        class FullTextIndexRelConflictNode(StructuredNode):
+            has_rel = RelationshipTo(
+                "FullTextIndexRelConflictNode",
+                "FULLTEXT_INDEX_REL_CONFLICT",
+                model=FullTextIndexRelConflict,
+            )
+
+        db.install_labels(FullTextIndexRelConflictNode, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_sync_test
+def test_rel_fulltext_index_not_supported():
+    if db.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexRelOld(StructuredRel):
+            name = StringProperty(
+                fulltext_index=True, fulltext_eventually_consistent=True
+            )
+
+        class FullTextIndexRelOldNode(StructuredNode):
+            has_rel = RelationshipTo(
+                "FullTextIndexRelOldNode",
+                "FULLTEXT_INDEX_REL_OLD",
+                model=FullTextIndexRelOld,
+            )
+
+        db.install_labels(FullTextIndexRelOldNode)
 
 
 def _drop_constraints_for_label_and_property(label: str = None, property: str = None):

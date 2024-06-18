@@ -73,6 +73,8 @@ in the case of ``Relationship`` it will be possible to be queried in either dire
 Neomodel automatically creates a label for each ``StructuredNode`` class in the database with the corresponding indexes
 and constraints.
 
+.. _inspect_database_doc:
+
 Database Inspection - Requires APOC
 ===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::

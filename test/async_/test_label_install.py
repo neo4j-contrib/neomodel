@@ -1,4 +1,6 @@
+import io
 from test._async_compat import mark_async_test
+from unittest.mock import patch
 
 import pytest
 
@@ -175,6 +177,135 @@ async def test_relationship_unique_index():
         match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
     ):
         rel2 = await node1.has_rel.connect(node3, {"name": "rel1"})
+
+
+@mark_async_test
+async def test_fulltext_index():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexNode(AsyncStructuredNode):
+        name = StringProperty(fulltext_index=True, fulltext_eventually_consistent=True)
+
+    await adb.install_labels(FullTextIndexNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FullTextIndexNode_name" in index_names
+
+    await adb.cypher_query("DROP INDEX fulltext_index_FullTextIndexNode_name")
+
+
+@mark_async_test
+async def test_fulltext_index_conflict():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNodeConflict) ON EACH [n.name]"
+        )
+
+        class FullTextIndexNodeConflict(AsyncStructuredNode):
+            name = StringProperty(fulltext_index=True)
+
+        await adb.install_labels(FullTextIndexNodeConflict, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_fulltext_index_not_supported():
+    if await adb.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexNodeOld(AsyncStructuredNode):
+            name = StringProperty(fulltext_index=True)
+
+        await adb.install_labels(FullTextIndexNodeOld)
+
+
+@mark_async_test
+async def test_rel_fulltext_index():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexRel(AsyncStructuredRel):
+        name = StringProperty(fulltext_index=True, fulltext_eventually_consistent=True)
+
+    class FullTextIndexRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "FullTextIndexRelNode", "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+        )
+
+    await adb.install_labels(FullTextIndexRelNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FULLTEXT_INDEX_REL_name" in index_names
+
+    await adb.cypher_query("DROP INDEX fulltext_index_FULLTEXT_INDEX_REL_name")
+
+
+@mark_async_test
+async def test_rel_fulltext_index_conflict():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL_CONFLICT]-() ON EACH [r.name]"
+        )
+
+        class FullTextIndexRelConflict(AsyncStructuredRel):
+            name = StringProperty(
+                fulltext_index=True, fulltext_eventually_consistent=True
+            )
+
+        class FullTextIndexRelConflictNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "FullTextIndexRelConflictNode",
+                "FULLTEXT_INDEX_REL_CONFLICT",
+                model=FullTextIndexRelConflict,
+            )
+
+        await adb.install_labels(FullTextIndexRelConflictNode, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_rel_fulltext_index_not_supported():
+    if await adb.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexRelOld(AsyncStructuredRel):
+            name = StringProperty(
+                fulltext_index=True, fulltext_eventually_consistent=True
+            )
+
+        class FullTextIndexRelOldNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "FullTextIndexRelOldNode",
+                "FULLTEXT_INDEX_REL_OLD",
+                model=FullTextIndexRelOld,
+            )
+
+        await adb.install_labels(FullTextIndexRelOldNode)
 
 
 async def _drop_constraints_for_label_and_property(

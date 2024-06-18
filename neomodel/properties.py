@@ -66,6 +66,10 @@ class Property:
         self,
         unique_index=False,
         index=False,
+        fulltext_index=False,
+        vector_index=False,
+        fulltext_analyzer=None,
+        fulltext_eventually_consistent=False,
         required=False,
         default=None,
         db_property=None,
@@ -85,6 +89,10 @@ class Property:
         self.required = required
         self.unique_index = unique_index
         self.index = index
+        self.fulltext_index = fulltext_index
+        self.fulltext_analyzer = fulltext_analyzer
+        self.fulltext_eventually_consistent = fulltext_eventually_consistent
+        self.vector_index = vector_index
         self.default = default
         self.has_default = self.default is not None
         self.db_property = db_property
