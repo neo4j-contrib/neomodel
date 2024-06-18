@@ -46,13 +46,15 @@ Indexes
 The following indexes are supported:
 
 - ``index=True``: This will create the default Neo4j index on the property (currently RANGE).
-- ``fulltext_index=True``: This will create a FULLTEXT index on the property. Only available for Neo4j version 5.16 or higher. With this one, you can define the following options:
-    - ``fulltext_analyzer``: The analyzer to use. The default is ``standard-no-stop-words``.
-    - ``fulltext_eventually_consistent``: Whether the index should be eventually consistent. The default is ``False``.
+- ``fulltext_index=FulltextIndex()``: This will create a FULLTEXT index on the property. Only available for Neo4j version 5.16 or higher. With this one, you can define the following options:
+    - ``analyzer``: The analyzer to use. The default is ``standard-no-stop-words``.
+    - ``eventually_consistent``: Whether the index should be eventually consistent. The default is ``False``.
   
 Please refer to the `Neo4j documentation <https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/full-text-indexes/#configuration-settings>`_. for more information on fulltext indexes.
 
-- Vector indexes (Work in progress)
+- ``vector_index=VectorIndex()``: This will create a VECTOR index on the property. Only available for Neo4j version 5.15 (node) and 5.18 (relationship) or higher. With this one, you can define the following options:
+    - ``dimensions``: The dimension of the vector. The default is 1536.
+    - ``similarity_function``: The similarity algorithm to use. The default is ``cosine``.
 
 Those indexes are available for both node- and relationship properties.
 
@@ -65,12 +67,12 @@ Those indexes are available for both node- and relationship properties.
 
 Full example: ::
 
+    from neomodel import StructuredNode, StringProperty, FulltextIndex, VectorIndex
     class VeryIndexedNode(StructuredNode):
         name = StringProperty(
-            index=True, 
-            fulltext_index=True, 
-            fulltext_analyzer='english', 
-            fulltext_eventually_consistent=True
+            index=True,
+            fulltext_index=FulltextIndex(analyzer='english', eventually_consistent=True)
+            vector_index=VectorIndex(dimensions=512, similarity_function='euclidean')
         )
 
 Constraints

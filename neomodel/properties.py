@@ -37,6 +37,42 @@ def validator(fn):
     return _validator
 
 
+class FulltextIndex(object):
+    """
+    Fulltext index definition
+    """
+
+    def __init__(
+        self,
+        analyzer="standard-no-stop-words",
+        eventually_consistent=False,
+    ):
+        """
+        Initializes new fulltext index definition with analyzer and eventually consistent
+
+        :param str analyzer: The analyzer to use. Defaults to "standard-no-stop-words".
+        :param bool eventually_consistent: Whether the index should be eventually consistent. Defaults to False.
+        """
+        self.analyzer = analyzer
+        self.eventually_consistent = eventually_consistent
+
+
+class VectorIndex(object):
+    """
+    Vector index definition
+    """
+
+    def __init__(self, dimensions=1536, similarity_function="cosine"):
+        """
+        Initializes new vector index definition with dimensions and similarity
+
+        :param int dimensions: The number of dimensions of the vector. Defaults to 1536.
+        :param str similarity_function: The similarity algorithm to use. Defaults to "cosine".
+        """
+        self.dimensions = dimensions
+        self.similarity_function = similarity_function
+
+
 class Property:
     """
     Base class for object properties.
@@ -46,6 +82,10 @@ class Property:
     :type unique_index: :class:`bool`
     :param index: Creates an index for this property. Defaults to ``False``.
     :type index: :class:`bool`
+    :param fulltext_index: Creates a fulltext index for this property. Defaults to ``None``.
+    :type fulltext_index: :class:`FulltextIndex`
+    :param vector_index: Creates a vector index for this property. Defaults to ``None``.
+    :type vector_index: :class:`VectorIndex`
     :param required: Marks the property as required. Defaults to ``False``.
     :type required: :class:`bool`
     :param default: A default value or callable that returns one to set when a
@@ -66,10 +106,8 @@ class Property:
         self,
         unique_index=False,
         index=False,
-        fulltext_index=False,
-        vector_index=False,
-        fulltext_analyzer=None,
-        fulltext_eventually_consistent=False,
+        fulltext_index: FulltextIndex = None,
+        vector_index: VectorIndex = None,
         required=False,
         default=None,
         db_property=None,
@@ -90,8 +128,6 @@ class Property:
         self.unique_index = unique_index
         self.index = index
         self.fulltext_index = fulltext_index
-        self.fulltext_analyzer = fulltext_analyzer
-        self.fulltext_eventually_consistent = fulltext_eventually_consistent
         self.vector_index = vector_index
         self.default = default
         self.has_default = self.default is not None

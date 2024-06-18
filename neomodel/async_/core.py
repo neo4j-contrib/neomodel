@@ -38,7 +38,7 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.hooks import hooks
-from neomodel.properties import Property
+from neomodel.properties import FulltextIndex, Property, VectorIndex
 from neomodel.util import (
     _UnsavedNode,
     classproperty,
@@ -724,10 +724,18 @@ class AsyncDatabase(local):
         ).items():
             await self._install_relationship(cls, relationship, quiet, stdout)
 
-    async def _create_node_index(self, label: str, property_name: str, stdout):
+    async def _create_node_index(
+        self, target_cls, property_name: str, stdout, quiet: bool
+    ):
+        label = target_cls.__label__
+        index_name = f"index_{label}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating node index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
+            )
         try:
             await self.cypher_query(
-                f"CREATE INDEX index_{label}_{property_name} FOR (n:{label}) ON (n.{property_name}); "
+                f"CREATE INDEX {index_name} FOR (n:{label}) ON (n.{property_name}); "
             )
         except ClientError as e:
             if e.code in (
@@ -740,26 +748,28 @@ class AsyncDatabase(local):
 
     async def _create_node_fulltext_index(
         self,
-        label: str,
+        target_cls,
         property_name: str,
         stdout,
-        analyzer: str = None,
-        eventually_consistent: bool = False,
+        fulltext_index: FulltextIndex,
+        quiet: bool,
     ):
         if await self.version_is_higher_than("5.16"):
-            query = f"CREATE FULLTEXT INDEX fulltext_index_{label}_{property_name} FOR (n:{label}) ON EACH [n.{property_name}]"
-            if analyzer or eventually_consistent:
-                if analyzer is None:
-                    analyzer = "standard-no-stop-words"
-                query += f"""
-                    OPTIONS {{
-                        indexConfig: {{
-                            `fulltext.analyzer`: '{analyzer}',
-                            `fulltext.eventually_consistent`: {eventually_consistent}
-                        }}
+            label = target_cls.__label__
+            index_name = f"fulltext_index_{label}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating fulltext index for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE FULLTEXT INDEX {index_name} FOR (n:{label}) ON EACH [n.{property_name}]
+                OPTIONS {{
+                    indexConfig: {{
+                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
                     }}
-                """
-            query += ";"
+                }};
+            """
             try:
                 await self.cypher_query(query)
             except ClientError as e:
@@ -775,10 +785,57 @@ class AsyncDatabase(local):
                 f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
             )
 
-    async def _create_node_constraint(self, label: str, property_name: str, stdout):
+    async def _create_node_vector_index(
+        self,
+        target_cls,
+        property_name: str,
+        stdout,
+        vector_index: VectorIndex,
+        quiet: bool,
+    ):
+        if await self.version_is_higher_than("5.15"):
+            label = target_cls.__label__
+            index_name = f"vector_index_{label}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating vector index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE VECTOR INDEX {index_name} FOR (n:{label}) ON n.{property_name}
+                OPTIONS {{
+                    indexConfig: {{
+                        `vector.dimensions`: {vector_index.dimensions},
+                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                    }}
+                }};
+            """
+            try:
+                await self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of vector indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.15 or higher."
+            )
+
+    async def _create_node_constraint(
+        self, target_cls, property_name: str, stdout, quiet: bool
+    ):
+        label = target_cls.__label__
+        constraint_name = f"constraint_unique_{label}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating node unique constraint for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
+            )
         try:
             await self.cypher_query(
-                f"""CREATE CONSTRAINT constraint_unique_{label}_{property_name} 
+                f"""CREATE CONSTRAINT {constraint_name}
                             FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
             )
         except ClientError as e:
@@ -791,11 +848,22 @@ class AsyncDatabase(local):
                 raise
 
     async def _create_relationship_index(
-        self, relationship_type: str, property_name: str, stdout
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        quiet: bool,
     ):
+        index_name = f"index_{relationship_type}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating relationship index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+            )
         try:
             await self.cypher_query(
-                f"CREATE INDEX index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
+                f"CREATE INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
             )
         except ClientError as e:
             if e.code in (
@@ -809,25 +877,28 @@ class AsyncDatabase(local):
     async def _create_relationship_fulltext_index(
         self,
         relationship_type: str,
+        target_cls,
+        relationship_cls,
         property_name: str,
         stdout,
-        analyzer: str = None,
-        eventually_consistent: bool = False,
+        fulltext_index: FulltextIndex,
+        quiet: bool,
     ):
         if await self.version_is_higher_than("5.16"):
-            query = f"CREATE FULLTEXT INDEX fulltext_index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON EACH [r.{property_name}]"
-            if analyzer or eventually_consistent:
-                if analyzer is None:
-                    analyzer = "standard-no-stop-words"
-                query += f"""
-                    OPTIONS {{
-                        indexConfig: {{
-                            `fulltext.analyzer`: '{analyzer}',
-                            `fulltext.eventually_consistent`: {eventually_consistent}
-                        }}
+            index_name = f"fulltext_index_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating fulltext index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE FULLTEXT INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON EACH [r.{property_name}]
+                OPTIONS {{
+                    indexConfig: {{
+                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
                     }}
-                """
-            query += ";"
+                }};
+            """
             try:
                 await self.cypher_query(query)
             except ClientError as e:
@@ -843,13 +914,64 @@ class AsyncDatabase(local):
                 f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
             )
 
+    async def _create_relationship_vector_index(
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        vector_index: VectorIndex,
+        quiet: bool,
+    ):
+        if await self.version_is_higher_than("5.18"):
+            index_name = f"vector_index_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating vector index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE VECTOR INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON r.{property_name}
+                OPTIONS {{
+                    indexConfig: {{
+                        `vector.dimensions`: {vector_index.dimensions},
+                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                    }}
+                }};
+            """
+            try:
+                await self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of vector indexes for relationships from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.18 or higher."
+            )
+
     async def _create_relationship_constraint(
-        self, relationship_type: str, property_name: str, stdout
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        quiet: bool,
     ):
         if await self.version_is_higher_than("5.7"):
+            constraint_name = f"constraint_unique_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating relationship unique constraint for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
             try:
                 await self.cypher_query(
-                    f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
+                    f"""CREATE CONSTRAINT {constraint_name} 
                                 FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
                 )
             except ClientError as e:
@@ -869,34 +991,30 @@ class AsyncDatabase(local):
         # Create indexes and constraints for node property
         db_property = property.get_db_property_name(name)
         if property.index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
             await self._create_node_index(
-                label=cls.__label__, property_name=db_property, stdout=stdout
+                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
             )
-
         elif property.unique_index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
             await self._create_node_constraint(
-                label=cls.__label__, property_name=db_property, stdout=stdout
+                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
             )
 
         if property.fulltext_index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating fulltext index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
             await self._create_node_fulltext_index(
-                label=cls.__label__,
+                target_cls=cls,
                 property_name=db_property,
                 stdout=stdout,
-                analyzer=property.fulltext_analyzer,
-                eventually_consistent=property.fulltext_eventually_consistent,
+                fulltext_index=property.fulltext_index,
+                quiet=quiet,
+            )
+
+        if property.vector_index:
+            await self._create_node_vector_index(
+                target_cls=cls,
+                property_name=db_property,
+                stdout=stdout,
+                vector_index=property.vector_index,
+                quiet=quiet,
             )
 
     async def _install_relationship(self, cls, relationship, quiet, stdout):
@@ -909,37 +1027,44 @@ class AsyncDatabase(local):
             ).items():
                 db_property = property.get_db_property_name(prop_name)
                 if property.index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
                     await self._create_relationship_index(
                         relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
                         property_name=db_property,
                         stdout=stdout,
+                        quiet=quiet,
                     )
                 elif property.unique_index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
                     await self._create_relationship_constraint(
                         relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
                         property_name=db_property,
                         stdout=stdout,
+                        quiet=quiet,
                     )
 
                 if property.fulltext_index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating fulltext index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
                     await self._create_relationship_fulltext_index(
                         relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
                         property_name=db_property,
                         stdout=stdout,
-                        analyzer=property.fulltext_analyzer,
-                        eventually_consistent=property.fulltext_eventually_consistent,
+                        fulltext_index=property.fulltext_index,
+                        quiet=quiet,
+                    )
+
+                if property.vector_index:
+                    await self._create_relationship_vector_index(
+                        relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
+                        property_name=db_property,
+                        stdout=stdout,
+                        vector_index=property.vector_index,
+                        quiet=quiet,
                     )
 
 
