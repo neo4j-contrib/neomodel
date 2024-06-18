@@ -210,9 +210,10 @@ async def test_fulltext_index_conflict():
         class FullTextIndexNodeConflict(AsyncStructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        await adb.install_labels(FullTextIndexNodeConflict)
+        await adb.install_labels(FullTextIndexNodeConflict, quiet=False)
 
     console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
     assert "There already exists an index" in console_output
 
 
@@ -276,9 +277,10 @@ async def test_rel_fulltext_index_conflict():
                 model=FullTextIndexRelConflict,
             )
 
-        await adb.install_labels(FullTextIndexRelConflictNode)
+        await adb.install_labels(FullTextIndexRelConflictNode, quiet=False)
 
     console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
     assert "There already exists an index" in console_output
 
 

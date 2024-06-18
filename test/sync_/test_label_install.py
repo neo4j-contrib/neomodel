@@ -209,9 +209,10 @@ def test_fulltext_index_conflict():
         class FullTextIndexNodeConflict(StructuredNode):
             name = StringProperty(fulltext_index=True)
 
-        db.install_labels(FullTextIndexNodeConflict)
+        db.install_labels(FullTextIndexNodeConflict, quiet=False)
 
     console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
     assert "There already exists an index" in console_output
 
 
@@ -275,9 +276,10 @@ def test_rel_fulltext_index_conflict():
                 model=FullTextIndexRelConflict,
             )
 
-        db.install_labels(FullTextIndexRelConflictNode)
+        db.install_labels(FullTextIndexRelConflictNode, quiet=False)
 
     console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
     assert "There already exists an index" in console_output
 
 
