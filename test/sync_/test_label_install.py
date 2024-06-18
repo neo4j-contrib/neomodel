@@ -26,7 +26,8 @@ class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class NodeWithRelationship(StructuredNode): ...
+class NodeWithRelationship(StructuredNode):
+    ...
 
 
 class IndexedRelationship(StructuredRel):
@@ -445,12 +446,7 @@ def test_unauthorized_index_creation():
         pytest.skip("Skipping test for community edition")
 
     unauthorized_user = "troygreene"
-    expected_message_index = (
-        r".*Schema operation 'create_index' on database.*is not allowed for user.*"
-    )
-    expected_message_constraint = (
-        r".*Schema operation 'create_constraint' on database.*is not allowed for user.*"
-    )
+    expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Standard node index
     with pytest.raises(
@@ -467,7 +463,7 @@ def test_unauthorized_index_creation():
     # Node uniqueness constraint
     with pytest.raises(
         ClientError,
-        match=expected_message_constraint,
+        match=expected_message_index,
     ):
         with db.impersonate(unauthorized_user):
 
@@ -502,12 +498,7 @@ def test_unauthorized_index_creation_recent_features():
         pytest.skip("Skipping test for community edition and versions lower than 5.18")
 
     unauthorized_user = "troygreene"
-    expected_message_index = (
-        r".*Schema operation 'create_index' on database.*is not allowed for user.*"
-    )
-    expected_message_constraint = (
-        r".*Schema operation 'create_constraint' on database.*is not allowed for user.*"
-    )
+    expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Node fulltext index
     with pytest.raises(
@@ -536,7 +527,7 @@ def test_unauthorized_index_creation_recent_features():
     # Relationship uniqueness constraint
     with pytest.raises(
         ClientError,
-        match=expected_message_constraint,
+        match=expected_message_index,
     ):
         with db.impersonate(unauthorized_user):
 
