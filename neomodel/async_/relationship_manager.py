@@ -457,7 +457,10 @@ class AsyncRelationshipDefinition:
                     is_parent = issubclass(model_from_registry, model)
                     if is_direct_subclass(model, AsyncStructuredRel) and not is_parent:
                         raise RelationshipClassRedefined(
-                            relation_type, adb._NODE_CLASS_REGISTRY, model
+                            relation_type,
+                            adb._NODE_CLASS_REGISTRY,
+                            adb._DB_SPECIFIC_CLASS_REGISTRY,
+                            model,
                         )
                 else:
                     adb._NODE_CLASS_REGISTRY[label_set] = model

@@ -14,6 +14,7 @@ from neomodel import (
     IntegerProperty,
     Q,
     StringProperty,
+    UniqueIdProperty,
 )
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
@@ -22,7 +23,7 @@ from neomodel.async_.match import (
     AsyncTraversal,
     Optional,
 )
-from neomodel.exceptions import MultipleNodesReturned
+from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 
 
 class SupplierRel(AsyncStructuredRel):
@@ -54,6 +55,28 @@ class Coffee(AsyncStructuredNode):
 
 class Extension(AsyncStructuredNode):
     extension = AsyncRelationshipTo("Extension", "extension")
+
+
+class CountryX(AsyncStructuredNode):
+    code = StringProperty(unique_index=True, required=True)
+    inhabitant = AsyncRelationshipFrom("PersonX", "IS_FROM")
+
+
+class CityX(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    country = AsyncRelationshipTo(CountryX, "FROM_COUNTRY")
+
+
+class PersonX(AsyncStructuredNode):
+    uid = UniqueIdProperty()
+    name = StringProperty(unique_index=True)
+    age = IntegerProperty(index=True, default=0)
+
+    # traverse outgoing IS_FROM relations, inflate to Country objects
+    country = AsyncRelationshipTo(CountryX, "IS_FROM")
+
+    # traverse outgoing LIVES_IN relations, inflate to City objects
+    city = AsyncRelationshipTo(CityX, "LIVES_IN")
 
 
 @mark_async_test
@@ -532,6 +555,7 @@ async def test_fetch_relations():
         .fetch_relations("coffees__species")
         .all()
     )
+    assert len(result[0]) == 5
     assert arabica in result[0]
     assert robusta not in result[0]
     assert tesco in result[0]
@@ -569,6 +593,25 @@ async def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_async_test
+async def test_issue_795():
+    jim = await PersonX(name="Jim", age=3).save()  # Create
+    jim.age = 4
+    await jim.save()  # Update, (with validation)
+
+    germany = await CountryX(code="DE").save()
+    await jim.country.connect(germany)
+    berlin = await CityX(name="Berlin").save()
+    await berlin.country.connect(germany)
+    await jim.city.connect(berlin)
+
+    with raises(
+        RelationshipClassNotDefined,
+        match=r"[\s\S]*Note that when using the fetch_relations method, the relationship type must be defined in the model.*",
+    ):
+        _ = await PersonX.nodes.fetch_relations("country").all()
 
 
 @mark_async_test

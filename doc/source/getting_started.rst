@@ -73,6 +73,8 @@ in the case of ``Relationship`` it will be possible to be queried in either dire
 Neomodel automatically creates a label for each ``StructuredNode`` class in the database with the corresponding indexes
 and constraints.
 
+.. _inspect_database_doc:
+
 Database Inspection - Requires APOC
 ===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
@@ -239,7 +241,7 @@ additional relations with a single call::
 
     # The following call will generate one MATCH with traversal per
     # item in .fetch_relations() call
-    results = Person.nodes.all().fetch_relations('country')
+    results = Person.nodes.fetch_relations('country').all()
     for result in results:
         print(result[0]) # Person
         print(result[1]) # associated Country
@@ -248,14 +250,23 @@ You can traverse more than one hop in your relations using the
 following syntax::
 
     # Go from person to City then Country
-    Person.nodes.all().fetch_relations('city__country')
+    Person.nodes.fetch_relations('city__country').all()
 
 You can also force the use of an ``OPTIONAL MATCH`` statement using
 the following syntax::
 
     from neomodel.match import Optional
 
-    results = Person.nodes.all().fetch_relations(Optional('country'))
+    results = Person.nodes.fetch_relations(Optional('country')).all()
+
+.. note::
+
+    Any relationship that you intend to traverse using this method **MUST have a model defined**, even if only the default StructuredRel, like::
+        
+        class Person(StructuredNode):
+            country = RelationshipTo(Country, 'IS_FROM', model=StructuredRel)
+
+    Otherwise, neomodel will not be able to determine which relationship model to resolve into, and will fail.
 
 .. note::
 
@@ -263,17 +274,13 @@ the following syntax::
    to `.fetch_relations()` and you can mix optional and non-optional
    relations, like::
 
-    Person.nodes.all().fetch_relations('city__country', Optional('country'))
+    Person.nodes.fetch_relations('city__country', Optional('country')).all()
 
 .. note::
 
-   This feature is still a work in progress for extending path traversal and fecthing.
-   It currently stops at returning the resolved objects as they are returned in Cypher.
-   So for instance, if your path looks like ``(startNode:Person)-[r1]->(middleNode:City)<-[r2]-(endNode:Country)``,
+   If your path looks like ``(startNode:Person)-[r1]->(middleNode:City)<-[r2]-(endNode:Country)``,
    then you will get a list of results, where each result is a list of ``(startNode, r1, middleNode, r2, endNode)``.
    These will be resolved by neomodel, so ``startNode`` will be a ``Person`` class as defined in neomodel for example.
-
-   If you want to go further in the resolution process, you have to develop your own parser (for now).
 
 
 Async neomodel

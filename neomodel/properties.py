@@ -11,8 +11,7 @@ import pytz
 from neomodel import config
 from neomodel.exceptions import DeflateError, InflateError
 
-if sys.version_info >= (3, 0):
-    Unicode = str
+TOO_MANY_DEFAULTS = "too many defaults"
 
 
 def validator(fn):
@@ -38,6 +37,42 @@ def validator(fn):
     return _validator
 
 
+class FulltextIndex(object):
+    """
+    Fulltext index definition
+    """
+
+    def __init__(
+        self,
+        analyzer="standard-no-stop-words",
+        eventually_consistent=False,
+    ):
+        """
+        Initializes new fulltext index definition with analyzer and eventually consistent
+
+        :param str analyzer: The analyzer to use. Defaults to "standard-no-stop-words".
+        :param bool eventually_consistent: Whether the index should be eventually consistent. Defaults to False.
+        """
+        self.analyzer = analyzer
+        self.eventually_consistent = eventually_consistent
+
+
+class VectorIndex(object):
+    """
+    Vector index definition
+    """
+
+    def __init__(self, dimensions=1536, similarity_function="cosine"):
+        """
+        Initializes new vector index definition with dimensions and similarity
+
+        :param int dimensions: The number of dimensions of the vector. Defaults to 1536.
+        :param str similarity_function: The similarity algorithm to use. Defaults to "cosine".
+        """
+        self.dimensions = dimensions
+        self.similarity_function = similarity_function
+
+
 class Property:
     """
     Base class for object properties.
@@ -47,6 +82,10 @@ class Property:
     :type unique_index: :class:`bool`
     :param index: Creates an index for this property. Defaults to ``False``.
     :type index: :class:`bool`
+    :param fulltext_index: Creates a fulltext index for this property. Defaults to ``None``.
+    :type fulltext_index: :class:`FulltextIndex`
+    :param vector_index: Creates a vector index for this property. Defaults to ``None``.
+    :type vector_index: :class:`VectorIndex`
     :param required: Marks the property as required. Defaults to ``False``.
     :type required: :class:`bool`
     :param default: A default value or callable that returns one to set when a
@@ -67,6 +106,8 @@ class Property:
         self,
         unique_index=False,
         index=False,
+        fulltext_index: FulltextIndex = None,
+        vector_index: VectorIndex = None,
         required=False,
         default=None,
         db_property=None,
@@ -86,6 +127,8 @@ class Property:
         self.required = required
         self.unique_index = unique_index
         self.index = index
+        self.fulltext_index = fulltext_index
+        self.vector_index = vector_index
         self.default = default
         self.has_default = self.default is not None
         self.db_property = db_property
@@ -164,7 +207,7 @@ class RegexProperty(NormalizedProperty):
         self.expression = actual_re
 
     def normalize(self, value):
-        normal = Unicode(value)
+        normal = str(value)
         if not re.match(self.expression, normal):
             raise ValueError(f"{value!r} does not match {self.expression!r}")
         return normal
@@ -226,7 +269,7 @@ class StringProperty(NormalizedProperty):
             raise ValueError(
                 f"Property max length exceeded. Expected {self.max_length}, got {len(value)} == len('{value}')"
             )
-        return Unicode(value)
+        return str(value)
 
     def default_value(self):
         return self.normalize(super().default_value())
@@ -356,7 +399,7 @@ class DateProperty(Property):
             value = date(value.year, value.month, value.day)
         elif isinstance(value, str) and "T" in value:
             value = value[: value.find("T")]
-        return datetime.strptime(Unicode(value), "%Y-%m-%d").date()
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
 
     @validator
     def deflate(self, value):
@@ -382,7 +425,7 @@ class DateTimeFormatProperty(Property):
     def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
         if default_now:
             if "default" in kwargs:
-                raise ValueError("too many defaults")
+                raise ValueError(TOO_MANY_DEFAULTS)
             kwargs["default"] = datetime.now()
 
         self.format = format
@@ -390,7 +433,7 @@ class DateTimeFormatProperty(Property):
 
     @validator
     def inflate(self, value):
-        return datetime.strptime(Unicode(value), self.format)
+        return datetime.strptime(str(value), self.format)
 
     @validator
     def deflate(self, value):
@@ -413,7 +456,7 @@ class DateTimeProperty(Property):
     def __init__(self, default_now=False, **kwargs):
         if default_now:
             if "default" in kwargs:
-                raise ValueError("too many defaults")
+                raise ValueError(TOO_MANY_DEFAULTS)
             kwargs["default"] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
 
         super().__init__(**kwargs)
@@ -445,6 +488,38 @@ class DateTimeProperty(Property):
             # No timezone specified on datetime object.. assuming UTC
             epoch_date = datetime(1970, 1, 1)
         return float((value - epoch_date).total_seconds())
+
+
+class DateTimeNeo4jFormatProperty(Property):
+    """
+    Store a datetime by native neo4j format
+
+    :param default_now: If ``True``, the creation time (Local) will be used as default.
+                        Defaults to ``False``.
+
+    :type default_now:  :class:`bool`
+    """
+
+    form_field_class = "DateTimeNeo4jFormatField"
+
+    def __init__(self, default_now=False, **kwargs):
+        if default_now:
+            if "default" in kwargs:
+                raise ValueError(TOO_MANY_DEFAULTS)
+            kwargs["default"] = datetime.now()
+
+        self.format = format
+        super(DateTimeNeo4jFormatProperty, self).__init__(**kwargs)
+
+    @validator
+    def inflate(self, value):
+        return value.to_native()
+
+    @validator
+    def deflate(self, value):
+        if not isinstance(value, datetime):
+            raise ValueError("datetime object expected, got {0}.".format(type(value)))
+        return neo4j.time.DateTime.from_native(value)
 
 
 class JSONProperty(Property):
@@ -518,8 +593,8 @@ class UniqueIdProperty(Property):
 
     @validator
     def inflate(self, value):
-        return Unicode(value)
+        return str(value)
 
     @validator
     def deflate(self, value):
-        return Unicode(value)
+        return str(value)

@@ -440,7 +440,10 @@ class RelationshipDefinition:
                     is_parent = issubclass(model_from_registry, model)
                     if is_direct_subclass(model, StructuredRel) and not is_parent:
                         raise RelationshipClassRedefined(
-                            relation_type, db._NODE_CLASS_REGISTRY, model
+                            relation_type,
+                            db._NODE_CLASS_REGISTRY,
+                            db._DB_SPECIFIC_CLASS_REGISTRY,
+                            model,
                         )
                 else:
                     db._NODE_CLASS_REGISTRY[label_set] = model

@@ -42,6 +42,7 @@ from neomodel import (
     BooleanProperty,
     DateProperty,
     DateTimeFormatProperty,
+    DateTimeNeo4jFormatProperty,
     DateTimeProperty,
     FloatProperty,
     IntegerProperty,
@@ -107,8 +108,10 @@ def transform_property_type(prop_definition):
         return "bool"
     elif isinstance(prop_definition, DateProperty):
         return "date"
-    elif isinstance(prop_definition, DateTimeProperty) or isinstance(
-        prop_definition, DateTimeFormatProperty
+    elif (
+        isinstance(prop_definition, DateTimeProperty)
+        or isinstance(prop_definition, DateTimeFormatProperty)
+        or isinstance(prop_definition, DateTimeNeo4jFormatProperty)
     ):
         return "datetime"
     elif isinstance(prop_definition, IntegerProperty):

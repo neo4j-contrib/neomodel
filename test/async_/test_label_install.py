@@ -1,13 +1,18 @@
+import io
 from test._async_compat import mark_async_test
+from unittest.mock import patch
 
 import pytest
+from neo4j.exceptions import ClientError
 
 from neomodel import (
     AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
+    FulltextIndex,
     StringProperty,
     UniqueIdProperty,
+    VectorIndex,
     adb,
 )
 from neomodel.exceptions import ConstraintValidationFailed, FeatureNotSupported
@@ -175,6 +180,408 @@ async def test_relationship_unique_index():
         match=r".*already exists with type `UNIQUE_INDEX_REL_BIS` and property `name`.*",
     ):
         rel2 = await node1.has_rel.connect(node3, {"name": "rel1"})
+
+
+@mark_async_test
+async def test_fulltext_index():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexNode(AsyncStructuredNode):
+        name = StringProperty(fulltext_index=FulltextIndex(eventually_consistent=True))
+
+    await adb.install_labels(FullTextIndexNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FullTextIndexNode_name" in index_names
+
+    await adb.cypher_query("DROP INDEX fulltext_index_FullTextIndexNode_name")
+
+
+@mark_async_test
+async def test_fulltext_index_conflict():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE FULLTEXT INDEX FOR (n:FullTextIndexNodeConflict) ON EACH [n.name]"
+        )
+
+        class FullTextIndexNodeConflict(AsyncStructuredNode):
+            name = StringProperty(fulltext_index=FulltextIndex())
+
+        await adb.install_labels(FullTextIndexNodeConflict, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_fulltext_index_not_supported():
+    if await adb.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexNodeOld(AsyncStructuredNode):
+            name = StringProperty(fulltext_index=FulltextIndex())
+
+        await adb.install_labels(FullTextIndexNodeOld)
+
+
+@mark_async_test
+async def test_rel_fulltext_index():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class FullTextIndexRel(AsyncStructuredRel):
+        name = StringProperty(fulltext_index=FulltextIndex(eventually_consistent=True))
+
+    class FullTextIndexRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "FullTextIndexRelNode", "FULLTEXT_INDEX_REL", model=FullTextIndexRel
+        )
+
+    await adb.install_labels(FullTextIndexRelNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "fulltext_index_FULLTEXT_INDEX_REL_name" in index_names
+
+    await adb.cypher_query("DROP INDEX fulltext_index_FULLTEXT_INDEX_REL_name")
+
+
+@mark_async_test
+async def test_rel_fulltext_index_conflict():
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE FULLTEXT INDEX FOR ()-[r:FULLTEXT_INDEX_REL_CONFLICT]-() ON EACH [r.name]"
+        )
+
+        class FullTextIndexRelConflict(AsyncStructuredRel):
+            name = StringProperty(
+                fulltext_index=FulltextIndex(eventually_consistent=True)
+            )
+
+        class FullTextIndexRelConflictNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "FullTextIndexRelConflictNode",
+                "FULLTEXT_INDEX_REL_CONFLICT",
+                model=FullTextIndexRelConflict,
+            )
+
+        await adb.install_labels(FullTextIndexRelConflictNode, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating fulltext index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_rel_fulltext_index_not_supported():
+    if await adb.version_is_higher_than("5.16"):
+        pytest.skip("Test only for versions lower than 5.16")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
+    ):
+
+        class FullTextIndexRelOld(AsyncStructuredRel):
+            name = StringProperty(
+                fulltext_index=FulltextIndex(eventually_consistent=True)
+            )
+
+        class FullTextIndexRelOldNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "FullTextIndexRelOldNode",
+                "FULLTEXT_INDEX_REL_OLD",
+                model=FullTextIndexRelOld,
+            )
+
+        await adb.install_labels(FullTextIndexRelOldNode)
+
+
+@mark_async_test
+async def test_vector_index():
+    if not await adb.version_is_higher_than("5.15"):
+        pytest.skip("Not supported before 5.15")
+
+    class VectorIndexNode(AsyncStructuredNode):
+        name = StringProperty(
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        )
+
+    await adb.install_labels(VectorIndexNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "vector_index_VectorIndexNode_name" in index_names
+
+    await adb.cypher_query("DROP INDEX vector_index_VectorIndexNode_name")
+
+
+@mark_async_test
+async def test_vector_index_conflict():
+    if not await adb.version_is_higher_than("5.15"):
+        pytest.skip("Not supported before 5.15")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE VECTOR INDEX FOR (n:VectorIndexNodeConflict) ON n.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+        )
+
+        class VectorIndexNodeConflict(AsyncStructuredNode):
+            name = StringProperty(vector_index=VectorIndex())
+
+        await adb.install_labels(VectorIndexNodeConflict, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating vector index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_vector_index_not_supported():
+    if await adb.version_is_higher_than("5.15"):
+        pytest.skip("Test only for versions lower than 5.15")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.15 or higher"
+    ):
+
+        class VectorIndexNodeOld(AsyncStructuredNode):
+            name = StringProperty(vector_index=VectorIndex())
+
+        await adb.install_labels(VectorIndexNodeOld)
+
+
+@mark_async_test
+async def test_rel_vector_index():
+    if not await adb.version_is_higher_than("5.18"):
+        pytest.skip("Not supported before 5.18")
+
+    class VectorIndexRel(AsyncStructuredRel):
+        name = StringProperty(
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        )
+
+    class VectorIndexRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "VectorIndexRelNode", "VECTOR_INDEX_REL", model=VectorIndexRel
+        )
+
+    await adb.install_labels(VectorIndexRelNode)
+    indexes = await adb.list_indexes()
+    index_names = [index["name"] for index in indexes]
+    assert "vector_index_VECTOR_INDEX_REL_name" in index_names
+
+    await adb.cypher_query("DROP INDEX vector_index_VECTOR_INDEX_REL_name")
+
+
+@mark_async_test
+async def test_rel_vector_index_conflict():
+    if not await adb.version_is_higher_than("5.18"):
+        pytest.skip("Not supported before 5.18")
+
+    stream = io.StringIO()
+
+    with patch("sys.stdout", new=stream):
+        await adb.cypher_query(
+            "CREATE VECTOR INDEX FOR ()-[r:VECTOR_INDEX_REL_CONFLICT]-() ON r.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+        )
+
+        class VectorIndexRelConflict(AsyncStructuredRel):
+            name = StringProperty(vector_index=VectorIndex())
+
+        class VectorIndexRelConflictNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "VectorIndexRelConflictNode",
+                "VECTOR_INDEX_REL_CONFLICT",
+                model=VectorIndexRelConflict,
+            )
+
+        await adb.install_labels(VectorIndexRelConflictNode, quiet=False)
+
+    console_output = stream.getvalue()
+    assert "Creating vector index" in console_output
+    assert "There already exists an index" in console_output
+
+
+@mark_async_test
+async def test_rel_vector_index_not_supported():
+    if await adb.version_is_higher_than("5.18"):
+        pytest.skip("Test only for versions lower than 5.18")
+
+    with pytest.raises(
+        FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.18 or higher"
+    ):
+
+        class VectorIndexRelOld(AsyncStructuredRel):
+            name = StringProperty(vector_index=VectorIndex())
+
+        class VectorIndexRelOldNode(AsyncStructuredNode):
+            has_rel = AsyncRelationshipTo(
+                "VectorIndexRelOldNode",
+                "VECTOR_INDEX_REL_OLD",
+                model=VectorIndexRelOld,
+            )
+
+        await adb.install_labels(VectorIndexRelOldNode)
+
+
+@mark_async_test
+async def test_unauthorized_index_creation():
+    if not await adb.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
+
+    unauthorized_user = "troygreene"
+    expected_message_index = r".*Schema operation.* not allowed for user.*"
+
+    # Standard node index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedIndexNode(AsyncStructuredNode):
+                name = StringProperty(index=True)
+
+            await adb.install_labels(UnauthorizedIndexNode)
+
+    # Node uniqueness constraint
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedUniqueIndexNode(AsyncStructuredNode):
+                name = StringProperty(unique_index=True)
+
+            await adb.install_labels(UnauthorizedUniqueIndexNode)
+
+    # Relationship index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedRelIndex(AsyncStructuredRel):
+                name = StringProperty(index=True)
+
+            class UnauthorizedRelIndexNode(AsyncStructuredNode):
+                has_rel = AsyncRelationshipTo(
+                    "UnauthorizedRelIndexNode",
+                    "UNAUTHORIZED_REL_INDEX",
+                    model=UnauthorizedRelIndex,
+                )
+
+            await adb.install_labels(UnauthorizedRelIndexNode)
+
+
+@mark_async_test
+async def test_unauthorized_index_creation_recent_features():
+    if not await adb.edition_is_enterprise() or not await adb.version_is_higher_than(
+        "5.18"
+    ):
+        pytest.skip("Skipping test for community edition and versions lower than 5.18")
+
+    unauthorized_user = "troygreene"
+    expected_message_index = r".*Schema operation.* not allowed for user.*"
+
+    # Node fulltext index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedFulltextNode(AsyncStructuredNode):
+                name = StringProperty(fulltext_index=FulltextIndex())
+
+            await adb.install_labels(UnauthorizedFulltextNode)
+
+    # Node vector index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedVectorNode(AsyncStructuredNode):
+                name = StringProperty(vector_index=VectorIndex())
+
+            await adb.install_labels(UnauthorizedVectorNode)
+
+    # Relationship uniqueness constraint
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedUniqueRel(AsyncStructuredRel):
+                name = StringProperty(unique_index=True)
+
+            class UnauthorizedUniqueRelNode(AsyncStructuredNode):
+                has_rel = AsyncRelationshipTo(
+                    "UnauthorizedUniqueRelNode",
+                    "UNAUTHORIZED_UNIQUE_REL",
+                    model=UnauthorizedUniqueRel,
+                )
+
+            await adb.install_labels(UnauthorizedUniqueRelNode)
+
+    # Relationship fulltext index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedFulltextRel(AsyncStructuredRel):
+                name = StringProperty(fulltext_index=FulltextIndex())
+
+            class UnauthorizedFulltextRelNode(AsyncStructuredNode):
+                has_rel = AsyncRelationshipTo(
+                    "UnauthorizedFulltextRelNode",
+                    "UNAUTHORIZED_FULLTEXT_REL",
+                    model=UnauthorizedFulltextRel,
+                )
+
+            await adb.install_labels(UnauthorizedFulltextRelNode)
+
+    # Relationship vector index
+    with pytest.raises(
+        ClientError,
+        match=expected_message_index,
+    ):
+        with await adb.impersonate(unauthorized_user):
+
+            class UnauthorizedVectorRel(AsyncStructuredRel):
+                name = StringProperty(vector_index=VectorIndex())
+
+            class UnauthorizedVectorRelNode(AsyncStructuredNode):
+                has_rel = AsyncRelationshipTo(
+                    "UnauthorizedVectorRelNode",
+                    "UNAUTHORIZED_VECTOR_REL",
+                    model=UnauthorizedVectorRel,
+                )
+
+            await adb.install_labels(UnauthorizedVectorRelNode)
 
 
 async def _drop_constraints_for_label_and_property(

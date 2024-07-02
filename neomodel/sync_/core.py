@@ -37,7 +37,7 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.hooks import hooks
-from neomodel.properties import Property
+from neomodel.properties import FulltextIndex, Property, VectorIndex
 from neomodel.sync_.property_manager import PropertyManager
 from neomodel.util import (
     _UnsavedNode,
@@ -91,6 +91,7 @@ class Database(local):
     """
 
     _NODE_CLASS_REGISTRY = {}
+    _DB_SPECIFIC_CLASS_REGISTRY = {}
 
     def __init__(self):
         self._active_transaction = None
@@ -350,13 +351,42 @@ class Database(local):
         # Consequently, the type checking was changed for both
         # Node, Relationship objects
         if isinstance(object_to_resolve, Node):
-            return self._NODE_CLASS_REGISTRY[
-                frozenset(object_to_resolve.labels)
-            ].inflate(object_to_resolve)
+            _labels = frozenset(object_to_resolve.labels)
+            if _labels in self._NODE_CLASS_REGISTRY:
+                return self._NODE_CLASS_REGISTRY[_labels].inflate(object_to_resolve)
+            elif (
+                self._database_name is not None
+                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
+                and _labels in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
+            ):
+                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
+                    _labels
+                ].inflate(object_to_resolve)
+            else:
+                raise NodeClassNotDefined(
+                    object_to_resolve,
+                    self._NODE_CLASS_REGISTRY,
+                    self._DB_SPECIFIC_CLASS_REGISTRY,
+                )
 
         if isinstance(object_to_resolve, Relationship):
             rel_type = frozenset([object_to_resolve.type])
-            return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+            if rel_type in self._NODE_CLASS_REGISTRY:
+                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+            elif (
+                self._database_name is not None
+                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
+                and rel_type in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
+            ):
+                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
+                    rel_type
+                ].inflate(object_to_resolve)
+            else:
+                raise RelationshipClassNotDefined(
+                    object_to_resolve,
+                    self._NODE_CLASS_REGISTRY,
+                    self._DB_SPECIFIC_CLASS_REGISTRY,
+                )
 
         if isinstance(object_to_resolve, Path):
             from neomodel.sync_.path import NeomodelPath
@@ -386,30 +416,13 @@ class Database(local):
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
             for a_result_attribute in enumerate(a_result_item[1]):
-                try:
-                    # Primitive types should remain primitive types,
-                    # Nodes to be resolved to native objects
-                    resolved_object = a_result_attribute[1]
+                # Primitive types should remain primitive types,
+                # Nodes to be resolved to native objects
+                resolved_object = a_result_attribute[1]
 
-                    resolved_object = self._object_resolution(resolved_object)
+                resolved_object = self._object_resolution(resolved_object)
 
-                    result_list[a_result_item[0]][
-                        a_result_attribute[0]
-                    ] = resolved_object
-
-                except KeyError as exc:
-                    # Not being able to match the label set of a node with a known object results
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
-                    # to match, then raise an exception with more details about the error.
-                    if isinstance(a_result_attribute[1], Node):
-                        raise NodeClassNotDefined(
-                            a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        ) from exc
-
-                    if isinstance(a_result_attribute[1], Relationship):
-                        raise RelationshipClassNotDefined(
-                            a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        ) from exc
+                result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
 
         return result_list
 
@@ -722,10 +735,16 @@ class Database(local):
         ).items():
             self._install_relationship(cls, relationship, quiet, stdout)
 
-    def _create_node_index(self, label: str, property_name: str, stdout):
+    def _create_node_index(self, target_cls, property_name: str, stdout, quiet: bool):
+        label = target_cls.__label__
+        index_name = f"index_{label}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating node index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
+            )
         try:
             self.cypher_query(
-                f"CREATE INDEX index_{label}_{property_name} FOR (n:{label}) ON (n.{property_name}); "
+                f"CREATE INDEX {index_name} FOR (n:{label}) ON (n.{property_name}); "
             )
         except ClientError as e:
             if e.code in (
@@ -736,10 +755,96 @@ class Database(local):
             else:
                 raise
 
-    def _create_node_constraint(self, label: str, property_name: str, stdout):
+    def _create_node_fulltext_index(
+        self,
+        target_cls,
+        property_name: str,
+        stdout,
+        fulltext_index: FulltextIndex,
+        quiet: bool,
+    ):
+        if self.version_is_higher_than("5.16"):
+            label = target_cls.__label__
+            index_name = f"fulltext_index_{label}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating fulltext index for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE FULLTEXT INDEX {index_name} FOR (n:{label}) ON EACH [n.{property_name}]
+                OPTIONS {{
+                    indexConfig: {{
+                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
+                    }}
+                }};
+            """
+            try:
+                self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {self.database_version}. Please upgrade to Neo4j 5.16 or higher."
+            )
+
+    def _create_node_vector_index(
+        self,
+        target_cls,
+        property_name: str,
+        stdout,
+        vector_index: VectorIndex,
+        quiet: bool,
+    ):
+        if self.version_is_higher_than("5.15"):
+            label = target_cls.__label__
+            index_name = f"vector_index_{label}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating vector index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE VECTOR INDEX {index_name} FOR (n:{label}) ON n.{property_name}
+                OPTIONS {{
+                    indexConfig: {{
+                        `vector.dimensions`: {vector_index.dimensions},
+                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                    }}
+                }};
+            """
+            try:
+                self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of vector indexes from neomodel is not supported for Neo4j in version {self.database_version}. Please upgrade to Neo4j 5.15 or higher."
+            )
+
+    def _create_node_constraint(
+        self, target_cls, property_name: str, stdout, quiet: bool
+    ):
+        label = target_cls.__label__
+        constraint_name = f"constraint_unique_{label}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating node unique constraint for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
+            )
         try:
             self.cypher_query(
-                f"""CREATE CONSTRAINT constraint_unique_{label}_{property_name} 
+                f"""CREATE CONSTRAINT {constraint_name}
                             FOR (n:{label}) REQUIRE n.{property_name} IS UNIQUE"""
             )
         except ClientError as e:
@@ -752,11 +857,22 @@ class Database(local):
                 raise
 
     def _create_relationship_index(
-        self, relationship_type: str, property_name: str, stdout
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        quiet: bool,
     ):
+        index_name = f"index_{relationship_type}_{property_name}"
+        if not quiet:
+            stdout.write(
+                f" + Creating relationship index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+            )
         try:
             self.cypher_query(
-                f"CREATE INDEX index_{relationship_type}_{property_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
+                f"CREATE INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON (r.{property_name}); "
             )
         except ClientError as e:
             if e.code in (
@@ -767,13 +883,104 @@ class Database(local):
             else:
                 raise
 
+    def _create_relationship_fulltext_index(
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        fulltext_index: FulltextIndex,
+        quiet: bool,
+    ):
+        if self.version_is_higher_than("5.16"):
+            index_name = f"fulltext_index_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating fulltext index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE FULLTEXT INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON EACH [r.{property_name}]
+                OPTIONS {{
+                    indexConfig: {{
+                        `fulltext.analyzer`: '{fulltext_index.analyzer}',
+                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
+                    }}
+                }};
+            """
+            try:
+                self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {self.database_version}. Please upgrade to Neo4j 5.16 or higher."
+            )
+
+    def _create_relationship_vector_index(
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        vector_index: VectorIndex,
+        quiet: bool,
+    ):
+        if self.version_is_higher_than("5.18"):
+            index_name = f"vector_index_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating vector index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
+            query = f"""
+                CREATE VECTOR INDEX {index_name} FOR ()-[r:{relationship_type}]-() ON r.{property_name}
+                OPTIONS {{
+                    indexConfig: {{
+                        `vector.dimensions`: {vector_index.dimensions},
+                        `vector.similarity_function`: '{vector_index.similarity_function}'
+                    }}
+                }};
+            """
+            try:
+                self.cypher_query(query)
+            except ClientError as e:
+                if e.code in (
+                    RULE_ALREADY_EXISTS,
+                    INDEX_ALREADY_EXISTS,
+                ):
+                    stdout.write(f"{str(e)}\n")
+                else:
+                    raise
+        else:
+            raise FeatureNotSupported(
+                f"Creation of vector indexes for relationships from neomodel is not supported for Neo4j in version {self.database_version}. Please upgrade to Neo4j 5.18 or higher."
+            )
+
     def _create_relationship_constraint(
-        self, relationship_type: str, property_name: str, stdout
+        self,
+        relationship_type: str,
+        target_cls,
+        relationship_cls,
+        property_name: str,
+        stdout,
+        quiet: bool,
     ):
         if self.version_is_higher_than("5.7"):
+            constraint_name = f"constraint_unique_{relationship_type}_{property_name}"
+            if not quiet:
+                stdout.write(
+                    f" + Creating relationship unique constraint for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
+                )
             try:
                 self.cypher_query(
-                    f"""CREATE CONSTRAINT constraint_unique_{relationship_type}_{property_name} 
+                    f"""CREATE CONSTRAINT {constraint_name} 
                                 FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
                 )
             except ClientError as e:
@@ -793,21 +1000,30 @@ class Database(local):
         # Create indexes and constraints for node property
         db_property = property.get_db_property_name(name)
         if property.index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node index {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
             self._create_node_index(
-                label=cls.__label__, property_name=db_property, stdout=stdout
+                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
+            )
+        elif property.unique_index:
+            self._create_node_constraint(
+                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
             )
 
-        elif property.unique_index:
-            if not quiet:
-                stdout.write(
-                    f" + Creating node unique constraint for {name} on label {cls.__label__} for class {cls.__module__}.{cls.__name__}\n"
-                )
-            self._create_node_constraint(
-                label=cls.__label__, property_name=db_property, stdout=stdout
+        if property.fulltext_index:
+            self._create_node_fulltext_index(
+                target_cls=cls,
+                property_name=db_property,
+                stdout=stdout,
+                fulltext_index=property.fulltext_index,
+                quiet=quiet,
+            )
+
+        if property.vector_index:
+            self._create_node_vector_index(
+                target_cls=cls,
+                property_name=db_property,
+                stdout=stdout,
+                vector_index=property.vector_index,
+                quiet=quiet,
             )
 
     def _install_relationship(self, cls, relationship, quiet, stdout):
@@ -820,24 +1036,44 @@ class Database(local):
             ).items():
                 db_property = property.get_db_property_name(prop_name)
                 if property.index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship index {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
                     self._create_relationship_index(
                         relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
                         property_name=db_property,
                         stdout=stdout,
+                        quiet=quiet,
                     )
                 elif property.unique_index:
-                    if not quiet:
-                        stdout.write(
-                            f" + Creating relationship unique constraint for {prop_name} on relationship type {relationship_type} for relationship model {cls.__module__}.{relationship_cls.__name__}\n"
-                        )
                     self._create_relationship_constraint(
                         relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
                         property_name=db_property,
                         stdout=stdout,
+                        quiet=quiet,
+                    )
+
+                if property.fulltext_index:
+                    self._create_relationship_fulltext_index(
+                        relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
+                        property_name=db_property,
+                        stdout=stdout,
+                        fulltext_index=property.fulltext_index,
+                        quiet=quiet,
+                    )
+
+                if property.vector_index:
+                    self._create_relationship_vector_index(
+                        relationship_type=relationship_type,
+                        target_cls=cls,
+                        relationship_cls=relationship_cls,
+                        property_name=db_property,
+                        stdout=stdout,
+                        vector_index=property.vector_index,
+                        quiet=quiet,
                     )
 
 
@@ -1079,10 +1315,23 @@ def build_class_registry(cls):
     possible_label_combinations.append(base_label_set)
 
     for label_set in possible_label_combinations:
-        if label_set not in db._NODE_CLASS_REGISTRY:
-            db._NODE_CLASS_REGISTRY[label_set] = cls
+        if not hasattr(cls, "__target_databases__"):
+            if label_set not in db._NODE_CLASS_REGISTRY:
+                db._NODE_CLASS_REGISTRY[label_set] = cls
+            else:
+                raise NodeClassAlreadyDefined(
+                    cls, db._NODE_CLASS_REGISTRY, db._DB_SPECIFIC_CLASS_REGISTRY
+                )
         else:
-            raise NodeClassAlreadyDefined(cls, db._NODE_CLASS_REGISTRY)
+            for database in cls.__target_databases__:
+                if database not in db._DB_SPECIFIC_CLASS_REGISTRY:
+                    db._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
+                if label_set not in db._DB_SPECIFIC_CLASS_REGISTRY[database]:
+                    db._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
+                else:
+                    raise NodeClassAlreadyDefined(
+                        cls, db._NODE_CLASS_REGISTRY, db._DB_SPECIFIC_CLASS_REGISTRY
+                    )
 
 
 NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
