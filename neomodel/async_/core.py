@@ -91,6 +91,7 @@ class AsyncDatabase(local):
     """
 
     _NODE_CLASS_REGISTRY = {}
+    _DB_SPECIFIC_CLASS_REGISTRY = {}
 
     def __init__(self):
         self._active_transaction = None
@@ -352,13 +353,42 @@ class AsyncDatabase(local):
         # Consequently, the type checking was changed for both
         # Node, Relationship objects
         if isinstance(object_to_resolve, Node):
-            return self._NODE_CLASS_REGISTRY[
-                frozenset(object_to_resolve.labels)
-            ].inflate(object_to_resolve)
+            _labels = frozenset(object_to_resolve.labels)
+            if _labels in self._NODE_CLASS_REGISTRY:
+                return self._NODE_CLASS_REGISTRY[_labels].inflate(object_to_resolve)
+            elif (
+                self._database_name is not None
+                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
+                and _labels in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
+            ):
+                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
+                    _labels
+                ].inflate(object_to_resolve)
+            else:
+                raise NodeClassNotDefined(
+                    object_to_resolve,
+                    self._NODE_CLASS_REGISTRY,
+                    self._DB_SPECIFIC_CLASS_REGISTRY,
+                )
 
         if isinstance(object_to_resolve, Relationship):
             rel_type = frozenset([object_to_resolve.type])
-            return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+            if rel_type in self._NODE_CLASS_REGISTRY:
+                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
+            elif (
+                self._database_name is not None
+                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
+                and rel_type in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
+            ):
+                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
+                    rel_type
+                ].inflate(object_to_resolve)
+            else:
+                raise RelationshipClassNotDefined(
+                    object_to_resolve,
+                    self._NODE_CLASS_REGISTRY,
+                    self._DB_SPECIFIC_CLASS_REGISTRY,
+                )
 
         if isinstance(object_to_resolve, Path):
             from neomodel.async_.path import AsyncNeomodelPath
@@ -388,30 +418,13 @@ class AsyncDatabase(local):
         # Object resolution occurs in-place
         for a_result_item in enumerate(result_list):
             for a_result_attribute in enumerate(a_result_item[1]):
-                try:
-                    # Primitive types should remain primitive types,
-                    # Nodes to be resolved to native objects
-                    resolved_object = a_result_attribute[1]
+                # Primitive types should remain primitive types,
+                # Nodes to be resolved to native objects
+                resolved_object = a_result_attribute[1]
 
-                    resolved_object = self._object_resolution(resolved_object)
+                resolved_object = self._object_resolution(resolved_object)
 
-                    result_list[a_result_item[0]][
-                        a_result_attribute[0]
-                    ] = resolved_object
-
-                except KeyError as exc:
-                    # Not being able to match the label set of a node with a known object results
-                    # in a KeyError in the internal dictionary used for resolution. If it is impossible
-                    # to match, then raise an exception with more details about the error.
-                    if isinstance(a_result_attribute[1], Node):
-                        raise NodeClassNotDefined(
-                            a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        ) from exc
-
-                    if isinstance(a_result_attribute[1], Relationship):
-                        raise RelationshipClassNotDefined(
-                            a_result_attribute[1], self._NODE_CLASS_REGISTRY
-                        ) from exc
+                result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
 
         return result_list
 
@@ -1308,10 +1321,23 @@ def build_class_registry(cls):
     possible_label_combinations.append(base_label_set)
 
     for label_set in possible_label_combinations:
-        if label_set not in adb._NODE_CLASS_REGISTRY:
-            adb._NODE_CLASS_REGISTRY[label_set] = cls
+        if not hasattr(cls, "__target_databases__"):
+            if label_set not in adb._NODE_CLASS_REGISTRY:
+                adb._NODE_CLASS_REGISTRY[label_set] = cls
+            else:
+                raise NodeClassAlreadyDefined(
+                    cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
+                )
         else:
-            raise NodeClassAlreadyDefined(cls, adb._NODE_CLASS_REGISTRY)
+            for database in cls.__target_databases__:
+                if database not in adb._DB_SPECIFIC_CLASS_REGISTRY:
+                    adb._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
+                if label_set not in adb._DB_SPECIFIC_CLASS_REGISTRY[database]:
+                    adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
+                else:
+                    raise NodeClassAlreadyDefined(
+                        cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
+                    )
 
 
 NodeBase = NodeMeta("NodeBase", (AsyncPropertyManager,), {"__abstract_node__": True})

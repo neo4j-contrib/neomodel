@@ -21,6 +21,16 @@ Creating purely abstract classes is achieved using the `__abstract_node__` prope
             self.balance = self.balance + int(amount)
             self.save()
 
+Custom label
+------------
+By default, neomodel uses the class name as the label for nodes. This can be overridden by setting the __label__ property on the class::
+
+    class PersonClass(StructuredNode):
+        __label__ = "Person"
+        name = StringProperty(unique_index=True)
+
+Creating a PersonClass instance and saving it to the database will result in a node with the label "Person".
+
 
 Optional Labels
 ---------------
@@ -131,11 +141,16 @@ Consider for example the following snippet of code::
     class PilotPerson(BasePerson):
         pass
 
+
+    class UserClass(StructuredNode):
+        __label__ = "User"
+
 Once this script is executed, the *node-class registry* would contain the following entries: ::
 
     {"BasePerson"}                    --> class BasePerson
     {"BasePerson", "TechnicalPerson"} --> class TechnicalPerson
     {"BasePerson", "PilotPerson"}     --> class PilotPerson
+    {"User"}                          --> class UserClass
 
 Therefore, a ``Node`` with labels ``"BasePerson", "TechnicalPerson"`` would lead to the instantiation of a
 ``TechnicalPerson`` object. This automatic resolution is **optional** and can be invoked automatically via
@@ -184,10 +199,50 @@ This automatic class resolution however, requires a bit of caution:
           ``{"BasePerson", "PilotPerson"}`` to ``PilotPerson`` **in the global scope** with a mapping of the same
           set of labels but towards the class defined within the **local scope** of ``some_function``.
 
+3. Two classes with different names but the same __label__ override will also result in a ``ClassAlreadyDefined`` exception.
+   This can be avoided under certain circumstances, as explained in the next section on 'Database specific labels'. 
+
 Both ``ModelDefinitionMismatch`` and ``ClassAlreadyDefined`` produce an error message that returns the labels of the
 node that created the problem (either the `Node` returned from the database or the class that was attempted to be
 redefined) as well as the state of the current *node-class registry*. These two pieces of information can be used to
 debug the model mismatch further.
+
+
+Database specific labels
+------------------------
+**Only for Neo4j Enterprise Edition, with multiple databases**
+
+In some cases, it is necessary to have a class with a label that is not unique across the database.
+This can be achieved by setting the `__target_databases__` property to a list of strings ::
+    class PatientOne(AsyncStructuredNode):
+        __label__ = "Patient"
+        __target_databases__ = ["db_one"]
+        name = StringProperty()
+
+    class PatientTwo(AsyncStructuredNode):
+        __label__ = "Patient"
+        __target_databases__ = ["db_two"]
+        identifier = StringProperty()
+
+In this example, both `PatientOne` and `PatientTwo` have the label "Patient", but these will be mapped in a database-specific *node-class registry*.
+
+Now, if you fetch a node with label Patient from your database with auto resolution enabled, neomodel will try to resolve it to the correct class
+based on the database it was fetched from ::
+    db.set_connection("bolt://neo4j:password@localhost:7687/db_one")
+    patients = db.cypher_query("MATCH (n:Patient) RETURN n", resolve_objects=True) --> instance of PatientOne
+
+The following will result in a ``ClassAlreadyDefined`` exception, because when retrieving from ``db_one``,
+neomodel would not be able to decide which model to parse into ::
+    class GeneralPatient(AsyncStructuredNode):
+        __label__ = "Patient"
+        name = StringProperty()
+
+    class PatientOne(AsyncStructuredNode):
+        __label__ = "Patient"
+        __target_databases__ = ["db_one"]
+        name = StringProperty()
+
+.. warning:: This does not prevent you from saving a node to the "wrong database". So you can still save an instance of PatientTwo to database "db_one".
 
 
 ``neomodel`` under multiple processes and threads

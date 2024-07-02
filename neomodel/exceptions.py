@@ -38,7 +38,12 @@ class ModelDefinitionException(NeomodelException):
     Abstract exception to handle error conditions related to the node-to-class registry.
     """
 
-    def __init__(self, db_node_rel_class, current_node_class_registry):
+    def __init__(
+        self,
+        db_node_rel_class,
+        current_node_class_registry,
+        current_db_specific_node_class_registry,
+    ):
         """
         Initialises the exception with the database node that caused the missmatch.
 
@@ -46,9 +51,14 @@ class ModelDefinitionException(NeomodelException):
                from the DBMS, or a data model class from an application's hierarchy.
         :param current_node_class_registry: Dictionary that maps frozenset of
                node labels to model classes
+        :param current_db_specific_node_class_registry: Dictionary that maps frozenset of
+                node labels to model classes for specific databases
         """
         self.db_node_rel_class = db_node_rel_class
         self.current_node_class_registry = current_node_class_registry
+        self.current_db_specific_node_class_registry = (
+            current_db_specific_node_class_registry
+        )
 
     def _get_node_class_registry_formatted(self):
         """
@@ -57,13 +67,23 @@ class ModelDefinitionException(NeomodelException):
 
         :return: str
         """
-        ncr_items = list(
+        output = "\n".join(
             map(
                 lambda x: f"{','.join(x[0])} --> {x[1]}",
                 self.current_node_class_registry.items(),
             )
         )
-        return "\n".join(ncr_items)
+        for db, db_registry in self.current_db_specific_node_class_registry.items():
+            output += f"\n\nDatabase-specific: {db}\n"
+            output += "\n".join(
+                list(
+                    map(
+                        lambda x: f"{','.join(x[0])} --> {x[1]}",
+                        db_registry.items(),
+                    )
+                )
+            )
+        return output
 
 
 class NodeClassNotDefined(ModelDefinitionException):
@@ -107,6 +127,7 @@ class RelationshipClassRedefined(ModelDefinitionException):
         self,
         db_rel_class_type,
         current_node_class_registry,
+        current_db_specific_node_class_registry,
         remapping_to_class,
     ):
         """
@@ -115,11 +136,16 @@ class RelationshipClassRedefined(ModelDefinitionException):
         :param db_rel_class_type: The type of the relationship that caused the error.
         :type db_rel_class_type: str (The label of the relationship that caused the error)
         :param current_node_class_registry: The current db object's node-class registry.
+        :param current_db_specific_node_class_registry: The current db object's node-class registry for specific databases.
         :type current_node_class_registry: dict
         :param remapping_to_class: The relationship class the relationship type was attempted to be redefined to.
         :type remapping_to_class: class
         """
-        super().__init__(db_rel_class_type, current_node_class_registry)
+        super().__init__(
+            db_rel_class_type,
+            current_node_class_registry,
+            current_db_specific_node_class_registry,
+        )
         self.remapping_to_class = remapping_to_class
 
     def __str__(self):
