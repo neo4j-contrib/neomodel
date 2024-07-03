@@ -73,6 +73,7 @@ Contents
    relationships
    properties
    spatial_properties
+   schema_management
    queries
    cypher
    transactions

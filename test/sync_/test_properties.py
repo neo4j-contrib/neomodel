@@ -1,10 +1,11 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from test._async_compat import mark_sync_test
 
+from neo4j import time
 from pytest import mark, raises
 from pytz import timezone
 
-from neomodel import Relationship, StructuredNode, StructuredRel, db
+from neomodel import Relationship, StructuredNode, StructuredRel, config, db
 from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,
@@ -13,9 +14,12 @@ from neomodel.exceptions import (
     UniqueProperty,
 )
 from neomodel.properties import (
+    AliasProperty,
     ArrayProperty,
+    BooleanProperty,
     DateProperty,
     DateTimeFormatProperty,
+    DateTimeNeo4jFormatProperty,
     DateTimeProperty,
     EmailProperty,
     IntegerProperty,
@@ -24,6 +28,7 @@ from neomodel.properties import (
     RegexProperty,
     StringProperty,
     UniqueIdProperty,
+    validator,
 )
 from neomodel.util import get_graph_entity_properties
 
@@ -76,6 +81,12 @@ def test_string_property_w_choice():
     node = TestChoices(sex="M").save()
     assert node.get_sex_display() == "Male"
 
+    with raises(ValueError):
+
+        class WrongChoices(StructuredNode):
+            WRONG = "wrong"
+            wrong_prop = StringProperty(choices=WRONG)
+
 
 def test_deflate_inflate():
     prop = IntegerProperty(required=True)
@@ -96,6 +107,25 @@ def test_deflate_inflate():
     else:
         assert False, "DeflateError not raised."
 
+    with raises(ValueError, match="Unknown Property method tartiflate"):
+
+        class CheeseProperty(IntegerProperty):
+            @validator
+            def tartiflate(self, value):
+                return int(value)
+
+
+def test_boolean_property():
+    prop = BooleanProperty(default=False)
+    prop.name = "foo"
+    prop.owner = FooBar
+    assert prop.deflate(True) is True
+    assert prop.deflate(False) is False
+    assert prop.inflate(True) is True
+    assert prop.inflate(False) is False
+
+    assert prop.default_value() is False
+
 
 def test_datetimes_timezones():
     prop = DateTimeProperty()
@@ -112,6 +142,18 @@ def test_datetimes_timezones():
     assert time1.utctimetuple() < time2.utctimetuple()
     assert time1.tzname() == "UTC"
 
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    prev_force_timezone = config.FORCE_TIMEZONE
+    config.FORCE_TIMEZONE = True
+    with raises(ValueError, match=r".*No timezone provided."):
+        prop.deflate(datetime.now())
+
+    config.FORCE_TIMEZONE = prev_force_timezone
+
 
 def test_date():
     prop = DateProperty()
@@ -120,6 +162,8 @@ def test_date():
     somedate = date(2012, 12, 15)
     assert prop.deflate(somedate) == "2012-12-15"
     assert prop.inflate("2012-12-15") == somedate
+
+    assert prop.inflate(time.DateTime(2007, 9, 27)) == date(2007, 9, 27)
 
 
 def test_datetime_format():
@@ -130,6 +174,49 @@ def test_datetime_format():
     some_datetime = datetime(2019, 3, 19, 15, 36, 25)
     assert prop.deflate(some_datetime) == "2019-03-19 15:36:25"
     assert prop.inflate("2019-03-19 15:36:25") == some_datetime
+
+    with raises(ValueError, match=r"datetime object expected, got.*"):
+        prop.deflate(1234)
+
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    secondProp = DateTimeFormatProperty(default_now=True)
+    assert secondProp.has_default
+    assert (
+        timedelta(seconds=-2)
+        < secondProp.default - datetime.now()
+        < timedelta(seconds=2)
+    )
+
+
+def test_datetime_neo4j_format():
+    prop = DateTimeNeo4jFormatProperty()
+    prop.name = "foo"
+    prop.owner = FooBar
+    some_datetime = datetime(2022, 12, 10, 14, 00, 00)
+    assert prop.has_default is False
+    assert prop.default is None
+    assert prop.deflate(some_datetime) == time.DateTime(2022, 12, 10, 14, 00, 00)
+    assert prop.inflate(time.DateTime(2022, 12, 10, 14, 00, 00)) == some_datetime
+
+    with raises(ValueError, match=r"datetime object expected, got.*"):
+        prop.deflate(1234)
+
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeNeo4jFormatProperty(
+            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
+        )
+
+    secondProp = DateTimeNeo4jFormatProperty(default_now=True)
+    assert secondProp.has_default
+    assert (
+        timedelta(seconds=-2)
+        < secondProp.default - datetime.now()
+        < timedelta(seconds=2)
+    )
 
 
 def test_datetime_exceptions():
@@ -151,6 +238,9 @@ def test_datetime_exceptions():
         assert "deflate property" in str(e)
     else:
         assert False, "DeflateError not raised."
+
+    with raises(ValueError, match="too many defaults"):
+        _ = DateTimeProperty(default_now=True, default=datetime(1900, 1, 1, 0, 0, 0))
 
 
 def test_date_exceptions():
@@ -174,6 +264,35 @@ def test_date_exceptions():
         assert False, "DeflateError not raised."
 
 
+def test_base_exceptions():
+    # default-required conflict
+    with raises(
+        ValueError,
+        match="The arguments `required` and `default` are mutually exclusive.",
+    ):
+        _ = StringProperty(default="kakapo", required=True)
+
+    # unique_index - index conflict
+    with raises(
+        ValueError,
+        match="The arguments `unique_index` and `index` are mutually exclusive.",
+    ):
+        _ = IntegerProperty(index=True, unique_index=True)
+
+    # no default value
+    kakapo = StringProperty()
+    with raises(ValueError, match="No default value specified"):
+        kakapo.default_value()
+
+    # missing normalize method
+    class WoopsProperty(NormalizedProperty):
+        pass
+
+    woops = WoopsProperty()
+    with raises(NotImplementedError, match="Specialize normalize method"):
+        woops.normalize("kakapo")
+
+
 def test_json():
     prop = JSONProperty()
     prop.name = "json"
@@ -183,6 +302,17 @@ def test_json():
 
     assert prop.deflate(value) == '{"test": [1, 2, 3]}'
     assert prop.inflate('{"test": [1, 2, 3]}') == value
+
+
+def test_indexed():
+    indexed = StringProperty(index=True)
+    assert indexed.is_indexed is True
+
+    unique_indexed = StringProperty(unique_index=True)
+    assert unique_indexed.is_indexed is True
+
+    not_indexed = StringProperty()
+    assert not_indexed.is_indexed is False
 
 
 @mark_sync_test
@@ -416,6 +546,20 @@ def test_uid_property():
     cmid = CheckMyId().save()
     assert len(cmid.uid)
 
+    matched_exception = r".*argument ignored by.*"
+    # Test ignored arguments
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(required=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(unique_index=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(index=False)
+
+    with raises(ValueError, match=matched_exception):
+        _ = UniqueIdProperty(default="kakapo")
+
 
 class ArrayProps(StructuredNode):
     uid = StringProperty(unique_index=True)
@@ -443,6 +587,15 @@ def test_array_properties():
     assert 1 in ap2.typed_arr
     ap2 = ArrayProps.nodes.get(uid="2")
     assert 2 in ap2.typed_arr
+
+    class Kakapo:
+        pass
+
+    with raises(TypeError, match="Expecting neomodel Property"):
+        ArrayProperty(Kakapo)
+
+    with raises(TypeError, match="Cannot have nested ArrayProperty"):
+        ArrayProperty(ArrayProperty())
 
 
 def test_illegal_array_base_prop_raises():
@@ -516,3 +669,17 @@ def test_unique_index_prop_enforced():
     x.delete()
     y.delete()
     z.delete()
+
+
+def test_alias_property():
+    class AliasedClass(StructuredNode):
+        name = StringProperty(index=True)
+        national_id = IntegerProperty(unique_index=True)
+        alias = AliasProperty(to="name")
+        alias_national_id = AliasProperty(to="national_id")
+        whatever = StringProperty()
+        alias_whatever = AliasProperty(to="whatever")
+
+    assert AliasedClass.alias.index is True
+    assert AliasedClass.alias_national_id.unique_index is True
+    assert AliasedClass.alias_whatever.index is False
