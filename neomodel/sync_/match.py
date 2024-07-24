@@ -154,6 +154,9 @@ _SPECIAL_OPERATOR_INSENSITIVE = "(?i)"
 _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
 _SPECIAL_OPERATOR_REGEX = "=~"
+_SPECIAL_OPERATOR_INCLUDES = "{val} IN {ident}.{prop}"
+_SPECIAL_OPERATOR_INCLUDES_ALL = "all(x IN {val} WHERE x IN {ident}.{prop})"
+_SPECIAL_OPERATOR_INCLUDES_ANY = "any(x IN {val} WHERE x IN {ident}.{prop})"
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
@@ -190,6 +193,9 @@ OPERATOR_TABLE = {
     "isnull": _SPECIAL_OPERATOR_ISNULL,
     "regex": _SPECIAL_OPERATOR_REGEX,
     "exact": "=",
+    "includes": _SPECIAL_OPERATOR_INCLUDES,
+    "includes_all": _SPECIAL_OPERATOR_INCLUDES_ALL,
+    "includes_any": _SPECIAL_OPERATOR_INCLUDES_ANY,
 }
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
@@ -254,6 +260,62 @@ def process_filter_args(cls, kwargs):
         output[db_property] = (operator, deflated_value)
 
     return output
+
+
+def transform_includes_operator_to_filter(
+    operator, filter_key, filter_value, property_obj
+):
+    """
+    Transform includes operator to a cypher filter
+    Args:
+        operator (str): operator to transform
+        filter_key (str): filter key
+        filter_value (str): filter value
+        property_obj (object): property object
+    Returns:
+        tuple: operator, deflated_value
+    """
+    if not isinstance(filter_value, str):
+        raise ValueError(
+            f"Value must be a string for INCLUDES operation {filter_key}={filter_value}"
+        )
+    if not isinstance(property_obj, ArrayProperty):
+        raise ValueError(
+            f"Property {filter_key} must be an ArrayProperty to use INCLUDES operation"
+        )
+    deflated_value = filter_value
+    operator = _SPECIAL_OPERATOR_INCLUDES
+    return operator, deflated_value
+
+
+def transform_includes_all_any_operator_to_filter(
+    operator, filter_key, filter_value, property_obj
+):
+    """
+    Transform includes operator to a cypher filter
+    Args:
+        operator (str): operator to transform
+        filter_key (str): filter key
+        filter_value (str): filter value
+        property_obj (object): property object
+    Returns:
+        tuple: operator, deflated_value
+    """
+    if not isinstance(filter_value, (tuple, list)):
+        raise ValueError(
+            f"Value must be an iterable for INCLUDES operation {filter_key}={filter_value}"
+        )
+    if not isinstance(property_obj, ArrayProperty):
+        raise ValueError(
+            f"Property {filter_key} must be an ArrayProperty to use INCLUDES operation"
+        )
+    deflated_value = property_obj.deflate(filter_value)
+    operator = (
+        _SPECIAL_OPERATOR_INCLUDES_ANY
+        if operator == _SPECIAL_OPERATOR_INCLUDES_ANY
+        else _SPECIAL_OPERATOR_INCLUDES_ALL
+    )
+    return operator, deflated_value
 
 
 def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
@@ -334,6 +396,20 @@ def transform_operator_to_filter(operator, filter_key, filter_value, property_ob
         )
     elif operator in _REGEX_OPERATOR_TABLE.values():
         operator, deflated_value = transform_regex_operator_to_filter(
+            operator=operator,
+            filter_key=filter_key,
+            filter_value=filter_value,
+            property_obj=property_obj,
+        )
+    elif operator == _SPECIAL_OPERATOR_INCLUDES:
+        operator, deflated_value = transform_includes_operator_to_filter(
+            operator=operator,
+            filter_key=filter_key,
+            filter_value=filter_value,
+            property_obj=property_obj,
+        )
+    elif operator in [_SPECIAL_OPERATOR_INCLUDES_ALL, _SPECIAL_OPERATOR_INCLUDES_ANY]:
+        operator, deflated_value = transform_includes_all_any_operator_to_filter(
             operator=operator,
             filter_key=filter_key,
             filter_value=filter_value,
@@ -640,6 +716,16 @@ class QueryBuilder:
                                 prop=prop,
                                 val=f"${place_holder}",
                             )
+                        elif operator in [
+                            _SPECIAL_OPERATOR_INCLUDES,
+                            _SPECIAL_OPERATOR_INCLUDES_ALL,
+                            _SPECIAL_OPERATOR_INCLUDES_ANY,
+                        ]:
+                            statement = operator.format(
+                                ident=ident,
+                                prop=prop,
+                                val=f"${place_holder}",
+                            )
                         else:
                             statement = f"{ident}.{prop} {operator} ${place_holder}"
                         self._query_params[place_holder] = val
@@ -673,6 +759,18 @@ class QueryBuilder:
                         # unary operators do not have a parameter
                         statement = (
                             f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
+                        )
+                    elif operator in [
+                        _SPECIAL_OPERATOR_INCLUDES,
+                        _SPECIAL_OPERATOR_INCLUDES_ALL,
+                        _SPECIAL_OPERATOR_INCLUDES_ANY,
+                    ]:
+                        place_holder = self._register_place_holder(ident + "_" + prop)
+                        self._query_params[place_holder] = val
+                        statement = operator.format(
+                            ident=ident,
+                            prop=prop,
+                            val=f"${place_holder}",
                         )
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
