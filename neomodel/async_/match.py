@@ -1102,6 +1102,9 @@ class AsyncNodeSet(AsyncBaseSet):
              * 'istartswith': case insensitive string starts with
              * 'endswith': string ends with
              * 'iendswith': case insensitive string ends with
+             * 'includes': array contains value
+             * 'includes_all': array contains all values
+             * 'includes_any': array contains any of the values
 
         :return: self
         """
