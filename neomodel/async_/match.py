@@ -760,6 +760,14 @@ class AsyncQueryBuilder:
                         statement = (
                             f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
                         )
+                    # Fix IN operator for Traversal Sets
+                    # Potential bug: Must be investigated if it is really an issue
+                    # elif operator == _SPECIAL_OPERATOR_ARRAY_IN:
+                    #         statement = operator.format(
+                    #             ident=ident,
+                    #             prop=prop,
+                    #             val=f"${place_holder}",
+                    #         )
                     elif operator in [
                         _SPECIAL_OPERATOR_INCLUDES,
                         _SPECIAL_OPERATOR_INCLUDES_ALL,
