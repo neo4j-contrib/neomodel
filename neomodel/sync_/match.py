@@ -292,7 +292,7 @@ def transform_includes_all_any_operator_to_filter(
     operator, filter_key, filter_value, property_obj
 ):
     """
-    Transform includes operator to a cypher filter
+    Transform includes__all/any operator to a cypher filter
     Args:
         operator (str): operator to transform
         filter_key (str): filter key
@@ -342,7 +342,7 @@ def transform_in_operator_to_filter(operator, filter_key, filter_value, property
     return operator, deflated_value
 
 
-def transform_null_operator_to_filter(filter_key, filter_value):
+def transform_null_operator_to_filter(filter_key, filter_value, **kwargs):
     """
     Transform null operator to a cypher filter
     Args:
@@ -382,42 +382,29 @@ def transform_regex_operator_to_filter(
     return operator, deflated_value
 
 
-def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    if operator == _SPECIAL_OPERATOR_IN:
-        operator, deflated_value = transform_in_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    elif operator == _SPECIAL_OPERATOR_ISNULL:
-        operator, deflated_value = transform_null_operator_to_filter(
-            filter_key=filter_key, filter_value=filter_value
-        )
-    elif operator in _REGEX_OPERATOR_TABLE.values():
-        operator, deflated_value = transform_regex_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    elif operator == _SPECIAL_OPERATOR_INCLUDES:
-        operator, deflated_value = transform_includes_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    elif operator in [_SPECIAL_OPERATOR_INCLUDES_ALL, _SPECIAL_OPERATOR_INCLUDES_ANY]:
-        operator, deflated_value = transform_includes_all_any_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    else:
-        deflated_value = property_obj.deflate(filter_value)
+TRANSFORM_TABLE = {
+    (_SPECIAL_OPERATOR_IN,): transform_in_operator_to_filter,
+    (_SPECIAL_OPERATOR_ISNULL,): transform_null_operator_to_filter,
+    tuple(_REGEX_OPERATOR_TABLE.values()): transform_regex_operator_to_filter,
+    (_SPECIAL_OPERATOR_INCLUDES,): transform_includes_operator_to_filter,
+    (
+        _SPECIAL_OPERATOR_INCLUDES_ALL,
+        _SPECIAL_OPERATOR_INCLUDES_ANY,
+    ): transform_includes_all_any_operator_to_filter,
+}
 
+
+def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
+    for ops_it, transform in TRANSFORM_TABLE.items():
+        if operator in ops_it:
+            return transform(
+                operator=operator,
+                filter_key=filter_key,
+                filter_value=filter_value,
+                property_obj=property_obj,
+            )
+
+    deflated_value = property_obj.deflate(filter_value)
     return operator, deflated_value
 
 
@@ -710,13 +697,8 @@ class QueryBuilder:
                         statement = f"{ident}.{prop} {operator}"
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
-                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
-                            statement = operator.format(
-                                ident=ident,
-                                prop=prop,
-                                val=f"${place_holder}",
-                            )
-                        elif operator in [
+                        if operator in [
+                            _SPECIAL_OPERATOR_ARRAY_IN,
                             _SPECIAL_OPERATOR_INCLUDES,
                             _SPECIAL_OPERATOR_INCLUDES_ALL,
                             _SPECIAL_OPERATOR_INCLUDES_ANY,
@@ -762,13 +744,8 @@ class QueryBuilder:
                         )
                     # Fix IN operator for Traversal Sets
                     # Potential bug: Must be investigated if it is really an issue
-                    # elif operator == _SPECIAL_OPERATOR_ARRAY_IN:
-                    #         statement = operator.format(
-                    #             ident=ident,
-                    #             prop=prop,
-                    #             val=f"${place_holder}",
-                    #         )
                     elif operator in [
+                        _SPECIAL_OPERATOR_ARRAY_IN,
                         _SPECIAL_OPERATOR_INCLUDES,
                         _SPECIAL_OPERATOR_INCLUDES_ALL,
                         _SPECIAL_OPERATOR_INCLUDES_ANY,
