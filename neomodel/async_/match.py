@@ -284,7 +284,6 @@ def transform_includes_operator_to_filter(
             f"Property {filter_key} must be an ArrayProperty to use INCLUDES operation"
         )
     deflated_value = filter_value
-    operator = _SPECIAL_OPERATOR_INCLUDES
     return operator, deflated_value
 
 
@@ -310,12 +309,12 @@ def transform_includes_all_any_operator_to_filter(
             f"Property {filter_key} must be an ArrayProperty to use INCLUDES operation"
         )
     deflated_value = property_obj.deflate(filter_value)
-    operator = (
+    selected_operator = (
         _SPECIAL_OPERATOR_INCLUDES_ANY
         if operator == _SPECIAL_OPERATOR_INCLUDES_ANY
         else _SPECIAL_OPERATOR_INCLUDES_ALL
     )
-    return operator, deflated_value
+    return selected_operator, deflated_value
 
 
 def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
