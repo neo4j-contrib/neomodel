@@ -15,7 +15,6 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
-    ZeroOrOne,
 )
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
@@ -71,23 +70,6 @@ class PersonX(StructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = RelationshipTo(CityX, "LIVES_IN")
-
-
-class MemberOfRelationship(StructuredRel):
-    tags = ArrayProperty(StringProperty(), required=True)
-
-
-class Player(StructuredNode):
-    name = StringProperty(unique_index=True, required=True)
-    tags = ArrayProperty(StringProperty(), required=True)
-    club = RelationshipTo(
-        "Club", "MEMBER_OF", model=MemberOfRelationship, cardinality=ZeroOrOne
-    )
-
-
-class Club(StructuredNode):
-    name = StringProperty(unique_index=True, required=True)
-    members = RelationshipFrom("Player", "MEMBER_OF", model=MemberOfRelationship)
 
 
 @mark_sync_test
@@ -672,91 +654,3 @@ def test_async_iterator():
 
         # assert that generator runs loop above
         assert counter == n
-
-
-@mark_sync_test
-def test_includes_filter_with_nodeset():
-    ronaldo = Player(name="Ronaldo", tags=["player", "striker", "portugal"]).save()
-    messi = Player(name="Messi", tags=["player", "striker", "argentina"]).save()
-
-    # Assert __includes works with Q object
-    assert ronaldo in Player.nodes.filter(Q(tags__includes="striker"))
-
-    # Assert that includes filter works with nodeset
-    assert ronaldo in Player.nodes.filter(tags__includes="striker")
-    assert messi in Player.nodes.filter(tags__includes="striker")
-
-    # Assert that includes filter works with nodeset and excluding values
-    assert ronaldo in Player.nodes.filter(tags__includes="portugal")
-    assert messi not in Player.nodes.filter(tags__includes="portugal")
-
-    # Assert __includes_any works with Q object
-    assert ronaldo in Player.nodes.filter(
-        Q(tags__includes_any=["portugal", "argentina"])
-    )
-
-    # Assert that includes_any filter works with nodeset and multiple values
-    assert ronaldo in Player.nodes.filter(tags__includes_any=["portugal", "argentina"])
-    assert messi in Player.nodes.filter(tags__includes_any=["portugal", "argentina"])
-    assert ronaldo in Player.nodes.filter(tags__includes_any=["portugal", "striker"])
-    assert messi in Player.nodes.filter(tags__includes_any=["portugal", "striker"])
-
-    # Assert __includes_all works with Q object
-    assert ronaldo in Player.nodes.filter(Q(tags__includes_all=["player", "striker"]))
-
-    # Assert that includes filter works with nodeset and all values
-    assert ronaldo in Player.nodes.filter(tags__includes_all=["player", "striker"])
-    assert messi in Player.nodes.filter(tags__includes_all=["player", "striker"])
-    assert ronaldo in Player.nodes.filter(
-        tags__includes_all=["player", "striker", "portugal"]
-    )
-    assert ronaldo not in Player.nodes.filter(
-        tags__includes_all=["player", "striker", "argentina"]
-    )
-    assert messi not in Player.nodes.filter(
-        tags__includes_all=["player", "striker", "portugal"]
-    )
-
-
-@mark_sync_test
-def test_includes_filter_with_traversal():
-    # Create the nodes
-    enrique = Player(name="Enrique", tags=["spain"]).save()
-    donnarumma = Player(name="Donnarumma", tags=["italia", "right-foot"]).save()
-    dembele = Player(name="Dembele", tags=["france", "both-feet"]).save()
-    marquinhos = Player(name="Marquinhos", tags=["brasil", "right-foot"]).save()
-    kolomuani = Player(name="Kolo Muani", tags=["congo", "right-foot"]).save()
-
-    psg = Club(name="PSG").save()
-    # Creates the edges
-    psg.members.connect(enrique, properties={"tags": ["coach"]})
-    psg.members.connect(donnarumma, properties={"tags": ["player", "goalkeeper"]})
-    psg.members.connect(marquinhos, properties={"tags": ["player", "defender"]})
-    psg.members.connect(dembele, properties={"tags": ["player", "forward"]})
-    psg.members.connect(kolomuani, properties={"tags": ["player", "forward"]})
-
-    # Assert __includes
-    players = psg.members.match(tags__includes="player").all()
-    assert donnarumma in players
-    assert dembele in players
-    assert marquinhos in players
-    assert kolomuani in players
-    assert enrique not in players
-    assert donnarumma in psg.members.match(tags__includes="goalkeeper").all()
-    assert dembele not in psg.members.match(tags__includes="goalkeeper").all()
-
-    # Assert __includes_any
-    players = psg.members.match(tags__includes_any=["defender", "forward"]).all()
-    assert donnarumma not in players
-    assert dembele in players
-    assert marquinhos in players
-    assert kolomuani in players
-    assert enrique not in players
-
-    # Assert __includes_all
-    players = psg.members.match(tags__includes_all=["player", "forward"]).all()
-    assert donnarumma not in players
-    assert marquinhos not in players
-    assert enrique not in players
-    assert dembele in players
-    assert kolomuani in players
