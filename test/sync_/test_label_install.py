@@ -6,6 +6,8 @@ import pytest
 from neo4j.exceptions import ClientError
 
 from neomodel import (
+    ArrayProperty,
+    FloatProperty,
     FulltextIndex,
     RelationshipTo,
     StringProperty,
@@ -26,8 +28,7 @@ class NodeWithConstraint(StructuredNode):
     name = StringProperty(unique_index=True)
 
 
-class NodeWithRelationship(StructuredNode):
-    ...
+class NodeWithRelationship(StructuredNode): ...
 
 
 class IndexedRelationship(StructuredRel):
@@ -317,16 +318,17 @@ def test_vector_index():
         pytest.skip("Not supported before 5.15")
 
     class VectorIndexNode(StructuredNode):
-        name = StringProperty(
-            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        embedding = ArrayProperty(
+            FloatProperty(),
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean"),
         )
 
     db.install_labels(VectorIndexNode)
     indexes = db.list_indexes()
     index_names = [index["name"] for index in indexes]
-    assert "vector_index_VectorIndexNode_name" in index_names
+    assert "vector_index_VectorIndexNode_embedding" in index_names
 
-    db.cypher_query("DROP INDEX vector_index_VectorIndexNode_name")
+    db.cypher_query("DROP INDEX vector_index_VectorIndexNode_embedding")
 
 
 @mark_sync_test
@@ -338,11 +340,11 @@ def test_vector_index_conflict():
 
     with patch("sys.stdout", new=stream):
         db.cypher_query(
-            "CREATE VECTOR INDEX FOR (n:VectorIndexNodeConflict) ON n.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+            "CREATE VECTOR INDEX FOR (n:VectorIndexNodeConflict) ON n.embedding OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
         )
 
         class VectorIndexNodeConflict(StructuredNode):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         db.install_labels(VectorIndexNodeConflict, quiet=False)
 
@@ -361,7 +363,7 @@ def test_vector_index_not_supported():
     ):
 
         class VectorIndexNodeOld(StructuredNode):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         db.install_labels(VectorIndexNodeOld)
 
@@ -372,8 +374,9 @@ def test_rel_vector_index():
         pytest.skip("Not supported before 5.18")
 
     class VectorIndexRel(StructuredRel):
-        name = StringProperty(
-            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        embedding = ArrayProperty(
+            FloatProperty(),
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean"),
         )
 
     class VectorIndexRelNode(StructuredNode):
@@ -384,9 +387,9 @@ def test_rel_vector_index():
     db.install_labels(VectorIndexRelNode)
     indexes = db.list_indexes()
     index_names = [index["name"] for index in indexes]
-    assert "vector_index_VECTOR_INDEX_REL_name" in index_names
+    assert "vector_index_VECTOR_INDEX_REL_embedding" in index_names
 
-    db.cypher_query("DROP INDEX vector_index_VECTOR_INDEX_REL_name")
+    db.cypher_query("DROP INDEX vector_index_VECTOR_INDEX_REL_embedding")
 
 
 @mark_sync_test
@@ -398,11 +401,11 @@ def test_rel_vector_index_conflict():
 
     with patch("sys.stdout", new=stream):
         db.cypher_query(
-            "CREATE VECTOR INDEX FOR ()-[r:VECTOR_INDEX_REL_CONFLICT]-() ON r.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+            "CREATE VECTOR INDEX FOR ()-[r:VECTOR_INDEX_REL_CONFLICT]-() ON r.embedding OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
         )
 
         class VectorIndexRelConflict(StructuredRel):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         class VectorIndexRelConflictNode(StructuredNode):
             has_rel = RelationshipTo(
@@ -428,7 +431,7 @@ def test_rel_vector_index_not_supported():
     ):
 
         class VectorIndexRelOld(StructuredRel):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         class VectorIndexRelOldNode(StructuredNode):
             has_rel = RelationshipTo(
@@ -520,7 +523,7 @@ def test_unauthorized_index_creation_recent_features():
         with db.impersonate(unauthorized_user):
 
             class UnauthorizedVectorNode(StructuredNode):
-                name = StringProperty(vector_index=VectorIndex())
+                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
             db.install_labels(UnauthorizedVectorNode)
 
@@ -570,7 +573,7 @@ def test_unauthorized_index_creation_recent_features():
         with db.impersonate(unauthorized_user):
 
             class UnauthorizedVectorRel(StructuredRel):
-                name = StringProperty(vector_index=VectorIndex())
+                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
             class UnauthorizedVectorRelNode(StructuredNode):
                 has_rel = RelationshipTo(

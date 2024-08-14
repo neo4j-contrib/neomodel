@@ -6,9 +6,11 @@ import pytest
 from neo4j.exceptions import ClientError
 
 from neomodel import (
+    ArrayProperty,
     AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
+    FloatProperty,
     FulltextIndex,
     StringProperty,
     UniqueIdProperty,
@@ -317,16 +319,17 @@ async def test_vector_index():
         pytest.skip("Not supported before 5.15")
 
     class VectorIndexNode(AsyncStructuredNode):
-        name = StringProperty(
-            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        embedding = ArrayProperty(
+            FloatProperty(),
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean"),
         )
 
     await adb.install_labels(VectorIndexNode)
     indexes = await adb.list_indexes()
     index_names = [index["name"] for index in indexes]
-    assert "vector_index_VectorIndexNode_name" in index_names
+    assert "vector_index_VectorIndexNode_embedding" in index_names
 
-    await adb.cypher_query("DROP INDEX vector_index_VectorIndexNode_name")
+    await adb.cypher_query("DROP INDEX vector_index_VectorIndexNode_embedding")
 
 
 @mark_async_test
@@ -338,11 +341,11 @@ async def test_vector_index_conflict():
 
     with patch("sys.stdout", new=stream):
         await adb.cypher_query(
-            "CREATE VECTOR INDEX FOR (n:VectorIndexNodeConflict) ON n.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+            "CREATE VECTOR INDEX FOR (n:VectorIndexNodeConflict) ON n.embedding OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
         )
 
         class VectorIndexNodeConflict(AsyncStructuredNode):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         await adb.install_labels(VectorIndexNodeConflict, quiet=False)
 
@@ -361,7 +364,7 @@ async def test_vector_index_not_supported():
     ):
 
         class VectorIndexNodeOld(AsyncStructuredNode):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         await adb.install_labels(VectorIndexNodeOld)
 
@@ -372,8 +375,9 @@ async def test_rel_vector_index():
         pytest.skip("Not supported before 5.18")
 
     class VectorIndexRel(AsyncStructuredRel):
-        name = StringProperty(
-            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean")
+        embedding = ArrayProperty(
+            FloatProperty(),
+            vector_index=VectorIndex(dimensions=256, similarity_function="euclidean"),
         )
 
     class VectorIndexRelNode(AsyncStructuredNode):
@@ -384,9 +388,9 @@ async def test_rel_vector_index():
     await adb.install_labels(VectorIndexRelNode)
     indexes = await adb.list_indexes()
     index_names = [index["name"] for index in indexes]
-    assert "vector_index_VECTOR_INDEX_REL_name" in index_names
+    assert "vector_index_VECTOR_INDEX_REL_embedding" in index_names
 
-    await adb.cypher_query("DROP INDEX vector_index_VECTOR_INDEX_REL_name")
+    await adb.cypher_query("DROP INDEX vector_index_VECTOR_INDEX_REL_embedding")
 
 
 @mark_async_test
@@ -398,11 +402,11 @@ async def test_rel_vector_index_conflict():
 
     with patch("sys.stdout", new=stream):
         await adb.cypher_query(
-            "CREATE VECTOR INDEX FOR ()-[r:VECTOR_INDEX_REL_CONFLICT]-() ON r.name OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
+            "CREATE VECTOR INDEX FOR ()-[r:VECTOR_INDEX_REL_CONFLICT]-() ON r.embedding OPTIONS{indexConfig:{`vector.similarity_function`:'cosine', `vector.dimensions`:1536}}"
         )
 
         class VectorIndexRelConflict(AsyncStructuredRel):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         class VectorIndexRelConflictNode(AsyncStructuredNode):
             has_rel = AsyncRelationshipTo(
@@ -428,7 +432,7 @@ async def test_rel_vector_index_not_supported():
     ):
 
         class VectorIndexRelOld(AsyncStructuredRel):
-            name = StringProperty(vector_index=VectorIndex())
+            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
         class VectorIndexRelOldNode(AsyncStructuredNode):
             has_rel = AsyncRelationshipTo(
@@ -522,7 +526,7 @@ async def test_unauthorized_index_creation_recent_features():
         with await adb.impersonate(unauthorized_user):
 
             class UnauthorizedVectorNode(AsyncStructuredNode):
-                name = StringProperty(vector_index=VectorIndex())
+                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
             await adb.install_labels(UnauthorizedVectorNode)
 
@@ -572,7 +576,7 @@ async def test_unauthorized_index_creation_recent_features():
         with await adb.impersonate(unauthorized_user):
 
             class UnauthorizedVectorRel(AsyncStructuredRel):
-                name = StringProperty(vector_index=VectorIndex())
+                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
             class UnauthorizedVectorRelNode(AsyncStructuredNode):
                 has_rel = AsyncRelationshipTo(

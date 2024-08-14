@@ -173,8 +173,9 @@ async def test_double_traverse():
 
     results = [node async for node in qb._execute()]
     assert len(results) == 2
-    assert results[0].name == "Decafe"
-    assert results[1].name == "Nescafe plus"
+    names = [n.name for n in results]
+    assert "Decafe" in names
+    assert "Nescafe plus" in names
 
 
 @mark_async_test

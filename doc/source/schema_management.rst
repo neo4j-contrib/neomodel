@@ -72,6 +72,9 @@ Full example: ::
         name = StringProperty(
             index=True,
             fulltext_index=FulltextIndex(analyzer='english', eventually_consistent=True)
+        )
+        name_embedding = ArrayProperty(
+            FloatProperty(),
             vector_index=VectorIndex(dimensions=512, similarity_function='euclidean')
         )
 
@@ -83,7 +86,7 @@ The following constraints are supported:
 - ``unique_index=True``: This will create a uniqueness constraint on the property. Available for both nodes and relationships (Neo4j version 5.7 or higher).
 
 .. note::
-    The uniquess constraint of Neo4j is not supported as such, but using ``required=True`` on a property serves the same purpose.
+    The uniqueness constraint of Neo4j is not supported as such, but using ``required=True`` on a property serves the same purpose.
 
 
 Extracting the schema from a database
