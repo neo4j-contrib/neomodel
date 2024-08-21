@@ -15,12 +15,6 @@ from neomodel.util import (
     get_graph_entity_properties,
 )
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
-
 
 # check source node is saved and not deleted
 def check_source(fn):
@@ -452,14 +446,14 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(self, cls_name, model):
-        if not isinstance(cls_name, (basestring, object)):
+        if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (StructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
     def lookup_node_class(self):
-        if not isinstance(self._raw_class, basestring):
+        if not isinstance(self._raw_class, str):
             self.definition["node_class"] = self._raw_class
         else:
             name = self._raw_class

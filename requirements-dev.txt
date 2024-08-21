@@ -8,3 +8,6 @@ pre-commit
 black
 isort
 Shapely>=2.0.0
+mypy>=1.11
+pandas-stubs
+types-pytz

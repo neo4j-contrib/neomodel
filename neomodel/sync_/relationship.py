@@ -1,3 +1,5 @@
+from typing import Type
+
 from neomodel.hooks import hooks
 from neomodel.properties import Property
 from neomodel.sync_.core import db
@@ -38,7 +40,7 @@ class RelationshipMeta(type):
         return inst
 
 
-StructuredRelBase = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
+StructuredRelBase: Type = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
 
 
 class StructuredRel(StructuredRelBase):

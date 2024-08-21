@@ -106,8 +106,8 @@ class Property:
         self,
         unique_index=False,
         index=False,
-        fulltext_index: FulltextIndex = None,
-        vector_index: VectorIndex = None,
+        fulltext_index: FulltextIndex | None = None,
+        vector_index: VectorIndex | None = None,
         required=False,
         default=None,
         db_property=None,
@@ -192,7 +192,7 @@ class RegexProperty(NormalizedProperty):
 
     form_field_class = "RegexField"
 
-    expression = None
+    expression: str | None = None
 
     def __init__(self, expression=None, **kwargs):
         """

@@ -9,7 +9,7 @@ from asyncio import iscoroutinefunction
 from functools import wraps
 from itertools import combinations
 from threading import local
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, Type
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -90,8 +90,8 @@ class AsyncDatabase(local):
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
-    _NODE_CLASS_REGISTRY = {}
-    _DB_SPECIFIC_CLASS_REGISTRY = {}
+    _NODE_CLASS_REGISTRY: dict[frozenset, type] = {}
+    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict] = {}
 
     def __init__(self):
         self._active_transaction = None
@@ -105,7 +105,9 @@ class AsyncDatabase(local):
         self._database_edition = None
         self.impersonated_user = None
 
-    async def set_connection(self, url: str = None, driver: AsyncDriver = None):
+    async def set_connection(
+        self, url: str | None = None, driver: AsyncDriver | None = None
+    ):
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
 
@@ -188,8 +190,9 @@ class AsyncDatabase(local):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
+        # Ignore the type error because the workaround would be duplicating code
         self.driver = AsyncGraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options
+            parsed_url.scheme + "://" + hostname, **options  # type: ignore[arg-type]
         )
         self.url = url
         # The database name can be provided through the url or the config
@@ -503,12 +506,18 @@ class AsyncDatabase(local):
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if "already exists with label" in e.message and handle_unique:
+                if (
+                    hasattr(e, "message")
+                    and e.message is not None
+                    and "already exists with label" in e.message
+                    and handle_unique
+                ):
                     raise UniqueProperty(e.message) from e
 
                 raise ConstraintValidationFailed(e.message) from e
             exc_info = sys.exc_info()
-            raise exc_info[1].with_traceback(exc_info[2])
+            if exc_info[1] is not None and exc_info[2] is not None:
+                raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
                 await self.set_connection(url=self.url)
@@ -1340,7 +1349,9 @@ def build_class_registry(cls):
                     )
 
 
-NodeBase = NodeMeta("NodeBase", (AsyncPropertyManager,), {"__abstract_node__": True})
+NodeBase: Type = NodeMeta(
+    "NodeBase", (AsyncPropertyManager,), {"__abstract_node__": True}
+)
 
 
 class AsyncStructuredNode(NodeBase):
