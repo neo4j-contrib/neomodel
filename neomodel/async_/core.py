@@ -90,14 +90,14 @@ class AsyncDatabase(local):
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
-    _NODE_CLASS_REGISTRY: dict[frozenset, type] = {}
+    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict] = {}
 
     def __init__(self):
-        self._active_transaction = None
+        self._active_transaction: Optional[AsyncTransaction] = None
         self.url = None
         self.driver = None
-        self._session = None
+        self._session: Optional[AsyncSession] = None
         self._pid = None
         self._database_name = DEFAULT_DATABASE
         self.protocol_version = None
@@ -106,7 +106,7 @@ class AsyncDatabase(local):
         self.impersonated_user = None
 
     async def set_connection(
-        self, url: str | None = None, driver: AsyncDriver | None = None
+        self, url: Optional[str] = None, driver: Optional[AsyncDriver] = None
     ):
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
@@ -210,8 +210,9 @@ class AsyncDatabase(local):
         self._database_version = None
         self._database_edition = None
         self._database_name = None
-        await self.driver.close()
-        self.driver = None
+        if self.driver is not None:
+            await self.driver.close()
+            self.driver = None
 
     @property
     async def database_version(self):
@@ -268,15 +269,18 @@ class AsyncDatabase(local):
             and self._active_transaction is not None
         ):
             raise SystemError("Transaction in progress")
-        self._session: AsyncSession = self.driver.session(
+
+        assert self.driver is not None, "Driver has not been created"
+
+        self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: AsyncTransaction = (
-            await self._session.begin_transaction()
-        )
+
+        assert self._session is not None, "Session has not been created"
+        self._active_transaction = await self._session.begin_transaction()
 
     @ensure_connection
     async def commit(self):
@@ -286,14 +290,21 @@ class AsyncDatabase(local):
         :return: last_bookmarks
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             await self._active_transaction.commit()
+
+            assert self._session is not None, "No session open"
             last_bookmarks: Bookmarks = await self._session.last_bookmarks()
         finally:
-            # In case when something went wrong during
+            # In case something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
+            assert self._active_transaction is not None, "No transaction in progress"
             await self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             await self._session.close()
+
             self._active_transaction = None
             self._session = None
 
@@ -305,12 +316,17 @@ class AsyncDatabase(local):
         Rolls back the current transaction and closes its session
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             await self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
+            assert self._active_transaction is not None, "No transaction in progress"
             await self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             await self._session.close()
+
             self._active_transaction = None
             self._session = None
 
@@ -459,7 +475,7 @@ class AsyncDatabase(local):
         """
 
         if self._active_transaction:
-            # Use current session is a transaction is currently active
+            # Use current transaction if a transaction is currently active
             results, meta = await self._run_cypher_query(
                 self._active_transaction,
                 query,

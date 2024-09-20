@@ -1,26 +1,22 @@
 import functools
 import json
 import re
-import sys
 import uuid
 from datetime import date, datetime
+from typing import Any, Optional
 
 import neo4j.time
 import pytz
 
 from neomodel import config
-from neomodel.exceptions import DeflateError, InflateError
+from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 
 TOO_MANY_DEFAULTS = "too many defaults"
 
 
 def validator(fn):
     fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
-    if fn_name == "inflate":
-        exc_class = InflateError
-    elif fn_name == "deflate":
-        exc_class = DeflateError
-    else:
+    if fn_name not in ["inflate", "deflate"]:
         raise ValueError("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
@@ -29,7 +25,12 @@ def validator(fn):
             try:
                 return fn(self, value)
             except Exception as e:
-                raise exc_class(self.name, self.owner, str(e), obj) from e
+                if fn_name == "inflate":
+                    raise InflateError(self.name, self.owner, str(e), obj) from e
+                elif fn_name == "deflate":
+                    raise DeflateError(self.name, self.owner, str(e), obj) from e
+                else:
+                    raise NeomodelException("Unknown Property method " + fn_name) from e
         else:
             # For using with ArrayProperty where we don't want an Inflate/Deflate error.
             return fn(self, value)
@@ -100,14 +101,27 @@ class Property:
     """
 
     form_field_class = "CharField"
+    name: Optional[str] = None
+    owner: Optional[Any] = None
+    unique_index: bool = False
+    index: bool = False
+    fulltext_index: Optional[FulltextIndex] = None
+    vector_index: Optional[VectorIndex] = None
+    required: bool = False
+    default: Any = None
+    db_property: Optional[str] = None
+    label: Optional[str] = None
+    help_text: Optional[str] = None
 
     # pylint:disable=unused-argument
     def __init__(
         self,
+        name: Optional[str] = None,
+        owner: Optional[Any] = None,
         unique_index=False,
         index=False,
-        fulltext_index: FulltextIndex | None = None,
-        vector_index: VectorIndex | None = None,
+        fulltext_index: Optional[FulltextIndex] = None,
+        vector_index: Optional[VectorIndex] = None,
         required=False,
         default=None,
         db_property=None,
@@ -192,7 +206,7 @@ class RegexProperty(NormalizedProperty):
 
     form_field_class = "RegexField"
 
-    expression: str | None = None
+    expression: str
 
     def __init__(self, expression=None, **kwargs):
         """
@@ -201,10 +215,7 @@ class RegexProperty(NormalizedProperty):
         :param str expression: regular expression validating this property
         """
         super().__init__(**kwargs)
-        actual_re = expression or self.expression
-        if actual_re is None:
-            raise ValueError("expression is undefined")
-        self.expression = actual_re
+        self.expression = expression or self.expression
 
     def normalize(self, value):
         normal = str(value)
@@ -553,6 +564,7 @@ class AliasProperty(property, Property):
         :param to: name of property aliasing
         :type: str
         """
+        super().__init__()
         self.target = to
         self.required = False
         self.has_default = False
@@ -560,7 +572,7 @@ class AliasProperty(property, Property):
     def aliased_to(self):
         return self.target
 
-    def __get__(self, obj, cls):
+    def __get__(self, obj: Any, _type: Optional[Any] = None):
         return getattr(obj, self.aliased_to()) if obj else self
 
     def __set__(self, obj, value):

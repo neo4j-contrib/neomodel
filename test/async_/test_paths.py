@@ -70,7 +70,7 @@ async def test_path_instantiation():
 
     # Retrieve a single path
     q = await adb.cypher_query(
-        "MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1",
+        "MATCH p=(:CityOfResidence{name:'Athens'})<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1",
         resolve_objects=True,
     )
 
@@ -78,13 +78,22 @@ async def test_path_instantiation():
     path_nodes = path_object.nodes
     path_rels = path_object.relationships
 
-    assert type(path_object) is AsyncNeomodelPath
-    assert type(path_nodes[0]) is CityOfResidence
-    assert type(path_nodes[1]) is PersonOfInterest
-    assert type(path_nodes[2]) is CountryOfOrigin
+    assert isinstance(path_object, AsyncNeomodelPath)
+    assert isinstance(path_nodes[0], CityOfResidence)
+    assert isinstance(path_nodes[1], PersonOfInterest)
+    assert isinstance(path_nodes[2], CountryOfOrigin)
+    assert isinstance(path_object.start_node, CityOfResidence)
+    assert isinstance(path_object.end_node, CountryOfOrigin)
 
-    assert type(path_rels[0]) is PersonLivesInCity
-    assert type(path_rels[1]) is AsyncStructuredRel
+    assert isinstance(path_rels[0], PersonLivesInCity)
+    assert isinstance(path_rels[1], AsyncStructuredRel)
+
+    path_string = str(path_object)
+    assert path_string.startswith("<Path start=<CityOfResidence")
+    assert path_string.endswith("size=2>")
+    assert len(path_object) == 2
+    for rel in path_object:
+        assert isinstance(rel, AsyncStructuredRel)
 
     await c1.delete()
     await c2.delete()

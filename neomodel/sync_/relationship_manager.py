@@ -2,6 +2,7 @@ import functools
 import inspect
 import sys
 from importlib import import_module
+from typing import Any
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
@@ -43,7 +44,13 @@ class RelationshipManager(object):
     I.e the 'friends' object in  `user.friends.all()`
     """
 
-    def __init__(self, source, key, definition):
+    source: Any
+    source_class: Any
+    name: str
+    definition: dict
+    description: str = "relationship"
+
+    def __init__(self, source: Any, key: str, definition: dict):
         self.source = source
         self.source_class = source.__class__
         self.name = key

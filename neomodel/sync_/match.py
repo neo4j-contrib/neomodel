@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -770,10 +770,11 @@ class QueryBuilder:
                     f"{db.get_id_method()}({self._ast.return_clause})"
                 )
             else:
-                self._ast.additional_return = [
-                    f"{db.get_id_method()}({item})"
-                    for item in self._ast.additional_return
-                ]
+                if self._ast.additional_return is not None:
+                    self._ast.additional_return = [
+                        f"{db.get_id_method()}({item})"
+                        for item in self._ast.additional_return
+                    ]
         query = self.build_query()
         results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
         # The following is not as elegant as it could be but had to be copied from the
@@ -871,7 +872,7 @@ class BaseSet:
 
 
 @dataclass
-class Optional:
+class Optional:  # type: ignore[no-redef]
     """Simple relation qualifier."""
 
     relation: str
@@ -1062,7 +1063,7 @@ class NodeSet(BaseSet):
         """Specify a set of relations to return."""
         relations = []
         for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
+            if isinstance(relation_name, Optional):  # type: ignore[arg-type]
                 item = {"path": relation_name.relation, "optional": True}
             else:
                 item = {"path": relation_name}
@@ -1086,10 +1087,17 @@ class Traversal(BaseSet):
     :type defintion: :class:`dict`
     """
 
+    definition: dict
+    source: Any
+    source_class: Any
+    target_class: Any
+    name: str
+    filters: list
+
     def __await__(self):
         return self.all().__await__()
 
-    def __init__(self, source, name, definition):
+    def __init__(self, source: Any, name: str, definition: dict):
         """
         Create a traversal
 
