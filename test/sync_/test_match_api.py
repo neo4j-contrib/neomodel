@@ -15,10 +15,11 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    db,
 )
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
-from neomodel.sync_.match import NodeSet, Optional, QueryBuilder, Traversal
+from neomodel.sync_.match import Collect, NodeSet, Optional, QueryBuilder, Traversal
 
 
 class SupplierRel(StructuredRel):
@@ -582,6 +583,46 @@ def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_sync_test
+def test_annotate_and_collect():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe 1002", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe 1003", price=11).save()
+
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+    nescafe_gold.species.connect(arabica)
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species"))
+        .all()
+    )
+    assert len(result) == 1
+    assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(all_species=Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
 
 
 @mark_sync_test

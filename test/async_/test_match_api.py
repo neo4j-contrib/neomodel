@@ -15,12 +15,14 @@ from neomodel import (
     Q,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
     AsyncTraversal,
+    Collect,
     Optional,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
@@ -593,6 +595,46 @@ async def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_async_test
+async def test_annotate_and_collect():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe 1002", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe 1003", price=11).save()
+
+    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+    await nescafe_gold.species.connect(arabica)
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species"))
+        .all()
+    )
+    assert len(result) == 1
+    assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(all_species=Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
 
 
 @mark_async_test
