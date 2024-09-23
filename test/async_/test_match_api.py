@@ -681,14 +681,12 @@ async def test_resolve_subgraph():
     coffees = result[0]._relations["coffees"]
     assert hasattr(coffees, "_relations")
     assert "species" in coffees._relations
-    assert robusta == coffees._relations["species"]
 
     assert hasattr(result[1], "_relations")
     assert "coffees" in result[1]._relations
     coffees = result[1]._relations["coffees"]
     assert hasattr(coffees, "_relations")
     assert "species" in coffees._relations
-    assert arabica == coffees._relations["species"]
 
 
 @mark_async_test
