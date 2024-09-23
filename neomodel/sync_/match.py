@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -507,7 +507,7 @@ class QueryBuilder:
 
         return traversal_ident
 
-    def _additional_return(self, name):
+    def _additional_return(self, name: str):
         if name not in self._ast.additional_return and name != self._ast.return_clause:
             self._ast.additional_return.append(name)
 
@@ -515,7 +515,8 @@ class QueryBuilder:
         path: str = relation["path"]
         stmt: str = ""
         source_class_iterator = source_class
-        for index, part in enumerate(path.split("__")):
+        parts = path.split("__")
+        for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
             # build source
             if "node_class" not in relationship.definition:
@@ -523,11 +524,16 @@ class QueryBuilder:
             rhs_label = relationship.definition["node_class"].__label__
             rel_reference = f'{relationship.definition["node_class"]}_{part}'
             self._node_counters[rel_reference] += 1
-            rhs_name = (
-                f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
-            )
+            if index + 1 == len(parts) and "alias" in relation:
+                # If an alias is defined, use it to store the last hop in the path
+                rhs_name = relation["alias"]
+            else:
+                rhs_name = (
+                    f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
+                )
             rhs_ident = f"{rhs_name}:{rhs_label}"
-            self._additional_return(rhs_name)
+            if relation["include_in_return"]:
+                self._additional_return(rhs_name)
             if not stmt:
                 lhs_label = source_class_iterator.__label__
                 lhs_name = lhs_label.lower()
@@ -537,13 +543,14 @@ class QueryBuilder:
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
-                else:
+                elif relation["include_in_return"]:
                     self._additional_return(lhs_name)
             else:
                 lhs_ident = stmt
 
             rel_ident = self.create_ident()
-            self._additional_return(rel_ident)
+            if relation["include_in_return"]:
+                self._additional_return(rel_ident)
             stmt = _rel_helper(
                 lhs=lhs_ident,
                 rhs=rhs_ident,
@@ -683,7 +690,7 @@ class QueryBuilder:
             self._ast.where.append(" AND ".join(stmts))
 
     def build_query(self):
-        query = ""
+        query: str = ""
 
         if self._ast.lookup:
             query += self._ast.lookup
@@ -710,12 +717,20 @@ class QueryBuilder:
             query += self._ast.with_clause
 
         query += " RETURN "
+        returned_items: list[str] = []
         if self._ast.return_clause:
-            query += self._ast.return_clause
+            returned_items.append(self._ast.return_clause)
         if self._ast.additional_return:
-            if self._ast.return_clause:
-                query += ", "
-            query += ", ".join(self._ast.additional_return)
+            returned_items += self._ast.additional_return
+        if hasattr(self.node_set, "_extra_results"):
+            for varname, vardef in self.node_set._extra_results.items():
+                if varname in returned_items:
+                    # We're about to override an existing variable, delete it first to
+                    # avoid duplicate error
+                    returned_items.remove(varname)
+                returned_items.append(f"{str(vardef)} AS {varname}")
+
+        query += ", ".join(returned_items)
 
         if self._ast.order_by:
             query += " ORDER BY "
@@ -754,7 +769,6 @@ class QueryBuilder:
     def _contains(self, node_element_id):
         # inject id = into ast
         if not self._ast.return_clause:
-            print(self._ast.additional_return)
             self._ast.return_clause = self._ast.additional_return[0]
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
@@ -877,6 +891,25 @@ class Optional:
     relation: str
 
 
+@dataclass
+class AggregatingFunction:
+    """Base aggregating function class."""
+
+    input_name: str
+
+
+@dataclass
+class Collect(AggregatingFunction):
+    """collect() function."""
+
+    distinct: bool = False
+
+    def __str__(self):
+        if self.distinct:
+            return f"collect(DISTINCT {self.input_name})"
+        return f"collect({self.input_name})"
+
+
 class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
@@ -904,6 +937,7 @@ class NodeSet(BaseSet):
         self.dont_match = {}
 
         self.relations_to_fetch: list = []
+        self._extra_results: dict[str] = {}
 
     def __await__(self):
         return self.all().__await__()
@@ -1058,16 +1092,54 @@ class NodeSet(BaseSet):
 
         return self
 
-    def fetch_relations(self, *relation_names):
+    def _add_relations(
+        self, *relation_names, include_in_return=True, **aliased_relation_names
+    ):
         """Specify a set of relations to return."""
         relations = []
-        for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
-                item = {"path": relation_name.relation, "optional": True}
+
+        def register_relation_to_fetch(relation_def: Any, alias: str = None):
+            if isinstance(relation_def, Optional):
+                item = {"path": relation_def.relation, "optional": True}
             else:
-                item = {"path": relation_name}
+                item = {"path": relation_def}
+            item["include_in_return"] = include_in_return
+            if alias:
+                item["alias"] = alias
             relations.append(item)
+
+        for relation_name in relation_names:
+            register_relation_to_fetch(relation_name)
+        for alias, relation_def in aliased_relation_names.items():
+            register_relation_to_fetch(relation_def, alias)
+
         self.relations_to_fetch = relations
+        return self
+
+    def fetch_relations(self, *relation_names, **aliased_relation_names):
+        """Specify a set of relations to traverse and return."""
+        return self._add_relations(*relation_names, **aliased_relation_names)
+
+    def traverse_relations(self, *relation_names, **aliased_relation_names):
+        """Specify a set of relations to traverse only."""
+        return self._add_relations(
+            *relation_names, include_in_return=False, **aliased_relation_names
+        )
+
+    def annotate(self, *vars, **aliased_vars):
+        """Annotate node set results with extra variables."""
+
+        def register_extra_var(vardef, varname: str = None):
+            if isinstance(vardef, AggregatingFunction):
+                self._extra_results[varname if varname else vardef.input_name] = vardef
+            else:
+                raise NotImplementedError
+
+        for vardef in vars:
+            register_extra_var(vardef)
+        for varname, vardef in aliased_vars.items():
+            register_extra_var(vardef, varname)
+
         return self
 
 

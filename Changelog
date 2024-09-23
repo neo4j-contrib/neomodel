@@ -1,3 +1,6 @@
+Version 5.3.3 2024-09
+* Fixes vector index doc and test
+
 Version 5.3.2 2024-06
 * Add support for Vector and Fulltext indexes creation
 * Add DateTimeNeo4jFormatProperty for Neo4j native datetime format
