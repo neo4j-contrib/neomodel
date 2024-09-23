@@ -79,7 +79,7 @@ Database Inspection - Requires APOC
 ===================================
 You can inspect an existing Neo4j database to generate a neomodel definition file using the ``inspect`` command::
 
-    $ neomodel_inspect_database -db bolt://neo4j_username:neo4j_password@localhost:7687 --write-to yourapp/models.py
+    $ neomodel_inspect_database --db bolt://neo4j_username:neo4j_password@localhost:7687 --write-to yourapp/models.py
 
 This will generate a file called ``models.py`` in the ``yourapp`` directory. This file can be used as a starting point,
 and will contain the necessary module imports, as well as class definition for nodes and, if relevant, relationships.
