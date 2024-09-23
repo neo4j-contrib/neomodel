@@ -627,6 +627,40 @@ def test_annotate_and_collect():
 
 
 @mark_sync_test
+def test_resolve_subgraph():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    result = Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    assert len(result) == 2
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert robusta == coffees._relations["species"]
+
+    assert hasattr(result[1], "_relations")
+    assert "coffees" in result[1]._relations
+    coffees = result[1]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert arabica == coffees._relations["species"]
+
+
+@mark_sync_test
 def test_issue_795():
     jim = PersonX(name="Jim", age=3).save()  # Create
     jim.age = 4

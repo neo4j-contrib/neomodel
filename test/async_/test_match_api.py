@@ -639,6 +639,40 @@ async def test_annotate_and_collect():
 
 
 @mark_async_test
+async def test_resolve_subgraph():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+
+    result = await Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    assert len(result) == 2
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert robusta == coffees._relations["species"]
+
+    assert hasattr(result[1], "_relations")
+    assert "coffees" in result[1]._relations
+    coffees = result[1]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert arabica == coffees._relations["species"]
+
+
+@mark_async_test
 async def test_issue_795():
     jim = await PersonX(name="Jim", age=3).save()  # Create
     jim.age = 4

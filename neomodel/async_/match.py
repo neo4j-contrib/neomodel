@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from neomodel.async_.core import AsyncStructuredNode, adb
+from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty
@@ -414,16 +415,18 @@ class QueryAST:
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
         self.is_count = is_count
+        self.subgraph: dict = {}
 
 
 class AsyncQueryBuilder:
-    def __init__(self, node_set):
+    def __init__(self, node_set, with_subgraph: bool = False):
         self.node_set = node_set
         self._ast = QueryAST()
         self._query_params = {}
         self._place_holder_registry = {}
         self._ident_count = 0
         self._node_counters = defaultdict(int)
+        self._with_subgraph: bool = with_subgraph
 
     async def build_ast(self):
         if hasattr(self.node_set, "relations_to_fetch"):
@@ -516,6 +519,8 @@ class AsyncQueryBuilder:
         stmt: str = ""
         source_class_iterator = source_class
         parts = path.split("__")
+        if self._with_subgraph:
+            subgraph = self._ast.subgraph
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
             # build source
@@ -549,6 +554,13 @@ class AsyncQueryBuilder:
                 lhs_ident = stmt
 
             rel_ident = self.create_ident()
+            if self._with_subgraph and part not in self._ast.subgraph:
+                subgraph[part] = {
+                    "target": relationship.definition["node_class"],
+                    "children": {},
+                    "variable_name": rhs_name,
+                    "rel_variable_name": rel_ident,
+                }
             if relation["include_in_return"]:
                 self._additional_return(rel_ident)
             stmt = _rel_helper(
@@ -559,6 +571,8 @@ class AsyncQueryBuilder:
                 relation_type=relationship.definition["relation_type"],
             )
             source_class_iterator = relationship.definition["node_class"]
+            if self._with_subgraph:
+                subgraph = subgraph[part]["children"]
 
         if relation.get("optional"):
             self._ast.optional_match.append(stmt)
@@ -778,7 +792,7 @@ class AsyncQueryBuilder:
         self._query_params[place_holder] = node_element_id
         return await self._count() >= 1
 
-    async def _execute(self, lazy=False):
+    async def _execute(self, lazy: bool = False, dict_output: bool = False):
         if lazy:
             # inject id() into return or return_set
             if self._ast.return_clause:
@@ -791,9 +805,13 @@ class AsyncQueryBuilder:
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
-        results, _ = await adb.cypher_query(
+        results, prop_names = await adb.cypher_query(
             query, self._query_params, resolve_objects=True
         )
+        if dict_output:
+            for item in results:
+                yield dict(zip(prop_names, item))
+            return
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
@@ -1145,6 +1163,69 @@ class AsyncNodeSet(AsyncBaseSet):
             register_extra_var(vardef, varname)
 
         return self
+
+    def _to_subgraph(self, root_node, other_nodes, subgraph):
+        """Recursive method to build root_node's relation graph from subgraph."""
+        root_node._relations = {}
+        for name, relation_def in subgraph.items():
+            for var_name, node in other_nodes.items():
+                if (
+                    var_name
+                    not in [
+                        relation_def["variable_name"],
+                        relation_def["rel_variable_name"],
+                    ]
+                    or node is None
+                ):
+                    continue
+                if isinstance(node, list):
+                    if len(node) > 0 and isinstance(node[0], AsyncStructuredRel):
+                        name += "_relationship"
+                    root_node._relations[name] = []
+                    for item in node:
+                        root_node._relations[name].append(
+                            self._to_subgraph(
+                                item, other_nodes, relation_def["children"]
+                            )
+                        )
+                else:
+                    if isinstance(node, AsyncStructuredRel):
+                        name += "_relationship"
+                    root_node._relations[name] = self._to_subgraph(
+                        node, other_nodes, relation_def["children"]
+                    )
+
+        return root_node
+
+    async def resolve_subgraph(self) -> list:
+        """
+        Convert every result contained in this node set to a subgraph.
+
+        By default, we receive results from neomodel as a list of
+        nodes without the hierarchy. This method tries to rebuild this
+        hierarchy without overriding anything in the node, that's why
+        we use a dedicated property to store node's relations.
+
+        """
+        results: list = []
+        qbuilder = self.query_cls(self, with_subgraph=True)
+        await qbuilder.build_ast()
+        all_nodes = qbuilder._execute(dict_output=True)
+        other_nodes = {}
+        root_node = None
+        async for row in all_nodes:
+            for name, node in row.items():
+                if node.__class__ is self.source and "_" not in name:
+                    root_node = node
+                else:
+                    if isinstance(node, list) and isinstance(node[0], list):
+                        other_nodes[name] = node[0]
+                    else:
+                        other_nodes[name] = node
+            results.append(
+                self._to_subgraph(root_node, other_nodes, qbuilder._ast.subgraph)
+            )
+        return results
 
 
 class AsyncTraversal(AsyncBaseSet):
