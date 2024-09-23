@@ -690,6 +690,33 @@ async def test_resolve_subgraph():
 
 
 @mark_async_test
+async def test_resolve_subgraph_optional():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+
+    result = await Supplier.nodes.fetch_relations(
+        Optional("coffees__species")
+    ).resolve_subgraph()
+    assert len(result) == 1
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert coffees._relations["species"] == arabica
+
+
+@mark_async_test
 async def test_issue_795():
     jim = await PersonX(name="Jim", age=3).save()  # Create
     jim.age = 4
