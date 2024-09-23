@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
@@ -641,6 +642,24 @@ def test_resolve_subgraph():
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
     nescafe_gold.species.connect(robusta)
+
+    with raises(
+        RuntimeError,
+        match=re.escape(
+            "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+        ),
+    ):
+        result = Supplier.nodes.resolve_subgraph()
+
+    with raises(
+        NotImplementedError,
+        match=re.escape(
+            "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+        ),
+    ):
+        result = Supplier.nodes.traverse_relations(
+            "coffees__species"
+        ).resolve_subgraph()
 
     result = Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
     assert len(result) == 2

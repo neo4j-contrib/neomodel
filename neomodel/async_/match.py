@@ -1114,39 +1114,42 @@ class AsyncNodeSet(AsyncBaseSet):
 
         return self
 
-    def _add_relations(
-        self, *relation_names, include_in_return=True, **aliased_relation_names
+    def _register_relation_to_fetch(
+        self, relation_def: Any, alias: str = None, include_in_return: bool = True
     ):
-        """Specify a set of relations to return."""
+        if isinstance(relation_def, Optional):
+            item = {"path": relation_def.relation, "optional": True}
+        else:
+            item = {"path": relation_def}
+        item["include_in_return"] = include_in_return
+        if alias:
+            item["alias"] = alias
+        return item
+
+    def fetch_relations(self, *relation_names):
+        """Specify a set of relations to traverse and return."""
         relations = []
-
-        def register_relation_to_fetch(relation_def: Any, alias: str = None):
-            if isinstance(relation_def, Optional):
-                item = {"path": relation_def.relation, "optional": True}
-            else:
-                item = {"path": relation_def}
-            item["include_in_return"] = include_in_return
-            if alias:
-                item["alias"] = alias
-            relations.append(item)
-
         for relation_name in relation_names:
-            register_relation_to_fetch(relation_name)
-        for alias, relation_def in aliased_relation_names.items():
-            register_relation_to_fetch(relation_def, alias)
-
+            relations.append(self._register_relation_to_fetch(relation_name))
         self.relations_to_fetch = relations
         return self
 
-    def fetch_relations(self, *relation_names, **aliased_relation_names):
-        """Specify a set of relations to traverse and return."""
-        return self._add_relations(*relation_names, **aliased_relation_names)
-
     def traverse_relations(self, *relation_names, **aliased_relation_names):
         """Specify a set of relations to traverse only."""
-        return self._add_relations(
-            *relation_names, include_in_return=False, **aliased_relation_names
-        )
+        relations = []
+        for relation_name in relation_names:
+            relations.append(
+                self._register_relation_to_fetch(relation_name, include_in_return=False)
+            )
+        for alias, relation_def in aliased_relation_names.items():
+            relations.append(
+                self._register_relation_to_fetch(
+                    relation_def, alias, include_in_return=False
+                )
+            )
+
+        self.relations_to_fetch = relations
+        return self
 
     def annotate(self, *vars, **aliased_vars):
         """Annotate node set results with extra variables."""
@@ -1207,6 +1210,14 @@ class AsyncNodeSet(AsyncBaseSet):
         we use a dedicated property to store node's relations.
 
         """
+        if not self.relations_to_fetch:
+            raise RuntimeError(
+                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+            )
+        if not self.relations_to_fetch[0]["include_in_return"]:
+            raise NotImplementedError(
+                "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+            )
         results: list = []
         qbuilder = self.query_cls(self, with_subgraph=True)
         await qbuilder.build_ast()
