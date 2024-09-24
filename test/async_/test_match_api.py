@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from test._async_compat import mark_async_test
 
@@ -636,6 +637,83 @@ async def test_annotate_and_collect():
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
+
+
+@mark_async_test
+async def test_resolve_subgraph():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+
+    with raises(
+        RuntimeError,
+        match=re.escape(
+            "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+        ),
+    ):
+        result = await Supplier.nodes.resolve_subgraph()
+
+    with raises(
+        NotImplementedError,
+        match=re.escape(
+            "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+        ),
+    ):
+        result = await Supplier.nodes.traverse_relations(
+            "coffees__species"
+        ).resolve_subgraph()
+
+    result = await Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    assert len(result) == 2
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+    assert hasattr(result[1], "_relations")
+    assert "coffees" in result[1]._relations
+    coffees = result[1]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+
+@mark_async_test
+async def test_resolve_subgraph_optional():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+
+    result = await Supplier.nodes.fetch_relations(
+        Optional("coffees__species")
+    ).resolve_subgraph()
+    assert len(result) == 1
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert coffees._relations["species"] == arabica
 
 
 @mark_async_test
