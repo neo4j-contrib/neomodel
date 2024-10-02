@@ -705,6 +705,42 @@ def test_resolve_subgraph_optional():
 
 
 @mark_sync_test
+def test_subquery():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1)
+    nescafe.suppliers.connect(supplier2)
+    nescafe.species.connect(arabica)
+
+    result = Coffee.nodes.subquery(
+        Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+            supps=Collect("suppliers")
+        ),
+        ["supps"],
+    )
+    result = result.all()
+    assert len(result) == 1
+    assert len(result[0][0][0]) == 2
+
+    with raises(
+        RuntimeError,
+        match=re.escape("Variable 'unknown' is not returned by subquery."),
+    ):
+        result = Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["unknown"],
+        )
+
+
+@mark_sync_test
 def test_issue_795():
     jim = PersonX(name="Jim", age=3).save()  # Create
     jim.age = 4

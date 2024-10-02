@@ -419,7 +419,9 @@ class QueryAST:
 
 
 class AsyncQueryBuilder:
-    def __init__(self, node_set, with_subgraph: bool = False):
+    def __init__(
+        self, node_set, with_subgraph: bool = False, subquery_context: bool = False
+    ):
         self.node_set = node_set
         self._ast = QueryAST()
         self._query_params = {}
@@ -427,6 +429,7 @@ class AsyncQueryBuilder:
         self._ident_count = 0
         self._node_counters = defaultdict(int)
         self._with_subgraph: bool = with_subgraph
+        self._subquery_context: bool = subquery_context
 
     async def build_ast(self):
         if hasattr(self.node_set, "relations_to_fetch"):
@@ -442,7 +445,7 @@ class AsyncQueryBuilder:
 
         return self
 
-    async def build_source(self, source):
+    async def build_source(self, source) -> str:
         if isinstance(source, AsyncTraversal):
             return await self.build_traversal(source)
         if isinstance(source, AsyncNodeSet):
@@ -548,6 +551,9 @@ class AsyncQueryBuilder:
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
+                    if self._subquery_context:
+                        # Don't include label in identifier if we are in a subquery
+                        lhs_ident = lhs_name
                 elif relation["include_in_return"]:
                     self._additional_return(lhs_name)
             else:
@@ -594,7 +600,7 @@ class AsyncQueryBuilder:
         self._ast.result_class = node.__class__
         return ident
 
-    def build_label(self, ident, cls):
+    def build_label(self, ident, cls) -> str:
         """
         match nodes by a label
         """
@@ -703,7 +709,7 @@ class AsyncQueryBuilder:
 
             self._ast.where.append(" AND ".join(stmts))
 
-    def build_query(self):
+    def build_query(self) -> str:
         query: str = ""
 
         if self._ast.lookup:
@@ -730,9 +736,15 @@ class AsyncQueryBuilder:
             query += " WITH "
             query += self._ast.with_clause
 
-        query += " RETURN "
         returned_items: list[str] = []
-        if self._ast.return_clause:
+        if hasattr(self.node_set, "_subqueries"):
+            for subquery, return_set in self.node_set._subqueries:
+                outer_primary_var: str = self._ast.return_clause
+                query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
+                returned_items += return_set
+
+        query += " RETURN "
+        if self._ast.return_clause and not self._subquery_context:
             returned_items.append(self._ast.return_clause)
         if self._ast.additional_return:
             returned_items += self._ast.additional_return
@@ -960,6 +972,7 @@ class AsyncNodeSet(AsyncBaseSet):
 
         self.relations_to_fetch: list = []
         self._extra_results: dict[str] = {}
+        self._subqueries: list[tuple(str, list[str])] = []
 
     def __await__(self):
         return self.all().__await__()
@@ -1238,6 +1251,27 @@ class AsyncNodeSet(AsyncBaseSet):
             )
         return results
 
+    async def subquery(
+        self, nodeset: "AsyncNodeSet", return_set: list[str]
+    ) -> "AsyncNodeSet":
+        """Add a subquery to this node set.
+
+        A subquery is a regular cypher query but executed within the context of a CALL
+        statement. Such query will generally fetch additional variables which must be
+        declared inside return_set variable in order to be included in the final RETURN
+        statement.
+        """
+        qbuilder = await nodeset.query_cls(nodeset, subquery_context=True).build_ast()
+        for var in return_set:
+            if (
+                var != qbuilder._ast.return_clause
+                and var not in qbuilder._ast.additional_return
+                and var not in nodeset._extra_results
+            ):
+                raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
+        self._subqueries.append((qbuilder.build_query(), return_set))
+        return self
+
 
 class AsyncTraversal(AsyncBaseSet):
     """
@@ -1251,7 +1285,7 @@ class AsyncTraversal(AsyncBaseSet):
     :type name: :class:`str`
     :param definition: A relationship definition that most certainly deserves
                        a documentation here.
-    :type defintion: :class:`dict`
+    :type definition: :class:`dict`
     """
 
     def __await__(self):
