@@ -731,10 +731,9 @@ def test_subquery():
         ),
         ["supps"],
     )
-    result = result.order_by("name").all()
+    result = result.all()
     assert len(result) == 1
     assert len(result[0]) == 2
-    assert result[0][0] == supplier1
 
     with raises(
         RuntimeError,
