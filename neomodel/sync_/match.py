@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -1249,7 +1249,7 @@ class NodeSet(BaseSet):
             )
         return results
 
-    def subquery(self, nodeset: "NodeSet", return_set: list[str]) -> "NodeSet":
+    def subquery(self, nodeset: "NodeSet", return_set: List[str]) -> "NodeSet":
         """Add a subquery to this node set.
 
         A subquery is a regular cypher query but executed within the context of a CALL

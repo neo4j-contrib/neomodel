@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
@@ -1252,7 +1252,7 @@ class AsyncNodeSet(AsyncBaseSet):
         return results
 
     async def subquery(
-        self, nodeset: "AsyncNodeSet", return_set: list[str]
+        self, nodeset: "AsyncNodeSet", return_set: List[str]
     ) -> "AsyncNodeSet":
         """Add a subquery to this node set.
 
