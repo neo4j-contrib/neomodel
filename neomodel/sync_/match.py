@@ -739,7 +739,7 @@ class QueryBuilder:
         returned_items: list[str] = []
         if hasattr(self.node_set, "_subqueries"):
             for subquery, return_set in self.node_set._subqueries:
-                outer_primary_var: str = self._ast.return_clause
+                outer_primary_var = self._ast.return_clause
                 query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
                 returned_items += return_set
 
