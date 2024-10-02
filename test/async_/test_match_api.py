@@ -24,6 +24,7 @@ from neomodel.async_.match import (
     AsyncQueryBuilder,
     AsyncTraversal,
     Collect,
+    Last,
     Optional,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
@@ -732,13 +733,14 @@ async def test_subquery():
 
     result = await Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
-            supps=Collect("suppliers")
+            supps=Last(Collect("suppliers"))
         ),
         ["supps"],
     )
     result = await result.all()
     assert len(result) == 1
-    assert len(result[0][0][0]) == 2
+    assert len(result[0]) == 2
+    assert result[0][0] == supplier1
 
     with raises(
         RuntimeError,

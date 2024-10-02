@@ -20,7 +20,14 @@ from neomodel import (
 )
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
-from neomodel.sync_.match import Collect, NodeSet, Optional, QueryBuilder, Traversal
+from neomodel.sync_.match import (
+    Collect,
+    Last,
+    NodeSet,
+    Optional,
+    QueryBuilder,
+    Traversal,
+)
 
 
 class SupplierRel(StructuredRel):
@@ -720,13 +727,14 @@ def test_subquery():
 
     result = Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
-            supps=Collect("suppliers")
+            supps=Last(Collect("suppliers"))
         ),
         ["supps"],
     )
     result = result.all()
     assert len(result) == 1
-    assert len(result[0][0][0]) == 2
+    assert len(result[0]) == 2
+    assert result[0][0] == supplier1
 
     with raises(
         RuntimeError,

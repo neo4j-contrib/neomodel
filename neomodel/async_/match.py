@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
@@ -944,6 +944,21 @@ class Collect(AggregatingFunction):
         return f"collect({self.input_name})"
 
 
+@dataclass
+class ScalarFunction:
+    """Base scalar function class."""
+
+    input_name: Union[str, AggregatingFunction]
+
+
+@dataclass
+class Last(ScalarFunction):
+    """last() function."""
+
+    def __str__(self) -> str:
+        return f"last({str(self.input_name)})"
+
+
 class AsyncNodeSet(AsyncBaseSet):
     """
     A class representing as set of nodes matching common query parameters
@@ -1167,8 +1182,8 @@ class AsyncNodeSet(AsyncBaseSet):
     def annotate(self, *vars, **aliased_vars):
         """Annotate node set results with extra variables."""
 
-        def register_extra_var(vardef, varname: str = None):
-            if isinstance(vardef, AggregatingFunction):
+        def register_extra_var(vardef, varname: Union[str, None] = None):
+            if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
                 self._extra_results[varname if varname else vardef.input_name] = vardef
             else:
                 raise NotImplementedError
