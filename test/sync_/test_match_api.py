@@ -26,6 +26,7 @@ from neomodel.sync_.match import (
     NodeSet,
     Optional,
     QueryBuilder,
+    RelationNameResolver,
     Traversal,
 )
 
@@ -726,14 +727,17 @@ def test_subquery():
     nescafe.species.connect(arabica)
 
     result = Coffee.nodes.subquery(
-        Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
-            supps=Last(Collect("suppliers"))
-        ),
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+        )
+        .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],
     )
     result = result.all()
     assert len(result) == 1
     assert len(result[0]) == 2
+    assert result[0][0] == supplier2
 
     with raises(
         RuntimeError,
@@ -745,6 +749,39 @@ def test_subquery():
             ),
             ["unknown"],
         )
+
+
+@mark_sync_test
+def test_intermediate_transform():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    result = (
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {
+                "coffee": "coffee",
+                "suppliers": "suppliers",
+                "r": RelationNameResolver("suppliers"),
+            },
+            ordering=["-r.since"],
+        )
+        .annotate(oldest_supplier=Last(Collect("suppliers")))
+        .all()
+    )
+
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][1] == supplier2
 
 
 @mark_sync_test

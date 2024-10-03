@@ -2,7 +2,9 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, List, Optional, Union
+from typing import Any, List
+from typing import Optional as TOptional
+from typing import Tuple, Union
 
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
@@ -375,34 +377,34 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: Optional[list]
-    optional_match: Optional[list]
-    where: Optional[list]
-    with_clause: Optional[str]
-    return_clause: Optional[str]
-    order_by: Optional[str]
-    skip: Optional[int]
-    limit: Optional[int]
-    result_class: Optional[type]
-    lookup: Optional[str]
-    additional_return: Optional[list]
-    is_count: Optional[bool]
+    match: TOptional[list]
+    optional_match: TOptional[list]
+    where: TOptional[list]
+    with_clause: TOptional[str]
+    return_clause: TOptional[str]
+    order_by: TOptional[str]
+    skip: TOptional[int]
+    limit: TOptional[int]
+    result_class: TOptional[type]
+    lookup: TOptional[str]
+    additional_return: TOptional[list]
+    is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: Optional[list] = None,
-        optional_match: Optional[list] = None,
-        where: Optional[list] = None,
-        with_clause: Optional[str] = None,
-        return_clause: Optional[str] = None,
-        order_by: Optional[str] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        result_class: Optional[type] = None,
-        lookup: Optional[str] = None,
-        additional_return: Optional[list] = None,
-        is_count: Optional[bool] = False,
-    ):
+        match: TOptional[list] = None,
+        optional_match: TOptional[list] = None,
+        where: TOptional[list] = None,
+        with_clause: TOptional[str] = None,
+        return_clause: TOptional[str] = None,
+        order_by: TOptional[str] = None,
+        skip: TOptional[int] = None,
+        limit: TOptional[int] = None,
+        result_class: TOptional[type] = None,
+        lookup: TOptional[str] = None,
+        additional_return: TOptional[list] = None,
+        is_count: TOptional[bool] = False,
+    ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
@@ -421,7 +423,7 @@ class QueryAST:
 class AsyncQueryBuilder:
     def __init__(
         self, node_set, with_subgraph: bool = False, subquery_context: bool = False
-    ):
+    ) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
         self._query_params = {}
@@ -430,8 +432,9 @@ class AsyncQueryBuilder:
         self._node_counters = defaultdict(int)
         self._with_subgraph: bool = with_subgraph
         self._subquery_context: bool = subquery_context
+        self._relation_identifiers: dict[str, str] = {}
 
-    async def build_ast(self):
+    async def build_ast(self) -> "AsyncQueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
@@ -474,9 +477,12 @@ class AsyncQueryBuilder:
             return await self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
-    def create_ident(self):
+    def create_ident(self, relation_name: TOptional[str] = None) -> str:
         self._ident_count += 1
-        return "r" + str(self._ident_count)
+        result = f"r{self._ident_count}"
+        if relation_name:
+            self._relation_identifiers[relation_name] = result
+        return result
 
     def build_order_by(self, ident, source):
         if "?" in source.order_by_elements:
@@ -524,8 +530,12 @@ class AsyncQueryBuilder:
         parts = path.split("__")
         if self._with_subgraph:
             subgraph = self._ast.subgraph
+        rel_iterator: str = ""
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
+            if rel_iterator:
+                rel_iterator += "__"
+            rel_iterator += part
             # build source
             if "node_class" not in relationship.definition:
                 relationship.lookup_node_class()
@@ -559,7 +569,7 @@ class AsyncQueryBuilder:
             else:
                 lhs_ident = stmt
 
-            rel_ident = self.create_ident()
+            rel_ident = self.create_ident(rel_iterator)
             if self._with_subgraph and part not in self._ast.subgraph:
                 subgraph[part] = {
                     "target": relationship.definition["node_class"],
@@ -735,6 +745,32 @@ class AsyncQueryBuilder:
         if self._ast.with_clause:
             query += " WITH "
             query += self._ast.with_clause
+
+        if hasattr(self.node_set, "_intermediate_transforms"):
+            for transform in self.node_set._intermediate_transforms:
+                query += " WITH "
+                injected_vars: list = []
+                for name, source in transform["vars"].items():
+                    if type(source) is str:
+                        injected_vars.append(f"{source} AS {name}")
+                    elif isinstance(source, RelationNameResolver):
+                        internal_name = self._relation_identifiers.get(source.relation)
+                        if not internal_name:
+                            raise ValueError(
+                                f"Unable to resolve variable name for relation {source.relation}."
+                            )
+                        injected_vars.append(f"{internal_name} AS {name}")
+                query += ",".join(injected_vars)
+                if not transform["ordering"]:
+                    continue
+                query += " ORDER BY "
+                ordering: list = []
+                for item in transform["ordering"]:
+                    if item.startswith("-"):
+                        ordering.append(f"{item[1:]} DESC")
+                    else:
+                        ordering.append(item)
+                query += ",".join(ordering)
 
         returned_items: list[str] = []
         if hasattr(self.node_set, "_subqueries"):
@@ -959,12 +995,25 @@ class Last(ScalarFunction):
         return f"last({str(self.input_name)})"
 
 
+@dataclass
+class RelationNameResolver:
+    """Helper to refer to a relation variable name.
+
+    Since variable names are generated automatically within MATCH statements (for
+    anything injected using fetch_relations or traverse_relations), we need a way to
+    retrieve them.
+
+    """
+
+    relation: str
+
+
 class AsyncNodeSet(AsyncBaseSet):
     """
     A class representing as set of nodes matching common query parameters
     """
 
-    def __init__(self, source):
+    def __init__(self, source) -> None:
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, AsyncTraversal):
             self.source_class = source.target_class
@@ -985,9 +1034,10 @@ class AsyncNodeSet(AsyncBaseSet):
         self.must_match = {}
         self.dont_match = {}
 
-        self.relations_to_fetch: list = []
-        self._extra_results: dict[str] = {}
-        self._subqueries: list[tuple(str, list[str])] = []
+        self.relations_to_fetch: List = []
+        self._extra_results: dict = {}
+        self._subqueries: list[Tuple[str, list[str]]] = []
+        self._intermediate_transforms: list = []
 
     def __await__(self):
         return self.all().__await__()
@@ -1052,7 +1102,7 @@ class AsyncNodeSet(AsyncBaseSet):
             pass
         return None
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args, **kwargs) -> "AsyncBaseSet":
         """
         Apply filters to the existing nodes in the set.
 
@@ -1287,6 +1337,15 @@ class AsyncNodeSet(AsyncBaseSet):
         self._subqueries.append((qbuilder.build_query(), return_set))
         return self
 
+    def intermediate_transform(
+        self, vars: dict[str, Any], ordering: TOptional[list] = None
+    ) -> "AsyncNodeSet":
+        for name, source in vars.items():
+            if type(source) is not str and not isinstance(source, RelationNameResolver):
+                raise ValueError(f"Source type invalid")
+        self._intermediate_transforms.append({"vars": vars, "ordering": ordering})
+        return self
+
 
 class AsyncTraversal(AsyncBaseSet):
     """
@@ -1306,7 +1365,7 @@ class AsyncTraversal(AsyncBaseSet):
     def __await__(self):
         return self.all().__await__()
 
-    def __init__(self, source, name, definition):
+    def __init__(self, source, name, definition) -> None:
         """
         Create a traversal
 
