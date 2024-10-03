@@ -783,6 +783,18 @@ def test_intermediate_transform():
     assert len(result[0]) == 2
     assert result[0][1] == supplier2
 
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"Wrong source type specified for variable 'test', should be a string or an instance of RelationNameResolver"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {
+                "test": Collect("suppliers"),
+            }
+        )
+
 
 @mark_sync_test
 def test_issue_795():

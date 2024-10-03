@@ -1334,11 +1334,13 @@ class NodeSet(BaseSet):
         return self
 
     def intermediate_transform(
-        self, vars: dict[str, Any], ordering: TOptional[list] = None
+        self, vars: Dict[str, Any], ordering: TOptional[list] = None
     ) -> "NodeSet":
         for name, source in vars.items():
             if type(source) is not str and not isinstance(source, RelationNameResolver):
-                raise ValueError(f"Source type invalid")
+                raise ValueError(
+                    f"Wrong source type specified for variable '{name}', should be a string or an instance of RelationNameResolver"
+                )
         self._intermediate_transforms.append({"vars": vars, "ordering": ordering})
         return self
 
