@@ -2,7 +2,7 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, Dict, List
 from typing import Optional as TOptional
 from typing import Tuple, Union
 
@@ -432,7 +432,7 @@ class AsyncQueryBuilder:
         self._node_counters = defaultdict(int)
         self._with_subgraph: bool = with_subgraph
         self._subquery_context: bool = subquery_context
-        self._relation_identifiers: dict[str, str] = {}
+        self._relation_identifiers: Dict[str, str] = {}
 
     async def build_ast(self) -> "AsyncQueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
