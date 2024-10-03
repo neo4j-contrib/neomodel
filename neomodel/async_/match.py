@@ -216,7 +216,7 @@ def install_traversals(cls, node_set):
         setattr(node_set, key, traversal)
 
 
-def process_filter_args(cls, kwargs):
+def process_filter_args(cls, kwargs) -> Dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
@@ -377,8 +377,8 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: TOptional[list]
-    optional_match: TOptional[list]
+    match: List[str]
+    optional_match: List[str]
     where: TOptional[list]
     with_clause: TOptional[str]
     return_clause: TOptional[str]
@@ -387,13 +387,13 @@ class QueryAST:
     limit: TOptional[int]
     result_class: TOptional[type]
     lookup: TOptional[str]
-    additional_return: TOptional[list]
+    additional_return: List[str]
     is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: TOptional[list] = None,
-        optional_match: TOptional[list] = None,
+        match: TOptional[List[str]] = None,
+        optional_match: TOptional[List[str]] = None,
         where: TOptional[list] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
@@ -402,7 +402,7 @@ class QueryAST:
         limit: TOptional[int] = None,
         result_class: TOptional[type] = None,
         lookup: TOptional[str] = None,
-        additional_return: TOptional[list] = None,
+        additional_return: TOptional[List[str]] = None,
         is_count: TOptional[bool] = False,
     ) -> None:
         self.match = match if match else []
@@ -417,7 +417,7 @@ class QueryAST:
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
         self.is_count = is_count
-        self.subgraph: dict = {}
+        self.subgraph: Dict = {}
 
 
 class AsyncQueryBuilder:
@@ -903,7 +903,7 @@ class AsyncBaseSet:
         ast = await self.query_cls(self).build_ast()
         return await ast._count()
 
-    async def check_bool(self):
+    async def check_bool(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any nodes, False otherwise
@@ -913,7 +913,7 @@ class AsyncBaseSet:
         _count = await ast._count()
         return _count > 0
 
-    async def check_nonzero(self):
+    async def check_nonzero(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any node, False otherwise
@@ -1027,12 +1027,12 @@ class AsyncNodeSet(AsyncBaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters = []
+        self.filters: List = []
         self.q_filters = Q()
 
         # used by has()
-        self.must_match = {}
-        self.dont_match = {}
+        self.must_match: Dict = {}
+        self.dont_match: Dict = {}
 
         self.relations_to_fetch: List = []
         self._extra_results: dict = {}
@@ -1193,7 +1193,10 @@ class AsyncNodeSet(AsyncBaseSet):
         return self
 
     def _register_relation_to_fetch(
-        self, relation_def: Any, alias: str = None, include_in_return: bool = True
+        self,
+        relation_def: Any,
+        alias: TOptional[str] = None,
+        include_in_return: bool = True,
     ):
         if isinstance(relation_def, Optional):
             item = {"path": relation_def.relation, "optional": True}
@@ -1397,7 +1400,7 @@ class AsyncTraversal(AsyncBaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters = []
+        self.filters: List = []
 
     def match(self, **kwargs):
         """
