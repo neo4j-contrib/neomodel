@@ -24,7 +24,9 @@ from neomodel.async_.match import (
     AsyncQueryBuilder,
     AsyncTraversal,
     Collect,
+    Last,
     Optional,
+    RelationNameResolver,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 
@@ -714,6 +716,90 @@ async def test_resolve_subgraph_optional():
     assert hasattr(coffees, "_relations")
     assert "species" in coffees._relations
     assert coffees._relations["species"] == arabica
+
+
+@mark_async_test
+async def test_subquery():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1)
+    await nescafe.suppliers.connect(supplier2)
+    await nescafe.species.connect(arabica)
+
+    result = await Coffee.nodes.subquery(
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+        )
+        .annotate(supps=Last(Collect("suppliers"))),
+        ["supps"],
+    )
+    result = await result.all()
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][0] == supplier2
+
+    with raises(
+        RuntimeError,
+        match=re.escape("Variable 'unknown' is not returned by subquery."),
+    ):
+        result = await Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["unknown"],
+        )
+
+
+@mark_async_test
+async def test_intermediate_transform():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    result = (
+        await Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {
+                "coffee": "coffee",
+                "suppliers": "suppliers",
+                "r": RelationNameResolver("suppliers"),
+            },
+            ordering=["-r.since"],
+        )
+        .annotate(oldest_supplier=Last(Collect("suppliers")))
+        .all()
+    )
+
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][1] == supplier2
+
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"Wrong source type specified for variable 'test', should be a string or an instance of RelationNameResolver"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {
+                "test": Collect("suppliers"),
+            }
+        )
 
 
 @mark_async_test

@@ -2,7 +2,9 @@ import inspect
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Dict, List
+from typing import Optional as TOptional
+from typing import Tuple, Union
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -214,7 +216,7 @@ def install_traversals(cls, node_set):
         setattr(node_set, key, traversal)
 
 
-def process_filter_args(cls, kwargs):
+def process_filter_args(cls, kwargs) -> Dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
@@ -375,34 +377,34 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: Optional[list]
-    optional_match: Optional[list]
-    where: Optional[list]
-    with_clause: Optional[str]
-    return_clause: Optional[str]
-    order_by: Optional[str]
-    skip: Optional[int]
-    limit: Optional[int]
-    result_class: Optional[type]
-    lookup: Optional[str]
-    additional_return: Optional[list]
-    is_count: Optional[bool]
+    match: List[str]
+    optional_match: List[str]
+    where: TOptional[list]
+    with_clause: TOptional[str]
+    return_clause: TOptional[str]
+    order_by: TOptional[str]
+    skip: TOptional[int]
+    limit: TOptional[int]
+    result_class: TOptional[type]
+    lookup: TOptional[str]
+    additional_return: List[str]
+    is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: Optional[list] = None,
-        optional_match: Optional[list] = None,
-        where: Optional[list] = None,
-        with_clause: Optional[str] = None,
-        return_clause: Optional[str] = None,
-        order_by: Optional[str] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        result_class: Optional[type] = None,
-        lookup: Optional[str] = None,
-        additional_return: Optional[list] = None,
-        is_count: Optional[bool] = False,
-    ):
+        match: TOptional[List[str]] = None,
+        optional_match: TOptional[List[str]] = None,
+        where: TOptional[list] = None,
+        with_clause: TOptional[str] = None,
+        return_clause: TOptional[str] = None,
+        order_by: TOptional[str] = None,
+        skip: TOptional[int] = None,
+        limit: TOptional[int] = None,
+        result_class: TOptional[type] = None,
+        lookup: TOptional[str] = None,
+        additional_return: TOptional[List[str]] = None,
+        is_count: TOptional[bool] = False,
+    ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
@@ -415,11 +417,13 @@ class QueryAST:
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
         self.is_count = is_count
-        self.subgraph: dict = {}
+        self.subgraph: Dict = {}
 
 
 class QueryBuilder:
-    def __init__(self, node_set, with_subgraph: bool = False):
+    def __init__(
+        self, node_set, with_subgraph: bool = False, subquery_context: bool = False
+    ) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
         self._query_params = {}
@@ -427,8 +431,10 @@ class QueryBuilder:
         self._ident_count = 0
         self._node_counters = defaultdict(int)
         self._with_subgraph: bool = with_subgraph
+        self._subquery_context: bool = subquery_context
+        self._relation_identifiers: Dict[str, str] = {}
 
-    def build_ast(self):
+    def build_ast(self) -> "QueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
@@ -442,7 +448,7 @@ class QueryBuilder:
 
         return self
 
-    def build_source(self, source):
+    def build_source(self, source) -> str:
         if isinstance(source, Traversal):
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
@@ -471,9 +477,12 @@ class QueryBuilder:
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
-    def create_ident(self):
+    def create_ident(self, relation_name: TOptional[str] = None) -> str:
         self._ident_count += 1
-        return "r" + str(self._ident_count)
+        result = f"r{self._ident_count}"
+        if relation_name:
+            self._relation_identifiers[relation_name] = result
+        return result
 
     def build_order_by(self, ident, source):
         if "?" in source.order_by_elements:
@@ -521,8 +530,12 @@ class QueryBuilder:
         parts = path.split("__")
         if self._with_subgraph:
             subgraph = self._ast.subgraph
+        rel_iterator: str = ""
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
+            if rel_iterator:
+                rel_iterator += "__"
+            rel_iterator += part
             # build source
             if "node_class" not in relationship.definition:
                 relationship.lookup_node_class()
@@ -548,12 +561,15 @@ class QueryBuilder:
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
+                    if self._subquery_context:
+                        # Don't include label in identifier if we are in a subquery
+                        lhs_ident = lhs_name
                 elif relation["include_in_return"]:
                     self._additional_return(lhs_name)
             else:
                 lhs_ident = stmt
 
-            rel_ident = self.create_ident()
+            rel_ident = self.create_ident(rel_iterator)
             if self._with_subgraph and part not in self._ast.subgraph:
                 subgraph[part] = {
                     "target": relationship.definition["node_class"],
@@ -594,7 +610,7 @@ class QueryBuilder:
         self._ast.result_class = node.__class__
         return ident
 
-    def build_label(self, ident, cls):
+    def build_label(self, ident, cls) -> str:
         """
         match nodes by a label
         """
@@ -703,7 +719,7 @@ class QueryBuilder:
 
             self._ast.where.append(" AND ".join(stmts))
 
-    def build_query(self):
+    def build_query(self) -> str:
         query: str = ""
 
         if self._ast.lookup:
@@ -730,9 +746,41 @@ class QueryBuilder:
             query += " WITH "
             query += self._ast.with_clause
 
-        query += " RETURN "
+        if hasattr(self.node_set, "_intermediate_transforms"):
+            for transform in self.node_set._intermediate_transforms:
+                query += " WITH "
+                injected_vars: list = []
+                for name, source in transform["vars"].items():
+                    if type(source) is str:
+                        injected_vars.append(f"{source} AS {name}")
+                    elif isinstance(source, RelationNameResolver):
+                        internal_name = self._relation_identifiers.get(source.relation)
+                        if not internal_name:
+                            raise ValueError(
+                                f"Unable to resolve variable name for relation {source.relation}."
+                            )
+                        injected_vars.append(f"{internal_name} AS {name}")
+                query += ",".join(injected_vars)
+                if not transform["ordering"]:
+                    continue
+                query += " ORDER BY "
+                ordering: list = []
+                for item in transform["ordering"]:
+                    if item.startswith("-"):
+                        ordering.append(f"{item[1:]} DESC")
+                    else:
+                        ordering.append(item)
+                query += ",".join(ordering)
+
         returned_items: list[str] = []
-        if self._ast.return_clause:
+        if hasattr(self.node_set, "_subqueries"):
+            for subquery, return_set in self.node_set._subqueries:
+                outer_primary_var = self._ast.return_clause
+                query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
+                returned_items += return_set
+
+        query += " RETURN "
+        if self._ast.return_clause and not self._subquery_context:
             returned_items.append(self._ast.return_clause)
         if self._ast.additional_return:
             returned_items += self._ast.additional_return
@@ -853,7 +901,7 @@ class BaseSet:
         ast = self.query_cls(self).build_ast()
         return ast._count()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any nodes, False otherwise
@@ -863,7 +911,7 @@ class BaseSet:
         _count = ast._count()
         return _count > 0
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any node, False otherwise
@@ -930,12 +978,40 @@ class Collect(AggregatingFunction):
         return f"collect({self.input_name})"
 
 
+@dataclass
+class ScalarFunction:
+    """Base scalar function class."""
+
+    input_name: Union[str, AggregatingFunction]
+
+
+@dataclass
+class Last(ScalarFunction):
+    """last() function."""
+
+    def __str__(self) -> str:
+        return f"last({str(self.input_name)})"
+
+
+@dataclass
+class RelationNameResolver:
+    """Helper to refer to a relation variable name.
+
+    Since variable names are generated automatically within MATCH statements (for
+    anything injected using fetch_relations or traverse_relations), we need a way to
+    retrieve them.
+
+    """
+
+    relation: str
+
+
 class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
     """
 
-    def __init__(self, source):
+    def __init__(self, source) -> None:
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
@@ -949,15 +1025,17 @@ class NodeSet(BaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters = []
+        self.filters: List = []
         self.q_filters = Q()
 
         # used by has()
-        self.must_match = {}
-        self.dont_match = {}
+        self.must_match: Dict = {}
+        self.dont_match: Dict = {}
 
-        self.relations_to_fetch: list = []
-        self._extra_results: dict[str] = {}
+        self.relations_to_fetch: List = []
+        self._extra_results: dict = {}
+        self._subqueries: list[Tuple[str, list[str]]] = []
+        self._intermediate_transforms: list = []
 
     def __await__(self):
         return self.all().__await__()
@@ -1022,7 +1100,7 @@ class NodeSet(BaseSet):
             pass
         return None
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args, **kwargs) -> "BaseSet":
         """
         Apply filters to the existing nodes in the set.
 
@@ -1113,7 +1191,10 @@ class NodeSet(BaseSet):
         return self
 
     def _register_relation_to_fetch(
-        self, relation_def: Any, alias: str = None, include_in_return: bool = True
+        self,
+        relation_def: Any,
+        alias: TOptional[str] = None,
+        include_in_return: bool = True,
     ):
         if isinstance(relation_def, Optional):
             item = {"path": relation_def.relation, "optional": True}
@@ -1152,8 +1233,8 @@ class NodeSet(BaseSet):
     def annotate(self, *vars, **aliased_vars):
         """Annotate node set results with extra variables."""
 
-        def register_extra_var(vardef, varname: str = None):
-            if isinstance(vardef, AggregatingFunction):
+        def register_extra_var(vardef, varname: Union[str, None] = None):
+            if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
                 self._extra_results[varname if varname else vardef.input_name] = vardef
             else:
                 raise NotImplementedError
@@ -1236,6 +1317,36 @@ class NodeSet(BaseSet):
             )
         return results
 
+    def subquery(self, nodeset: "NodeSet", return_set: List[str]) -> "NodeSet":
+        """Add a subquery to this node set.
+
+        A subquery is a regular cypher query but executed within the context of a CALL
+        statement. Such query will generally fetch additional variables which must be
+        declared inside return_set variable in order to be included in the final RETURN
+        statement.
+        """
+        qbuilder = nodeset.query_cls(nodeset, subquery_context=True).build_ast()
+        for var in return_set:
+            if (
+                var != qbuilder._ast.return_clause
+                and var not in qbuilder._ast.additional_return
+                and var not in nodeset._extra_results
+            ):
+                raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
+        self._subqueries.append((qbuilder.build_query(), return_set))
+        return self
+
+    def intermediate_transform(
+        self, vars: Dict[str, Any], ordering: TOptional[list] = None
+    ) -> "NodeSet":
+        for name, source in vars.items():
+            if type(source) is not str and not isinstance(source, RelationNameResolver):
+                raise ValueError(
+                    f"Wrong source type specified for variable '{name}', should be a string or an instance of RelationNameResolver"
+                )
+        self._intermediate_transforms.append({"vars": vars, "ordering": ordering})
+        return self
+
 
 class Traversal(BaseSet):
     """
@@ -1249,13 +1360,13 @@ class Traversal(BaseSet):
     :type name: :class:`str`
     :param definition: A relationship definition that most certainly deserves
                        a documentation here.
-    :type defintion: :class:`dict`
+    :type definition: :class:`dict`
     """
 
     def __await__(self):
         return self.all().__await__()
 
-    def __init__(self, source, name, definition):
+    def __init__(self, source, name, definition) -> None:
         """
         Create a traversal
 
@@ -1285,7 +1396,7 @@ class Traversal(BaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters = []
+        self.filters: List = []
 
     def match(self, **kwargs):
         """
