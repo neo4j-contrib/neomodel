@@ -287,8 +287,8 @@ async def test_contains():
 
 @mark_async_test
 async def test_order_by():
-    for c in await Coffee.nodes:
-        await c.delete()
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
 
     c1 = await Coffee(name="Icelands finest", price=5).save()
     c2 = await Coffee(name="Britains finest", price=10).save()
@@ -316,7 +316,7 @@ async def test_order_by():
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        await Coffee.nodes.order_by("id")
+        await Coffee.nodes.order_by("id").all()
 
     # Test order by on a relationship
     l = await Supplier(name="lidl2").save()

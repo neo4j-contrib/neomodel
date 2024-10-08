@@ -283,8 +283,8 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    for c in Coffee.nodes:
-        c.delete()
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
 
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
@@ -312,7 +312,7 @@ def test_order_by():
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        Coffee.nodes.order_by("id")
+        Coffee.nodes.order_by("id").all()
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
