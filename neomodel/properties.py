@@ -1,9 +1,10 @@
 import functools
 import json
 import re
-import sys
 import uuid
+from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
+from typing import Any
 
 import neo4j.time
 import pytz
@@ -37,7 +38,7 @@ def validator(fn):
     return _validator
 
 
-class FulltextIndex(object):
+class FulltextIndex:
     """
     Fulltext index definition
     """
@@ -57,7 +58,7 @@ class FulltextIndex(object):
         self.eventually_consistent = eventually_consistent
 
 
-class VectorIndex(object):
+class VectorIndex:
     """
     Vector index definition
     """
@@ -73,7 +74,7 @@ class VectorIndex(object):
         self.similarity_function = similarity_function
 
 
-class Property:
+class Property(metaclass=ABCMeta):
     """
     Base class for object properties.
 
@@ -157,6 +158,10 @@ class Property:
     @property
     def is_indexed(self):
         return self.unique_index or self.index
+
+    @abstractmethod
+    def deflate(self, value: Any) -> Any:
+        pass
 
 
 class NormalizedProperty(Property):
