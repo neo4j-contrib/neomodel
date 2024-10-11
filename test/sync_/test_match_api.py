@@ -283,8 +283,8 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    for c in Coffee.nodes:
-        c.delete()
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
 
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
@@ -306,13 +306,13 @@ def test_order_by():
     ns = ns.order_by("?")
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast.with_clause == "coffee, rand() as r"
-    assert qb._ast.order_by == "r"
+    assert qb._ast.order_by == ["r"]
 
     with raises(
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        Coffee.nodes.order_by("id")
+        Coffee.nodes.order_by("id").all()
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
@@ -539,7 +539,31 @@ def test_traversal_filter_left_hand_statement():
 
 
 @mark_sync_test
+def test_filter_with_traversal():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=11).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=99).save()
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    results = Coffee.nodes.filter(species__name="Arabica").all()
+    assert len(results) == 1
+    assert len(results[0]) == 3
+    assert results[0][0] == nescafe
+
+
+@mark_sync_test
 def test_fetch_relations():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe 1000", price=99).save()
@@ -593,6 +617,28 @@ def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Sainsburys"
         )
+
+
+@mark_sync_test
+def test_traverse_and_order_by():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=110).save()
+    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    results = Species.nodes.fetch_relations("coffees").order_by("-coffees__price").all()
+    assert len(results) == 2
+    assert len(results[0]) == 3  # 2 nodes and 1 relation
+    assert results[0][0] == robusta
+    assert results[1][0] == arabica
 
 
 @mark_sync_test

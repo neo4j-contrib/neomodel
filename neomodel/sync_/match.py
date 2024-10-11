@@ -8,7 +8,8 @@ from typing import Tuple, Union
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
-from neomodel.properties import AliasProperty, ArrayProperty
+from neomodel.properties import AliasProperty, ArrayProperty, Property
+from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import INCOMING, OUTGOING
@@ -197,6 +198,8 @@ OPERATOR_TABLE = {
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
+path_split_regex = re.compile(r"__(?!_)")
+
 
 def install_traversals(cls, node_set):
     """
@@ -216,136 +219,110 @@ def install_traversals(cls, node_set):
         setattr(node_set, key, traversal)
 
 
+def _handle_special_operators(
+    property_obj: Property, key: str, value: str, operator: str, prop: str
+) -> Tuple[str, str, str]:
+    if operator == _SPECIAL_OPERATOR_IN:
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a tuple or list for IN operation {key}={value}"
+            )
+        if isinstance(property_obj, ArrayProperty):
+            deflated_value = property_obj.deflate(value)
+            operator = _SPECIAL_OPERATOR_ARRAY_IN
+        else:
+            deflated_value = [property_obj.deflate(v) for v in value]
+    elif operator == _SPECIAL_OPERATOR_ISNULL:
+        if not isinstance(value, bool):
+            raise ValueError(f"Value must be a bool for isnull operation on {key}")
+        operator = "IS NULL" if value else "IS NOT NULL"
+        deflated_value = None
+    elif operator in _REGEX_OPERATOR_TABLE.values():
+        deflated_value = property_obj.deflate(value)
+        if not isinstance(deflated_value, str):
+            raise ValueError(f"Must be a string value for {key}")
+        if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+            deflated_value = re.escape(deflated_value)
+        deflated_value = operator.format(deflated_value)
+        operator = _SPECIAL_OPERATOR_REGEX
+    else:
+        deflated_value = property_obj.deflate(value)
+
+    return deflated_value, operator, prop
+
+
+def _deflate_value(
+    cls, property_obj: Property, key: str, value: str, operator: str, prop: str
+) -> Tuple[str, str, str]:
+    if isinstance(property_obj, AliasProperty):
+        prop = property_obj.aliased_to()
+        deflated_value = getattr(cls, prop).deflate(value)
+    else:
+        # handle special operators
+        deflated_value, operator, prop = _handle_special_operators(
+            property_obj, key, value, operator, prop
+        )
+
+    return deflated_value, operator, prop
+
+
+def _initialize_filter_args_variables(cls, key: str):
+    current_class = cls
+    leaf_prop = None
+    operator = "="
+    prop = key
+
+    return current_class, leaf_prop, operator, prop
+
+
+def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
+    (
+        current_class,
+        leaf_prop,
+        operator,
+        prop,
+    ) = _initialize_filter_args_variables(cls, key)
+
+    for part in re.split(path_split_regex, key):
+        defined_props = current_class.defined_properties(rels=True)
+        if part in defined_props:
+            if isinstance(
+                defined_props[part], relationship_manager.RelationshipDefinition
+            ):
+                defined_props[part].lookup_node_class()
+                current_class = defined_props[part].definition["node_class"]
+        elif part in OPERATOR_TABLE:
+            operator = OPERATOR_TABLE[part]
+            prop, _ = prop.rsplit("__", 1)
+            continue
+        else:
+            raise ValueError(
+                f"No such property {part} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
+            )
+        leaf_prop = part
+
+    property_obj = getattr(current_class, leaf_prop)
+
+    return property_obj, operator, prop
+
+
 def process_filter_args(cls, kwargs) -> Dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
     """
-
     output = {}
 
     for key, value in kwargs.items():
-        if "__" in key:
-            prop, operator = key.rsplit("__")
-            operator = OPERATOR_TABLE[operator]
-        else:
-            prop = key
-            operator = "="
-
-        if prop not in cls.defined_properties(rels=False):
-            raise ValueError(
-                f"No such property {prop} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
-            )
-
-        property_obj = getattr(cls, prop)
-        if isinstance(property_obj, AliasProperty):
-            prop = property_obj.aliased_to()
-            deflated_value = getattr(cls, prop).deflate(value)
-        else:
-            operator, deflated_value = transform_operator_to_filter(
-                operator=operator,
-                filter_key=key,
-                filter_value=value,
-                property_obj=property_obj,
-            )
-
-        # map property to correct property name in the database
-        db_property = cls.defined_properties(rels=False)[prop].get_db_property_name(
-            prop
+        property_obj, operator, prop = _process_filter_key(cls, key)
+        deflated_value, operator, prop = _deflate_value(
+            cls, property_obj, key, value, operator, prop
         )
+        # map property to correct property name in the database
+        db_property = prop
 
         output[db_property] = (operator, deflated_value)
-
     return output
-
-
-def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    """
-    Transform in operator to a cypher filter
-    Args:
-        operator (str): operator to transform
-        filter_key (str): filter key
-        filter_value (str): filter value
-        property_obj (object): property object
-    Returns:
-        tuple: operator, deflated_value
-    """
-    if not isinstance(filter_value, tuple) and not isinstance(filter_value, list):
-        raise ValueError(
-            f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
-        )
-    if isinstance(property_obj, ArrayProperty):
-        deflated_value = property_obj.deflate(filter_value)
-        operator = _SPECIAL_OPERATOR_ARRAY_IN
-    else:
-        deflated_value = [property_obj.deflate(v) for v in filter_value]
-
-    return operator, deflated_value
-
-
-def transform_null_operator_to_filter(filter_key, filter_value):
-    """
-    Transform null operator to a cypher filter
-    Args:
-        filter_key (str): filter key
-        filter_value (str): filter value
-    Returns:
-        tuple: operator, deflated_value
-    """
-    if not isinstance(filter_value, bool):
-        raise ValueError(f"Value must be a bool for isnull operation on {filter_key}")
-    operator = "IS NULL" if filter_value else "IS NOT NULL"
-    deflated_value = None
-    return operator, deflated_value
-
-
-def transform_regex_operator_to_filter(
-    operator, filter_key, filter_value, property_obj
-):
-    """
-    Transform regex operator to a cypher filter
-    Args:
-        operator (str): operator to transform
-        filter_key (str): filter key
-        filter_value (str): filter value
-        property_obj (object): property object
-    Returns:
-        tuple: operator, deflated_value
-    """
-
-    deflated_value = property_obj.deflate(filter_value)
-    if not isinstance(deflated_value, str):
-        raise ValueError(f"Must be a string value for {filter_key}")
-    if operator in _STRING_REGEX_OPERATOR_TABLE.values():
-        deflated_value = re.escape(deflated_value)
-    deflated_value = operator.format(deflated_value)
-    operator = _SPECIAL_OPERATOR_REGEX
-    return operator, deflated_value
-
-
-def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    if operator == _SPECIAL_OPERATOR_IN:
-        operator, deflated_value = transform_in_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    elif operator == _SPECIAL_OPERATOR_ISNULL:
-        operator, deflated_value = transform_null_operator_to_filter(
-            filter_key=filter_key, filter_value=filter_value
-        )
-    elif operator in _REGEX_OPERATOR_TABLE.values():
-        operator, deflated_value = transform_regex_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    else:
-        deflated_value = property_obj.deflate(filter_value)
-
-    return operator, deflated_value
 
 
 def process_has_args(cls, kwargs):
@@ -379,10 +356,10 @@ def process_has_args(cls, kwargs):
 class QueryAST:
     match: List[str]
     optional_match: List[str]
-    where: TOptional[list]
+    where: List[str]
     with_clause: TOptional[str]
     return_clause: TOptional[str]
-    order_by: TOptional[str]
+    order_by: TOptional[List[str]]
     skip: TOptional[int]
     limit: TOptional[int]
     result_class: TOptional[type]
@@ -394,10 +371,10 @@ class QueryAST:
         self,
         match: TOptional[List[str]] = None,
         optional_match: TOptional[List[str]] = None,
-        where: TOptional[list] = None,
+        where: TOptional[List[str]] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
-        order_by: TOptional[str] = None,
+        order_by: TOptional[List[str]] = None,
         skip: TOptional[int] = None,
         limit: TOptional[int] = None,
         result_class: TOptional[type] = None,
@@ -421,18 +398,14 @@ class QueryAST:
 
 
 class QueryBuilder:
-    def __init__(
-        self, node_set, with_subgraph: bool = False, subquery_context: bool = False
-    ) -> None:
+    def __init__(self, node_set, subquery_context: bool = False) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
-        self._query_params = {}
-        self._place_holder_registry = {}
-        self._ident_count = 0
+        self._query_params: Dict = {}
+        self._place_holder_registry: Dict = {}
+        self._ident_count: int = 0
         self._node_counters = defaultdict(int)
-        self._with_subgraph: bool = with_subgraph
         self._subquery_context: bool = subquery_context
-        self._relation_identifiers: Dict[str, str] = {}
 
     def build_ast(self) -> "QueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
@@ -477,21 +450,33 @@ class QueryBuilder:
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
-    def create_ident(self, relation_name: TOptional[str] = None) -> str:
+    def create_ident(self) -> str:
         self._ident_count += 1
-        result = f"r{self._ident_count}"
-        if relation_name:
-            self._relation_identifiers[relation_name] = result
-        return result
+        return f"r{self._ident_count}"
 
-    def build_order_by(self, ident, source):
+    def build_order_by(self, ident: str, source: "NodeSet") -> None:
         if "?" in source.order_by_elements:
             self._ast.with_clause = f"{ident}, rand() as r"
-            self._ast.order_by = "r"
+            self._ast.order_by = ["r"]
         else:
-            self._ast.order_by = [f"{ident}.{p}" for p in source.order_by_elements]
+            order_by = []
+            for elm in source.order_by_elements:
+                if "__" not in elm:
+                    prop = elm.split(" ")[0] if " " in elm else elm
+                    if prop not in source.source_class.defined_properties(rels=False):
+                        raise ValueError(
+                            f"No such property {prop} on {source.source_class.__name__}. "
+                            f"Note that Neo4j internals like id or element_id are not allowed "
+                            f"for use in this operation."
+                        )
+                    order_by.append(f"{ident}.{elm}")
+                else:
+                    path, prop = elm.rsplit("__", 1)
+                    order_by_clause = self.lookup_query_variable(path)
+                    order_by.append(f"{order_by_clause}.{prop}")
+            self._ast.order_by = order_by
 
-    def build_traversal(self, traversal):
+    def build_traversal(self, traversal) -> str:
         """
         traverse a relationship from a node to a set of nodes
         """
@@ -527,9 +512,8 @@ class QueryBuilder:
         path: str = relation["path"]
         stmt: str = ""
         source_class_iterator = source_class
-        parts = path.split("__")
-        if self._with_subgraph:
-            subgraph = self._ast.subgraph
+        parts = re.split(path_split_regex, path)
+        subgraph = self._ast.subgraph
         rel_iterator: str = ""
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
@@ -569,8 +553,8 @@ class QueryBuilder:
             else:
                 lhs_ident = stmt
 
-            rel_ident = self.create_ident(rel_iterator)
-            if self._with_subgraph and part not in self._ast.subgraph:
+            rel_ident = self.create_ident()
+            if part not in self._ast.subgraph:
                 subgraph[part] = {
                     "target": relationship.definition["node_class"],
                     "children": {},
@@ -587,8 +571,7 @@ class QueryBuilder:
                 relation_type=relationship.definition["relation_type"],
             )
             source_class_iterator = relationship.definition["node_class"]
-            if self._with_subgraph:
-                subgraph = subgraph[part]["children"]
+            subgraph = subgraph[part]["children"]
 
         if relation.get("optional"):
             self._ast.optional_match.append(stmt)
@@ -646,14 +629,56 @@ class QueryBuilder:
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
-    def _register_place_holder(self, key):
+    def _register_place_holder(self, key: str) -> str:
         if key in self._place_holder_registry:
             self._place_holder_registry[key] += 1
         else:
             self._place_holder_registry[key] = 1
         return key + "_" + str(self._place_holder_registry[key])
 
-    def _parse_q_filters(self, ident, q, source_class):
+    def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str]:
+        path, prop = prop.rsplit("__", 1)
+        ident = self.build_traversal_from_path(
+            {"path": path, "include_in_return": True},
+            source_class,
+        )
+        return ident, path, prop
+
+    def _finalize_filter_statement(
+        self, operator: str, ident: str, prop: str, val: Any
+    ) -> str:
+        if operator in _UNARY_OPERATORS:
+            # unary operators do not have a parameter
+            statement = f"{ident}.{prop} {operator}"
+        else:
+            place_holder = self._register_place_holder(ident + "_" + prop)
+            if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+                statement = operator.format(
+                    ident=ident,
+                    prop=prop,
+                    val=f"${place_holder}",
+                )
+            else:
+                statement = f"{ident}.{prop} {operator} ${place_holder}"
+            self._query_params[place_holder] = val
+
+        return statement
+
+    def _build_filter_statements(
+        self, ident: str, filters, target: List[str], source_class
+    ) -> None:
+        for prop, op_and_val in filters.items():
+            path = None
+            if "__" in prop:
+                ident, path, prop = self._parse_path(source_class, prop)
+            operator, val = op_and_val
+            prop = source_class.defined_properties(rels=False)[
+                prop
+            ].get_db_property_name(prop)
+            statement = self._finalize_filter_statement(operator, ident, prop, val)
+            target.append(statement)
+
+    def _parse_q_filters(self, ident, q, source_class) -> str:
         target = []
         for child in q.children:
             if isinstance(child, QBase):
@@ -664,36 +689,22 @@ class QueryBuilder:
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(source_class, kwargs)
-                for prop, op_and_val in filters.items():
-                    operator, val = op_and_val
-                    if operator in _UNARY_OPERATORS:
-                        # unary operators do not have a parameter
-                        statement = f"{ident}.{prop} {operator}"
-                    else:
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
-                            statement = operator.format(
-                                ident=ident,
-                                prop=prop,
-                                val=f"${place_holder}",
-                            )
-                        else:
-                            statement = f"{ident}.{prop} {operator} ${place_holder}"
-                        self._query_params[place_holder] = val
-                    target.append(statement)
+                self._build_filter_statements(ident, filters, target, source_class)
         ret = f" {q.connector} ".join(target)
         if q.negated:
             ret = f"NOT ({ret})"
         return ret
 
-    def build_where_stmt(self, ident, filters, q_filters=None, source_class=None):
+    def build_where_stmt(
+        self, ident: str, filters, q_filters=None, source_class=None
+    ) -> None:
         """
         construct a where statement from some filters
         """
         if q_filters is not None:
-            stmts = self._parse_q_filters(ident, q_filters, source_class)
-            if stmts:
-                self._ast.where.append(stmts)
+            stmt = self._parse_q_filters(ident, q_filters, source_class)
+            if stmt:
+                self._ast.where.append(stmt)
         else:
             stmts = []
             for row in filters:
@@ -718,6 +729,35 @@ class QueryBuilder:
                     stmts.append(statement)
 
             self._ast.where.append(" AND ".join(stmts))
+
+    def lookup_query_variable(
+        self, path: str, return_relation: bool = False
+    ) -> TOptional[str]:
+        """Retrieve the variable name generated internally for the given traversal path."""
+        subgraph = self._ast.subgraph
+        if not subgraph:
+            return None
+        traversals = re.split(path_split_regex, path)
+        if len(traversals) == 0:
+            raise ValueError("Can only lookup traversal variables")
+        if traversals[0] not in subgraph:
+            return None
+        subgraph = subgraph[traversals[0]]
+        variable_to_return = None
+        last_property = traversals[-1]
+        for part in traversals:
+            if part in subgraph["children"]:
+                subgraph = subgraph["children"][part]
+            elif part == last_property:
+                # if last part of prop is the last traversal
+                # we are safe to lookup the variable from the query
+                if return_relation:
+                    variable_to_return = f"{subgraph['rel_variable_name']}"
+                else:
+                    variable_to_return = f"{subgraph['variable_name']}"
+            else:
+                break
+        return variable_to_return
 
     def build_query(self) -> str:
         query: str = ""
@@ -754,7 +794,9 @@ class QueryBuilder:
                     if type(source) is str:
                         injected_vars.append(f"{source} AS {name}")
                     elif isinstance(source, RelationNameResolver):
-                        internal_name = self._relation_identifiers.get(source.relation)
+                        internal_name = self.lookup_query_variable(
+                            source.relation, return_relation=True
+                        )
                         if not internal_name:
                             raise ValueError(
                                 f"Unable to resolve variable name for relation {source.relation}."
@@ -878,6 +920,7 @@ class BaseSet:
     """
 
     query_cls = QueryBuilder
+    source_class: StructuredNode
 
     def all(self, lazy=False):
         """
@@ -1027,6 +1070,7 @@ class NodeSet(BaseSet):
 
         self.filters: List = []
         self.q_filters = Q()
+        self.order_by_elements: List = []
 
         # used by has()
         self.must_match: Dict = {}
@@ -1177,14 +1221,10 @@ class NodeSet(BaseSet):
                 else:
                     desc = False
 
-                if prop not in self.source_class.defined_properties(rels=False):
-                    raise ValueError(
-                        f"No such property {prop} on {self.source_class.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
-                    )
-
-                property_obj = getattr(self.source_class, prop)
-                if isinstance(property_obj, AliasProperty):
-                    prop = property_obj.aliased_to()
+                if prop in self.source_class.defined_properties(rels=False):
+                    property_obj = getattr(self.source_class, prop)
+                    if isinstance(property_obj, AliasProperty):
+                        prop = property_obj.aliased_to()
 
                 self.order_by_elements.append(prop + (" DESC" if desc else ""))
 
@@ -1298,7 +1338,7 @@ class NodeSet(BaseSet):
                 "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
             )
         results: list = []
-        qbuilder = self.query_cls(self, with_subgraph=True)
+        qbuilder = self.query_cls(self)
         qbuilder.build_ast()
         all_nodes = qbuilder._execute(dict_output=True)
         other_nodes = {}
