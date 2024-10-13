@@ -529,7 +529,7 @@ class JSONProperty(Property):
     The structure will be inflated when a node is retrieved.
     """
 
-    def __init__(self, ensure_ascii=False, *args, **kwargs):
+    def __init__(self, ensure_ascii=True, *args, **kwargs):
         self.ensure_ascii = ensure_ascii
         super(JSONProperty, self).__init__(*args, **kwargs)
 
