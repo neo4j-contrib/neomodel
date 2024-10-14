@@ -40,7 +40,7 @@ class SupplierRel(StructuredRel):
 class Supplier(StructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(StructuredNode):
@@ -589,14 +589,61 @@ def test_filter_with_traversal():
 
 
 @mark_sync_test
+def test_relation_prop_filtering():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+
+@mark_sync_test
+def test_relation_prop_ordering():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_sync_test
 def test_fetch_relations():
     # Clean DB before we start anything...
     db.cypher_query("MATCH (n) DETACH DELETE n")
 
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
-    nescafe = Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
     tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)

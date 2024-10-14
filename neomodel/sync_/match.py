@@ -201,7 +201,7 @@ OPERATOR_TABLE = {
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
-path_split_regex = re.compile(r"__(?!_)")
+path_split_regex = re.compile(r"__(?!_)|\|")
 
 
 def install_traversals(cls, node_set):
@@ -271,29 +271,38 @@ def _deflate_value(
 
 def _initialize_filter_args_variables(cls, key: str):
     current_class = cls
+    current_rel_model = None
     leaf_prop = None
     operator = "="
+    is_rel_property = "|" in key
     prop = key
 
-    return current_class, leaf_prop, operator, prop
+    return current_class, current_rel_model, leaf_prop, operator, is_rel_property, prop
 
 
 def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
     (
         current_class,
+        current_rel_model,
         leaf_prop,
         operator,
+        is_rel_property,
         prop,
     ) = _initialize_filter_args_variables(cls, key)
 
     for part in re.split(path_split_regex, key):
         defined_props = current_class.defined_properties(rels=True)
+        # update defined props dictionary with relationship properties if
+        # we are filtering by property
+        if is_rel_property and current_rel_model:
+            defined_props.update(current_rel_model.defined_properties(rels=True))
         if part in defined_props:
             if isinstance(
                 defined_props[part], relationship_manager.RelationshipDefinition
             ):
                 defined_props[part].lookup_node_class()
                 current_class = defined_props[part].definition["node_class"]
+                current_rel_model = defined_props[part].definition["model"]
         elif part in OPERATOR_TABLE:
             operator = OPERATOR_TABLE[part]
             prop, _ = prop.rsplit("__", 1)
@@ -304,7 +313,10 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
             )
         leaf_prop = part
 
-    property_obj = getattr(current_class, leaf_prop)
+    if is_rel_property and current_rel_model:
+        property_obj = getattr(current_rel_model, leaf_prop)
+    else:
+        property_obj = getattr(current_class, leaf_prop)
 
     return property_obj, operator, prop
 
@@ -467,7 +479,8 @@ class QueryBuilder:
                 if isinstance(elm, RawCypher):
                     order_by.append(elm.render({"n": ident}))
                     continue
-                if "__" not in elm:
+                is_rel_property = "|" in elm
+                if "__" not in elm and not is_rel_property:
                     prop = elm.split(" ")[0] if " " in elm else elm
                     if prop not in source.source_class.defined_properties(rels=False):
                         raise ValueError(
@@ -477,8 +490,10 @@ class QueryBuilder:
                         )
                     order_by.append(f"{ident}.{elm}")
                 else:
-                    path, prop = elm.rsplit("__", 1)
-                    order_by_clause = self.lookup_query_variable(path)
+                    path, prop = elm.rsplit("__" if not is_rel_property else "|", 1)
+                    order_by_clause = self.lookup_query_variable(
+                        path, return_relation=is_rel_property
+                    )
                     order_by.append(f"{order_by_clause}.{prop}")
             self._ast.order_by = order_by
 
@@ -521,6 +536,8 @@ class QueryBuilder:
         parts = re.split(path_split_regex, path)
         subgraph = self._ast.subgraph
         rel_iterator: str = ""
+        already_present = False
+        existing_rhs_name = ""
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
             if rel_iterator:
@@ -529,19 +546,6 @@ class QueryBuilder:
             # build source
             if "node_class" not in relationship.definition:
                 relationship.lookup_node_class()
-            rhs_label = relationship.definition["node_class"].__label__
-            rel_reference = f'{relationship.definition["node_class"]}_{part}'
-            self._node_counters[rel_reference] += 1
-            if index + 1 == len(parts) and "alias" in relation:
-                # If an alias is defined, use it to store the last hop in the path
-                rhs_name = relation["alias"]
-            else:
-                rhs_name = (
-                    f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
-                )
-            rhs_ident = f"{rhs_name}:{rhs_label}"
-            if relation["include_in_return"]:
-                self._additional_return(rhs_name)
             if not stmt:
                 lhs_label = source_class_iterator.__label__
                 lhs_name = lhs_label.lower()
@@ -559,15 +563,39 @@ class QueryBuilder:
             else:
                 lhs_ident = stmt
 
+            already_present = part in subgraph
             rel_ident = self.create_ident()
-            if part not in self._ast.subgraph:
+            rhs_label = relationship.definition["node_class"].__label__
+            if relation.get("relation_filtering"):
+                rhs_name = rel_ident
+            else:
+                rel_reference = f'{relationship.definition["node_class"]}_{part}'
+                self._node_counters[rel_reference] += 1
+                if index + 1 == len(parts) and "alias" in relation:
+                    # If an alias is defined, use it to store the last hop in the path
+                    rhs_name = relation["alias"]
+                else:
+                    rhs_name = f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
+            rhs_ident = f"{rhs_name}:{rhs_label}"
+            if relation["include_in_return"] and not already_present:
+                self._additional_return(rhs_name)
+
+            if not already_present:
                 subgraph[part] = {
                     "target": relationship.definition["node_class"],
                     "children": {},
                     "variable_name": rhs_name,
                     "rel_variable_name": rel_ident,
                 }
-            if relation["include_in_return"]:
+            else:
+                existing_rhs_name = subgraph[part][
+                    (
+                        "rel_variable_name"
+                        if relation["relation_filtering"]
+                        else "variable_name"
+                    )
+                ]
+            if relation["include_in_return"] and not already_present:
                 self._additional_return(rel_ident)
             stmt = _rel_helper(
                 lhs=lhs_ident,
@@ -579,11 +607,14 @@ class QueryBuilder:
             source_class_iterator = relationship.definition["node_class"]
             subgraph = subgraph[part]["children"]
 
-        if relation.get("optional"):
-            self._ast.optional_match.append(stmt)
-        else:
-            self._ast.match.append(stmt)
-        return rhs_name
+        if not already_present:
+            if relation.get("optional"):
+                self._ast.optional_match.append(stmt)
+            else:
+                self._ast.match.append(stmt)
+            return rhs_name
+
+        return existing_rhs_name
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
@@ -643,11 +674,21 @@ class QueryBuilder:
         return key + "_" + str(self._place_holder_registry[key])
 
     def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str]:
-        path, prop = prop.rsplit("__", 1)
-        ident = self.build_traversal_from_path(
-            {"path": path, "include_in_return": True},
-            source_class,
-        )
+        is_rel_filter = "|" in prop
+        ident = self.lookup_query_variable(prop)
+        if is_rel_filter:
+            path, prop = prop.rsplit("|", 1)
+        else:
+            path, prop = prop.rsplit("__", 1)
+        if not ident:
+            ident = self.build_traversal_from_path(
+                {
+                    "path": path,
+                    "include_in_return": True,
+                    "relation_filtering": is_rel_filter,
+                },
+                source_class,
+            )
         return ident, path, prop
 
     def _finalize_filter_statement(
@@ -675,12 +716,14 @@ class QueryBuilder:
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
-            if "__" in prop:
+            is_rel_filter = "|" in prop
+            if "__" in prop or is_rel_filter:
                 ident, path, prop = self._parse_path(source_class, prop)
             operator, val = op_and_val
-            prop = source_class.defined_properties(rels=False)[
-                prop
-            ].get_db_property_name(prop)
+            if not is_rel_filter:
+                prop = source_class.defined_properties(rels=False)[
+                    prop
+                ].get_db_property_name(prop)
             statement = self._finalize_filter_statement(operator, ident, prop, val)
             target.append(statement)
 
@@ -743,6 +786,7 @@ class QueryBuilder:
         subgraph = self._ast.subgraph
         if not subgraph:
             return None
+        is_rel_property = "|" in path
         traversals = re.split(path_split_regex, path)
         if len(traversals) == 0:
             raise ValueError("Can only lookup traversal variables")
@@ -757,7 +801,7 @@ class QueryBuilder:
             elif part == last_property:
                 # if last part of prop is the last traversal
                 # we are safe to lookup the variable from the query
-                if return_relation:
+                if is_rel_property or return_relation:
                     variable_to_return = f"{subgraph['rel_variable_name']}"
                 else:
                     variable_to_return = f"{subgraph['variable_name']}"
@@ -899,7 +943,6 @@ class QueryBuilder:
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
-        print(query)
         results, prop_names = db.cypher_query(
             query, self._query_params, resolve_objects=True
         )

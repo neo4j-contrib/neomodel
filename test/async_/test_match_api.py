@@ -40,7 +40,7 @@ class SupplierRel(AsyncStructuredRel):
 class Supplier(AsyncStructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(AsyncStructuredNode):
@@ -595,14 +595,65 @@ async def test_filter_with_traversal():
 
 
 @mark_async_test
+async def test_relation_prop_filtering():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = await Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+
+@mark_async_test
+async def test_relation_prop_ordering():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_async_test
 async def test_fetch_relations():
     # Clean DB before we start anything...
     await adb.cypher_query("MATCH (n) DETACH DELETE n")
 
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
-    nescafe = await Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = await Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
     tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
