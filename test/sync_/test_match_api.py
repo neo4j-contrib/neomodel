@@ -26,6 +26,7 @@ from neomodel.sync_.match import (
     NodeSet,
     Optional,
     QueryBuilder,
+    RawCypher,
     RelationNameResolver,
     Traversal,
 )
@@ -80,6 +81,11 @@ class PersonX(StructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = RelationshipTo(CityX, "LIVES_IN")
+
+
+class SoftwareDependency(StructuredNode):
+    name = StringProperty(required=True)
+    version = StringProperty(required=True)
 
 
 @mark_sync_test
@@ -324,6 +330,29 @@ def test_order_by():
     assert ordered_n[0] == c2
     assert ordered_n[1] == c1
     assert ordered_n[2] == c3
+
+
+@mark_sync_test
+def test_order_by_rawcypher():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    d1 = SoftwareDependency(name="Package1", version="1.0.0").save()
+    d2 = SoftwareDependency(name="Package2", version="1.4.0").save()
+    d3 = SoftwareDependency(name="Package3", version="2.5.5").save()
+
+    assert (
+        SoftwareDependency.nodes.order_by(
+            RawCypher("toInteger(split($n.version, '.')[0]) DESC"),
+        ).all()
+    )[0] == d3
+
+    with raises(
+        ValueError, match=r"RawCypher: Do not include any action that has side effect"
+    ):
+        SoftwareDependency.nodes.order_by(
+            RawCypher("DETACH DELETE $n"),
+        )
 
 
 @mark_sync_test

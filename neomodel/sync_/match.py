@@ -1,5 +1,6 @@
 import inspect
 import re
+import string
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List
@@ -13,6 +14,8 @@ from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import INCOMING, OUTGOING
+
+CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
 
 def _rel_helper(
@@ -461,6 +464,9 @@ class QueryBuilder:
         else:
             order_by = []
             for elm in source.order_by_elements:
+                if isinstance(elm, RawCypher):
+                    order_by.append(elm.render({"n": ident}))
+                    continue
                 if "__" not in elm:
                     prop = elm.split(" ")[0] if " " in elm else elm
                     if prop not in source.source_class.defined_properties(rels=False):
@@ -893,6 +899,7 @@ class QueryBuilder:
                     for item in self._ast.additional_return
                 ]
         query = self.build_query()
+        print(query)
         results, prop_names = db.cypher_query(
             query, self._query_params, resolve_objects=True
         )
@@ -1047,6 +1054,26 @@ class RelationNameResolver:
     """
 
     relation: str
+
+
+@dataclass
+class RawCypher:
+    """Helper to inject raw cypher statement.
+
+    Can be used in order_by() call for example.
+
+    """
+
+    statement: str
+
+    def __post_init__(self):
+        if CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR.search(self.statement):
+            raise ValueError(
+                "RawCypher: Do not include any action that has side effect"
+            )
+
+    def render(self, context: Dict) -> str:
+        return string.Template(self.statement).substitute(context)
 
 
 class NodeSet(BaseSet):
@@ -1214,6 +1241,9 @@ class NodeSet(BaseSet):
             self.order_by_elements.append("?")
         else:
             for prop in props:
+                if isinstance(prop, RawCypher):
+                    self.order_by_elements.append(prop)
+                    continue
                 prop = prop.strip()
                 if prop.startswith("-"):
                     prop = prop[1:]
