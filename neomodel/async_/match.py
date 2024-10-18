@@ -1,5 +1,6 @@
 import inspect
 import re
+import string
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List
@@ -13,6 +14,8 @@ from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.util import INCOMING, OUTGOING
+
+CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
 
 def _rel_helper(
@@ -198,7 +201,7 @@ OPERATOR_TABLE = {
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
-path_split_regex = re.compile(r"__(?!_)")
+path_split_regex = re.compile(r"__(?!_)|\|")
 
 
 def install_traversals(cls, node_set):
@@ -268,29 +271,38 @@ def _deflate_value(
 
 def _initialize_filter_args_variables(cls, key: str):
     current_class = cls
+    current_rel_model = None
     leaf_prop = None
     operator = "="
+    is_rel_property = "|" in key
     prop = key
 
-    return current_class, leaf_prop, operator, prop
+    return current_class, current_rel_model, leaf_prop, operator, is_rel_property, prop
 
 
 def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
     (
         current_class,
+        current_rel_model,
         leaf_prop,
         operator,
+        is_rel_property,
         prop,
     ) = _initialize_filter_args_variables(cls, key)
 
     for part in re.split(path_split_regex, key):
         defined_props = current_class.defined_properties(rels=True)
+        # update defined props dictionary with relationship properties if
+        # we are filtering by property
+        if is_rel_property and current_rel_model:
+            defined_props.update(current_rel_model.defined_properties(rels=True))
         if part in defined_props:
             if isinstance(
                 defined_props[part], relationship_manager.AsyncRelationshipDefinition
             ):
                 defined_props[part].lookup_node_class()
                 current_class = defined_props[part].definition["node_class"]
+                current_rel_model = defined_props[part].definition["model"]
         elif part in OPERATOR_TABLE:
             operator = OPERATOR_TABLE[part]
             prop, _ = prop.rsplit("__", 1)
@@ -301,7 +313,10 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
             )
         leaf_prop = part
 
-    property_obj = getattr(current_class, leaf_prop)
+    if is_rel_property and current_rel_model:
+        property_obj = getattr(current_rel_model, leaf_prop)
+    else:
+        property_obj = getattr(current_class, leaf_prop)
 
     return property_obj, operator, prop
 
@@ -404,7 +419,6 @@ class AsyncQueryBuilder:
         self._query_params: Dict = {}
         self._place_holder_registry: Dict = {}
         self._ident_count: int = 0
-        self._node_counters = defaultdict(int)
         self._subquery_context: bool = subquery_context
 
     async def build_ast(self) -> "AsyncQueryBuilder":
@@ -461,7 +475,11 @@ class AsyncQueryBuilder:
         else:
             order_by = []
             for elm in source.order_by_elements:
-                if "__" not in elm:
+                if isinstance(elm, RawCypher):
+                    order_by.append(elm.render({"n": ident}))
+                    continue
+                is_rel_property = "|" in elm
+                if "__" not in elm and not is_rel_property:
                     prop = elm.split(" ")[0] if " " in elm else elm
                     if prop not in source.source_class.defined_properties(rels=False):
                         raise ValueError(
@@ -471,9 +489,12 @@ class AsyncQueryBuilder:
                         )
                     order_by.append(f"{ident}.{elm}")
                 else:
-                    path, prop = elm.rsplit("__", 1)
-                    order_by_clause = self.lookup_query_variable(path)
-                    order_by.append(f"{order_by_clause}.{prop}")
+                    path, prop = elm.rsplit("__" if not is_rel_property else "|", 1)
+                    result = self.lookup_query_variable(
+                        path, return_relation=is_rel_property
+                    )
+                    if result:
+                        order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
     async def build_traversal(self, traversal) -> str:
@@ -508,13 +529,17 @@ class AsyncQueryBuilder:
         if name not in self._ast.additional_return and name != self._ast.return_clause:
             self._ast.additional_return.append(name)
 
-    def build_traversal_from_path(self, relation: dict, source_class) -> str:
+    def build_traversal_from_path(
+        self, relation: dict, source_class
+    ) -> Tuple[str, Any]:
         path: str = relation["path"]
         stmt: str = ""
         source_class_iterator = source_class
         parts = re.split(path_split_regex, path)
         subgraph = self._ast.subgraph
         rel_iterator: str = ""
+        already_present = False
+        existing_rhs_name = ""
         for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
             if rel_iterator:
@@ -523,19 +548,6 @@ class AsyncQueryBuilder:
             # build source
             if "node_class" not in relationship.definition:
                 relationship.lookup_node_class()
-            rhs_label = relationship.definition["node_class"].__label__
-            rel_reference = f'{relationship.definition["node_class"]}_{part}'
-            self._node_counters[rel_reference] += 1
-            if index + 1 == len(parts) and "alias" in relation:
-                # If an alias is defined, use it to store the last hop in the path
-                rhs_name = relation["alias"]
-            else:
-                rhs_name = (
-                    f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
-                )
-            rhs_ident = f"{rhs_name}:{rhs_label}"
-            if relation["include_in_return"]:
-                self._additional_return(rhs_name)
             if not stmt:
                 lhs_label = source_class_iterator.__label__
                 lhs_name = lhs_label.lower()
@@ -553,15 +565,36 @@ class AsyncQueryBuilder:
             else:
                 lhs_ident = stmt
 
+            already_present = part in subgraph
             rel_ident = self.create_ident()
-            if part not in self._ast.subgraph:
+            rhs_label = relationship.definition["node_class"].__label__
+            if relation.get("relation_filtering"):
+                rhs_name = rel_ident
+            else:
+                rel_reference = f'{relationship.definition["node_class"]}_{part}'
+                if index + 1 == len(parts) and "alias" in relation:
+                    # If an alias is defined, use it to store the last hop in the path
+                    rhs_name = relation["alias"]
+                else:
+                    rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
+            rhs_ident = f"{rhs_name}:{rhs_label}"
+            if relation["include_in_return"] and not already_present:
+                self._additional_return(rhs_name)
+
+            if not already_present:
                 subgraph[part] = {
                     "target": relationship.definition["node_class"],
                     "children": {},
                     "variable_name": rhs_name,
                     "rel_variable_name": rel_ident,
                 }
-            if relation["include_in_return"]:
+            else:
+                existing_rhs_name = subgraph[part][
+                    "rel_variable_name"
+                    if relation.get("relation_filtering")
+                    else "variable_name"
+                ]
+            if relation["include_in_return"] and not already_present:
                 self._additional_return(rel_ident)
             stmt = _rel_helper(
                 lhs=lhs_ident,
@@ -573,11 +606,14 @@ class AsyncQueryBuilder:
             source_class_iterator = relationship.definition["node_class"]
             subgraph = subgraph[part]["children"]
 
-        if relation.get("optional"):
-            self._ast.optional_match.append(stmt)
-        else:
-            self._ast.match.append(stmt)
-        return rhs_name
+        if not already_present:
+            if relation.get("optional"):
+                self._ast.optional_match.append(stmt)
+            else:
+                self._ast.match.append(stmt)
+            return rhs_name, relationship.definition["node_class"]
+
+        return existing_rhs_name, relationship.definition["node_class"]
 
     async def build_node(self, node):
         ident = node.__class__.__name__.lower()
@@ -636,13 +672,25 @@ class AsyncQueryBuilder:
             self._place_holder_registry[key] = 1
         return key + "_" + str(self._place_holder_registry[key])
 
-    def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str]:
-        path, prop = prop.rsplit("__", 1)
-        ident = self.build_traversal_from_path(
-            {"path": path, "include_in_return": True},
-            source_class,
-        )
-        return ident, path, prop
+    def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str, Any]:
+        is_rel_filter = "|" in prop
+        if is_rel_filter:
+            path, prop = prop.rsplit("|", 1)
+        else:
+            path, prop = prop.rsplit("__", 1)
+        result = self.lookup_query_variable(path, return_relation=is_rel_filter)
+        if not result:
+            ident, target_class = self.build_traversal_from_path(
+                {
+                    "path": path,
+                    "include_in_return": True,
+                    "relation_filtering": is_rel_filter,
+                },
+                source_class,
+            )
+        else:
+            ident, target_class = result
+        return ident, path, prop, target_class
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -669,12 +717,15 @@ class AsyncQueryBuilder:
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
-            if "__" in prop:
-                ident, path, prop = self._parse_path(source_class, prop)
+            is_rel_filter = "|" in prop
+            target_class = source_class
+            if "__" in prop or is_rel_filter:
+                ident, path, prop, target_class = self._parse_path(source_class, prop)
             operator, val = op_and_val
-            prop = source_class.defined_properties(rels=False)[
-                prop
-            ].get_db_property_name(prop)
+            if not is_rel_filter:
+                prop = target_class.defined_properties(rels=False)[
+                    prop
+                ].get_db_property_name(prop)
             statement = self._finalize_filter_statement(operator, ident, prop, val)
             target.append(statement)
 
@@ -732,7 +783,7 @@ class AsyncQueryBuilder:
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
-    ) -> TOptional[str]:
+    ) -> TOptional[Tuple[str, Any]]:
         """Retrieve the variable name generated internally for the given traversal path."""
         subgraph = self._ast.subgraph
         if not subgraph:
@@ -743,7 +794,7 @@ class AsyncQueryBuilder:
         if traversals[0] not in subgraph:
             return None
         subgraph = subgraph[traversals[0]]
-        variable_to_return = None
+        variable_to_return = ""
         last_property = traversals[-1]
         for part in traversals:
             if part in subgraph["children"]:
@@ -756,8 +807,8 @@ class AsyncQueryBuilder:
                 else:
                     variable_to_return = f"{subgraph['variable_name']}"
             else:
-                break
-        return variable_to_return
+                return None
+        return variable_to_return, subgraph["target"]
 
     def build_query(self) -> str:
         query: str = ""
@@ -779,6 +830,9 @@ class AsyncQueryBuilder:
             query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
 
         if self._ast.where:
+            if self._ast.optional_match:
+                # Make sure filtering works as expected with optional match, even if it's not performant...
+                query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.where)
 
@@ -794,20 +848,23 @@ class AsyncQueryBuilder:
                     if type(source) is str:
                         injected_vars.append(f"{source} AS {name}")
                     elif isinstance(source, RelationNameResolver):
-                        internal_name = self.lookup_query_variable(
+                        result = self.lookup_query_variable(
                             source.relation, return_relation=True
                         )
-                        if not internal_name:
+                        if not result:
                             raise ValueError(
                                 f"Unable to resolve variable name for relation {source.relation}."
                             )
-                        injected_vars.append(f"{internal_name} AS {name}")
+                        injected_vars.append(f"{result[0]} AS {name}")
                 query += ",".join(injected_vars)
                 if not transform["ordering"]:
                     continue
                 query += " ORDER BY "
                 ordering: list = []
                 for item in transform["ordering"]:
+                    if isinstance(item, RawCypher):
+                        ordering.append(item.render({}))
+                        continue
                     if item.startswith("-"):
                         ordering.append(f"{item[1:]} DESC")
                     else:
@@ -1051,6 +1108,26 @@ class RelationNameResolver:
     relation: str
 
 
+@dataclass
+class RawCypher:
+    """Helper to inject raw cypher statement.
+
+    Can be used in order_by() call for example.
+
+    """
+
+    statement: str
+
+    def __post_init__(self):
+        if CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR.search(self.statement):
+            raise ValueError(
+                "RawCypher: Do not include any action that has side effect"
+            )
+
+    def render(self, context: Dict) -> str:
+        return string.Template(self.statement).substitute(context)
+
+
 class AsyncNodeSet(AsyncBaseSet):
     """
     A class representing as set of nodes matching common query parameters
@@ -1216,6 +1293,9 @@ class AsyncNodeSet(AsyncBaseSet):
             self.order_by_elements.append("?")
         else:
             for prop in props:
+                if isinstance(prop, RawCypher):
+                    self.order_by_elements.append(prop)
+                    continue
                 prop = prop.strip()
                 if prop.startswith("-"):
                     prop = prop[1:]

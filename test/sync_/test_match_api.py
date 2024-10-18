@@ -26,6 +26,7 @@ from neomodel.sync_.match import (
     NodeSet,
     Optional,
     QueryBuilder,
+    RawCypher,
     RelationNameResolver,
     Traversal,
 )
@@ -39,7 +40,7 @@ class SupplierRel(StructuredRel):
 class Supplier(StructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(StructuredNode):
@@ -80,6 +81,11 @@ class PersonX(StructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = RelationshipTo(CityX, "LIVES_IN")
+
+
+class SoftwareDependency(StructuredNode):
+    name = StringProperty(required=True)
+    version = StringProperty(required=True)
 
 
 @mark_sync_test
@@ -327,6 +333,29 @@ def test_order_by():
 
 
 @mark_sync_test
+def test_order_by_rawcypher():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    d1 = SoftwareDependency(name="Package1", version="1.0.0").save()
+    d2 = SoftwareDependency(name="Package2", version="1.4.0").save()
+    d3 = SoftwareDependency(name="Package3", version="2.5.5").save()
+
+    assert (
+        SoftwareDependency.nodes.order_by(
+            RawCypher("toInteger(split($n.version, '.')[0]) DESC"),
+        ).all()
+    )[0] == d3
+
+    with raises(
+        ValueError, match=r"RawCypher: Do not include any action that has side effect"
+    ):
+        SoftwareDependency.nodes.order_by(
+            RawCypher("DETACH DELETE $n"),
+        )
+
+
+@mark_sync_test
 def test_extra_filters():
     for c in Coffee.nodes:
         c.delete()
@@ -560,14 +589,61 @@ def test_filter_with_traversal():
 
 
 @mark_sync_test
+def test_relation_prop_filtering():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+
+@mark_sync_test
+def test_relation_prop_ordering():
+    # Clean DB before we start anything...
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_sync_test
 def test_fetch_relations():
     # Clean DB before we start anything...
     db.cypher_query("MATCH (n) DETACH DELETE n")
 
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
-    nescafe = Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
     tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
