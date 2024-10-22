@@ -23,6 +23,7 @@ from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefin
 from neomodel.sync_.match import (
     Collect,
     Last,
+    NodeNameResolver,
     NodeSet,
     Optional,
     QueryBuilder,
@@ -756,6 +757,19 @@ def test_annotate_and_collect():
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
 
+    result = (
+        Supplier.nodes.traverse_relations("coffees__species")
+        .annotate(
+            all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
+            all_species_rels=Collect(
+                RelationNameResolver("coffees__species"), distinct=True
+            ),
+        )
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][2][0]) == 3  # 3 species relations must be there
+
 
 @mark_sync_test
 def test_resolve_subgraph():
@@ -888,11 +902,11 @@ def test_intermediate_transform():
     nescafe.species.connect(arabica)
 
     result = (
-        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
                 "coffee": "coffee",
-                "suppliers": "suppliers",
+                "suppliers": NodeNameResolver("suppliers"),
                 "r": RelationNameResolver("suppliers"),
             },
             ordering=["-r.since"],
@@ -914,6 +928,15 @@ def test_intermediate_transform():
             {
                 "test": Collect("suppliers"),
             }
+        )
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"You must provide one variable at least when calling intermediate_transform()"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {}
         )
 
 

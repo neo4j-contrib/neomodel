@@ -25,6 +25,7 @@ from neomodel.async_.match import (
     AsyncTraversal,
     Collect,
     Last,
+    NodeNameResolver,
     Optional,
     RawCypher,
     RelationNameResolver,
@@ -768,6 +769,19 @@ async def test_annotate_and_collect():
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
 
+    result = (
+        await Supplier.nodes.traverse_relations("coffees__species")
+        .annotate(
+            all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
+            all_species_rels=Collect(
+                RelationNameResolver("coffees__species"), distinct=True
+            ),
+        )
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][2][0]) == 3  # 3 species relations must be there
+
 
 @mark_async_test
 async def test_resolve_subgraph():
@@ -900,11 +914,11 @@ async def test_intermediate_transform():
     await nescafe.species.connect(arabica)
 
     result = (
-        await Coffee.nodes.traverse_relations(suppliers="suppliers")
+        await Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
                 "coffee": "coffee",
-                "suppliers": "suppliers",
+                "suppliers": NodeNameResolver("suppliers"),
                 "r": RelationNameResolver("suppliers"),
             },
             ordering=["-r.since"],
@@ -926,6 +940,15 @@ async def test_intermediate_transform():
             {
                 "test": Collect("suppliers"),
             }
+        )
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"You must provide one variable at least when calling intermediate_transform()"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {}
         )
 
 
