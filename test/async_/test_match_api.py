@@ -25,7 +25,9 @@ from neomodel.async_.match import (
     AsyncTraversal,
     Collect,
     Last,
+    NodeNameResolver,
     Optional,
+    RawCypher,
     RelationNameResolver,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
@@ -39,7 +41,7 @@ class SupplierRel(AsyncStructuredRel):
 class Supplier(AsyncStructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(AsyncStructuredNode):
@@ -82,6 +84,11 @@ class PersonX(AsyncStructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = AsyncRelationshipTo(CityX, "LIVES_IN")
+
+
+class SoftwareDependency(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    version = StringProperty(required=True)
 
 
 @mark_async_test
@@ -331,6 +338,29 @@ async def test_order_by():
 
 
 @mark_async_test
+async def test_order_by_rawcypher():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    d1 = await SoftwareDependency(name="Package1", version="1.0.0").save()
+    d2 = await SoftwareDependency(name="Package2", version="1.4.0").save()
+    d3 = await SoftwareDependency(name="Package3", version="2.5.5").save()
+
+    assert (
+        await SoftwareDependency.nodes.order_by(
+            RawCypher("toInteger(split($n.version, '.')[0]) DESC"),
+        ).all()
+    )[0] == d3
+
+    with raises(
+        ValueError, match=r"RawCypher: Do not include any action that has side effect"
+    ):
+        SoftwareDependency.nodes.order_by(
+            RawCypher("DETACH DELETE $n"),
+        )
+
+
+@mark_async_test
 async def test_extra_filters():
     for c in await Coffee.nodes:
         await c.delete()
@@ -566,14 +596,65 @@ async def test_filter_with_traversal():
 
 
 @mark_async_test
+async def test_relation_prop_filtering():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = await Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+
+@mark_async_test
+async def test_relation_prop_ordering():
+    # Clean DB before we start anything...
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_async_test
 async def test_fetch_relations():
     # Clean DB before we start anything...
     await adb.cypher_query("MATCH (n) DETACH DELETE n")
 
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
-    nescafe = await Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = await Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
     tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
@@ -597,7 +678,7 @@ async def test_fetch_relations():
         .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
-    assert result[0][0] is None
+    assert len(result) == 0
 
     if AsyncUtil.is_async_code:
         count = (
@@ -687,6 +768,19 @@ async def test_annotate_and_collect():
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        await Supplier.nodes.traverse_relations("coffees__species")
+        .annotate(
+            all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
+            all_species_rels=Collect(
+                RelationNameResolver("coffees__species"), distinct=True
+            ),
+        )
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][2][0]) == 3  # 3 species relations must be there
 
 
 @mark_async_test
@@ -820,11 +914,11 @@ async def test_intermediate_transform():
     await nescafe.species.connect(arabica)
 
     result = (
-        await Coffee.nodes.traverse_relations(suppliers="suppliers")
+        await Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
                 "coffee": "coffee",
-                "suppliers": "suppliers",
+                "suppliers": NodeNameResolver("suppliers"),
                 "r": RelationNameResolver("suppliers"),
             },
             ordering=["-r.since"],
@@ -834,19 +928,27 @@ async def test_intermediate_transform():
     )
 
     assert len(result) == 1
-    assert len(result[0]) == 2
-    assert result[0][1] == supplier2
+    assert result[0] == supplier2
 
     with raises(
         ValueError,
         match=re.escape(
-            r"Wrong source type specified for variable 'test', should be a string or an instance of RelationNameResolver"
+            r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
         ),
     ):
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
             {
                 "test": Collect("suppliers"),
             }
+        )
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"You must provide one variable at least when calling intermediate_transform()"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {}
         )
 
 
