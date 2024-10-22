@@ -1,7 +1,6 @@
 import inspect
 import re
 import string
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from typing import Optional as TOptional
@@ -571,7 +570,6 @@ class QueryBuilder:
             if relation.get("relation_filtering"):
                 rhs_name = rel_ident
             else:
-                rel_reference = f'{relationship.definition["node_class"]}_{part}'
                 if index + 1 == len(parts) and "alias" in relation:
                     # If an alias is defined, use it to store the last hop in the path
                     rhs_name = relation["alias"]
@@ -796,20 +794,20 @@ class QueryBuilder:
         if traversals[0] not in subgraph:
             return None
         subgraph = subgraph[traversals[0]]
+        if len(traversals) == 1:
+            variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
+            return variable_to_return, subgraph["target"]
         variable_to_return = ""
         last_property = traversals[-1]
-        for part in traversals:
-            if part in subgraph["children"]:
-                subgraph = subgraph["children"][part]
-            elif part == last_property:
+        for part in traversals[1:]:
+            child = subgraph["children"].get(part)
+            if not child:
+                return None
+            subgraph = child
+            if part == last_property:
                 # if last part of prop is the last traversal
                 # we are safe to lookup the variable from the query
-                if return_relation:
-                    variable_to_return = f"{subgraph['rel_variable_name']}"
-                else:
-                    variable_to_return = f"{subgraph['variable_name']}"
-            else:
-                return None
+                variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
         return variable_to_return, subgraph["target"]
 
     def build_query(self) -> str:
@@ -846,6 +844,9 @@ class QueryBuilder:
             for transform in self.node_set._intermediate_transforms:
                 query += " WITH "
                 injected_vars: list = []
+                # Reset return list since we'll probably invalidate most variables
+                self._ast.return_clause = ""
+                self._ast.additional_return = []
                 for name, source in transform["vars"].items():
                     if type(source) is str:
                         injected_vars.append(f"{source} AS {name}")
@@ -856,6 +857,13 @@ class QueryBuilder:
                         if not result:
                             raise ValueError(
                                 f"Unable to resolve variable name for relation {source.relation}."
+                            )
+                        injected_vars.append(f"{result[0]} AS {name}")
+                    elif isinstance(source, NodeNameResolver):
+                        result = self.lookup_query_variable(source.node)
+                        if not result:
+                            raise ValueError(
+                                f"Unable to resolve variable name for node {source.node}."
                             )
                         injected_vars.append(f"{result[0]} AS {name}")
                 query += ",".join(injected_vars)
@@ -878,6 +886,17 @@ class QueryBuilder:
             for subquery, return_set in self.node_set._subqueries:
                 outer_primary_var = self._ast.return_clause
                 query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
+                for varname in return_set:
+                    # We declare the returned variables as "virtual" relations of the
+                    # root node class to make sure they will be translated by a call to
+                    # resolve_subgraph() (otherwise, they will be lost).
+                    # This is probably a temporary solution until we find something better...
+                    self._ast.subgraph[varname] = {
+                        "target": None,  # We don't need target class in this use case
+                        "children": {},
+                        "variable_name": varname,
+                        "rel_variable_name": varname,
+                    }
                 returned_items += return_set
 
         query += " RETURN "
@@ -886,12 +905,18 @@ class QueryBuilder:
         if self._ast.additional_return:
             returned_items += self._ast.additional_return
         if hasattr(self.node_set, "_extra_results"):
-            for varname, vardef in self.node_set._extra_results.items():
+            for props in self.node_set._extra_results:
+                leftpart = props["vardef"].render(self)
+                varname = (
+                    props["alias"]
+                    if props.get("alias")
+                    else props["vardef"].get_internal_name()
+                )
                 if varname in returned_items:
                     # We're about to override an existing variable, delete it first to
                     # avoid duplicate error
                     returned_items.remove(varname)
-                returned_items.append(f"{str(vardef)} AS {varname}")
+                returned_items.append(f"{leftpart} AS {varname}")
 
         query += ", ".join(returned_items)
 
@@ -1062,40 +1087,6 @@ class Optional:
 
 
 @dataclass
-class AggregatingFunction:
-    """Base aggregating function class."""
-
-    input_name: str
-
-
-@dataclass
-class Collect(AggregatingFunction):
-    """collect() function."""
-
-    distinct: bool = False
-
-    def __str__(self):
-        if self.distinct:
-            return f"collect(DISTINCT {self.input_name})"
-        return f"collect({self.input_name})"
-
-
-@dataclass
-class ScalarFunction:
-    """Base scalar function class."""
-
-    input_name: Union[str, AggregatingFunction]
-
-
-@dataclass
-class Last(ScalarFunction):
-    """last() function."""
-
-    def __str__(self) -> str:
-        return f"last({str(self.input_name)})"
-
-
-@dataclass
 class RelationNameResolver:
     """Helper to refer to a relation variable name.
 
@@ -1106,6 +1097,87 @@ class RelationNameResolver:
     """
 
     relation: str
+
+
+@dataclass
+class NodeNameResolver:
+    """Helper to refer to a node variable name.
+
+    Since variable names are generated automatically within MATCH statements (for
+    anything injected using fetch_relations or traverse_relations), we need a way to
+    retrieve them.
+
+    """
+
+    node: str
+
+
+@dataclass
+class BaseFunction:
+    input_name: Union[str, "BaseFunction", NodeNameResolver, RelationNameResolver]
+
+    def __post_init__(self) -> None:
+        self._internal_name: str = ""
+
+    def get_internal_name(self) -> str:
+        return self._internal_name
+
+    def resolve_internal_name(self, qbuilder: QueryBuilder) -> str:
+        if isinstance(self.input_name, NodeNameResolver):
+            result = qbuilder.lookup_query_variable(self.input_name.node)
+        elif isinstance(self.input_name, RelationNameResolver):
+            result = qbuilder.lookup_query_variable(self.input_name.relation, True)
+        else:
+            result = (str(self.input_name), None)
+        if result is None:
+            raise ValueError(f"Unknown variable {self.input_name} used in Collect()")
+        self._internal_name = result[0]
+        return self._internal_name
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        raise NotImplementedError
+
+
+@dataclass
+class AggregatingFunction(BaseFunction):
+    """Base aggregating function class."""
+
+    pass
+
+
+@dataclass
+class Collect(AggregatingFunction):
+    """collect() function."""
+
+    distinct: bool = False
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        varname = self.resolve_internal_name(qbuilder)
+        if self.distinct:
+            return f"collect(DISTINCT {varname})"
+        return f"collect({varname})"
+
+
+@dataclass
+class ScalarFunction(BaseFunction):
+    """Base scalar function class."""
+
+    pass
+
+
+@dataclass
+class Last(ScalarFunction):
+    """last() function."""
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        if isinstance(self.input_name, str):
+            content = str(self.input_name)
+        elif isinstance(self.input_name, BaseFunction):
+            content = self.input_name.render(qbuilder)
+            self._internal_name = self.input_name.get_internal_name()
+        else:
+            content = self.resolve_internal_name(qbuilder)
+        return f"last({content})"
 
 
 @dataclass
@@ -1156,7 +1228,7 @@ class NodeSet(BaseSet):
         self.dont_match: Dict = {}
 
         self.relations_to_fetch: List = []
-        self._extra_results: dict = {}
+        self._extra_results: List = []
         self._subqueries: list[Tuple[str, list[str]]] = []
         self._intermediate_transforms: list = []
 
@@ -1357,7 +1429,9 @@ class NodeSet(BaseSet):
 
         def register_extra_var(vardef, varname: Union[str, None] = None):
             if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
-                self._extra_results[varname if varname else vardef.input_name] = vardef
+                self._extra_results.append(
+                    {"vardef": vardef, "alias": varname if varname else ""}
+                )
             else:
                 raise NotImplementedError
 
@@ -1411,17 +1485,20 @@ class NodeSet(BaseSet):
         we use a dedicated property to store node's relations.
 
         """
-        if not self.relations_to_fetch:
-            raise RuntimeError(
-                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
-            )
-        if not self.relations_to_fetch[0]["include_in_return"]:
+        if (
+            self.relations_to_fetch
+            and not self.relations_to_fetch[0]["include_in_return"]
+        ):
             raise NotImplementedError(
                 "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
             )
         results: list = []
         qbuilder = self.query_cls(self)
         qbuilder.build_ast()
+        if not qbuilder._ast.subgraph:
+            raise RuntimeError(
+                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+            )
         all_nodes = qbuilder._execute(dict_output=True)
         other_nodes = {}
         root_node = None
@@ -1452,7 +1529,8 @@ class NodeSet(BaseSet):
             if (
                 var != qbuilder._ast.return_clause
                 and var not in qbuilder._ast.additional_return
-                and var not in nodeset._extra_results
+                and var
+                not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
             ):
                 raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
         self._subqueries.append((qbuilder.build_query(), return_set))
@@ -1461,10 +1539,16 @@ class NodeSet(BaseSet):
     def intermediate_transform(
         self, vars: Dict[str, Any], ordering: TOptional[list] = None
     ) -> "NodeSet":
+        if not vars:
+            raise ValueError(
+                "You must provide one variable at least when calling intermediate_transform()"
+            )
         for name, source in vars.items():
-            if type(source) is not str and not isinstance(source, RelationNameResolver):
+            if type(source) is not str and not isinstance(
+                source, (NodeNameResolver, RelationNameResolver)
+            ):
                 raise ValueError(
-                    f"Wrong source type specified for variable '{name}', should be a string or an instance of RelationNameResolver"
+                    f"Wrong source type specified for variable '{name}', should be a string or an instance of NodeNameResolver or RelationNameResolver"
                 )
         self._intermediate_transforms.append({"vars": vars, "ordering": ordering})
         return self

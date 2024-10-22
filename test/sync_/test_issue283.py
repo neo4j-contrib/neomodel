@@ -9,6 +9,7 @@ The following example uses a recursive relationship for economy, but the
 idea remains the same: "Instantiate the correct type of node at the end of 
 a relationship as specified by the model"
 """
+
 import random
 from test._async_compat import mark_sync_test
 

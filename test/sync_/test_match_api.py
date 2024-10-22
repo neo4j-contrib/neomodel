@@ -667,7 +667,7 @@ def test_fetch_relations():
         .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
-    assert result[0][0] is None
+    assert len(result) == 0
 
     if Util.is_async_code:
         count = (
@@ -902,13 +902,12 @@ def test_intermediate_transform():
     )
 
     assert len(result) == 1
-    assert len(result[0]) == 2
-    assert result[0][1] == supplier2
+    assert result[0] == supplier2
 
     with raises(
         ValueError,
         match=re.escape(
-            r"Wrong source type specified for variable 'test', should be a string or an instance of RelationNameResolver"
+            r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
         ),
     ):
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
