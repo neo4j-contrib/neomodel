@@ -193,6 +193,28 @@ simply returning the node IDs rather than every attribute associated with that N
     # Return set of nodes
     people = Person.nodes.filter(age__gt=3)
 
+Iteration, slicing and more
+---------------------------
+
+Iteration, slicing and counting is also supported::
+
+    # Iterable
+    for coffee in Coffee.nodes:
+        print coffee.name
+
+    # Sliceable using python slice syntax
+    coffee = Coffee.nodes.filter(price__gt=2)[2:]
+
+The slice syntax returns a NodeSet object which can in turn be chained.
+
+Length and boolean methods do not return NodeSet objects and cannot be chained further::
+
+    # Count with __len__
+    print len(Coffee.nodes.filter(price__gt=2))
+
+    if Coffee.nodes:
+        print "We have coffee nodes!"
+
 Relationships
 =============
 
@@ -235,38 +257,6 @@ Working with relationships::
 
 Retrieving additional relations
 ===============================
-
-To avoid queries multiplication, you have the possibility to retrieve
-additional relations with a single call::
-
-    # The following call will generate one MATCH with traversal per
-    # item in .fetch_relations() call
-    results = Person.nodes.fetch_relations('country').all()
-    for result in results:
-        print(result[0]) # Person
-        print(result[1]) # associated Country
-
-You can traverse more than one hop in your relations using the
-following syntax::
-
-    # Go from person to City then Country
-    Person.nodes.fetch_relations('city__country').all()
-
-You can also force the use of an ``OPTIONAL MATCH`` statement using
-the following syntax::
-
-    from neomodel.match import Optional
-
-    results = Person.nodes.fetch_relations(Optional('country')).all()
-
-.. note::
-
-    Any relationship that you intend to traverse using this method **MUST have a model defined**, even if only the default StructuredRel, like::
-        
-        class Person(StructuredNode):
-            country = RelationshipTo(Country, 'IS_FROM', model=StructuredRel)
-
-    Otherwise, neomodel will not be able to determine which relationship model to resolve into, and will fail.
 
 .. note::
 

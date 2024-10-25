@@ -120,7 +120,7 @@ The `has` method checks for existence of (one or more) relationships, in this ca
 
 This can be negated by setting `suppliers=False`, to find `Coffee` nodes without `suppliers`.
 
-You can also filter on the existence of more complex traversals by using the `traverse_relations` method. (ADD LINK TO DOC)
+You can also filter on the existence of more complex traversals by using the `traverse_relations` method. See :ref:`Path traversal`.
 
 Ordering
 ========

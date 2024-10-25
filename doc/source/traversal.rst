@@ -1,3 +1,5 @@
+.. _Path traversal:
+
 ==============
 Path traversal
 ==============
@@ -29,7 +31,7 @@ The `traverse_relations` method allows you to filter on the existence of more co
 
 This will generate a Cypher MATCH clause that enforces the existence of at least one path like `Coffee<--Supplier-->Country`.
 
-The `Country` nodes matched will be made available for the rest of the query, with the variable name `country`. Note that this aliasing is optional. See the section on Advanced query operations for examples of how to use this aliasing. (ADD LINK TO DOC)
+The `Country` nodes matched will be made available for the rest of the query, with the variable name `country`. Note that this aliasing is optional. See :ref:`Advanced query operations` for examples of how to use this aliasing.
 
 .. note::
 

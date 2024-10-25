@@ -24,6 +24,18 @@ Outside of a `StructuredNode`::
 
 The ``resolve_objects`` parameter automatically inflates the returned nodes to their defined classes (this is turned **off** by default). See :ref:`automatic_class_resolution` for details and possible pitfalls.
 
+You canalso  retrieve a whole path of already instantiated objects corresponding to 
+the nodes and relationship classes with a single query::
+
+    q = db.cypher_query("MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1", 
+                        resolve_objects = True)
+
+Notice here that ``resolve_objects`` is set to ``True``. This results in ``q`` being a 
+list of ``result, result_name`` and ``q[0][0][0]`` being a ``NeomodelPath`` object.
+
+``NeomodelPath`` ``nodes, relationships`` attributes contain already instantiated objects of the 
+nodes and relationships in the query, *in order of appearance*.
+
 Integrations
 ============
 
