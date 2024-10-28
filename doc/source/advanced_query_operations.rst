@@ -21,7 +21,7 @@ neomodel implements some of the aggregation methods available in Cypher:
 
 These are usable in this way::
 
-    from neomodel.sync_match import Collect, Last
+    from neomodel.sync_.match import Collect, Last
 
     # distinct is optional, and defaults to False. When true, objects are deduplicated
     Supplier.nodes.traverse_relations(available_species="coffees__species")
@@ -36,7 +36,7 @@ These are usable in this way::
 .. note::
     Using the Last() method right after a Collect() without having set an ordering will return the last element in the list as it was returned by the database.
 
-    This is probably not what you want ; which means you must provide an explicit ordering. To do so, you cannot neomodel's order_by method, but need an intermediate transformation step (see below).
+    This is probably not what you want ; which means you must provide an explicit ordering. To do so, you cannot use neomodel's `order_by` method, but need an intermediate transformation step (see below).
 
     This is because the order_by method adds ordering as the very last step of the Cypher query ; whereas in the present example, you want to first order Species, then get the last one, and then finally return your results. In other words, you need an intermediate WITH Cypher clause.
 
@@ -47,7 +47,7 @@ The `intermediate_transform` method basically allows you to add a WITH clause to
 
 As discussed in the note above, this is for example useful when you need to order your results before applying an aggregation method, like so::
 
-    from neomodel.sync_match import Collect, Last
+    from neomodel.sync_.match import Collect, Last
 
     # This will return all Coffee nodes, with their most expensive supplier
     Coffee.nodes.traverse_relations(suppliers="suppliers")

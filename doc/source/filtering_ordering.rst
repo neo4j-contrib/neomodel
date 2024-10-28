@@ -95,15 +95,15 @@ Sometimes you need to filter nodes based on other nodes they are connected to. T
     since_date = datetime(2007, 1, 1)
     java_old_timers = Coffee.nodes.filter(
             name='Java',
-            suppliers|since__lt=since_date,
-            suppliers__delivery_cost__gt=5
+            suppliers__delivery_cost__gt=5,
+            **{"suppliers|since__lt": since_date}
         )
 
 In the example above, note the following syntax elements:
 
 - The name of relationships as defined in the `StructuredNode` class is used to traverse relationships. `suppliers` in this example.
 - Double underscore `__` is used to target a property of a node. `delivery_cost` in this example.
-- A pipe `|` is used to separate the relationship traversal from the property filter. This is a special syntax to indicate that the filter is on the relationship itself, not on the node at the end of the relationship.
+- A pipe `|` is used to separate the relationship traversal from the property filter. The filter also has to included in a `**kwargs` dictionary, because the pipe character would break the syntax. This is a special syntax to indicate that the filter is on the relationship itself, not on the node at the end of the relationship.
 - The filter operators like lt, gt, etc. can be used on the filtered property.
 
 Traversals can be of any length, with each relationships separated by a double underscore `__`, for example::
@@ -130,7 +130,7 @@ neomodel allows ordering by nodes' and relationships' properties. Order can be a
 order_by
 --------
 
-Ordering results by a particular property is done via th `order_by` method::
+Ordering results by a particular property is done via the `order_by` method::
 
     # Ascending sort
     for coffee in Coffee.nodes.order_by('price'):

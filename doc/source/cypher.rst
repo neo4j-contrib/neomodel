@@ -24,7 +24,7 @@ Outside of a `StructuredNode`::
 
 The ``resolve_objects`` parameter automatically inflates the returned nodes to their defined classes (this is turned **off** by default). See :ref:`automatic_class_resolution` for details and possible pitfalls.
 
-You canalso  retrieve a whole path of already instantiated objects corresponding to 
+You can also retrieve a whole path of already instantiated objects corresponding to 
 the nodes and relationship classes with a single query::
 
     q = db.cypher_query("MATCH p=(:CityOfResidence)<-[:LIVES_IN]-(:PersonOfInterest)-[:IS_FROM]->(:CountryOfOrigin) RETURN p LIMIT 1", 
