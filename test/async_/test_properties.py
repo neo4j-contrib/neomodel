@@ -310,6 +310,17 @@ def test_json():
     assert prop.inflate('{"test": [1, 2, 3]}') == value
 
 
+def test_json_unicode():
+    prop = JSONProperty(ensure_ascii=False)
+    prop.name = "json"
+    prop.owner = FooBar
+
+    value = {"test": [1, 2, 3, "©"]}
+
+    assert prop.deflate(value) == '{"test": [1, 2, 3, "©"]}'
+    assert prop.inflate('{"test": [1, 2, 3, ©]}') == value
+
+
 def test_indexed():
     indexed = StringProperty(index=True)
     assert indexed.is_indexed is True
