@@ -63,11 +63,6 @@ async def test_relationship_definer_second_sibling():
     await B.rel_2.connect(C)
     await C.rel_3.connect(A)
 
-    # Clean up
-    await A.delete()
-    await B.delete()
-    await C.delete()
-
 
 @mark_async_test
 async def test_relationship_definer_parent_last():
@@ -80,8 +75,3 @@ async def test_relationship_definer_parent_last():
     await A.rel_1.connect(B)
     await B.rel_2.connect(C)
     await C.rel_3.connect(A)
-
-    # Clean up
-    await A.delete()
-    await B.delete()
-    await C.delete()

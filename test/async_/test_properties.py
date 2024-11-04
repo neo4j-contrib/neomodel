@@ -418,10 +418,6 @@ async def test_independent_property_name():
     rel = await x.knows.relationship(x)
     assert rel.known_for == r.known_for
 
-    # -- cleanup --
-
-    await x.delete()
-
 
 @mark_async_test
 async def test_independent_property_name_for_semi_structured():
@@ -455,8 +451,6 @@ async def test_independent_property_name_for_semi_structured():
     # assert not hasattr(from_get, "title")
     assert from_get.extra == "data"
 
-    await semi.delete()
-
 
 @mark_async_test
 async def test_independent_property_name_get_or_create():
@@ -474,9 +468,6 @@ async def test_independent_property_name_get_or_create():
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
-
-    # delete node afterwards
-    await x.delete()
 
 
 @mark.parametrize("normalized_class", (NormalizedProperty,))
@@ -648,9 +639,6 @@ async def test_unique_index_prop_not_required():
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["unique_required_property"] == "unique and required"
 
-    # delete node afterwards
-    await x.delete()
-
 
 @mark_async_test
 async def test_unique_index_prop_enforced():
@@ -674,11 +662,6 @@ async def test_unique_index_prop_enforced():
     # Check nodes are in database
     results, _ = await adb.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
     assert len(results) == 3
-
-    # Delete nodes afterwards
-    await x.delete()
-    await y.delete()
-    await z.delete()
 
 
 def test_alias_property():

@@ -253,9 +253,6 @@ async def test_len_and_iter_and_bool():
 
 @mark_async_test
 async def test_slice():
-    for c in await Coffee.nodes:
-        await c.delete()
-
     await Coffee(name="Icelands finest").save()
     await Coffee(name="Britains finest").save()
     await Coffee(name="Japans finest").save()
@@ -324,9 +321,6 @@ async def test_contains():
 
 @mark_async_test
 async def test_order_by():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     c1 = await Coffee(name="Icelands finest", price=5).save()
     c2 = await Coffee(name="Britains finest", price=10).save()
     c3 = await Coffee(name="Japans finest", price=35).save()
@@ -369,9 +363,6 @@ async def test_order_by():
 
 @mark_async_test
 async def test_order_by_rawcypher():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     d1 = await SoftwareDependency(name="Package1", version="1.0.0").save()
     d2 = await SoftwareDependency(name="Package2", version="1.4.0").save()
     d3 = await SoftwareDependency(name="Package3", version="2.5.5").save()
@@ -392,9 +383,6 @@ async def test_order_by_rawcypher():
 
 @mark_async_test
 async def test_extra_filters():
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = await Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = await Coffee(name="Japans finest", price=35, id_=3).save()
@@ -466,10 +454,6 @@ async def test_empty_filters():
     ``get_queryset`` function in ``GenericAPIView`` should returns
     ``NodeSet`` object.
     """
-
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Super", price=5, id_=1).save()
     c2 = await Coffee(name="Puper", price=10, id_=2).save()
 
@@ -493,10 +477,6 @@ async def test_empty_filters():
 
 @mark_async_test
 async def test_q_filters():
-    # Test where no children and self.connector != conn ?
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = await Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = await Coffee(name="Japans finest", price=35, id_=3).save()
@@ -606,9 +586,6 @@ async def test_traversal_filter_left_hand_statement():
 
 @mark_async_test
 async def test_filter_with_traversal():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=11).save()
@@ -636,9 +613,6 @@ async def test_filter_with_traversal():
 
 @mark_async_test
 async def test_relation_prop_filtering():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -668,9 +642,6 @@ async def test_relation_prop_filtering():
 
 @mark_async_test
 async def test_relation_prop_ordering():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -697,9 +668,6 @@ async def test_relation_prop_ordering():
 
 @mark_async_test
 async def test_fetch_relations():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
@@ -757,9 +725,6 @@ async def test_fetch_relations():
 
 @mark_async_test
 async def test_traverse_and_order_by():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
@@ -781,9 +746,6 @@ async def test_traverse_and_order_by():
 
 @mark_async_test
 async def test_annotate_and_collect():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe 1002", price=99).save()
@@ -834,9 +796,6 @@ async def test_annotate_and_collect():
 
 @mark_async_test
 async def test_resolve_subgraph():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
@@ -884,9 +843,6 @@ async def test_resolve_subgraph():
 
 @mark_async_test
 async def test_resolve_subgraph_optional():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
@@ -911,9 +867,6 @@ async def test_resolve_subgraph_optional():
 
 @mark_async_test
 async def test_subquery():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -950,9 +903,6 @@ async def test_subquery():
 
 @mark_async_test
 async def test_intermediate_transform():
-    # Clean DB before we start anything...
-    await adb.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -1133,9 +1083,6 @@ async def test_in_filter_with_array_property():
 async def test_async_iterator():
     n = 10
     if AsyncUtil.is_async_code:
-        for c in await Coffee.nodes:
-            await c.delete()
-
         for i in range(n):
             await Coffee(name=f"xxx_{i}", price=i).save()
 

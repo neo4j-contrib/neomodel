@@ -14,9 +14,6 @@ class APerson(AsyncStructuredNode):
 
 @mark_async_test
 async def test_rollback_and_commit_transaction():
-    for p in await APerson.nodes:
-        await p.delete()
-
     await APerson(name="Roger").save()
 
     await adb.begin()
@@ -41,8 +38,6 @@ async def in_a_tx(*names):
 @mark_async_test
 async def test_transaction_decorator():
     await adb.install_labels(APerson)
-    for p in await APerson.nodes:
-        await p.delete()
 
     # should work
     await in_a_tx("Roger")
@@ -68,9 +63,6 @@ async def test_transaction_as_a_context():
 
 @mark_async_test
 async def test_query_inside_transaction():
-    for p in await APerson.nodes:
-        await p.delete()
-
     async with adb.transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()
@@ -119,9 +111,6 @@ async def in_a_tx_with_bookmark(*names):
 
 @mark_async_test
 async def test_bookmark_transaction_decorator():
-    for p in await APerson.nodes:
-        await p.delete()
-
     # should work
     result, bookmarks = await in_a_tx_with_bookmark("Ruth", bookmarks=None)
     assert result is None
@@ -181,9 +170,6 @@ async def test_bookmark_passed_in_to_context(spy_on_db_begin):
 
 @mark_async_test
 async def test_query_inside_bookmark_transaction():
-    for p in await APerson.nodes:
-        await p.delete()
-
     async with adb.transaction as transaction:
         await APerson(name="Alice").save()
         await APerson(name="Bob").save()

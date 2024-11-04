@@ -59,6 +59,7 @@ where = ["./"]
 [tool.pytest.ini_options]
 addopts = "--resetdb"
 testpaths = "test"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.isort]
 profile = 'black'

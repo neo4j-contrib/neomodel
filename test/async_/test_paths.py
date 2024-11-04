@@ -85,12 +85,3 @@ async def test_path_instantiation():
 
     assert type(path_rels[0]) is PersonLivesInCity
     assert type(path_rels[1]) is AsyncStructuredRel
-
-    await c1.delete()
-    await c2.delete()
-    await ct1.delete()
-    await ct2.delete()
-    await p1.delete()
-    await p2.delete()
-    await p3.delete()
-    await p4.delete()

@@ -249,9 +249,6 @@ def test_len_and_iter_and_bool():
 
 @mark_sync_test
 def test_slice():
-    for c in Coffee.nodes:
-        c.delete()
-
     Coffee(name="Icelands finest").save()
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
@@ -320,9 +317,6 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
@@ -365,9 +359,6 @@ def test_order_by():
 
 @mark_sync_test
 def test_order_by_rawcypher():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     d1 = SoftwareDependency(name="Package1", version="1.0.0").save()
     d2 = SoftwareDependency(name="Package2", version="1.4.0").save()
     d3 = SoftwareDependency(name="Package3", version="2.5.5").save()
@@ -388,9 +379,6 @@ def test_order_by_rawcypher():
 
 @mark_sync_test
 def test_extra_filters():
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -462,10 +450,6 @@ def test_empty_filters():
     ``get_queryset`` function in ``GenericAPIView`` should returns
     ``NodeSet`` object.
     """
-
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Super", price=5, id_=1).save()
     c2 = Coffee(name="Puper", price=10, id_=2).save()
 
@@ -489,10 +473,6 @@ def test_empty_filters():
 
 @mark_sync_test
 def test_q_filters():
-    # Test where no children and self.connector != conn ?
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -600,9 +580,6 @@ def test_traversal_filter_left_hand_statement():
 
 @mark_sync_test
 def test_filter_with_traversal():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=11).save()
@@ -628,9 +605,6 @@ def test_filter_with_traversal():
 
 @mark_sync_test
 def test_relation_prop_filtering():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -660,9 +634,6 @@ def test_relation_prop_filtering():
 
 @mark_sync_test
 def test_relation_prop_ordering():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -685,9 +656,6 @@ def test_relation_prop_ordering():
 
 @mark_sync_test
 def test_fetch_relations():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
@@ -743,9 +711,6 @@ def test_fetch_relations():
 
 @mark_sync_test
 def test_traverse_and_order_by():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
@@ -765,9 +730,6 @@ def test_traverse_and_order_by():
 
 @mark_sync_test
 def test_annotate_and_collect():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe 1002", price=99).save()
@@ -818,9 +780,6 @@ def test_annotate_and_collect():
 
 @mark_sync_test
 def test_resolve_subgraph():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
@@ -868,9 +827,6 @@ def test_resolve_subgraph():
 
 @mark_sync_test
 def test_resolve_subgraph_optional():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
@@ -895,9 +851,6 @@ def test_resolve_subgraph_optional():
 
 @mark_sync_test
 def test_subquery():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -934,9 +887,6 @@ def test_subquery():
 
 @mark_sync_test
 def test_intermediate_transform():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -1117,9 +1067,6 @@ def test_in_filter_with_array_property():
 def test_async_iterator():
     n = 10
     if Util.is_async_code:
-        for c in Coffee.nodes:
-            c.delete()
-
         for i in range(n):
             Coffee(name=f"xxx_{i}", price=i).save()
 
