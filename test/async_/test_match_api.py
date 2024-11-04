@@ -186,7 +186,7 @@ async def test_get():
 @mark_async_test
 async def test_simple_traverse_with_filter():
     nescafe = await Coffee(name="Nescafe2", price=99).save()
-    tesco = await Supplier(name="Sainsburys", delivery_cost=2).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=2).save()
     await nescafe.suppliers.connect(tesco)
 
     qb = AsyncQueryBuilder(
@@ -200,7 +200,7 @@ async def test_simple_traverse_with_filter():
     assert qb._ast.match
     assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
-    assert results[0].name == "Sainsburys"
+    assert results[0].name == "Tesco"
 
 
 @mark_async_test
@@ -711,7 +711,7 @@ async def test_fetch_relations():
     await nescafe.species.connect(arabica)
 
     result = (
-        await Supplier.nodes.filter(name="Sainsburys")
+        await Supplier.nodes.filter(name="Tesco")
         .fetch_relations("coffees__species")
         .all()
     )
@@ -731,7 +731,7 @@ async def test_fetch_relations():
 
     if AsyncUtil.is_async_code:
         count = (
-            await Supplier.nodes.filter(name="Sainsburys")
+            await Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .get_len()
         )
@@ -739,19 +739,19 @@ async def test_fetch_relations():
 
         assert (
             await Supplier.nodes.fetch_relations("coffees__species")
-            .filter(name="Sainsburys")
+            .filter(name="Tesco")
             .check_contains(tesco)
         )
     else:
         count = len(
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .all()
         )
         assert count == 1
 
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
-            name="Sainsburys"
+            name="Tesco"
         )
 
 
