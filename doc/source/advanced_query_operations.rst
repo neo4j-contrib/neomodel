@@ -16,7 +16,7 @@ Aggregations
 
 neomodel implements some of the aggregation methods available in Cypher:
 
-- Collect
+- Collect (with distinct option)
 - Last
 
 These are usable in this way::
@@ -32,6 +32,8 @@ These are usable in this way::
     Supplier.nodes.traverse_relations(available_species="coffees__species")
         .annotate(Last(Collect("last_species")))
         .all()
+
+Note how `annotate` is used to add the aggregation method to the query.
 
 .. note::
     Using the Last() method right after a Collect() without having set an ordering will return the last element in the list as it was returned by the database.

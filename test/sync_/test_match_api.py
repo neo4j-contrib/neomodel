@@ -89,6 +89,30 @@ class SoftwareDependency(StructuredNode):
     version = StringProperty(required=True)
 
 
+class HasCourseRel(StructuredRel):
+    level = StringProperty()
+    start_date = DateTimeProperty()
+    end_date = DateTimeProperty()
+
+
+class Course(StructuredNode):
+    name = StringProperty()
+
+
+class Building(StructuredNode):
+    name = StringProperty()
+
+
+class Student(StructuredNode):
+    name = StringProperty()
+
+    parents = RelationshipTo("Student", "HAS_PARENT")
+    children = RelationshipFrom("Student", "HAS_PARENT")
+    lives_in = RelationshipTo(Building, "LIVES_IN")
+    has_course = RelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    has_latest_course = RelationshipTo(Course, "HAS_COURSE")
+
+
 @mark_sync_test
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
@@ -553,7 +577,7 @@ def test_traversal_filter_left_hand_statement():
     nescafe = Coffee(name="Nescafe2", price=99).save()
     nescafe_gold = Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     biedronka = Supplier(name="Biedronka", delivery_cost=5).save()
     lidl = Supplier(name="Lidl", delivery_cost=3).save()
 
@@ -577,7 +601,7 @@ def test_filter_with_traversal():
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=11).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=99).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -587,6 +611,13 @@ def test_filter_with_traversal():
     assert len(results) == 1
     assert len(results[0]) == 3
     assert results[0][0] == nescafe
+
+    results_multi_hop = Supplier.nodes.filter(coffees__species__name="Arabica").all()
+    assert len(results_multi_hop) == 1
+    assert results_multi_hop[0][0] == tesco
+
+    no_results = Supplier.nodes.filter(coffees__species__name="Noffee").all()
+    assert no_results == []
 
 
 @mark_sync_test
@@ -609,6 +640,16 @@ def test_relation_prop_filtering():
 
     assert len(results) == 1
     assert results[0][0] == supplier1
+
+    # Test it works with mixed argument syntaxes
+    results2 = Supplier.nodes.filter(
+        name="Supplier 1",
+        coffees__name="Nescafe",
+        **{"coffees|since__gt": datetime(2018, 4, 1, 0, 0)},
+    ).all()
+
+    assert len(results2) == 1
+    assert results2[0][0] == supplier1
 
 
 @mark_sync_test
@@ -646,7 +687,7 @@ def test_fetch_relations():
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -705,7 +746,7 @@ def test_traverse_and_order_by():
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=110).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -728,7 +769,7 @@ def test_annotate_and_collect():
     nescafe = Coffee(name="Nescafe 1002", price=99).save()
     nescafe_gold = Coffee(name="Nescafe 1003", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -781,7 +822,7 @@ def test_resolve_subgraph():
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -830,7 +871,7 @@ def test_resolve_subgraph_optional():
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -938,6 +979,89 @@ def test_intermediate_transform():
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
             {}
         )
+
+
+@mark_sync_test
+def test_mix_functions():
+    # Test with a mix of all advanced querying functions
+
+    eiffel_tower = Building(name="Eiffel Tower").save()
+    empire_state_building = Building(name="Empire State Building").save()
+    miranda = Student(name="Miranda").save()
+    miranda.lives_in.connect(empire_state_building)
+    jean_pierre = Student(name="Jean-Pierre").save()
+    jean_pierre.lives_in.connect(eiffel_tower)
+    mireille = Student(name="Mireille").save()
+    mimoun_jr = Student(name="Mimoun Jr").save()
+    mimoun = Student(name="Mimoun").save()
+    mireille.lives_in.connect(eiffel_tower)
+    mimoun_jr.lives_in.connect(eiffel_tower)
+    mimoun.lives_in.connect(eiffel_tower)
+    mimoun.parents.connect(mireille)
+    mimoun.children.connect(mimoun_jr)
+    course = Course(name="Math").save()
+    mimoun.has_course.connect(
+        course,
+        {
+            "level": "1.2",
+            "start_date": datetime(2020, 6, 2),
+            "end_date": datetime(2020, 12, 31),
+        },
+    )
+    mimoun.has_course.connect(
+        course,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+    mimoun_jr.has_course.connect(
+        course,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+
+    filtered_nodeset = Student.nodes.filter(
+        name__istartswith="m", lives_in__name="Eiffel Tower"
+    )
+    full_nodeset = (
+        filtered_nodeset.order_by("name")
+        .traverse_relations(
+            "parents",
+        )
+        .fetch_relations(
+            "lives_in",
+            Optional("children__has_latest_course"),
+        )
+        .subquery(
+            filtered_nodeset.order_by("name")
+            .fetch_relations("has_course")
+            .intermediate_transform(
+                {"rel": RelationNameResolver("has_course")},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    subgraph = full_nodeset.annotate(
+        Collect(NodeNameResolver("children"), distinct=True),
+        Collect(NodeNameResolver("children__has_latest_course"), distinct=True),
+    ).resolve_subgraph()
+
+    print(subgraph)
 
 
 @mark_sync_test

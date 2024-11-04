@@ -78,7 +78,7 @@ With both `traverse_relations` and `fetch_relations`, you can force the use of a
 Resolve results
 ---------------
 
-By default, fetch_relations will return a list of tuples. If your path looks like ``(startNode:Coffee)<-[r1]-(middleNode:Supplier)-[r2]->(endNode:Country)``,
+By default, `fetch_relations` will return a list of tuples. If your path looks like ``(startNode:Coffee)<-[r1]-(middleNode:Supplier)-[r2]->(endNode:Country)``,
 then you will get a list of results, where each result is a list of ``(startNode, r1, middleNode, r2, endNode)``.
 These will be resolved by neomodel, so ``startNode`` will be a ``Coffee`` class as defined in neomodel for example.
 
@@ -87,4 +87,8 @@ Using the `resolve_subgraph` method, you can get instead a list of "subgraphs", 
     results = Coffee.nodes.fetch_relations('suppliers__country').resolve_subgraph().all()
 
 In this example, `results[0]` will be a `Coffee` object, with a `_relations` attribute. This will in turn have a `suppliers` and a `suppliers_relationship` attribute, which will contain the `Supplier` object and the relation object respectively. Recursively, the `Supplier` object will have a `country` attribute, which will contain the `Country` object.
+
+.. note:: 
+
+    The `resolve_subgraph` method is only available for `fetch_relations` queries. This is because `traverse_relations` queries do not return any relations, and thus there is no need to resolve them.
 

@@ -91,6 +91,30 @@ class SoftwareDependency(AsyncStructuredNode):
     version = StringProperty(required=True)
 
 
+class HasCourseRel(AsyncStructuredRel):
+    level = StringProperty()
+    start_date = DateTimeProperty()
+    end_date = DateTimeProperty()
+
+
+class Course(AsyncStructuredNode):
+    name = StringProperty()
+
+
+class Building(AsyncStructuredNode):
+    name = StringProperty()
+
+
+class Student(AsyncStructuredNode):
+    name = StringProperty()
+
+    parents = AsyncRelationshipTo("Student", "HAS_PARENT")
+    children = AsyncRelationshipFrom("Student", "HAS_PARENT")
+    lives_in = AsyncRelationshipTo(Building, "LIVES_IN")
+    has_course = AsyncRelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    has_latest_course = AsyncRelationshipTo(Course, "HAS_COURSE")
+
+
 @mark_async_test
 async def test_filter_exclude_via_labels():
     await Coffee(name="Java", price=99).save()
@@ -557,7 +581,7 @@ async def test_traversal_filter_left_hand_statement():
     nescafe = await Coffee(name="Nescafe2", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     biedronka = await Supplier(name="Biedronka", delivery_cost=5).save()
     lidl = await Supplier(name="Lidl", delivery_cost=3).save()
 
@@ -583,7 +607,7 @@ async def test_filter_with_traversal():
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=11).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=99).save()
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -593,6 +617,15 @@ async def test_filter_with_traversal():
     assert len(results) == 1
     assert len(results[0]) == 3
     assert results[0][0] == nescafe
+
+    results_multi_hop = await Supplier.nodes.filter(
+        coffees__species__name="Arabica"
+    ).all()
+    assert len(results_multi_hop) == 1
+    assert results_multi_hop[0][0] == tesco
+
+    no_results = await Supplier.nodes.filter(coffees__species__name="Noffee").all()
+    assert no_results == []
 
 
 @mark_async_test
@@ -615,6 +648,16 @@ async def test_relation_prop_filtering():
 
     assert len(results) == 1
     assert results[0][0] == supplier1
+
+    # Test it works with mixed argument syntaxes
+    results2 = await Supplier.nodes.filter(
+        name="Supplier 1",
+        coffees__name="Nescafe",
+        **{"coffees|since__gt": datetime(2018, 4, 1, 0, 0)},
+    ).all()
+
+    assert len(results2) == 1
+    assert results2[0][0] == supplier1
 
 
 @mark_async_test
@@ -656,7 +699,7 @@ async def test_fetch_relations():
     nescafe = await Coffee(name="Nescafe", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -715,7 +758,7 @@ async def test_traverse_and_order_by():
     robusta = await Species(name="Robusta").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=110).save()
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -740,7 +783,7 @@ async def test_annotate_and_collect():
     nescafe = await Coffee(name="Nescafe 1002", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe 1003", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -793,7 +836,7 @@ async def test_resolve_subgraph():
     nescafe = await Coffee(name="Nescafe", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -842,7 +885,7 @@ async def test_resolve_subgraph_optional():
     nescafe = await Coffee(name="Nescafe", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
@@ -950,6 +993,89 @@ async def test_intermediate_transform():
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
             {}
         )
+
+
+@mark_async_test
+async def test_mix_functions():
+    # Test with a mix of all advanced querying functions
+
+    eiffel_tower = await Building(name="Eiffel Tower").save()
+    empire_state_building = await Building(name="Empire State Building").save()
+    miranda = await Student(name="Miranda").save()
+    await miranda.lives_in.connect(empire_state_building)
+    jean_pierre = await Student(name="Jean-Pierre").save()
+    await jean_pierre.lives_in.connect(eiffel_tower)
+    mireille = await Student(name="Mireille").save()
+    mimoun_jr = await Student(name="Mimoun Jr").save()
+    mimoun = await Student(name="Mimoun").save()
+    await mireille.lives_in.connect(eiffel_tower)
+    await mimoun_jr.lives_in.connect(eiffel_tower)
+    await mimoun.lives_in.connect(eiffel_tower)
+    await mimoun.parents.connect(mireille)
+    await mimoun.children.connect(mimoun_jr)
+    course = await Course(name="Math").save()
+    await mimoun.has_course.connect(
+        course,
+        {
+            "level": "1.2",
+            "start_date": datetime(2020, 6, 2),
+            "end_date": datetime(2020, 12, 31),
+        },
+    )
+    await mimoun.has_course.connect(
+        course,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+    await mimoun_jr.has_course.connect(
+        course,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+
+    filtered_nodeset = Student.nodes.filter(
+        name__istartswith="m", lives_in__name="Eiffel Tower"
+    )
+    full_nodeset = (
+        await filtered_nodeset.order_by("name")
+        .traverse_relations(
+            "parents",
+        )
+        .fetch_relations(
+            "lives_in",
+            Optional("children__has_latest_course"),
+        )
+        .subquery(
+            filtered_nodeset.order_by("name")
+            .fetch_relations("has_course")
+            .intermediate_transform(
+                {"rel": RelationNameResolver("has_course")},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    subgraph = await full_nodeset.annotate(
+        Collect(NodeNameResolver("children"), distinct=True),
+        Collect(NodeNameResolver("children__has_latest_course"), distinct=True),
+    ).resolve_subgraph()
+
+    print(subgraph)
 
 
 @mark_async_test
