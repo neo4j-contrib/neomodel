@@ -484,6 +484,10 @@ async def test_resolve_inexistent_relationship():
     Attempting to resolve an inexistent relationship should raise an exception
     :return:
     """
+    A = await TechnicalPerson(name="Michael Knight", expertise="Cars").save()
+    B = await TechnicalPerson(name="Luke Duke", expertise="Lasers").save()
+
+    await A.friends_with.connect(B)
 
     # Forget about the FRIENDS_WITH Relationship.
     del adb._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
@@ -493,7 +497,7 @@ async def test_resolve_inexistent_relationship():
         match=r"Relationship of type .* does not resolve to any of the known objects.*",
     ):
         query_data = await adb.cypher_query(
-            "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+            "MATCH (:TechnicalPerson)-[r:FRIENDS_WITH]->(:TechnicalPerson) "
             "RETURN DISTINCT r",
             resolve_objects=True,
         )

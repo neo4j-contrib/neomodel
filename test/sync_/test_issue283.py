@@ -445,6 +445,10 @@ def test_resolve_inexistent_relationship():
     Attempting to resolve an inexistent relationship should raise an exception
     :return:
     """
+    A = TechnicalPerson(name="Michael Knight", expertise="Cars").save()
+    B = TechnicalPerson(name="Luke Duke", expertise="Lasers").save()
+
+    A.friends_with.connect(B)
 
     # Forget about the FRIENDS_WITH Relationship.
     del db._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
@@ -454,7 +458,7 @@ def test_resolve_inexistent_relationship():
         match=r"Relationship of type .* does not resolve to any of the known objects.*",
     ):
         query_data = db.cypher_query(
-            "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+            "MATCH (:TechnicalPerson)-[r:FRIENDS_WITH]->(:TechnicalPerson) "
             "RETURN DISTINCT r",
             resolve_objects=True,
         )
