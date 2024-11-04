@@ -1034,12 +1034,10 @@ def test_mix_functions():
             "parents",
         )
         .fetch_relations(
-            "lives_in",
             Optional("children__has_latest_course"),
         )
         .subquery(
-            filtered_nodeset.order_by("name")
-            .fetch_relations("has_course")
+            Student.nodes.fetch_relations("has_course")
             .intermediate_transform(
                 {"rel": RelationNameResolver("has_course")},
                 ordering=[

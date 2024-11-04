@@ -1499,10 +1499,9 @@ class AsyncNodeSet(AsyncBaseSet):
             raise RuntimeError(
                 "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
             )
-        all_nodes = qbuilder._execute(dict_output=True)
         other_nodes = {}
         root_node = None
-        async for row in all_nodes:
+        async for row in qbuilder._execute(dict_output=True):
             for name, node in row.items():
                 if node.__class__ is self.source and "_" not in name:
                     root_node = node
