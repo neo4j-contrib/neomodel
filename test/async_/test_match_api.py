@@ -11,6 +11,7 @@ from neomodel import (
     AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
+    AsyncZeroOrOne,
     DateTimeProperty,
     IntegerProperty,
     Q,
@@ -108,11 +109,16 @@ class Building(AsyncStructuredNode):
 class Student(AsyncStructuredNode):
     name = StringProperty()
 
-    parents = AsyncRelationshipTo("Student", "HAS_PARENT")
-    children = AsyncRelationshipFrom("Student", "HAS_PARENT")
-    lives_in = AsyncRelationshipTo(Building, "LIVES_IN")
-    has_course = AsyncRelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
-    has_latest_course = AsyncRelationshipTo(Course, "HAS_COURSE")
+    parents = AsyncRelationshipTo("Student", "HAS_PARENT", model=AsyncStructuredRel)
+    children = AsyncRelationshipFrom("Student", "HAS_PARENT", model=AsyncStructuredRel)
+    lives_in = AsyncRelationshipTo(Building, "LIVES_IN", model=AsyncStructuredRel)
+    courses = AsyncRelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    preferred_course = AsyncRelationshipTo(
+        Course,
+        "HAS_PREFERRED_COURSE",
+        model=AsyncStructuredRel,
+        cardinality=AsyncZeroOrOne,
+    )
 
 
 @mark_async_test
@@ -1013,25 +1019,26 @@ async def test_mix_functions():
     await mimoun.lives_in.connect(eiffel_tower)
     await mimoun.parents.connect(mireille)
     await mimoun.children.connect(mimoun_jr)
-    course = await Course(name="Math").save()
-    await mimoun.has_course.connect(
-        course,
+    math = await Course(name="Math").save()
+    dessin = await Course(name="Dessin").save()
+    await mimoun.courses.connect(
+        math,
         {
             "level": "1.2",
             "start_date": datetime(2020, 6, 2),
             "end_date": datetime(2020, 12, 31),
         },
     )
-    await mimoun.has_course.connect(
-        course,
+    await mimoun.courses.connect(
+        math,
         {
             "level": "1.1",
             "start_date": datetime(2020, 1, 1),
             "end_date": datetime(2020, 6, 1),
         },
     )
-    await mimoun_jr.has_course.connect(
-        course,
+    await mimoun_jr.courses.connect(
+        math,
         {
             "level": "1.1",
             "start_date": datetime(2020, 1, 1),
@@ -1039,21 +1046,19 @@ async def test_mix_functions():
         },
     )
 
-    filtered_nodeset = Student.nodes.filter(
-        name__istartswith="m", lives_in__name="Eiffel Tower"
-    )
+    await mimoun_jr.preferred_course.connect(dessin)
+
     full_nodeset = (
-        await filtered_nodeset.order_by("name")
-        .traverse_relations(
-            "parents",
-        )
+        await Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
+        .order_by("name")
         .fetch_relations(
-            Optional("children__has_latest_course"),
+            "parents",
+            Optional("children__preferred_course"),
         )
         .subquery(
-            Student.nodes.fetch_relations("has_course")
+            Student.nodes.fetch_relations("courses")
             .intermediate_transform(
-                {"rel": RelationNameResolver("has_course")},
+                {"rel": RelationNameResolver("courses")},
                 ordering=[
                     RawCypher("toInteger(split(rel.level, '.')[0])"),
                     RawCypher("toInteger(split(rel.level, '.')[1])"),
@@ -1069,11 +1074,20 @@ async def test_mix_functions():
     )
 
     subgraph = await full_nodeset.annotate(
-        Collect(NodeNameResolver("children"), distinct=True),
-        Collect(NodeNameResolver("children__has_latest_course"), distinct=True),
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
     ).resolve_subgraph()
 
-    print(subgraph)
+    assert len(subgraph) == 2
+    assert subgraph[0] == mimoun
+    assert subgraph[1] == mimoun_jr
+    mimoun_returned_rels = subgraph[0]._relations
+    assert mimoun_returned_rels["children"] == mimoun_jr
+    assert mimoun_returned_rels["children"]._relations["preferred_course"] == dessin
+    assert mimoun_returned_rels["parents"] == mireille
+    assert mimoun_returned_rels["latest_course_relationship"].level == "1.2"
 
 
 @mark_async_test

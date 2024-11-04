@@ -1,3 +1,5 @@
+.. _Filtering and ordering:
+
 ======================
 Filtering and ordering
 ======================

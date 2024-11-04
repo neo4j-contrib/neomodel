@@ -6,6 +6,8 @@ Path traversal
 
 Neo4j is about traversing the graph, which means leveraging nodes and relations between them. This section will show you how to traverse the graph using neomodel.
 
+We will cover two methods : `traverse_relations` and `fetch_relations`. Those two methods are *mutually exclusive*, so you cannot chain them.
+
 For the examples in this section, we will be using the following model::
 
     class Country(StructuredNode):

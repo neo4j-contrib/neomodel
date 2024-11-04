@@ -16,6 +16,7 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    ZeroOrOne,
     db,
 )
 from neomodel._async_compat.util import Util
@@ -106,11 +107,16 @@ class Building(StructuredNode):
 class Student(StructuredNode):
     name = StringProperty()
 
-    parents = RelationshipTo("Student", "HAS_PARENT")
-    children = RelationshipFrom("Student", "HAS_PARENT")
-    lives_in = RelationshipTo(Building, "LIVES_IN")
-    has_course = RelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
-    has_latest_course = RelationshipTo(Course, "HAS_COURSE")
+    parents = RelationshipTo("Student", "HAS_PARENT", model=StructuredRel)
+    children = RelationshipFrom("Student", "HAS_PARENT", model=StructuredRel)
+    lives_in = RelationshipTo(Building, "LIVES_IN", model=StructuredRel)
+    courses = RelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    preferred_course = RelationshipTo(
+        Course,
+        "HAS_PREFERRED_COURSE",
+        model=StructuredRel,
+        cardinality=ZeroOrOne,
+    )
 
 
 @mark_sync_test
@@ -999,25 +1005,26 @@ def test_mix_functions():
     mimoun.lives_in.connect(eiffel_tower)
     mimoun.parents.connect(mireille)
     mimoun.children.connect(mimoun_jr)
-    course = Course(name="Math").save()
-    mimoun.has_course.connect(
-        course,
+    math = Course(name="Math").save()
+    dessin = Course(name="Dessin").save()
+    mimoun.courses.connect(
+        math,
         {
             "level": "1.2",
             "start_date": datetime(2020, 6, 2),
             "end_date": datetime(2020, 12, 31),
         },
     )
-    mimoun.has_course.connect(
-        course,
+    mimoun.courses.connect(
+        math,
         {
             "level": "1.1",
             "start_date": datetime(2020, 1, 1),
             "end_date": datetime(2020, 6, 1),
         },
     )
-    mimoun_jr.has_course.connect(
-        course,
+    mimoun_jr.courses.connect(
+        math,
         {
             "level": "1.1",
             "start_date": datetime(2020, 1, 1),
@@ -1025,21 +1032,19 @@ def test_mix_functions():
         },
     )
 
-    filtered_nodeset = Student.nodes.filter(
-        name__istartswith="m", lives_in__name="Eiffel Tower"
-    )
+    mimoun_jr.preferred_course.connect(dessin)
+
     full_nodeset = (
-        filtered_nodeset.order_by("name")
-        .traverse_relations(
-            "parents",
-        )
+        Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
+        .order_by("name")
         .fetch_relations(
-            Optional("children__has_latest_course"),
+            "parents",
+            Optional("children__preferred_course"),
         )
         .subquery(
-            Student.nodes.fetch_relations("has_course")
+            Student.nodes.fetch_relations("courses")
             .intermediate_transform(
-                {"rel": RelationNameResolver("has_course")},
+                {"rel": RelationNameResolver("courses")},
                 ordering=[
                     RawCypher("toInteger(split(rel.level, '.')[0])"),
                     RawCypher("toInteger(split(rel.level, '.')[1])"),
@@ -1055,11 +1060,20 @@ def test_mix_functions():
     )
 
     subgraph = full_nodeset.annotate(
-        Collect(NodeNameResolver("children"), distinct=True),
-        Collect(NodeNameResolver("children__has_latest_course"), distinct=True),
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
     ).resolve_subgraph()
 
-    print(subgraph)
+    assert len(subgraph) == 2
+    assert subgraph[0] == mimoun
+    assert subgraph[1] == mimoun_jr
+    mimoun_returned_rels = subgraph[0]._relations
+    assert mimoun_returned_rels["children"] == mimoun_jr
+    assert mimoun_returned_rels["children"]._relations["preferred_course"] == dessin
+    assert mimoun_returned_rels["parents"] == mireille
+    assert mimoun_returned_rels["latest_course_relationship"].level == "1.2"
 
 
 @mark_sync_test
