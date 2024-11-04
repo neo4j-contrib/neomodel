@@ -418,7 +418,7 @@ class DateTimeFormatProperty(Property):
     """
     Store a datetime by custom format
     :param default_now: If ``True``, the creation time (Local) will be used as default.
-                        Defaults to ``False``.
+    Defaults to ``False``.
     :param format:      Date format string, default is %Y-%m-%d
 
     :type default_now:  :class:`bool`
