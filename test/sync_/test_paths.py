@@ -85,12 +85,3 @@ def test_path_instantiation():
 
     assert type(path_rels[0]) is PersonLivesInCity
     assert type(path_rels[1]) is StructuredRel
-
-    c1.delete()
-    c2.delete()
-    ct1.delete()
-    ct2.delete()
-    p1.delete()
-    p2.delete()
-    p3.delete()
-    p4.delete()

@@ -16,6 +16,7 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    ZeroOrOne,
     db,
 )
 from neomodel._async_compat.util import Util
@@ -89,6 +90,35 @@ class SoftwareDependency(StructuredNode):
     version = StringProperty(required=True)
 
 
+class HasCourseRel(StructuredRel):
+    level = StringProperty()
+    start_date = DateTimeProperty()
+    end_date = DateTimeProperty()
+
+
+class Course(StructuredNode):
+    name = StringProperty()
+
+
+class Building(StructuredNode):
+    name = StringProperty()
+
+
+class Student(StructuredNode):
+    name = StringProperty()
+
+    parents = RelationshipTo("Student", "HAS_PARENT", model=StructuredRel)
+    children = RelationshipFrom("Student", "HAS_PARENT", model=StructuredRel)
+    lives_in = RelationshipTo(Building, "LIVES_IN", model=StructuredRel)
+    courses = RelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    preferred_course = RelationshipTo(
+        Course,
+        "HAS_PREFERRED_COURSE",
+        model=StructuredRel,
+        cardinality=ZeroOrOne,
+    )
+
+
 @mark_sync_test
 def test_filter_exclude_via_labels():
     Coffee(name="Java", price=99).save()
@@ -154,7 +184,7 @@ def test_get():
 @mark_sync_test
 def test_simple_traverse_with_filter():
     nescafe = Coffee(name="Nescafe2", price=99).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=2).save()
+    tesco = Supplier(name="Tesco", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
@@ -166,7 +196,7 @@ def test_simple_traverse_with_filter():
     assert qb._ast.match
     assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
-    assert results[0].name == "Sainsburys"
+    assert results[0].name == "Tesco"
 
 
 @mark_sync_test
@@ -219,9 +249,6 @@ def test_len_and_iter_and_bool():
 
 @mark_sync_test
 def test_slice():
-    for c in Coffee.nodes:
-        c.delete()
-
     Coffee(name="Icelands finest").save()
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
@@ -290,9 +317,6 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
@@ -335,9 +359,6 @@ def test_order_by():
 
 @mark_sync_test
 def test_order_by_rawcypher():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     d1 = SoftwareDependency(name="Package1", version="1.0.0").save()
     d2 = SoftwareDependency(name="Package2", version="1.4.0").save()
     d3 = SoftwareDependency(name="Package3", version="2.5.5").save()
@@ -358,9 +379,6 @@ def test_order_by_rawcypher():
 
 @mark_sync_test
 def test_extra_filters():
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -432,10 +450,6 @@ def test_empty_filters():
     ``get_queryset`` function in ``GenericAPIView`` should returns
     ``NodeSet`` object.
     """
-
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Super", price=5, id_=1).save()
     c2 = Coffee(name="Puper", price=10, id_=2).save()
 
@@ -459,10 +473,6 @@ def test_empty_filters():
 
 @mark_sync_test
 def test_q_filters():
-    # Test where no children and self.connector != conn ?
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -553,7 +563,7 @@ def test_traversal_filter_left_hand_statement():
     nescafe = Coffee(name="Nescafe2", price=99).save()
     nescafe_gold = Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     biedronka = Supplier(name="Biedronka", delivery_cost=5).save()
     lidl = Supplier(name="Lidl", delivery_cost=3).save()
 
@@ -570,14 +580,11 @@ def test_traversal_filter_left_hand_statement():
 
 @mark_sync_test
 def test_filter_with_traversal():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=11).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=99).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -588,12 +595,16 @@ def test_filter_with_traversal():
     assert len(results[0]) == 3
     assert results[0][0] == nescafe
 
+    results_multi_hop = Supplier.nodes.filter(coffees__species__name="Arabica").all()
+    assert len(results_multi_hop) == 1
+    assert results_multi_hop[0][0] == tesco
+
+    no_results = Supplier.nodes.filter(coffees__species__name="Noffee").all()
+    assert no_results == []
+
 
 @mark_sync_test
 def test_relation_prop_filtering():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -610,12 +621,19 @@ def test_relation_prop_filtering():
     assert len(results) == 1
     assert results[0][0] == supplier1
 
+    # Test it works with mixed argument syntaxes
+    results2 = Supplier.nodes.filter(
+        name="Supplier 1",
+        coffees__name="Nescafe",
+        **{"coffees|since__gt": datetime(2018, 4, 1, 0, 0)},
+    ).all()
+
+    assert len(results2) == 1
+    assert results2[0][0] == supplier1
+
 
 @mark_sync_test
 def test_relation_prop_ordering():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -638,23 +656,18 @@ def test_relation_prop_ordering():
 
 @mark_sync_test
 def test_fetch_relations():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
 
     result = (
-        Supplier.nodes.filter(name="Sainsburys")
-        .fetch_relations("coffees__species")
-        .all()
+        Supplier.nodes.filter(name="Tesco").fetch_relations("coffees__species").all()
     )
     assert len(result[0]) == 5
     assert arabica in result[0]
@@ -672,7 +685,7 @@ def test_fetch_relations():
 
     if Util.is_async_code:
         count = (
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .__len__()
         )
@@ -680,32 +693,29 @@ def test_fetch_relations():
 
         assert (
             Supplier.nodes.fetch_relations("coffees__species")
-            .filter(name="Sainsburys")
+            .filter(name="Tesco")
             .__contains__(tesco)
         )
     else:
         count = len(
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .all()
         )
         assert count == 1
 
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
-            name="Sainsburys"
+            name="Tesco"
         )
 
 
 @mark_sync_test
 def test_traverse_and_order_by():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=110).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -720,15 +730,12 @@ def test_traverse_and_order_by():
 
 @mark_sync_test
 def test_annotate_and_collect():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe 1002", price=99).save()
     nescafe_gold = Coffee(name="Nescafe 1003", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -773,15 +780,12 @@ def test_annotate_and_collect():
 
 @mark_sync_test
 def test_resolve_subgraph():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -823,14 +827,11 @@ def test_resolve_subgraph():
 
 @mark_sync_test
 def test_resolve_subgraph_optional():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
@@ -850,9 +851,6 @@ def test_resolve_subgraph_optional():
 
 @mark_sync_test
 def test_subquery():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -889,9 +887,6 @@ def test_subquery():
 
 @mark_sync_test
 def test_intermediate_transform():
-    # Clean DB before we start anything...
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
     arabica = Species(name="Arabica").save()
     nescafe = Coffee(name="Nescafe", price=99).save()
     supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
@@ -941,6 +936,95 @@ def test_intermediate_transform():
 
 
 @mark_sync_test
+def test_mix_functions():
+    # Test with a mix of all advanced querying functions
+
+    eiffel_tower = Building(name="Eiffel Tower").save()
+    empire_state_building = Building(name="Empire State Building").save()
+    miranda = Student(name="Miranda").save()
+    miranda.lives_in.connect(empire_state_building)
+    jean_pierre = Student(name="Jean-Pierre").save()
+    jean_pierre.lives_in.connect(eiffel_tower)
+    mireille = Student(name="Mireille").save()
+    mimoun_jr = Student(name="Mimoun Jr").save()
+    mimoun = Student(name="Mimoun").save()
+    mireille.lives_in.connect(eiffel_tower)
+    mimoun_jr.lives_in.connect(eiffel_tower)
+    mimoun.lives_in.connect(eiffel_tower)
+    mimoun.parents.connect(mireille)
+    mimoun.children.connect(mimoun_jr)
+    math = Course(name="Math").save()
+    dessin = Course(name="Dessin").save()
+    mimoun.courses.connect(
+        math,
+        {
+            "level": "1.2",
+            "start_date": datetime(2020, 6, 2),
+            "end_date": datetime(2020, 12, 31),
+        },
+    )
+    mimoun.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+    mimoun_jr.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+
+    mimoun_jr.preferred_course.connect(dessin)
+
+    full_nodeset = (
+        Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
+        .order_by("name")
+        .fetch_relations(
+            "parents",
+            Optional("children__preferred_course"),
+        )
+        .subquery(
+            Student.nodes.fetch_relations("courses")
+            .intermediate_transform(
+                {"rel": RelationNameResolver("courses")},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    subgraph = full_nodeset.annotate(
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
+    ).resolve_subgraph()
+
+    assert len(subgraph) == 2
+    assert subgraph[0] == mimoun
+    assert subgraph[1] == mimoun_jr
+    mimoun_returned_rels = subgraph[0]._relations
+    assert mimoun_returned_rels["children"] == mimoun_jr
+    assert mimoun_returned_rels["children"]._relations["preferred_course"] == dessin
+    assert mimoun_returned_rels["parents"] == mireille
+    assert mimoun_returned_rels["latest_course_relationship"].level == "1.2"
+
+
+@mark_sync_test
 def test_issue_795():
     jim = PersonX(name="Jim", age=3).save()  # Create
     jim.age = 4
@@ -983,9 +1067,6 @@ def test_in_filter_with_array_property():
 def test_async_iterator():
     n = 10
     if Util.is_async_code:
-        for c in Coffee.nodes:
-            c.delete()
-
         for i in range(n):
             Coffee(name=f"xxx_{i}", price=i).save()
 

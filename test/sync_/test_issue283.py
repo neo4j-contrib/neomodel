@@ -117,10 +117,6 @@ def test_automatic_result_resolution():
     # TechnicalPerson (!NOT basePerson!)
     assert type((A.friends_with)[0]) is TechnicalPerson
 
-    A.delete()
-    B.delete()
-    C.delete()
-
 
 @mark_sync_test
 def test_recursive_automatic_result_resolution():
@@ -158,11 +154,6 @@ def test_recursive_automatic_result_resolution():
     assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
     # Assert that primitive data types remain primitive data types
     assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
-
-    A.delete()
-    B.delete()
-    C.delete()
-    D.delete()
 
 
 @mark_sync_test
@@ -217,12 +208,6 @@ def test_validation_with_inheritance_from_db():
     )
     assert type((D.friends_with)[0]) is PilotPerson
 
-    A.delete()
-    B.delete()
-    C.delete()
-    D.delete()
-    E.delete()
-
 
 @mark_sync_test
 def test_validation_enforcement_to_db():
@@ -266,13 +251,6 @@ def test_validation_enforcement_to_db():
     with pytest.raises(ValueError):
         A.friends_with.connect(F)
 
-    A.delete()
-    B.delete()
-    C.delete()
-    D.delete()
-    E.delete()
-    F.delete()
-
 
 @mark_sync_test
 def test_failed_result_resolution():
@@ -310,9 +288,6 @@ def test_failed_result_resolution():
         friends = A.friends_with.all()
         for some_friend in friends:
             print(some_friend.name)
-
-    A.delete()
-    B.delete()
 
 
 @mark_sync_test
@@ -470,6 +445,10 @@ def test_resolve_inexistent_relationship():
     Attempting to resolve an inexistent relationship should raise an exception
     :return:
     """
+    A = TechnicalPerson(name="Michael Knight", expertise="Cars").save()
+    B = TechnicalPerson(name="Luke Duke", expertise="Lasers").save()
+
+    A.friends_with.connect(B)
 
     # Forget about the FRIENDS_WITH Relationship.
     del db._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
@@ -479,7 +458,7 @@ def test_resolve_inexistent_relationship():
         match=r"Relationship of type .* does not resolve to any of the known objects.*",
     ):
         query_data = db.cypher_query(
-            "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+            "MATCH (:TechnicalPerson)-[r:FRIENDS_WITH]->(:TechnicalPerson) "
             "RETURN DISTINCT r",
             resolve_objects=True,
         )
