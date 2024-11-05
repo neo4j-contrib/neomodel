@@ -6,8 +6,9 @@ Version 5.4.0 2024-11
 * Possibility to transform variables, with aggregations methods : Collect() and Last()
 * Intermediate transform, for example to order variables before collecting
 * Subqueries (Cypher CALL{} clause)
-* Allow JSONProperty to actually use non-ascii elements
+* Allow JSONProperty to actually use non-ascii elements. Thanks to @danikirish
 * Bumped neo4j (driver) to 5.26.0
+* Special huge thanks to @tonioo for this release
 
 Version 5.3.3 2024-09
 * Fixes vector index doc and test
