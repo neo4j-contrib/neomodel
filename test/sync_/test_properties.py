@@ -303,6 +303,10 @@ def test_json():
     assert prop.deflate(value) == '{"test": [1, 2, 3]}'
     assert prop.inflate('{"test": [1, 2, 3]}') == value
 
+    value_with_unicode = {"test": [1, 2, 3, "©"]}
+    assert prop.deflate(value_with_unicode) == '{"test": [1, 2, 3, "\\u00a9"]}'
+    assert prop.inflate('{"test": [1, 2, 3, "\\u00a9"]}') == value_with_unicode
+
 
 def test_json_unicode():
     prop = JSONProperty(ensure_ascii=False)
@@ -312,7 +316,7 @@ def test_json_unicode():
     value = {"test": [1, 2, 3, "©"]}
 
     assert prop.deflate(value) == '{"test": [1, 2, 3, "©"]}'
-    assert prop.inflate('{"test": [1, 2, 3, ©]}') == value
+    assert prop.inflate('{"test": [1, 2, 3, "©"]}') == value
 
 
 def test_indexed():
