@@ -24,7 +24,7 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 
 **For neomodel releases 5.x :**
 
--   Python 3.7+
+-   Python 3.8+
 -   Neo4j 5.x, 4.4 (LTS)
 
 **For neomodel releases 4.x :**
@@ -36,6 +36,14 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 
 Available on
 [readthedocs](http://neomodel.readthedocs.org).
+
+# New in 5.4.0
+
+This version adds many new features, expanding neomodel's querying capabilities. Those features were kindly contributed back by the [OpenStudyBuilder team](https://openstudybuilder.com/). A VERY special thanks to @tonioo for the integration work.
+
+There are too many new capabilities here, so I advise you to start by looking at the full summary example in the [Getting Started guide](https://neomodel.readthedocs.io/en/latest/getting_started.html#full-example). It will then point you to the various relevant sections.
+
+We also validated support for [Python 3.13](https://docs.python.org/3/whatsnew/3.13.html).
 
 # New in 5.3.0
 
