@@ -534,8 +534,9 @@ class JSONProperty(Property):
     The structure will be inflated when a node is retrieved.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, ensure_ascii=True, *args, **kwargs):
+        self.ensure_ascii = ensure_ascii
+        super(JSONProperty, self).__init__(*args, **kwargs)
 
     @validator
     def inflate(self, value):
@@ -543,7 +544,7 @@ class JSONProperty(Property):
 
     @validator
     def deflate(self, value):
-        return json.dumps(value)
+        return json.dumps(value, ensure_ascii=self.ensure_ascii)
 
 
 class AliasProperty(property, Property):
