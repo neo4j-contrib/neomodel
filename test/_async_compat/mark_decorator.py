@@ -1,9 +1,15 @@
 import pytest
 import pytest_asyncio
 
-mark_async_test = pytest.mark.asyncio
-mark_async_session_auto_fixture = pytest_asyncio.fixture(scope="session", autouse=True)
+mark_async_test = pytest.mark.asyncio(loop_scope="session")
+mark_async_session_auto_fixture = pytest_asyncio.fixture(
+    loop_scope="session", scope="session", autouse=True
+)
+mark_async_function_auto_fixture = pytest_asyncio.fixture(
+    loop_scope="session", autouse=True
+)
 mark_sync_session_auto_fixture = pytest.fixture(scope="session", autouse=True)
+mark_sync_function_auto_fixture = pytest.fixture(autouse=True)
 
 
 def mark_sync_test(f):

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from test._async_compat import mark_async_test
 
@@ -10,18 +11,25 @@ from neomodel import (
     AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncStructuredRel,
+    AsyncZeroOrOne,
     DateTimeProperty,
     IntegerProperty,
     Q,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
     AsyncTraversal,
+    Collect,
+    Last,
+    NodeNameResolver,
     Optional,
+    RawCypher,
+    RelationNameResolver,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 
@@ -34,7 +42,7 @@ class SupplierRel(AsyncStructuredRel):
 class Supplier(AsyncStructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = AsyncRelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(AsyncStructuredNode):
@@ -77,6 +85,40 @@ class PersonX(AsyncStructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = AsyncRelationshipTo(CityX, "LIVES_IN")
+
+
+class SoftwareDependency(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    version = StringProperty(required=True)
+
+
+class HasCourseRel(AsyncStructuredRel):
+    level = StringProperty()
+    start_date = DateTimeProperty()
+    end_date = DateTimeProperty()
+
+
+class Course(AsyncStructuredNode):
+    name = StringProperty()
+
+
+class Building(AsyncStructuredNode):
+    name = StringProperty()
+
+
+class Student(AsyncStructuredNode):
+    name = StringProperty()
+
+    parents = AsyncRelationshipTo("Student", "HAS_PARENT", model=AsyncStructuredRel)
+    children = AsyncRelationshipFrom("Student", "HAS_PARENT", model=AsyncStructuredRel)
+    lives_in = AsyncRelationshipTo(Building, "LIVES_IN", model=AsyncStructuredRel)
+    courses = AsyncRelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    preferred_course = AsyncRelationshipTo(
+        Course,
+        "HAS_PREFERRED_COURSE",
+        model=AsyncStructuredRel,
+        cardinality=AsyncZeroOrOne,
+    )
 
 
 @mark_async_test
@@ -144,7 +186,7 @@ async def test_get():
 @mark_async_test
 async def test_simple_traverse_with_filter():
     nescafe = await Coffee(name="Nescafe2", price=99).save()
-    tesco = await Supplier(name="Sainsburys", delivery_cost=2).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=2).save()
     await nescafe.suppliers.connect(tesco)
 
     qb = AsyncQueryBuilder(
@@ -158,7 +200,7 @@ async def test_simple_traverse_with_filter():
     assert qb._ast.match
     assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
-    assert results[0].name == "Sainsburys"
+    assert results[0].name == "Tesco"
 
 
 @mark_async_test
@@ -211,9 +253,6 @@ async def test_len_and_iter_and_bool():
 
 @mark_async_test
 async def test_slice():
-    for c in await Coffee.nodes:
-        await c.delete()
-
     await Coffee(name="Icelands finest").save()
     await Coffee(name="Britains finest").save()
     await Coffee(name="Japans finest").save()
@@ -282,9 +321,6 @@ async def test_contains():
 
 @mark_async_test
 async def test_order_by():
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Icelands finest", price=5).save()
     c2 = await Coffee(name="Britains finest", price=10).save()
     c3 = await Coffee(name="Japans finest", price=35).save()
@@ -305,13 +341,13 @@ async def test_order_by():
     ns = ns.order_by("?")
     qb = await AsyncQueryBuilder(ns).build_ast()
     assert qb._ast.with_clause == "coffee, rand() as r"
-    assert qb._ast.order_by == "r"
+    assert qb._ast.order_by == ["r"]
 
     with raises(
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        await Coffee.nodes.order_by("id")
+        await Coffee.nodes.order_by("id").all()
 
     # Test order by on a relationship
     l = await Supplier(name="lidl2").save()
@@ -326,10 +362,27 @@ async def test_order_by():
 
 
 @mark_async_test
-async def test_extra_filters():
-    for c in await Coffee.nodes:
-        await c.delete()
+async def test_order_by_rawcypher():
+    d1 = await SoftwareDependency(name="Package1", version="1.0.0").save()
+    d2 = await SoftwareDependency(name="Package2", version="1.4.0").save()
+    d3 = await SoftwareDependency(name="Package3", version="2.5.5").save()
 
+    assert (
+        await SoftwareDependency.nodes.order_by(
+            RawCypher("toInteger(split($n.version, '.')[0]) DESC"),
+        ).all()
+    )[0] == d3
+
+    with raises(
+        ValueError, match=r"RawCypher: Do not include any action that has side effect"
+    ):
+        SoftwareDependency.nodes.order_by(
+            RawCypher("DETACH DELETE $n"),
+        )
+
+
+@mark_async_test
+async def test_extra_filters():
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = await Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = await Coffee(name="Japans finest", price=35, id_=3).save()
@@ -401,10 +454,6 @@ async def test_empty_filters():
     ``get_queryset`` function in ``GenericAPIView`` should returns
     ``NodeSet`` object.
     """
-
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Super", price=5, id_=1).save()
     c2 = await Coffee(name="Puper", price=10, id_=2).save()
 
@@ -428,10 +477,6 @@ async def test_empty_filters():
 
 @mark_async_test
 async def test_q_filters():
-    # Test where no children and self.connector != conn ?
-    for c in await Coffee.nodes:
-        await c.delete()
-
     c1 = await Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = await Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = await Coffee(name="Japans finest", price=35, id_=3).save()
@@ -522,7 +567,7 @@ async def test_traversal_filter_left_hand_statement():
     nescafe = await Coffee(name="Nescafe2", price=99).save()
     nescafe_gold = await Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     biedronka = await Supplier(name="Biedronka", delivery_cost=5).save()
     lidl = await Supplier(name="Lidl", delivery_cost=3).save()
 
@@ -540,19 +585,101 @@ async def test_traversal_filter_left_hand_statement():
 
 
 @mark_async_test
+async def test_filter_with_traversal():
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=11).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=99).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+
+    results = await Coffee.nodes.filter(species__name="Arabica").all()
+    assert len(results) == 1
+    assert len(results[0]) == 3
+    assert results[0][0] == nescafe
+
+    results_multi_hop = await Supplier.nodes.filter(
+        coffees__species__name="Arabica"
+    ).all()
+    assert len(results_multi_hop) == 1
+    assert results_multi_hop[0][0] == tesco
+
+    no_results = await Supplier.nodes.filter(coffees__species__name="Noffee").all()
+    assert no_results == []
+
+
+@mark_async_test
+async def test_relation_prop_filtering():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = await Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+    # Test it works with mixed argument syntaxes
+    results2 = await Supplier.nodes.filter(
+        name="Supplier 1",
+        coffees__name="Nescafe",
+        **{"coffees|since__gt": datetime(2018, 4, 1, 0, 0)},
+    ).all()
+
+    assert len(results2) == 1
+    assert results2[0][0] == supplier1
+
+
+@mark_async_test
+async def test_relation_prop_ordering():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = (
+        await Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    )
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_async_test
 async def test_fetch_relations():
     arabica = await Species(name="Arabica").save()
     robusta = await Species(name="Robusta").save()
-    nescafe = await Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = await Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = await Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
     await nescafe.suppliers.connect(tesco)
     await nescafe_gold.suppliers.connect(tesco)
     await nescafe.species.connect(arabica)
 
     result = (
-        await Supplier.nodes.filter(name="Sainsburys")
+        await Supplier.nodes.filter(name="Tesco")
         .fetch_relations("coffees__species")
         .all()
     )
@@ -568,11 +695,11 @@ async def test_fetch_relations():
         .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
-    assert result[0][0] is None
+    assert len(result) == 0
 
     if AsyncUtil.is_async_code:
         count = (
-            await Supplier.nodes.filter(name="Sainsburys")
+            await Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .get_len()
         )
@@ -580,20 +707,337 @@ async def test_fetch_relations():
 
         assert (
             await Supplier.nodes.fetch_relations("coffees__species")
-            .filter(name="Sainsburys")
+            .filter(name="Tesco")
             .check_contains(tesco)
         )
     else:
         count = len(
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .all()
         )
         assert count == 1
 
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
-            name="Sainsburys"
+            name="Tesco"
         )
+
+
+@mark_async_test
+async def test_traverse_and_order_by():
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=110).save()
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+
+    results = (
+        await Species.nodes.fetch_relations("coffees").order_by("-coffees__price").all()
+    )
+    assert len(results) == 2
+    assert len(results[0]) == 3  # 2 nodes and 1 relation
+    assert results[0][0] == robusta
+    assert results[1][0] == arabica
+
+
+@mark_async_test
+async def test_annotate_and_collect():
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe 1002", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe 1003", price=11).save()
+
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+    await nescafe_gold.species.connect(arabica)
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species"))
+        .all()
+    )
+    assert len(result) == 1
+    assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(all_species=Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        await Supplier.nodes.traverse_relations("coffees__species")
+        .annotate(
+            all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
+            all_species_rels=Collect(
+                RelationNameResolver("coffees__species"), distinct=True
+            ),
+        )
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][2][0]) == 3  # 3 species relations must be there
+
+
+@mark_async_test
+async def test_resolve_subgraph():
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+    await nescafe_gold.species.connect(robusta)
+
+    with raises(
+        RuntimeError,
+        match=re.escape(
+            "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+        ),
+    ):
+        result = await Supplier.nodes.resolve_subgraph()
+
+    with raises(
+        NotImplementedError,
+        match=re.escape(
+            "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+        ),
+    ):
+        result = await Supplier.nodes.traverse_relations(
+            "coffees__species"
+        ).resolve_subgraph()
+
+    result = await Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    assert len(result) == 2
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+    assert hasattr(result[1], "_relations")
+    assert "coffees" in result[1]._relations
+    coffees = result[1]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+
+@mark_async_test
+async def test_resolve_subgraph_optional():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+
+    result = await Supplier.nodes.fetch_relations(
+        Optional("coffees__species")
+    ).resolve_subgraph()
+    assert len(result) == 1
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert coffees._relations["species"] == arabica
+
+
+@mark_async_test
+async def test_subquery():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1)
+    await nescafe.suppliers.connect(supplier2)
+    await nescafe.species.connect(arabica)
+
+    result = await Coffee.nodes.subquery(
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+        )
+        .annotate(supps=Last(Collect("suppliers"))),
+        ["supps"],
+    )
+    result = await result.all()
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][0] == supplier2
+
+    with raises(
+        RuntimeError,
+        match=re.escape("Variable 'unknown' is not returned by subquery."),
+    ):
+        result = await Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["unknown"],
+        )
+
+
+@mark_async_test
+async def test_intermediate_transform():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    result = (
+        await Coffee.nodes.fetch_relations("suppliers")
+        .intermediate_transform(
+            {
+                "coffee": "coffee",
+                "suppliers": NodeNameResolver("suppliers"),
+                "r": RelationNameResolver("suppliers"),
+            },
+            ordering=["-r.since"],
+        )
+        .annotate(oldest_supplier=Last(Collect("suppliers")))
+        .all()
+    )
+
+    assert len(result) == 1
+    assert result[0] == supplier2
+
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {
+                "test": Collect("suppliers"),
+            }
+        )
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"You must provide one variable at least when calling intermediate_transform()"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {}
+        )
+
+
+@mark_async_test
+async def test_mix_functions():
+    # Test with a mix of all advanced querying functions
+
+    eiffel_tower = await Building(name="Eiffel Tower").save()
+    empire_state_building = await Building(name="Empire State Building").save()
+    miranda = await Student(name="Miranda").save()
+    await miranda.lives_in.connect(empire_state_building)
+    jean_pierre = await Student(name="Jean-Pierre").save()
+    await jean_pierre.lives_in.connect(eiffel_tower)
+    mireille = await Student(name="Mireille").save()
+    mimoun_jr = await Student(name="Mimoun Jr").save()
+    mimoun = await Student(name="Mimoun").save()
+    await mireille.lives_in.connect(eiffel_tower)
+    await mimoun_jr.lives_in.connect(eiffel_tower)
+    await mimoun.lives_in.connect(eiffel_tower)
+    await mimoun.parents.connect(mireille)
+    await mimoun.children.connect(mimoun_jr)
+    math = await Course(name="Math").save()
+    dessin = await Course(name="Dessin").save()
+    await mimoun.courses.connect(
+        math,
+        {
+            "level": "1.2",
+            "start_date": datetime(2020, 6, 2),
+            "end_date": datetime(2020, 12, 31),
+        },
+    )
+    await mimoun.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+    await mimoun_jr.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+
+    await mimoun_jr.preferred_course.connect(dessin)
+
+    full_nodeset = (
+        await Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
+        .order_by("name")
+        .fetch_relations(
+            "parents",
+            Optional("children__preferred_course"),
+        )
+        .subquery(
+            Student.nodes.fetch_relations("courses")
+            .intermediate_transform(
+                {"rel": RelationNameResolver("courses")},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    subgraph = await full_nodeset.annotate(
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
+    ).resolve_subgraph()
+
+    assert len(subgraph) == 2
+    assert subgraph[0] == mimoun
+    assert subgraph[1] == mimoun_jr
+    mimoun_returned_rels = subgraph[0]._relations
+    assert mimoun_returned_rels["children"] == mimoun_jr
+    assert mimoun_returned_rels["children"]._relations["preferred_course"] == dessin
+    assert mimoun_returned_rels["parents"] == mireille
+    assert mimoun_returned_rels["latest_course_relationship"].level == "1.2"
 
 
 @mark_async_test
@@ -639,9 +1083,6 @@ async def test_in_filter_with_array_property():
 async def test_async_iterator():
     n = 10
     if AsyncUtil.is_async_code:
-        for c in await Coffee.nodes:
-            await c.delete()
-
         for i in range(n):
             await Coffee(name=f"xxx_{i}", price=i).save()
 

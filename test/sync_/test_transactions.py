@@ -14,9 +14,6 @@ class APerson(StructuredNode):
 
 @mark_sync_test
 def test_rollback_and_commit_transaction():
-    for p in APerson.nodes:
-        p.delete()
-
     APerson(name="Roger").save()
 
     db.begin()
@@ -41,8 +38,6 @@ def in_a_tx(*names):
 @mark_sync_test
 def test_transaction_decorator():
     db.install_labels(APerson)
-    for p in APerson.nodes:
-        p.delete()
 
     # should work
     in_a_tx("Roger")
@@ -68,9 +63,6 @@ def test_transaction_as_a_context():
 
 @mark_sync_test
 def test_query_inside_transaction():
-    for p in APerson.nodes:
-        p.delete()
-
     with db.transaction:
         APerson(name="Alice").save()
         APerson(name="Bob").save()
@@ -119,9 +111,6 @@ def in_a_tx_with_bookmark(*names):
 
 @mark_sync_test
 def test_bookmark_transaction_decorator():
-    for p in APerson.nodes:
-        p.delete()
-
     # should work
     result, bookmarks = in_a_tx_with_bookmark("Ruth", bookmarks=None)
     assert result is None
@@ -181,9 +170,6 @@ def test_bookmark_passed_in_to_context(spy_on_db_begin):
 
 @mark_sync_test
 def test_query_inside_bookmark_transaction():
-    for p in APerson.nodes:
-        p.delete()
-
     with db.transaction as transaction:
         APerson(name="Alice").save()
         APerson(name="Bob").save()

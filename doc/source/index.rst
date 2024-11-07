@@ -74,7 +74,9 @@ Contents
    properties
    spatial_properties
    schema_management
-   queries
+   filtering_ordering
+   traversal
+   advanced_query_operations
    cypher
    transactions
    hooks

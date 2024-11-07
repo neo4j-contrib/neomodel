@@ -122,10 +122,6 @@ async def test_automatic_result_resolution():
     # TechnicalPerson (!NOT basePerson!)
     assert type((await A.friends_with)[0]) is TechnicalPerson
 
-    await A.delete()
-    await B.delete()
-    await C.delete()
-
 
 @mark_async_test
 async def test_recursive_automatic_result_resolution():
@@ -175,11 +171,6 @@ async def test_recursive_automatic_result_resolution():
     assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
     # Assert that primitive data types remain primitive data types
     assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
-
-    await A.delete()
-    await B.delete()
-    await C.delete()
-    await D.delete()
 
 
 @mark_async_test
@@ -240,12 +231,6 @@ async def test_validation_with_inheritance_from_db():
     )
     assert type((await D.friends_with)[0]) is PilotPerson
 
-    await A.delete()
-    await B.delete()
-    await C.delete()
-    await D.delete()
-    await E.delete()
-
 
 @mark_async_test
 async def test_validation_enforcement_to_db():
@@ -295,13 +280,6 @@ async def test_validation_enforcement_to_db():
     with pytest.raises(ValueError):
         await A.friends_with.connect(F)
 
-    await A.delete()
-    await B.delete()
-    await C.delete()
-    await D.delete()
-    await E.delete()
-    await F.delete()
-
 
 @mark_async_test
 async def test_failed_result_resolution():
@@ -343,9 +321,6 @@ async def test_failed_result_resolution():
         friends = await A.friends_with.all()
         for some_friend in friends:
             print(some_friend.name)
-
-    await A.delete()
-    await B.delete()
 
 
 @mark_async_test
@@ -509,6 +484,10 @@ async def test_resolve_inexistent_relationship():
     Attempting to resolve an inexistent relationship should raise an exception
     :return:
     """
+    A = await TechnicalPerson(name="Michael Knight", expertise="Cars").save()
+    B = await TechnicalPerson(name="Luke Duke", expertise="Lasers").save()
+
+    await A.friends_with.connect(B)
 
     # Forget about the FRIENDS_WITH Relationship.
     del adb._NODE_CLASS_REGISTRY[frozenset(["FRIENDS_WITH"])]
@@ -518,7 +497,7 @@ async def test_resolve_inexistent_relationship():
         match=r"Relationship of type .* does not resolve to any of the known objects.*",
     ):
         query_data = await adb.cypher_query(
-            "MATCH (:ExtendedSomePerson)-[r:FRIENDS_WITH]->(:ExtendedSomePerson) "
+            "MATCH (:TechnicalPerson)-[r:FRIENDS_WITH]->(:TechnicalPerson) "
             "RETURN DISTINCT r",
             resolve_objects=True,
         )

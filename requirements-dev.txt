@@ -3,6 +3,7 @@
 
 unasync>=0.5.0
 pytest>=7.1
+pytest-asyncio>=0.19.0
 pytest-cov>=4.0
 pre-commit
 black

@@ -303,6 +303,21 @@ def test_json():
     assert prop.deflate(value) == '{"test": [1, 2, 3]}'
     assert prop.inflate('{"test": [1, 2, 3]}') == value
 
+    value_with_unicode = {"test": [1, 2, 3, "©"]}
+    assert prop.deflate(value_with_unicode) == '{"test": [1, 2, 3, "\\u00a9"]}'
+    assert prop.inflate('{"test": [1, 2, 3, "\\u00a9"]}') == value_with_unicode
+
+
+def test_json_unicode():
+    prop = JSONProperty(ensure_ascii=False)
+    prop.name = "json"
+    prop.owner = FooBar
+
+    value = {"test": [1, 2, 3, "©"]}
+
+    assert prop.deflate(value) == '{"test": [1, 2, 3, "©"]}'
+    assert prop.inflate('{"test": [1, 2, 3, "©"]}') == value
+
 
 def test_indexed():
     indexed = StringProperty(index=True)
@@ -408,10 +423,6 @@ def test_independent_property_name():
     rel = x.knows.relationship(x)
     assert rel.known_for == r.known_for
 
-    # -- cleanup --
-
-    x.delete()
-
 
 @mark_sync_test
 def test_independent_property_name_for_semi_structured():
@@ -445,8 +456,6 @@ def test_independent_property_name_for_semi_structured():
     # assert not hasattr(from_get, "title")
     assert from_get.extra == "data"
 
-    semi.delete()
-
 
 @mark_sync_test
 def test_independent_property_name_get_or_create():
@@ -464,9 +473,6 @@ def test_independent_property_name_get_or_create():
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
-
-    # delete node afterwards
-    x.delete()
 
 
 @mark.parametrize("normalized_class", (NormalizedProperty,))
@@ -638,9 +644,6 @@ def test_unique_index_prop_not_required():
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["unique_required_property"] == "unique and required"
 
-    # delete node afterwards
-    x.delete()
-
 
 @mark_sync_test
 def test_unique_index_prop_enforced():
@@ -664,11 +667,6 @@ def test_unique_index_prop_enforced():
     # Check nodes are in database
     results, _ = db.cypher_query("MATCH (n:UniqueNullableNameNode) RETURN n")
     assert len(results) == 3
-
-    # Delete nodes afterwards
-    x.delete()
-    y.delete()
-    z.delete()
 
 
 def test_alias_property():
