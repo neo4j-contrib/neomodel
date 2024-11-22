@@ -1135,12 +1135,7 @@ class BaseFunction:
         if isinstance(self.input_name, (NodeNameResolver, RelationNameResolver)):
             self._internal_name = self.input_name.resolve(qbuilder)
         else:
-            result = (str(self.input_name), None)
-            if result is None:
-                raise ValueError(
-                    f"Unknown variable {self.input_name} used in Collect()"
-                )
-            self._internal_name = result[0]
+            self._internal_name = str(self.input_name)
         return self._internal_name
 
     def render(self, qbuilder: QueryBuilder) -> str:
