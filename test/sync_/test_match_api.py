@@ -900,10 +900,15 @@ def test_intermediate_transform():
         Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
-                "coffee": {"source": "coffee"},
+                "coffee": {"source": "coffee", "include_in_return": True},
                 "suppliers": {"source": NodeNameResolver("suppliers")},
                 "r": {"source": RelationNameResolver("suppliers")},
+                "cost": {
+                    "source": NodeNameResolver("suppliers"),
+                    "source_prop": "delivery_cost",
+                },
             },
+            distinct=True,
             ordering=["-r.since"],
         )
         .annotate(oldest_supplier=Last(Collect("suppliers")))
@@ -911,7 +916,8 @@ def test_intermediate_transform():
     )
 
     assert len(result) == 1
-    assert result[0] == supplier2
+    assert result[0][0] == nescafe
+    assert result[0][1] == supplier2
 
     with raises(
         ValueError,

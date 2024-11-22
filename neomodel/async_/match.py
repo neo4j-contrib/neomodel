@@ -843,17 +843,17 @@ class AsyncQueryBuilder:
         if hasattr(self.node_set, "_intermediate_transforms"):
             for transform in self.node_set._intermediate_transforms:
                 query += " WITH "
+                query += "DISTINCT " if transform.get("distinct") else ""
                 injected_vars: list = []
                 # Reset return list since we'll probably invalidate most variables
                 self._ast.return_clause = ""
                 self._ast.additional_return = []
                 for name, varprops in transform["vars"].items():
                     source = varprops["source"]
-                    transformation = "DISTINCT " if varprops.get("distinct") else ""
                     if isinstance(source, (NodeNameResolver, RelationNameResolver)):
-                        transformation += source.resolve(self)
+                        transformation = source.resolve(self)
                     else:
-                        transformation += source
+                        transformation = source
                     if varprops.get("source_prop"):
                         transformation += f".{varprops['source_prop']}"
                     transformation += f" AS {name}"
@@ -1542,7 +1542,10 @@ class AsyncNodeSet(AsyncBaseSet):
         return self
 
     def intermediate_transform(
-        self, vars: Dict[str, Transformation], ordering: TOptional[list] = None
+        self,
+        vars: Dict[str, Transformation],
+        distinct: bool = False,
+        ordering: TOptional[list] = None,
     ) -> "AsyncNodeSet":
         if not vars:
             raise ValueError(
@@ -1556,7 +1559,9 @@ class AsyncNodeSet(AsyncBaseSet):
                 raise ValueError(
                     f"Wrong source type specified for variable '{name}', should be a string or an instance of NodeNameResolver or RelationNameResolver"
                 )
-        self._intermediate_transforms.append({"vars": vars, "ordering": ordering})
+        self._intermediate_transforms.append(
+            {"vars": vars, "distinct": distinct, "ordering": ordering}
+        )
         return self
 
 

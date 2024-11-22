@@ -7,7 +7,6 @@ Transformation = TypedDict(
     {
         "source": Any,
         "source_prop": Optional[str],
-        "distinct": Optional[bool],
         "include_in_return": Optional[bool],
     },
 )
