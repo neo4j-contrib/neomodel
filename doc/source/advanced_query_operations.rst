@@ -58,6 +58,37 @@ As discussed in the note above, this is for example useful when you need to orde
         )
         .annotate(supps=Last(Collect("suppliers")))
 
+Options for `intermediate_transform` *variables* are:
+
+- `source`: `string`or `Resolver` - the variable to use as source for the transformation. Works with resolvers (see below).
+- `source_prop`: `string` - optionally, a property of the source variable to use as source for the transformation.
+- `include_in_return`: `bool` - whether to include the variable in the return statement. Defaults to False.
+
+Additional options for the `intermediate_transform` method are:
+- `distinct`: `bool` - whether to deduplicate the results. Defaults to False.
+
+Here is a full example::
+
+    await Coffee.nodes.fetch_relations("suppliers")
+        .intermediate_transform(
+            {
+                "coffee": "coffee",
+                "suppliers": NodeNameResolver("suppliers"),
+                "r": RelationNameResolver("suppliers"),
+                "coffee": {"source": "coffee", "include_in_return": True}, # Only coffee will be returned
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
+                "cost": {
+                    "source": NodeNameResolver("suppliers"),
+                    "source_prop": "delivery_cost",
+                },
+            },
+            distinct=True,
+            ordering=["-r.since"],
+        )
+        .annotate(oldest_supplier=Last(Collect("suppliers")))
+        .all()
+
 Subqueries
 ----------
 
