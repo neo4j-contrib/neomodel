@@ -1,3 +1,6 @@
+Version 5.4.1 2024-11
+* Add options for intermediate_transform : distinct, include_in_return, use a prop as source
+
 Version 5.4.0 2024-11
 * Traversal option for filtering and ordering
 * Insert raw Cypher for ordering
