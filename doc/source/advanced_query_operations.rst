@@ -54,7 +54,7 @@ As discussed in the note above, this is for example useful when you need to orde
     # This will return all Coffee nodes, with their most expensive supplier
     Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
-            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
         .annotate(supps=Last(Collect("suppliers")))
 
@@ -71,7 +71,7 @@ The `subquery` method allows you to perform a `Cypher subquery <https://neo4j.co
     .subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
-            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
         .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],

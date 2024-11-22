@@ -863,7 +863,7 @@ def test_subquery():
     result = Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
-            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
         .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],
@@ -900,9 +900,9 @@ def test_intermediate_transform():
         Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
-                "coffee": "coffee",
-                "suppliers": NodeNameResolver("suppliers"),
-                "r": RelationNameResolver("suppliers"),
+                "coffee": {"source": "coffee"},
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
             },
             ordering=["-r.since"],
         )
@@ -921,7 +921,7 @@ def test_intermediate_transform():
     ):
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
             {
-                "test": Collect("suppliers"),
+                "test": {"source": Collect("suppliers")},
             }
         )
     with raises(
@@ -992,7 +992,7 @@ def test_mix_functions():
         .subquery(
             Student.nodes.fetch_relations("courses")
             .intermediate_transform(
-                {"rel": RelationNameResolver("courses")},
+                {"rel": {"source": RelationNameResolver("courses")}},
                 ordering=[
                     RawCypher("toInteger(split(rel.level, '.')[0])"),
                     RawCypher("toInteger(split(rel.level, '.')[1])"),

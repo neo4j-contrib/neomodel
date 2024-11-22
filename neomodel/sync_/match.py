@@ -12,6 +12,7 @@ from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
+from neomodel.typing import Transformation
 from neomodel.util import INCOMING, OUTGOING
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
@@ -840,6 +841,7 @@ class QueryBuilder:
             query += " WITH "
             query += self._ast.with_clause
 
+        returned_items: list[str] = []
         if hasattr(self.node_set, "_intermediate_transforms"):
             for transform in self.node_set._intermediate_transforms:
                 query += " WITH "
@@ -847,25 +849,19 @@ class QueryBuilder:
                 # Reset return list since we'll probably invalidate most variables
                 self._ast.return_clause = ""
                 self._ast.additional_return = []
-                for name, source in transform["vars"].items():
-                    if type(source) is str:
-                        injected_vars.append(f"{source} AS {name}")
-                    elif isinstance(source, RelationNameResolver):
-                        result = self.lookup_query_variable(
-                            source.relation, return_relation=True
-                        )
-                        if not result:
-                            raise ValueError(
-                                f"Unable to resolve variable name for relation {source.relation}."
-                            )
-                        injected_vars.append(f"{result[0]} AS {name}")
-                    elif isinstance(source, NodeNameResolver):
-                        result = self.lookup_query_variable(source.node)
-                        if not result:
-                            raise ValueError(
-                                f"Unable to resolve variable name for node {source.node}."
-                            )
-                        injected_vars.append(f"{result[0]} AS {name}")
+                for name, varprops in transform["vars"].items():
+                    source = varprops["source"]
+                    transformation = "DISTINCT " if varprops.get("distinct") else ""
+                    if isinstance(source, (NodeNameResolver, RelationNameResolver)):
+                        transformation += source.resolve(self)
+                    else:
+                        transformation += source
+                    if varprops.get("source_prop"):
+                        transformation += f".{varprops['source_prop']}"
+                    transformation += f" AS {name}"
+                    if varprops.get("include_in_return"):
+                        returned_items += [name]
+                    injected_vars.append(transformation)
                 query += ",".join(injected_vars)
                 if not transform["ordering"]:
                     continue
@@ -881,7 +877,6 @@ class QueryBuilder:
                         ordering.append(item)
                 query += ",".join(ordering)
 
-        returned_items: list[str] = []
         if hasattr(self.node_set, "_subqueries"):
             for subquery, return_set in self.node_set._subqueries:
                 outer_primary_var = self._ast.return_clause
@@ -1098,6 +1093,14 @@ class RelationNameResolver:
 
     relation: str
 
+    def resolve(self, qbuilder: QueryBuilder) -> str:
+        result = qbuilder.lookup_query_variable(self.relation, True)
+        if result is None:
+            raise ValueError(
+                f"Unable to resolve variable name for relation {self.relation}"
+            )
+        return result[0]
+
 
 @dataclass
 class NodeNameResolver:
@@ -1111,6 +1114,12 @@ class NodeNameResolver:
 
     node: str
 
+    def resolve(self, qbuilder: QueryBuilder) -> str:
+        result = qbuilder.lookup_query_variable(self.node)
+        if result is None:
+            raise ValueError(f"Unable to resolve variable name for node {self.node}")
+        return result[0]
+
 
 @dataclass
 class BaseFunction:
@@ -1123,15 +1132,15 @@ class BaseFunction:
         return self._internal_name
 
     def resolve_internal_name(self, qbuilder: QueryBuilder) -> str:
-        if isinstance(self.input_name, NodeNameResolver):
-            result = qbuilder.lookup_query_variable(self.input_name.node)
-        elif isinstance(self.input_name, RelationNameResolver):
-            result = qbuilder.lookup_query_variable(self.input_name.relation, True)
+        if isinstance(self.input_name, (NodeNameResolver, RelationNameResolver)):
+            self._internal_name = self.input_name.resolve(qbuilder)
         else:
             result = (str(self.input_name), None)
-        if result is None:
-            raise ValueError(f"Unknown variable {self.input_name} used in Collect()")
-        self._internal_name = result[0]
+            if result is None:
+                raise ValueError(
+                    f"Unknown variable {self.input_name} used in Collect()"
+                )
+            self._internal_name = result[0]
         return self._internal_name
 
     def render(self, qbuilder: QueryBuilder) -> str:
@@ -1536,15 +1545,16 @@ class NodeSet(BaseSet):
         return self
 
     def intermediate_transform(
-        self, vars: Dict[str, Any], ordering: TOptional[list] = None
+        self, vars: Dict[str, Transformation], ordering: TOptional[list] = None
     ) -> "NodeSet":
         if not vars:
             raise ValueError(
                 "You must provide one variable at least when calling intermediate_transform()"
             )
-        for name, source in vars.items():
+        for name, props in vars.items():
+            source = props["source"]
             if type(source) is not str and not isinstance(
-                source, (NodeNameResolver, RelationNameResolver)
+                source, (NodeNameResolver, RelationNameResolver, RawCypher)
             ):
                 raise ValueError(
                     f"Wrong source type specified for variable '{name}', should be a string or an instance of NodeNameResolver or RelationNameResolver"
