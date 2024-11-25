@@ -1195,14 +1195,13 @@ class AsyncTransactionProxy:
 
     @ensure_connection
     async def __aenter__(self):
-        if self.parallel_runtime:
-            if not await self.db.parallel_runtime_available():
-                warnings.warn(
-                    "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
-                    "Reverting to default runtime.",
-                    UserWarning,
-                )
-                self.parallel_runtime = False
+        if self.parallel_runtime and not await self.db.parallel_runtime_available():
+            warnings.warn(
+                "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
+                "Reverting to default runtime.",
+                UserWarning,
+            )
+            self.parallel_runtime = False
         self.db._parallel_runtime = self.parallel_runtime
         await self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
