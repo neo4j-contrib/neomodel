@@ -104,6 +104,7 @@ class AsyncDatabase(local):
         self._database_version = None
         self._database_edition = None
         self.impersonated_user = None
+        self._parallel_runtime = False
 
     async def set_connection(self, url: str = None, driver: AsyncDriver = None):
         """
@@ -238,6 +239,10 @@ class AsyncDatabase(local):
     @property
     def read_transaction(self):
         return AsyncTransactionProxy(self, access_mode="READ")
+
+    @property
+    def parallel_read_transaction(self):
+        return AsyncTransactionProxy(self, access_mode="READ", parallel_runtime=True)
 
     async def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
@@ -454,7 +459,6 @@ class AsyncDatabase(local):
 
         :return: A tuple containing a list of results and a tuple of headers.
         """
-
         if self._active_transaction:
             # Use current session is a transaction is currently active
             results, meta = await self._run_cypher_query(
@@ -493,6 +497,8 @@ class AsyncDatabase(local):
         try:
             # Retrieve the data
             start = time.time()
+            if self._parallel_runtime:
+                query = "CYPHER runtime=parallel " + query
             response: AsyncResult = await session.run(query, params)
             results, meta = [list(r.values()) async for r in response], response.keys()
             end = time.time()
@@ -1180,17 +1186,30 @@ async def install_all_labels(stdout=None):
 class AsyncTransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
-    def __init__(self, db: AsyncDatabase, access_mode=None):
+    def __init__(
+        self, db: AsyncDatabase, access_mode: str = None, parallel_runtime: bool = False
+    ):
         self.db = db
         self.access_mode = access_mode
+        self.parallel_runtime = parallel_runtime
 
     @ensure_connection
     async def __aenter__(self):
+        if self.parallel_runtime:
+            if not await self.db.parallel_runtime_available():
+                warnings.warn(
+                    "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
+                    "Reverting to default runtime.",
+                    UserWarning,
+                )
+                self.parallel_runtime = False
+        self.db._parallel_runtime = self.parallel_runtime
         await self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
+        self.db._parallel_runtime = False
         if exc_value:
             await self.db.rollback()
 

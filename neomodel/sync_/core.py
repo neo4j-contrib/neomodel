@@ -104,6 +104,7 @@ class Database(local):
         self._database_version = None
         self._database_edition = None
         self.impersonated_user = None
+        self._parallel_runtime = False
 
     def set_connection(self, url: str = None, driver: Driver = None):
         """
@@ -238,6 +239,10 @@ class Database(local):
     @property
     def read_transaction(self):
         return TransactionProxy(self, access_mode="READ")
+
+    @property
+    def parallel_read_transaction(self):
+        return TransactionProxy(self, access_mode="READ", parallel_runtime=True)
 
     def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
@@ -452,7 +457,6 @@ class Database(local):
 
         :return: A tuple containing a list of results and a tuple of headers.
         """
-
         if self._active_transaction:
             # Use current session is a transaction is currently active
             results, meta = self._run_cypher_query(
@@ -491,6 +495,8 @@ class Database(local):
         try:
             # Retrieve the data
             start = time.time()
+            if self._parallel_runtime:
+                query = "CYPHER runtime=parallel " + query
             response: Result = session.run(query, params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
@@ -1171,17 +1177,30 @@ def install_all_labels(stdout=None):
 class TransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
-    def __init__(self, db: Database, access_mode=None):
+    def __init__(
+        self, db: Database, access_mode: str = None, parallel_runtime: bool = False
+    ):
         self.db = db
         self.access_mode = access_mode
+        self.parallel_runtime = parallel_runtime
 
     @ensure_connection
     def __enter__(self):
+        if self.parallel_runtime:
+            if not self.db.parallel_runtime_available():
+                warnings.warn(
+                    "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
+                    "Reverting to default runtime.",
+                    UserWarning,
+                )
+                self.parallel_runtime = False
+        self.db._parallel_runtime = self.parallel_runtime
         self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
         self.bookmarks = None
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.db._parallel_runtime = False
         if exc_value:
             self.db.rollback()
 
