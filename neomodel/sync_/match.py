@@ -1,6 +1,7 @@
 import inspect
 import re
 import string
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from typing import Optional as TOptional
@@ -396,6 +397,7 @@ class QueryAST:
         lookup: TOptional[str] = None,
         additional_return: TOptional[List[str]] = None,
         is_count: TOptional[bool] = False,
+        use_parallel_runtime: TOptional[bool] = False,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -409,6 +411,7 @@ class QueryAST:
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
         self.is_count = is_count
+        self.use_parallel_runtime = use_parallel_runtime
         self.subgraph: Dict = {}
 
 
@@ -432,6 +435,19 @@ class QueryBuilder:
             self._ast.skip = self.node_set.skip
         if hasattr(self.node_set, "limit"):
             self._ast.limit = self.node_set.limit
+        if hasattr(self.node_set, "use_parallel_runtime"):
+            if (
+                self.node_set.use_parallel_runtime
+                and not db.parallel_runtime_available()
+            ):
+                warnings.warn(
+                    "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
+                    "Reverting to default runtime.",
+                    UserWarning,
+                )
+                self.node_set.use_parallel_runtime = False
+            else:
+                self._ast.use_parallel_runtime = self.node_set.use_parallel_runtime
 
         return self
 
@@ -814,6 +830,8 @@ class QueryBuilder:
     def build_query(self) -> str:
         query: str = ""
 
+        if self._ast.use_parallel_runtime:
+            query += "CYPHER runtime=parallel "
         if self._ast.lookup:
             query += self._ast.lookup
 
@@ -973,7 +991,9 @@ class QueryBuilder:
                 ]
         query = self.build_query()
         results, prop_names = db.cypher_query(
-            query, self._query_params, resolve_objects=True
+            query,
+            self._query_params,
+            resolve_objects=True,
         )
         if dict_output:
             for item in results:
@@ -1235,6 +1255,8 @@ class NodeSet(BaseSet):
         self._extra_results: List = []
         self._subqueries: list[Tuple[str, list[str]]] = []
         self._intermediate_transforms: list = []
+
+        self.use_parallel_runtime = False
 
     def __await__(self):
         return self.all().__await__()
@@ -1560,6 +1582,10 @@ class NodeSet(BaseSet):
         self._intermediate_transforms.append(
             {"vars": vars, "distinct": distinct, "ordering": ordering}
         )
+        return self
+
+    def parallel_runtime(self) -> "NodeSet":
+        self.use_parallel_runtime = True
         return self
 
 

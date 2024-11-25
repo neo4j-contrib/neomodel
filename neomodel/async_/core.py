@@ -598,6 +598,18 @@ class AsyncDatabase(local):
         edition = await self.database_edition
         return edition == "enterprise"
 
+    @ensure_connection
+    async def parallel_runtime_available(self) -> bool:
+        """Returns true if the database supports parallel runtime
+
+        Returns:
+            bool: True if the database supports parallel runtime
+        """
+        return (
+            await self.version_is_higher_than("5.13")
+            and await self.edition_is_enterprise()
+        )
+
     async def change_neo4j_password(self, user, new_password):
         await self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 

@@ -596,6 +596,15 @@ class Database(local):
         edition = self.database_edition
         return edition == "enterprise"
 
+    @ensure_connection
+    def parallel_runtime_available(self) -> bool:
+        """Returns true if the database supports parallel runtime
+
+        Returns:
+            bool: True if the database supports parallel runtime
+        """
+        return self.version_is_higher_than("5.13") and self.edition_is_enterprise()
+
     def change_neo4j_password(self, user, new_password):
         self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 

@@ -1,8 +1,9 @@
 import re
+import warnings
 from datetime import datetime
 from test._async_compat import mark_async_test
 
-from pytest import raises
+from pytest import raises, warns
 
 from neomodel import (
     INCOMING,
@@ -1113,3 +1114,33 @@ async def test_async_iterator():
 
         # assert that generator runs loop above
         assert counter == n
+
+
+@mark_async_test
+async def test_parallel_runtime():
+    await Coffee(name="Java", price=99).save()
+
+    node_set = AsyncNodeSet(Coffee).parallel_runtime()
+
+    assert node_set.use_parallel_runtime
+
+    if (
+        not await adb.version_is_higher_than("5.13")
+        or not await adb.edition_is_enterprise()
+    ):
+        assert not await adb.parallel_runtime_available()
+        with warns(
+            UserWarning,
+            match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",
+        ):
+            qb = await AsyncQueryBuilder(node_set).build_ast()
+            assert not qb._ast.use_parallel_runtime
+            assert not qb.build_query().startswith("CYPHER runtime=parallel")
+    else:
+        assert await adb.parallel_runtime_available()
+        qb = await AsyncQueryBuilder(node_set).build_ast()
+        assert qb._ast.use_parallel_runtime
+        assert qb.build_query().startswith("CYPHER runtime=parallel")
+
+    results = [node async for node in qb._execute()]
+    assert len(results) == 1
