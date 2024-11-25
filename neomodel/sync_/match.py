@@ -1,6 +1,7 @@
 import inspect
 import re
 import string
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from typing import Optional as TOptional
@@ -973,7 +974,9 @@ class QueryBuilder:
                 ]
         query = self.build_query()
         results, prop_names = db.cypher_query(
-            query, self._query_params, resolve_objects=True
+            query,
+            self._query_params,
+            resolve_objects=True,
         )
         if dict_output:
             for item in results:

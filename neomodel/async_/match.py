@@ -1,6 +1,7 @@
 import inspect
 import re
 import string
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List
 from typing import Optional as TOptional
@@ -589,9 +590,11 @@ class AsyncQueryBuilder:
                 }
             else:
                 existing_rhs_name = subgraph[part][
-                    "rel_variable_name"
-                    if relation.get("relation_filtering")
-                    else "variable_name"
+                    (
+                        "rel_variable_name"
+                        if relation.get("relation_filtering")
+                        else "variable_name"
+                    )
                 ]
             if relation["include_in_return"] and not already_present:
                 self._additional_return(rel_ident)
@@ -973,7 +976,9 @@ class AsyncQueryBuilder:
                 ]
         query = self.build_query()
         results, prop_names = await adb.cypher_query(
-            query, self._query_params, resolve_objects=True
+            query,
+            self._query_params,
+            resolve_objects=True,
         )
         if dict_output:
             for item in results:

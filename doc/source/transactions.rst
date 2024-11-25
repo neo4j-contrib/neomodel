@@ -51,7 +51,7 @@ Explicit Transactions
 Neomodel also supports  `explicit transactions <https://neo4j.com/docs/
 api/python-driver/current/transactions.html>`_ that are pre-designated as either *read* or *write*. 
 
-This is vital when using neomodel over a `Neo4J causal cluster <https://neo4j.com/docs/
+This is vital when using neomodel over a `Neo4j causal cluster <https://neo4j.com/docs/
 operations-manual/current/clustering/>`_ because internally, queries will be rerouted to different 
 servers depending on their designation. 
 
@@ -168,7 +168,7 @@ Impersonation
 
 *Neo4j Enterprise feature*
 
-Impersonation (`see Neo4j driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#impersonated-user-ref>``)
+Impersonation (`see Neo4j driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#impersonated-user-ref>`_)
 can be enabled via a context manager::
 
     from neomodel import db
@@ -198,3 +198,21 @@ This can be mixed with other context manager like transactions::
         @db.transaction()
         def func2():
             ...
+
+
+Parallel runtime
+----------------
+
+As of version 5.13, Neo4j *Enterprise Edition* supports parallel runtime for read transactions.
+
+To use it, you can simply use the `parallel_read_transaction` context manager::
+
+    from neomodel import db
+
+    with db.parallel_read_transaction:
+        # It works for both neomodel-generated and custom Cypher queries
+        parallel_count_1 = len(Coffee.nodes)
+        parallel_count_2 = db.cypher_query("MATCH (n:Coffee) RETURN count(n)")
+
+It is worth noting that the parallel runtime is only available for read transactions and that it is not enabled by default, because it is not always the fastest option. It is recommended to test it in your specific use case to see if it improves performance, and read the general considerations in the `Neo4j official documentation <https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/runtimes/concepts/#runtimes-parallel-runtime-considerations>`_.
+
