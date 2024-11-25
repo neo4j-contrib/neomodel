@@ -1113,13 +1113,13 @@ def test_parallel_runtime(mocker):
         skip("Only supported for Enterprise 5.13 and above.")
 
     assert db.parallel_runtime_available()
-    mock_transaction_run = mocker.patch("neo4j.Transaction.run")
 
     # Parallel should be applied to custom Cypher query
     with db.parallel_read_transaction:
         # Mock transaction.run to access executed query
         # Assert query starts with CYPHER runtime=parallel
         assert db._parallel_runtime == True
+        mock_transaction_run = mocker.patch("neo4j.Transaction.run")
         db.cypher_query("MATCH (n:Coffee) RETURN n")
         assert assert_last_query_startswith(
             mock_transaction_run, "CYPHER runtime=parallel"
@@ -1129,10 +1129,10 @@ def test_parallel_runtime(mocker):
 
     # Parallel should be applied to neomodel queries
     with db.parallel_read_transaction:
-        Coffee.nodes
-        assert len(mock_transaction_run.call_args_list) > 1
+        mock_transaction_run_2 = mocker.patch("neo4j.Transaction.run")
+        Coffee.nodes.all()
         assert assert_last_query_startswith(
-            mock_transaction_run, "CYPHER runtime=parallel"
+            mock_transaction_run_2, "CYPHER runtime=parallel"
         )
 
 
@@ -1148,7 +1148,7 @@ def test_parallel_runtime_conflict(mocker):
         match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",
     ):
         with db.parallel_read_transaction:
-            Coffee.nodes
+            Coffee.nodes.all()
             assert not db._parallel_runtime
             assert not assert_last_query_startswith(
                 mock_transaction_run, "CYPHER runtime=parallel"
