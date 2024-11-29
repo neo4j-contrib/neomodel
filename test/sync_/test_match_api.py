@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+from pytest import raises, skip, warns
 
 from neomodel import (
     INCOMING,
@@ -20,7 +20,11 @@ from neomodel import (
     db,
 )
 from neomodel._async_compat.util import Util
-from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
+from neomodel.exceptions import (
+    FeatureNotSupported,
+    MultipleNodesReturned,
+    RelationshipClassNotDefined,
+)
 from neomodel.sync_.match import (
     Collect,
     Last,
@@ -863,7 +867,7 @@ def test_subquery():
     result = Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
-            {"suppliers": "suppliers"}, ordering=["suppliers.delivery_cost"]
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
         .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],
@@ -900,10 +904,15 @@ def test_intermediate_transform():
         Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
-                "coffee": "coffee",
-                "suppliers": NodeNameResolver("suppliers"),
-                "r": RelationNameResolver("suppliers"),
+                "coffee": {"source": "coffee", "include_in_return": True},
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
+                "cost": {
+                    "source": NodeNameResolver("suppliers"),
+                    "source_prop": "delivery_cost",
+                },
             },
+            distinct=True,
             ordering=["-r.since"],
         )
         .annotate(oldest_supplier=Last(Collect("suppliers")))
@@ -911,7 +920,8 @@ def test_intermediate_transform():
     )
 
     assert len(result) == 1
-    assert result[0] == supplier2
+    assert result[0][0] == nescafe
+    assert result[0][1] == supplier2
 
     with raises(
         ValueError,
@@ -921,7 +931,7 @@ def test_intermediate_transform():
     ):
         Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
             {
-                "test": Collect("suppliers"),
+                "test": {"source": Collect("suppliers")},
             }
         )
     with raises(
@@ -992,7 +1002,7 @@ def test_mix_functions():
         .subquery(
             Student.nodes.fetch_relations("courses")
             .intermediate_transform(
-                {"rel": RelationNameResolver("courses")},
+                {"rel": {"source": RelationNameResolver("courses")}},
                 ordering=[
                     RawCypher("toInteger(split(rel.level, '.')[0])"),
                     RawCypher("toInteger(split(rel.level, '.')[1])"),
@@ -1091,3 +1101,55 @@ def test_async_iterator():
 
         # assert that generator runs loop above
         assert counter == n
+
+
+def assert_last_query_startswith(mock_func, query) -> bool:
+    return mock_func.call_args_list[-1].args[0].startswith(query)
+
+
+@mark_sync_test
+def test_parallel_runtime(mocker):
+    if not db.version_is_higher_than("5.13") or not db.edition_is_enterprise():
+        skip("Only supported for Enterprise 5.13 and above.")
+
+    assert db.parallel_runtime_available()
+
+    # Parallel should be applied to custom Cypher query
+    with db.parallel_read_transaction:
+        # Mock transaction.run to access executed query
+        # Assert query starts with CYPHER runtime=parallel
+        assert db._parallel_runtime == True
+        mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+        db.cypher_query("MATCH (n:Coffee) RETURN n")
+        assert assert_last_query_startswith(
+            mock_transaction_run, "CYPHER runtime=parallel"
+        )
+    # Test exiting the context sets the parallel_runtime to False
+    assert db._parallel_runtime == False
+
+    # Parallel should be applied to neomodel queries
+    with db.parallel_read_transaction:
+        mock_transaction_run_2 = mocker.patch("neo4j.Transaction.run")
+        Coffee.nodes.all()
+        assert assert_last_query_startswith(
+            mock_transaction_run_2, "CYPHER runtime=parallel"
+        )
+
+
+@mark_sync_test
+def test_parallel_runtime_conflict(mocker):
+    if db.version_is_higher_than("5.13") and db.edition_is_enterprise():
+        skip("Test for unavailable parallel runtime.")
+
+    assert not db.parallel_runtime_available()
+    mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+    with warns(
+        UserWarning,
+        match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",
+    ):
+        with db.parallel_read_transaction:
+            Coffee.nodes.all()
+            assert not db._parallel_runtime
+            assert not assert_last_query_startswith(
+                mock_transaction_run, "CYPHER runtime=parallel"
+            )

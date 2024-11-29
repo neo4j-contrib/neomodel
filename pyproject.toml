@@ -38,6 +38,7 @@ dev = [
     "pytest>=7.1",
     "pytest-asyncio",
     "pytest-cov>=4.0",
+    "pytest-mock",
     "pre-commit",
     "black",
     "isort",
