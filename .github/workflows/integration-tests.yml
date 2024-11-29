@@ -4,8 +4,6 @@
 name: Integration tests
 
 on:
-  push:
-    branches: [ "rc/**" ]
   pull_request:
     branches: [ "master", "rc/**" ]
 
