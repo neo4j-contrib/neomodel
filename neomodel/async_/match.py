@@ -1,10 +1,8 @@
 import inspect
 import re
 import string
-import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List
-from typing import Optional
 from typing import Optional as TOptional
 from typing import Tuple, Union
 
@@ -381,7 +379,7 @@ class QueryAST:
     limit: TOptional[int]
     result_class: TOptional[type]
     lookup: TOptional[str]
-    additional_return: List[str]
+    additional_return: TOptional[List[str]]
     is_count: TOptional[bool]
 
     def __init__(
@@ -409,7 +407,9 @@ class QueryAST:
         self.limit = limit
         self.result_class = result_class
         self.lookup = lookup
-        self.additional_return = additional_return if additional_return else []
+        self.additional_return: List[str] = (
+            additional_return if additional_return else []
+        )
         self.is_count = is_count
         self.subgraph: Dict = {}
 
@@ -528,7 +528,11 @@ class AsyncQueryBuilder:
         return traversal_ident
 
     def _additional_return(self, name: str):
-        if name not in self._ast.additional_return and name != self._ast.return_clause:
+        if (
+            not self._ast.additional_return or name not in self._ast.additional_return
+        ) and name != self._ast.return_clause:
+            if not self._ast.additional_return:
+                self._ast.additional_return = []
             self._ast.additional_return.append(name)
 
     def build_traversal_from_path(
@@ -953,8 +957,10 @@ class AsyncQueryBuilder:
 
     async def _contains(self, node_element_id):
         # inject id = into ast
-        if not self._ast.return_clause:
+        if not self._ast.return_clause and self._ast.additional_return:
             self._ast.return_clause = self._ast.additional_return[0]
+        if not self._ast.return_clause:
+            raise ValueError("Cannot use contains without a return clause")
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
         self._ast.where.append(
@@ -1006,7 +1012,7 @@ class AsyncBaseSet:
     """
 
     query_cls = AsyncQueryBuilder
-    source_class: AsyncStructuredNode
+    source_class: type[AsyncStructuredNode]
 
     async def all(self, lazy=False):
         """
@@ -1541,7 +1547,10 @@ class AsyncNodeSet(AsyncBaseSet):
         for var in return_set:
             if (
                 var != qbuilder._ast.return_clause
-                and var not in qbuilder._ast.additional_return
+                and (
+                    not qbuilder._ast.additional_return
+                    or var not in qbuilder._ast.additional_return
+                )
                 and var
                 not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
             ):

@@ -9,7 +9,7 @@ from asyncio import iscoroutinefunction
 from functools import wraps
 from itertools import combinations
 from threading import local
-from typing import Any, Optional, Sequence, Type
+from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -95,16 +95,15 @@ class AsyncDatabase(local):
 
     def __init__(self):
         self._active_transaction: Optional[AsyncTransaction] = None
-        self.url = None
-        self.driver = None
+        self.url: Optional[str] = None
+        self.driver: Optional[AsyncDriver] = None
         self._session: Optional[AsyncSession] = None
-        self._pid = None
-        self._database_name = DEFAULT_DATABASE
-        self.protocol_version = None
-        self._database_version = None
-        self._database_edition = None
-        self.impersonated_user = None
-        self._parallel_runtime = False
+        self._pid: Optional[int] = None
+        self._database_name: Optional[str] = DEFAULT_DATABASE
+        self._database_version: Optional[str] = None
+        self._database_edition: Optional[str] = None
+        self.impersonated_user: Optional[str] = None
+        self._parallel_runtime: Optional[bool] = False
 
     async def set_connection(
         self, url: Optional[str] = None, driver: Optional[AsyncDriver] = None
@@ -490,23 +489,27 @@ class AsyncDatabase(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            async with self.driver.session(
-                database=self._database_name, impersonated_user=self.impersonated_user
-            ) as session:
-                results, meta = await self._run_cypher_query(
-                    session,
-                    query,
-                    params,
-                    handle_unique,
-                    retry_on_session_expire,
-                    resolve_objects,
-                )
+            if self.driver:
+                async with self.driver.session(
+                    database=self._database_name,
+                    impersonated_user=self.impersonated_user,
+                ) as session:
+                    results, meta = await self._run_cypher_query(
+                        session,
+                        query,
+                        params,
+                        handle_unique,
+                        retry_on_session_expire,
+                        resolve_objects,
+                    )
+            else:
+                raise ValueError("No driver has been set")
 
         return results, meta
 
     async def _run_cypher_query(
         self,
-        session: AsyncSession,
+        session: Union[AsyncSession, AsyncTransaction],
         query,
         params,
         handle_unique,
@@ -1212,11 +1215,14 @@ class AsyncTransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
     def __init__(
-        self, db: AsyncDatabase, access_mode: str = None, parallel_runtime: bool = False
+        self,
+        db: AsyncDatabase,
+        access_mode: Optional[str] = None,
+        parallel_runtime: Optional[bool] = False,
     ):
-        self.db = db
-        self.access_mode = access_mode
-        self.parallel_runtime = parallel_runtime
+        self.db: AsyncDatabase = db
+        self.access_mode: Optional[str] = access_mode
+        self.parallel_runtime: Optional[bool] = parallel_runtime
 
     @ensure_connection
     async def __aenter__(self):
@@ -1304,6 +1310,14 @@ class ImpersonationHandler:
 
 
 class NodeMeta(type):
+    DoesNotExist: Type[DoesNotExist]
+    __required_properties__: Tuple[str, ...]
+    __all_properties__: Tuple[str, Any]
+    __all_aliases__: Tuple[str, Any]
+    __all_relationships__: Tuple[str, Any]
+    __label__: str
+    __optional_labels__: list[str]
+
     def __new__(mcs, name, bases, namespace):
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
         cls = super().__new__(mcs, name, bases, namespace)
