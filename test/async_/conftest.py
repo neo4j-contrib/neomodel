@@ -1,15 +1,15 @@
-import asyncio
 import os
 import warnings
-from test._async_compat import mark_async_session_auto_fixture
-
-import pytest
+from test._async_compat import (
+    mark_async_function_auto_fixture,
+    mark_async_session_auto_fixture,
+)
 
 from neomodel import adb, config
 
 
 @mark_async_session_auto_fixture
-async def setup_neo4j_session(request, event_loop):
+async def setup_neo4j_session(request):
     """
     Provides initial connection to the database and sets up the rest of the test suite
 
@@ -44,17 +44,12 @@ async def setup_neo4j_session(request, event_loop):
         await adb.cypher_query("GRANT ROLE publisher TO troygreene")
         await adb.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
-
-@mark_async_session_auto_fixture
-async def cleanup(event_loop):
     yield
+
     await adb.close_connection()
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Overrides pytest default function scoped event loop"""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
+@mark_async_function_auto_fixture
+async def setUp():
+    await adb.cypher_query("MATCH (n) DETACH DELETE n")
+    yield

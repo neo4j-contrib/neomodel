@@ -1,6 +1,9 @@
 import os
 import warnings
-from test._async_compat import mark_sync_session_auto_fixture
+from test._async_compat import (
+    mark_async_function_auto_fixture,
+    mark_sync_session_auto_fixture,
+)
 
 from neomodel import config, db
 
@@ -41,8 +44,12 @@ def setup_neo4j_session(request):
         db.cypher_query("GRANT ROLE publisher TO troygreene")
         db.cypher_query("GRANT IMPERSONATE (troygreene) ON DBMS TO admin")
 
-
-@mark_sync_session_auto_fixture
-def cleanup():
     yield
+
     db.close_connection()
+
+
+@mark_async_function_auto_fixture
+def setUp():
+    db.cypher_query("MATCH (n) DETACH DELETE n")
+    yield

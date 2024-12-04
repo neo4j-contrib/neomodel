@@ -193,6 +193,28 @@ simply returning the node IDs rather than every attribute associated with that N
     # Return set of nodes
     people = Person.nodes.filter(age__gt=3)
 
+Iteration, slicing and more
+---------------------------
+
+Iteration, slicing and counting is also supported::
+
+    # Iterable
+    for coffee in Coffee.nodes:
+        print coffee.name
+
+    # Sliceable using python slice syntax
+    coffee = Coffee.nodes.filter(price__gt=2)[2:]
+
+The slice syntax returns a NodeSet object which can in turn be chained.
+
+Length and boolean methods do not return NodeSet objects and cannot be chained further::
+
+    # Count with __len__
+    print len(Coffee.nodes.filter(price__gt=2))
+
+    if Coffee.nodes:
+        print "We have coffee nodes!"
+
 Relationships
 =============
 
@@ -235,38 +257,6 @@ Working with relationships::
 
 Retrieving additional relations
 ===============================
-
-To avoid queries multiplication, you have the possibility to retrieve
-additional relations with a single call::
-
-    # The following call will generate one MATCH with traversal per
-    # item in .fetch_relations() call
-    results = Person.nodes.fetch_relations('country').all()
-    for result in results:
-        print(result[0]) # Person
-        print(result[1]) # associated Country
-
-You can traverse more than one hop in your relations using the
-following syntax::
-
-    # Go from person to City then Country
-    Person.nodes.fetch_relations('city__country').all()
-
-You can also force the use of an ``OPTIONAL MATCH`` statement using
-the following syntax::
-
-    from neomodel.match import Optional
-
-    results = Person.nodes.fetch_relations(Optional('country')).all()
-
-.. note::
-
-    Any relationship that you intend to traverse using this method **MUST have a model defined**, even if only the default StructuredRel, like::
-        
-        class Person(StructuredNode):
-            country = RelationshipTo(Country, 'IS_FROM', model=StructuredRel)
-
-    Otherwise, neomodel will not be able to determine which relationship model to resolve into, and will fail.
 
 .. note::
 
@@ -339,3 +329,93 @@ Most _dunder_ methods for nodes and relationships had to be overriden to support
     # Sync equivalent - __getitem__
     assert len(list(Coffee.nodes[1:])) == 2
 
+
+Full example
+============
+
+The example below will show you how you can mix and match query operations, as described in :ref:`Filtering and ordering`, :ref:`Path traversal`, or :ref:`Advanced query operations`::
+
+    # These are the class definitions used for the query below
+    class HasCourseRel(AsyncStructuredRel):
+        level = StringProperty()
+        start_date = DateTimeProperty()
+        end_date = DateTimeProperty()
+
+
+    class Course(AsyncStructuredNode):
+        name = StringProperty()
+
+
+    class Building(AsyncStructuredNode):
+        name = StringProperty()
+
+
+    class Student(AsyncStructuredNode):
+        name = StringProperty()
+
+        parents = AsyncRelationshipTo("Student", "HAS_PARENT", model=AsyncStructuredRel)
+        children = AsyncRelationshipFrom("Student", "HAS_PARENT", model=AsyncStructuredRel)
+        lives_in = AsyncRelationshipTo(Building, "LIVES_IN", model=AsyncStructuredRel)
+        courses = AsyncRelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+        preferred_course = AsyncRelationshipTo(
+            Course,
+            "HAS_PREFERRED_COURSE",
+            model=AsyncStructuredRel,
+            cardinality=AsyncZeroOrOne,
+        )
+
+    # This is the query
+    full_nodeset = (
+        await Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower") # Combine filters
+        .order_by("name")
+        .fetch_relations(
+            "parents",
+            Optional("children__preferred_course"),
+        ) # Combine fetch_relations
+        .subquery(
+            Student.nodes.fetch_relations("courses") # Root variable student will be auto-injected here
+            .intermediate_transform(
+                {"rel": RelationNameResolver("courses")},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ], # Intermediate ordering
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    # Using async, we need to do 2 await
+    # One is for subquery, the other is for resolve_subgraph
+    # It only runs a single Cypher query though
+    subgraph = await full_nodeset.annotate(
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
+    ).resolve_subgraph()
+
+    # The generated Cypher query looks like this
+    query = """
+    MATCH (student:Student)-[r1:`HAS_PARENT`]->(student_parents:Student)
+    MATCH (student)-[r4:`LIVES_IN`]->(building_lives_in:Building)
+    OPTIONAL MATCH (student)<-[r2:`HAS_PARENT`]-(student_children:Student)-[r3:`HAS_PREFERRED_COURSE`]->(course_children__preferred_course:Course)
+    WITH *
+    # building_lives_in_name_1 = "Eiffel Tower"
+    # student_name_1 = "(?i)m.*"
+    WHERE building_lives_in.name = $building_lives_in_name_1 AND student.name =~ $student_name_1
+    CALL {
+        WITH student
+        MATCH (student)-[r1:`HAS_COURSE`]->(course_courses:Course)
+        WITH r1 AS rel
+        ORDER BY toInteger(split(rel.level, '.')[0]),toInteger(split(rel.level, '.')[1]),rel.end_date,rel.start_date
+        RETURN last(collect(rel)) AS latest_course
+    }
+    RETURN latest_course, student, student_parents, r1, student_children, r2, course_children__preferred_course, r3, building_lives_in, r4, collect(DISTINCT student_children) AS children, collect(DISTINCT course_children__preferred_course) AS children_preferred_course
+    ORDER BY student.name
+    """

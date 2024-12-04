@@ -1,7 +1,8 @@
+import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+from pytest import raises, skip, warns
 
 from neomodel import (
     INCOMING,
@@ -15,10 +16,26 @@ from neomodel import (
     StructuredNode,
     StructuredRel,
     UniqueIdProperty,
+    ZeroOrOne,
+    db,
 )
 from neomodel._async_compat.util import Util
-from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
-from neomodel.sync_.match import NodeSet, Optional, QueryBuilder, Traversal
+from neomodel.exceptions import (
+    FeatureNotSupported,
+    MultipleNodesReturned,
+    RelationshipClassNotDefined,
+)
+from neomodel.sync_.match import (
+    Collect,
+    Last,
+    NodeNameResolver,
+    NodeSet,
+    Optional,
+    QueryBuilder,
+    RawCypher,
+    RelationNameResolver,
+    Traversal,
+)
 
 
 class SupplierRel(StructuredRel):
@@ -29,7 +46,7 @@ class SupplierRel(StructuredRel):
 class Supplier(StructuredNode):
     name = StringProperty()
     delivery_cost = IntegerProperty()
-    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS")
+    coffees = RelationshipTo("Coffee", "COFFEE SUPPLIERS", model=SupplierRel)
 
 
 class Species(StructuredNode):
@@ -70,6 +87,40 @@ class PersonX(StructuredNode):
 
     # traverse outgoing LIVES_IN relations, inflate to City objects
     city = RelationshipTo(CityX, "LIVES_IN")
+
+
+class SoftwareDependency(StructuredNode):
+    name = StringProperty(required=True)
+    version = StringProperty(required=True)
+
+
+class HasCourseRel(StructuredRel):
+    level = StringProperty()
+    start_date = DateTimeProperty()
+    end_date = DateTimeProperty()
+
+
+class Course(StructuredNode):
+    name = StringProperty()
+
+
+class Building(StructuredNode):
+    name = StringProperty()
+
+
+class Student(StructuredNode):
+    name = StringProperty()
+
+    parents = RelationshipTo("Student", "HAS_PARENT", model=StructuredRel)
+    children = RelationshipFrom("Student", "HAS_PARENT", model=StructuredRel)
+    lives_in = RelationshipTo(Building, "LIVES_IN", model=StructuredRel)
+    courses = RelationshipTo(Course, "HAS_COURSE", model=HasCourseRel)
+    preferred_course = RelationshipTo(
+        Course,
+        "HAS_PREFERRED_COURSE",
+        model=StructuredRel,
+        cardinality=ZeroOrOne,
+    )
 
 
 @mark_sync_test
@@ -137,7 +188,7 @@ def test_get():
 @mark_sync_test
 def test_simple_traverse_with_filter():
     nescafe = Coffee(name="Nescafe2", price=99).save()
-    tesco = Supplier(name="Sainsburys", delivery_cost=2).save()
+    tesco = Supplier(name="Tesco", delivery_cost=2).save()
     nescafe.suppliers.connect(tesco)
 
     qb = QueryBuilder(NodeSet(source=nescafe).suppliers.match(since__lt=datetime.now()))
@@ -149,7 +200,7 @@ def test_simple_traverse_with_filter():
     assert qb._ast.match
     assert qb._ast.return_clause.startswith("suppliers")
     assert len(results) == 1
-    assert results[0].name == "Sainsburys"
+    assert results[0].name == "Tesco"
 
 
 @mark_sync_test
@@ -202,9 +253,6 @@ def test_len_and_iter_and_bool():
 
 @mark_sync_test
 def test_slice():
-    for c in Coffee.nodes:
-        c.delete()
-
     Coffee(name="Icelands finest").save()
     Coffee(name="Britains finest").save()
     Coffee(name="Japans finest").save()
@@ -273,9 +321,6 @@ def test_contains():
 
 @mark_sync_test
 def test_order_by():
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5).save()
     c2 = Coffee(name="Britains finest", price=10).save()
     c3 = Coffee(name="Japans finest", price=35).save()
@@ -296,13 +341,13 @@ def test_order_by():
     ns = ns.order_by("?")
     qb = QueryBuilder(ns).build_ast()
     assert qb._ast.with_clause == "coffee, rand() as r"
-    assert qb._ast.order_by == "r"
+    assert qb._ast.order_by == ["r"]
 
     with raises(
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        Coffee.nodes.order_by("id")
+        Coffee.nodes.order_by("id").all()
 
     # Test order by on a relationship
     l = Supplier(name="lidl2").save()
@@ -317,10 +362,27 @@ def test_order_by():
 
 
 @mark_sync_test
-def test_extra_filters():
-    for c in Coffee.nodes:
-        c.delete()
+def test_order_by_rawcypher():
+    d1 = SoftwareDependency(name="Package1", version="1.0.0").save()
+    d2 = SoftwareDependency(name="Package2", version="1.4.0").save()
+    d3 = SoftwareDependency(name="Package3", version="2.5.5").save()
 
+    assert (
+        SoftwareDependency.nodes.order_by(
+            RawCypher("toInteger(split($n.version, '.')[0]) DESC"),
+        ).all()
+    )[0] == d3
+
+    with raises(
+        ValueError, match=r"RawCypher: Do not include any action that has side effect"
+    ):
+        SoftwareDependency.nodes.order_by(
+            RawCypher("DETACH DELETE $n"),
+        )
+
+
+@mark_sync_test
+def test_extra_filters():
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -392,10 +454,6 @@ def test_empty_filters():
     ``get_queryset`` function in ``GenericAPIView`` should returns
     ``NodeSet`` object.
     """
-
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Super", price=5, id_=1).save()
     c2 = Coffee(name="Puper", price=10, id_=2).save()
 
@@ -419,10 +477,6 @@ def test_empty_filters():
 
 @mark_sync_test
 def test_q_filters():
-    # Test where no children and self.connector != conn ?
-    for c in Coffee.nodes:
-        c.delete()
-
     c1 = Coffee(name="Icelands finest", price=5, id_=1).save()
     c2 = Coffee(name="Britains finest", price=10, id_=2).save()
     c3 = Coffee(name="Japans finest", price=35, id_=3).save()
@@ -513,7 +567,7 @@ def test_traversal_filter_left_hand_statement():
     nescafe = Coffee(name="Nescafe2", price=99).save()
     nescafe_gold = Coffee(name="Nescafe gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     biedronka = Supplier(name="Biedronka", delivery_cost=5).save()
     lidl = Supplier(name="Lidl", delivery_cost=3).save()
 
@@ -529,21 +583,95 @@ def test_traversal_filter_left_hand_statement():
 
 
 @mark_sync_test
+def test_filter_with_traversal():
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=11).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=99).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    results = Coffee.nodes.filter(species__name="Arabica").all()
+    assert len(results) == 1
+    assert len(results[0]) == 3
+    assert results[0][0] == nescafe
+
+    results_multi_hop = Supplier.nodes.filter(coffees__species__name="Arabica").all()
+    assert len(results_multi_hop) == 1
+    assert results_multi_hop[0][0] == tesco
+
+    no_results = Supplier.nodes.filter(coffees__species__name="Noffee").all()
+    assert no_results == []
+
+
+@mark_sync_test
+def test_relation_prop_filtering():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.filter(
+        **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
+    ).all()
+
+    assert len(results) == 1
+    assert results[0][0] == supplier1
+
+    # Test it works with mixed argument syntaxes
+    results2 = Supplier.nodes.filter(
+        name="Supplier 1",
+        coffees__name="Nescafe",
+        **{"coffees|since__gt": datetime(2018, 4, 1, 0, 0)},
+    ).all()
+
+    assert len(results2) == 1
+    assert results2[0][0] == supplier1
+
+
+@mark_sync_test
+def test_relation_prop_ordering():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier1
+    assert results[1][0] == supplier2
+
+    results = Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    assert len(results) == 2
+    assert results[0][0] == supplier2
+    assert results[1][0] == supplier1
+
+
+@mark_sync_test
 def test_fetch_relations():
     arabica = Species(name="Arabica").save()
     robusta = Species(name="Robusta").save()
-    nescafe = Coffee(name="Nescafe 1000", price=99).save()
-    nescafe_gold = Coffee(name="Nescafe 1001", price=11).save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
 
-    tesco = Supplier(name="Sainsburys", delivery_cost=3).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
     nescafe.suppliers.connect(tesco)
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
 
     result = (
-        Supplier.nodes.filter(name="Sainsburys")
-        .fetch_relations("coffees__species")
-        .all()
+        Supplier.nodes.filter(name="Tesco").fetch_relations("coffees__species").all()
     )
     assert len(result[0]) == 5
     assert arabica in result[0]
@@ -557,11 +685,11 @@ def test_fetch_relations():
         .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
-    assert result[0][0] is None
+    assert len(result) == 0
 
     if Util.is_async_code:
         count = (
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .__len__()
         )
@@ -569,20 +697,341 @@ def test_fetch_relations():
 
         assert (
             Supplier.nodes.fetch_relations("coffees__species")
-            .filter(name="Sainsburys")
+            .filter(name="Tesco")
             .__contains__(tesco)
         )
     else:
         count = len(
-            Supplier.nodes.filter(name="Sainsburys")
+            Supplier.nodes.filter(name="Tesco")
             .fetch_relations("coffees__species")
             .all()
         )
         assert count == 1
 
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
-            name="Sainsburys"
+            name="Tesco"
         )
+
+
+@mark_sync_test
+def test_traverse_and_order_by():
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=110).save()
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    results = Species.nodes.fetch_relations("coffees").order_by("-coffees__price").all()
+    assert len(results) == 2
+    assert len(results[0]) == 3  # 2 nodes and 1 relation
+    assert results[0][0] == robusta
+    assert results[1][0] == arabica
+
+
+@mark_sync_test
+def test_annotate_and_collect():
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe 1002", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe 1003", price=11).save()
+
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+    nescafe_gold.species.connect(arabica)
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species"))
+        .all()
+    )
+    assert len(result) == 1
+    assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(all_species=Collect("species", distinct=True))
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        Supplier.nodes.traverse_relations("coffees__species")
+        .annotate(
+            all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
+            all_species_rels=Collect(
+                RelationNameResolver("coffees__species"), distinct=True
+            ),
+        )
+        .all()
+    )
+    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][2][0]) == 3  # 3 species relations must be there
+
+
+@mark_sync_test
+def test_resolve_subgraph():
+    arabica = Species(name="Arabica").save()
+    robusta = Species(name="Robusta").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+    nescafe_gold.species.connect(robusta)
+
+    with raises(
+        RuntimeError,
+        match=re.escape(
+            "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+        ),
+    ):
+        result = Supplier.nodes.resolve_subgraph()
+
+    with raises(
+        NotImplementedError,
+        match=re.escape(
+            "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+        ),
+    ):
+        result = Supplier.nodes.traverse_relations(
+            "coffees__species"
+        ).resolve_subgraph()
+
+    result = Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    assert len(result) == 2
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+    assert hasattr(result[1], "_relations")
+    assert "coffees" in result[1]._relations
+    coffees = result[1]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+
+
+@mark_sync_test
+def test_resolve_subgraph_optional():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = Supplier(name="Tesco", delivery_cost=3).save()
+    nescafe.suppliers.connect(tesco)
+    nescafe_gold.suppliers.connect(tesco)
+    nescafe.species.connect(arabica)
+
+    result = Supplier.nodes.fetch_relations(
+        Optional("coffees__species")
+    ).resolve_subgraph()
+    assert len(result) == 1
+
+    assert hasattr(result[0], "_relations")
+    assert "coffees" in result[0]._relations
+    coffees = result[0]._relations["coffees"]
+    assert hasattr(coffees, "_relations")
+    assert "species" in coffees._relations
+    assert coffees._relations["species"] == arabica
+
+
+@mark_sync_test
+def test_subquery():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1)
+    nescafe.suppliers.connect(supplier2)
+    nescafe.species.connect(arabica)
+
+    result = Coffee.nodes.subquery(
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
+        )
+        .annotate(supps=Last(Collect("suppliers"))),
+        ["supps"],
+    )
+    result = result.all()
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][0] == supplier2
+
+    with raises(
+        RuntimeError,
+        match=re.escape("Variable 'unknown' is not returned by subquery."),
+    ):
+        result = Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["unknown"],
+        )
+
+
+@mark_sync_test
+def test_intermediate_transform():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+
+    result = (
+        Coffee.nodes.fetch_relations("suppliers")
+        .intermediate_transform(
+            {
+                "coffee": {"source": "coffee", "include_in_return": True},
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
+                "cost": {
+                    "source": NodeNameResolver("suppliers"),
+                    "source_prop": "delivery_cost",
+                },
+            },
+            distinct=True,
+            ordering=["-r.since"],
+        )
+        .annotate(oldest_supplier=Last(Collect("suppliers")))
+        .all()
+    )
+
+    assert len(result) == 1
+    assert result[0][0] == nescafe
+    assert result[0][1] == supplier2
+
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {
+                "test": {"source": Collect("suppliers")},
+            }
+        )
+    with raises(
+        ValueError,
+        match=re.escape(
+            r"You must provide one variable at least when calling intermediate_transform()"
+        ),
+    ):
+        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+            {}
+        )
+
+
+@mark_sync_test
+def test_mix_functions():
+    # Test with a mix of all advanced querying functions
+
+    eiffel_tower = Building(name="Eiffel Tower").save()
+    empire_state_building = Building(name="Empire State Building").save()
+    miranda = Student(name="Miranda").save()
+    miranda.lives_in.connect(empire_state_building)
+    jean_pierre = Student(name="Jean-Pierre").save()
+    jean_pierre.lives_in.connect(eiffel_tower)
+    mireille = Student(name="Mireille").save()
+    mimoun_jr = Student(name="Mimoun Jr").save()
+    mimoun = Student(name="Mimoun").save()
+    mireille.lives_in.connect(eiffel_tower)
+    mimoun_jr.lives_in.connect(eiffel_tower)
+    mimoun.lives_in.connect(eiffel_tower)
+    mimoun.parents.connect(mireille)
+    mimoun.children.connect(mimoun_jr)
+    math = Course(name="Math").save()
+    dessin = Course(name="Dessin").save()
+    mimoun.courses.connect(
+        math,
+        {
+            "level": "1.2",
+            "start_date": datetime(2020, 6, 2),
+            "end_date": datetime(2020, 12, 31),
+        },
+    )
+    mimoun.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+    mimoun_jr.courses.connect(
+        math,
+        {
+            "level": "1.1",
+            "start_date": datetime(2020, 1, 1),
+            "end_date": datetime(2020, 6, 1),
+        },
+    )
+
+    mimoun_jr.preferred_course.connect(dessin)
+
+    full_nodeset = (
+        Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
+        .order_by("name")
+        .fetch_relations(
+            "parents",
+            Optional("children__preferred_course"),
+        )
+        .subquery(
+            Student.nodes.fetch_relations("courses")
+            .intermediate_transform(
+                {"rel": {"source": RelationNameResolver("courses")}},
+                ordering=[
+                    RawCypher("toInteger(split(rel.level, '.')[0])"),
+                    RawCypher("toInteger(split(rel.level, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(
+                latest_course=Last(Collect("rel")),
+            ),
+            ["latest_course"],
+        )
+    )
+
+    subgraph = full_nodeset.annotate(
+        children=Collect(NodeNameResolver("children"), distinct=True),
+        children_preferred_course=Collect(
+            NodeNameResolver("children__preferred_course"), distinct=True
+        ),
+    ).resolve_subgraph()
+
+    assert len(subgraph) == 2
+    assert subgraph[0] == mimoun
+    assert subgraph[1] == mimoun_jr
+    mimoun_returned_rels = subgraph[0]._relations
+    assert mimoun_returned_rels["children"] == mimoun_jr
+    assert mimoun_returned_rels["children"]._relations["preferred_course"] == dessin
+    assert mimoun_returned_rels["parents"] == mireille
+    assert mimoun_returned_rels["latest_course_relationship"].level == "1.2"
 
 
 @mark_sync_test
@@ -628,9 +1077,6 @@ def test_in_filter_with_array_property():
 def test_async_iterator():
     n = 10
     if Util.is_async_code:
-        for c in Coffee.nodes:
-            c.delete()
-
         for i in range(n):
             Coffee(name=f"xxx_{i}", price=i).save()
 
@@ -655,3 +1101,55 @@ def test_async_iterator():
 
         # assert that generator runs loop above
         assert counter == n
+
+
+def assert_last_query_startswith(mock_func, query) -> bool:
+    return mock_func.call_args_list[-1].args[0].startswith(query)
+
+
+@mark_sync_test
+def test_parallel_runtime(mocker):
+    if not db.version_is_higher_than("5.13") or not db.edition_is_enterprise():
+        skip("Only supported for Enterprise 5.13 and above.")
+
+    assert db.parallel_runtime_available()
+
+    # Parallel should be applied to custom Cypher query
+    with db.parallel_read_transaction:
+        # Mock transaction.run to access executed query
+        # Assert query starts with CYPHER runtime=parallel
+        assert db._parallel_runtime == True
+        mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+        db.cypher_query("MATCH (n:Coffee) RETURN n")
+        assert assert_last_query_startswith(
+            mock_transaction_run, "CYPHER runtime=parallel"
+        )
+    # Test exiting the context sets the parallel_runtime to False
+    assert db._parallel_runtime == False
+
+    # Parallel should be applied to neomodel queries
+    with db.parallel_read_transaction:
+        mock_transaction_run_2 = mocker.patch("neo4j.Transaction.run")
+        Coffee.nodes.all()
+        assert assert_last_query_startswith(
+            mock_transaction_run_2, "CYPHER runtime=parallel"
+        )
+
+
+@mark_sync_test
+def test_parallel_runtime_conflict(mocker):
+    if db.version_is_higher_than("5.13") and db.edition_is_enterprise():
+        skip("Test for unavailable parallel runtime.")
+
+    assert not db.parallel_runtime_available()
+    mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+    with warns(
+        UserWarning,
+        match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",
+    ):
+        with db.parallel_read_transaction:
+            Coffee.nodes.all()
+            assert not db._parallel_runtime
+            assert not assert_last_query_startswith(
+                mock_transaction_run, "CYPHER runtime=parallel"
+            )

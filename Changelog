@@ -1,3 +1,19 @@
+Version 5.4.1 2024-11
+* Add support for Cypher parallel runtime
+* Add options for intermediate_transform : distinct, include_in_return, use a prop as source
+
+Version 5.4.0 2024-11
+* Traversal option for filtering and ordering
+* Insert raw Cypher for ordering
+* Possibility to traverse relations, only returning the last element of the path
+* Resolve the results of complex queries as a nested subgraph
+* Possibility to transform variables, with aggregations methods : Collect() and Last()
+* Intermediate transform, for example to order variables before collecting
+* Subqueries (Cypher CALL{} clause)
+* Allow JSONProperty to actually use non-ascii elements. Thanks to @danikirish
+* Bumped neo4j (driver) to 5.26.0
+* Special huge thanks to @tonioo for this release
+
 Version 5.3.3 2024-09
 * Fixes vector index doc and test
 

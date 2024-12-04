@@ -1,14 +1,23 @@
 import inspect
 import re
-from collections import defaultdict
+import string
+import warnings
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Dict, List
+from typing import Optional
+from typing import Optional as TOptional
+from typing import Tuple, Union
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
-from neomodel.properties import AliasProperty, ArrayProperty
+from neomodel.properties import AliasProperty, ArrayProperty, Property
+from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.relationship import StructuredRel
+from neomodel.typing import Transformation
 from neomodel.util import INCOMING, OUTGOING
+
+CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
 
 def _rel_helper(
@@ -194,6 +203,8 @@ OPERATOR_TABLE = {
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 
+path_split_regex = re.compile(r"__(?!_)|\|")
+
 
 def install_traversals(cls, node_set):
     """
@@ -213,136 +224,122 @@ def install_traversals(cls, node_set):
         setattr(node_set, key, traversal)
 
 
-def process_filter_args(cls, kwargs):
+def _handle_special_operators(
+    property_obj: Property, key: str, value: str, operator: str, prop: str
+) -> Tuple[str, str, str]:
+    if operator == _SPECIAL_OPERATOR_IN:
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a tuple or list for IN operation {key}={value}"
+            )
+        if isinstance(property_obj, ArrayProperty):
+            deflated_value = property_obj.deflate(value)
+            operator = _SPECIAL_OPERATOR_ARRAY_IN
+        else:
+            deflated_value = [property_obj.deflate(v) for v in value]
+    elif operator == _SPECIAL_OPERATOR_ISNULL:
+        if not isinstance(value, bool):
+            raise ValueError(f"Value must be a bool for isnull operation on {key}")
+        operator = "IS NULL" if value else "IS NOT NULL"
+        deflated_value = None
+    elif operator in _REGEX_OPERATOR_TABLE.values():
+        deflated_value = property_obj.deflate(value)
+        if not isinstance(deflated_value, str):
+            raise ValueError(f"Must be a string value for {key}")
+        if operator in _STRING_REGEX_OPERATOR_TABLE.values():
+            deflated_value = re.escape(deflated_value)
+        deflated_value = operator.format(deflated_value)
+        operator = _SPECIAL_OPERATOR_REGEX
+    else:
+        deflated_value = property_obj.deflate(value)
+
+    return deflated_value, operator, prop
+
+
+def _deflate_value(
+    cls, property_obj: Property, key: str, value: str, operator: str, prop: str
+) -> Tuple[str, str, str]:
+    if isinstance(property_obj, AliasProperty):
+        prop = property_obj.aliased_to()
+        deflated_value = getattr(cls, prop).deflate(value)
+    else:
+        # handle special operators
+        deflated_value, operator, prop = _handle_special_operators(
+            property_obj, key, value, operator, prop
+        )
+
+    return deflated_value, operator, prop
+
+
+def _initialize_filter_args_variables(cls, key: str):
+    current_class = cls
+    current_rel_model = None
+    leaf_prop = None
+    operator = "="
+    is_rel_property = "|" in key
+    prop = key
+
+    return current_class, current_rel_model, leaf_prop, operator, is_rel_property, prop
+
+
+def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
+    (
+        current_class,
+        current_rel_model,
+        leaf_prop,
+        operator,
+        is_rel_property,
+        prop,
+    ) = _initialize_filter_args_variables(cls, key)
+
+    for part in re.split(path_split_regex, key):
+        defined_props = current_class.defined_properties(rels=True)
+        # update defined props dictionary with relationship properties if
+        # we are filtering by property
+        if is_rel_property and current_rel_model:
+            defined_props.update(current_rel_model.defined_properties(rels=True))
+        if part in defined_props:
+            if isinstance(
+                defined_props[part], relationship_manager.RelationshipDefinition
+            ):
+                defined_props[part].lookup_node_class()
+                current_class = defined_props[part].definition["node_class"]
+                current_rel_model = defined_props[part].definition["model"]
+        elif part in OPERATOR_TABLE:
+            operator = OPERATOR_TABLE[part]
+            prop, _ = prop.rsplit("__", 1)
+            continue
+        else:
+            raise ValueError(
+                f"No such property {part} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
+            )
+        leaf_prop = part
+
+    if is_rel_property and current_rel_model:
+        property_obj = getattr(current_rel_model, leaf_prop)
+    else:
+        property_obj = getattr(current_class, leaf_prop)
+
+    return property_obj, operator, prop
+
+
+def process_filter_args(cls, kwargs) -> Dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
     """
-
     output = {}
 
     for key, value in kwargs.items():
-        if "__" in key:
-            prop, operator = key.rsplit("__")
-            operator = OPERATOR_TABLE[operator]
-        else:
-            prop = key
-            operator = "="
-
-        if prop not in cls.defined_properties(rels=False):
-            raise ValueError(
-                f"No such property {prop} on {cls.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
-            )
-
-        property_obj = getattr(cls, prop)
-        if isinstance(property_obj, AliasProperty):
-            prop = property_obj.aliased_to()
-            deflated_value = getattr(cls, prop).deflate(value)
-        else:
-            operator, deflated_value = transform_operator_to_filter(
-                operator=operator,
-                filter_key=key,
-                filter_value=value,
-                property_obj=property_obj,
-            )
-
-        # map property to correct property name in the database
-        db_property = cls.defined_properties(rels=False)[prop].get_db_property_name(
-            prop
+        property_obj, operator, prop = _process_filter_key(cls, key)
+        deflated_value, operator, prop = _deflate_value(
+            cls, property_obj, key, value, operator, prop
         )
+        # map property to correct property name in the database
+        db_property = prop
 
         output[db_property] = (operator, deflated_value)
-
     return output
-
-
-def transform_in_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    """
-    Transform in operator to a cypher filter
-    Args:
-        operator (str): operator to transform
-        filter_key (str): filter key
-        filter_value (str): filter value
-        property_obj (object): property object
-    Returns:
-        tuple: operator, deflated_value
-    """
-    if not isinstance(filter_value, tuple) and not isinstance(filter_value, list):
-        raise ValueError(
-            f"Value must be a tuple or list for IN operation {filter_key}={filter_value}"
-        )
-    if isinstance(property_obj, ArrayProperty):
-        deflated_value = property_obj.deflate(filter_value)
-        operator = _SPECIAL_OPERATOR_ARRAY_IN
-    else:
-        deflated_value = [property_obj.deflate(v) for v in filter_value]
-
-    return operator, deflated_value
-
-
-def transform_null_operator_to_filter(filter_key, filter_value):
-    """
-    Transform null operator to a cypher filter
-    Args:
-        filter_key (str): filter key
-        filter_value (str): filter value
-    Returns:
-        tuple: operator, deflated_value
-    """
-    if not isinstance(filter_value, bool):
-        raise ValueError(f"Value must be a bool for isnull operation on {filter_key}")
-    operator = "IS NULL" if filter_value else "IS NOT NULL"
-    deflated_value = None
-    return operator, deflated_value
-
-
-def transform_regex_operator_to_filter(
-    operator, filter_key, filter_value, property_obj
-):
-    """
-    Transform regex operator to a cypher filter
-    Args:
-        operator (str): operator to transform
-        filter_key (str): filter key
-        filter_value (str): filter value
-        property_obj (object): property object
-    Returns:
-        tuple: operator, deflated_value
-    """
-
-    deflated_value = property_obj.deflate(filter_value)
-    if not isinstance(deflated_value, str):
-        raise ValueError(f"Must be a string value for {filter_key}")
-    if operator in _STRING_REGEX_OPERATOR_TABLE.values():
-        deflated_value = re.escape(deflated_value)
-    deflated_value = operator.format(deflated_value)
-    operator = _SPECIAL_OPERATOR_REGEX
-    return operator, deflated_value
-
-
-def transform_operator_to_filter(operator, filter_key, filter_value, property_obj):
-    if operator == _SPECIAL_OPERATOR_IN:
-        operator, deflated_value = transform_in_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    elif operator == _SPECIAL_OPERATOR_ISNULL:
-        operator, deflated_value = transform_null_operator_to_filter(
-            filter_key=filter_key, filter_value=filter_value
-        )
-    elif operator in _REGEX_OPERATOR_TABLE.values():
-        operator, deflated_value = transform_regex_operator_to_filter(
-            operator=operator,
-            filter_key=filter_key,
-            filter_value=filter_value,
-            property_obj=property_obj,
-        )
-    else:
-        deflated_value = property_obj.deflate(filter_value)
-
-    return operator, deflated_value
 
 
 def process_has_args(cls, kwargs):
@@ -374,34 +371,34 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: Optional[list]
-    optional_match: Optional[list]
-    where: Optional[list]
-    with_clause: Optional[str]
-    return_clause: Optional[str]
-    order_by: Optional[str]
-    skip: Optional[int]
-    limit: Optional[int]
-    result_class: Optional[type]
-    lookup: Optional[str]
-    additional_return: Optional[list]
-    is_count: Optional[bool]
+    match: List[str]
+    optional_match: List[str]
+    where: List[str]
+    with_clause: TOptional[str]
+    return_clause: TOptional[str]
+    order_by: TOptional[List[str]]
+    skip: TOptional[int]
+    limit: TOptional[int]
+    result_class: TOptional[type]
+    lookup: TOptional[str]
+    additional_return: List[str]
+    is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: Optional[list] = None,
-        optional_match: Optional[list] = None,
-        where: Optional[list] = None,
-        with_clause: Optional[str] = None,
-        return_clause: Optional[str] = None,
-        order_by: Optional[str] = None,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        result_class: Optional[type] = None,
-        lookup: Optional[str] = None,
-        additional_return: Optional[list] = None,
-        is_count: Optional[bool] = False,
-    ):
+        match: TOptional[List[str]] = None,
+        optional_match: TOptional[List[str]] = None,
+        where: TOptional[List[str]] = None,
+        with_clause: TOptional[str] = None,
+        return_clause: TOptional[str] = None,
+        order_by: TOptional[List[str]] = None,
+        skip: TOptional[int] = None,
+        limit: TOptional[int] = None,
+        result_class: TOptional[type] = None,
+        lookup: TOptional[str] = None,
+        additional_return: TOptional[List[str]] = None,
+        is_count: TOptional[bool] = False,
+    ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
@@ -414,18 +411,19 @@ class QueryAST:
         self.lookup = lookup
         self.additional_return = additional_return if additional_return else []
         self.is_count = is_count
+        self.subgraph: Dict = {}
 
 
 class QueryBuilder:
-    def __init__(self, node_set):
+    def __init__(self, node_set, subquery_context: bool = False) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
-        self._query_params = {}
-        self._place_holder_registry = {}
-        self._ident_count = 0
-        self._node_counters = defaultdict(int)
+        self._query_params: Dict = {}
+        self._place_holder_registry: Dict = {}
+        self._ident_count: int = 0
+        self._subquery_context: bool = subquery_context
 
-    def build_ast(self):
+    def build_ast(self) -> "QueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
@@ -439,7 +437,7 @@ class QueryBuilder:
 
         return self
 
-    def build_source(self, source):
+    def build_source(self, source) -> str:
         if isinstance(source, Traversal):
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
@@ -468,18 +466,40 @@ class QueryBuilder:
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
-    def create_ident(self):
+    def create_ident(self) -> str:
         self._ident_count += 1
-        return "r" + str(self._ident_count)
+        return f"r{self._ident_count}"
 
-    def build_order_by(self, ident, source):
+    def build_order_by(self, ident: str, source: "NodeSet") -> None:
         if "?" in source.order_by_elements:
             self._ast.with_clause = f"{ident}, rand() as r"
-            self._ast.order_by = "r"
+            self._ast.order_by = ["r"]
         else:
-            self._ast.order_by = [f"{ident}.{p}" for p in source.order_by_elements]
+            order_by = []
+            for elm in source.order_by_elements:
+                if isinstance(elm, RawCypher):
+                    order_by.append(elm.render({"n": ident}))
+                    continue
+                is_rel_property = "|" in elm
+                if "__" not in elm and not is_rel_property:
+                    prop = elm.split(" ")[0] if " " in elm else elm
+                    if prop not in source.source_class.defined_properties(rels=False):
+                        raise ValueError(
+                            f"No such property {prop} on {source.source_class.__name__}. "
+                            f"Note that Neo4j internals like id or element_id are not allowed "
+                            f"for use in this operation."
+                        )
+                    order_by.append(f"{ident}.{elm}")
+                else:
+                    path, prop = elm.rsplit("__" if not is_rel_property else "|", 1)
+                    result = self.lookup_query_variable(
+                        path, return_relation=is_rel_property
+                    )
+                    if result:
+                        order_by.append(f"{result[0]}.{prop}")
+            self._ast.order_by = order_by
 
-    def build_traversal(self, traversal):
+    def build_traversal(self, traversal) -> str:
         """
         traverse a relationship from a node to a set of nodes
         """
@@ -507,27 +527,29 @@ class QueryBuilder:
 
         return traversal_ident
 
-    def _additional_return(self, name):
+    def _additional_return(self, name: str):
         if name not in self._ast.additional_return and name != self._ast.return_clause:
             self._ast.additional_return.append(name)
 
-    def build_traversal_from_path(self, relation: dict, source_class) -> str:
+    def build_traversal_from_path(
+        self, relation: dict, source_class
+    ) -> Tuple[str, Any]:
         path: str = relation["path"]
         stmt: str = ""
         source_class_iterator = source_class
-        for index, part in enumerate(path.split("__")):
+        parts = re.split(path_split_regex, path)
+        subgraph = self._ast.subgraph
+        rel_iterator: str = ""
+        already_present = False
+        existing_rhs_name = ""
+        for index, part in enumerate(parts):
             relationship = getattr(source_class_iterator, part)
+            if rel_iterator:
+                rel_iterator += "__"
+            rel_iterator += part
             # build source
             if "node_class" not in relationship.definition:
                 relationship.lookup_node_class()
-            rhs_label = relationship.definition["node_class"].__label__
-            rel_reference = f'{relationship.definition["node_class"]}_{part}'
-            self._node_counters[rel_reference] += 1
-            rhs_name = (
-                f"{rhs_label.lower()}_{part}_{self._node_counters[rel_reference]}"
-            )
-            rhs_ident = f"{rhs_name}:{rhs_label}"
-            self._additional_return(rhs_name)
             if not stmt:
                 lhs_label = source_class_iterator.__label__
                 lhs_name = lhs_label.lower()
@@ -537,13 +559,46 @@ class QueryBuilder:
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
-                else:
+                    if self._subquery_context:
+                        # Don't include label in identifier if we are in a subquery
+                        lhs_ident = lhs_name
+                elif relation["include_in_return"]:
                     self._additional_return(lhs_name)
             else:
                 lhs_ident = stmt
 
+            already_present = part in subgraph
             rel_ident = self.create_ident()
-            self._additional_return(rel_ident)
+            rhs_label = relationship.definition["node_class"].__label__
+            if relation.get("relation_filtering"):
+                rhs_name = rel_ident
+            else:
+                if index + 1 == len(parts) and "alias" in relation:
+                    # If an alias is defined, use it to store the last hop in the path
+                    rhs_name = relation["alias"]
+                else:
+                    rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
+            rhs_ident = f"{rhs_name}:{rhs_label}"
+            if relation["include_in_return"] and not already_present:
+                self._additional_return(rhs_name)
+
+            if not already_present:
+                subgraph[part] = {
+                    "target": relationship.definition["node_class"],
+                    "children": {},
+                    "variable_name": rhs_name,
+                    "rel_variable_name": rel_ident,
+                }
+            else:
+                existing_rhs_name = subgraph[part][
+                    (
+                        "rel_variable_name"
+                        if relation.get("relation_filtering")
+                        else "variable_name"
+                    )
+                ]
+            if relation["include_in_return"] and not already_present:
+                self._additional_return(rel_ident)
             stmt = _rel_helper(
                 lhs=lhs_ident,
                 rhs=rhs_ident,
@@ -552,12 +607,16 @@ class QueryBuilder:
                 relation_type=relationship.definition["relation_type"],
             )
             source_class_iterator = relationship.definition["node_class"]
+            subgraph = subgraph[part]["children"]
 
-        if relation.get("optional"):
-            self._ast.optional_match.append(stmt)
-        else:
-            self._ast.match.append(stmt)
-        return rhs_name
+        if not already_present:
+            if relation.get("optional"):
+                self._ast.optional_match.append(stmt)
+            else:
+                self._ast.match.append(stmt)
+            return rhs_name, relationship.definition["node_class"]
+
+        return existing_rhs_name, relationship.definition["node_class"]
 
     def build_node(self, node):
         ident = node.__class__.__name__.lower()
@@ -573,7 +632,7 @@ class QueryBuilder:
         self._ast.result_class = node.__class__
         return ident
 
-    def build_label(self, ident, cls):
+    def build_label(self, ident, cls) -> str:
         """
         match nodes by a label
         """
@@ -609,14 +668,71 @@ class QueryBuilder:
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
-    def _register_place_holder(self, key):
+    def _register_place_holder(self, key: str) -> str:
         if key in self._place_holder_registry:
             self._place_holder_registry[key] += 1
         else:
             self._place_holder_registry[key] = 1
         return key + "_" + str(self._place_holder_registry[key])
 
-    def _parse_q_filters(self, ident, q, source_class):
+    def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str, Any]:
+        is_rel_filter = "|" in prop
+        if is_rel_filter:
+            path, prop = prop.rsplit("|", 1)
+        else:
+            path, prop = prop.rsplit("__", 1)
+        result = self.lookup_query_variable(path, return_relation=is_rel_filter)
+        if not result:
+            ident, target_class = self.build_traversal_from_path(
+                {
+                    "path": path,
+                    "include_in_return": True,
+                    "relation_filtering": is_rel_filter,
+                },
+                source_class,
+            )
+        else:
+            ident, target_class = result
+        return ident, path, prop, target_class
+
+    def _finalize_filter_statement(
+        self, operator: str, ident: str, prop: str, val: Any
+    ) -> str:
+        if operator in _UNARY_OPERATORS:
+            # unary operators do not have a parameter
+            statement = f"{ident}.{prop} {operator}"
+        else:
+            place_holder = self._register_place_holder(ident + "_" + prop)
+            if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+                statement = operator.format(
+                    ident=ident,
+                    prop=prop,
+                    val=f"${place_holder}",
+                )
+            else:
+                statement = f"{ident}.{prop} {operator} ${place_holder}"
+            self._query_params[place_holder] = val
+
+        return statement
+
+    def _build_filter_statements(
+        self, ident: str, filters, target: List[str], source_class
+    ) -> None:
+        for prop, op_and_val in filters.items():
+            path = None
+            is_rel_filter = "|" in prop
+            target_class = source_class
+            if "__" in prop or is_rel_filter:
+                ident, path, prop, target_class = self._parse_path(source_class, prop)
+            operator, val = op_and_val
+            if not is_rel_filter:
+                prop = target_class.defined_properties(rels=False)[
+                    prop
+                ].get_db_property_name(prop)
+            statement = self._finalize_filter_statement(operator, ident, prop, val)
+            target.append(statement)
+
+    def _parse_q_filters(self, ident, q, source_class) -> str:
         target = []
         for child in q.children:
             if isinstance(child, QBase):
@@ -627,36 +743,22 @@ class QueryBuilder:
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(source_class, kwargs)
-                for prop, op_and_val in filters.items():
-                    operator, val = op_and_val
-                    if operator in _UNARY_OPERATORS:
-                        # unary operators do not have a parameter
-                        statement = f"{ident}.{prop} {operator}"
-                    else:
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        if operator == _SPECIAL_OPERATOR_ARRAY_IN:
-                            statement = operator.format(
-                                ident=ident,
-                                prop=prop,
-                                val=f"${place_holder}",
-                            )
-                        else:
-                            statement = f"{ident}.{prop} {operator} ${place_holder}"
-                        self._query_params[place_holder] = val
-                    target.append(statement)
+                self._build_filter_statements(ident, filters, target, source_class)
         ret = f" {q.connector} ".join(target)
         if q.negated:
             ret = f"NOT ({ret})"
         return ret
 
-    def build_where_stmt(self, ident, filters, q_filters=None, source_class=None):
+    def build_where_stmt(
+        self, ident: str, filters, q_filters=None, source_class=None
+    ) -> None:
         """
         construct a where statement from some filters
         """
         if q_filters is not None:
-            stmts = self._parse_q_filters(ident, q_filters, source_class)
-            if stmts:
-                self._ast.where.append(stmts)
+            stmt = self._parse_q_filters(ident, q_filters, source_class)
+            if stmt:
+                self._ast.where.append(stmt)
         else:
             stmts = []
             for row in filters:
@@ -682,8 +784,37 @@ class QueryBuilder:
 
             self._ast.where.append(" AND ".join(stmts))
 
-    def build_query(self):
-        query = ""
+    def lookup_query_variable(
+        self, path: str, return_relation: bool = False
+    ) -> TOptional[Tuple[str, Any]]:
+        """Retrieve the variable name generated internally for the given traversal path."""
+        subgraph = self._ast.subgraph
+        if not subgraph:
+            return None
+        traversals = re.split(path_split_regex, path)
+        if len(traversals) == 0:
+            raise ValueError("Can only lookup traversal variables")
+        if traversals[0] not in subgraph:
+            return None
+        subgraph = subgraph[traversals[0]]
+        if len(traversals) == 1:
+            variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
+            return variable_to_return, subgraph["target"]
+        variable_to_return = ""
+        last_property = traversals[-1]
+        for part in traversals[1:]:
+            child = subgraph["children"].get(part)
+            if not child:
+                return None
+            subgraph = child
+            if part == last_property:
+                # if last part of prop is the last traversal
+                # we are safe to lookup the variable from the query
+                variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
+        return variable_to_return, subgraph["target"]
+
+    def build_query(self) -> str:
+        query: str = ""
 
         if self._ast.lookup:
             query += self._ast.lookup
@@ -702,6 +833,9 @@ class QueryBuilder:
             query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
 
         if self._ast.where:
+            if self._ast.optional_match:
+                # Make sure filtering works as expected with optional match, even if it's not performant...
+                query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.where)
 
@@ -709,13 +843,79 @@ class QueryBuilder:
             query += " WITH "
             query += self._ast.with_clause
 
+        returned_items: list[str] = []
+        if hasattr(self.node_set, "_intermediate_transforms"):
+            for transform in self.node_set._intermediate_transforms:
+                query += " WITH "
+                query += "DISTINCT " if transform.get("distinct") else ""
+                injected_vars: list = []
+                # Reset return list since we'll probably invalidate most variables
+                self._ast.return_clause = ""
+                self._ast.additional_return = []
+                for name, varprops in transform["vars"].items():
+                    source = varprops["source"]
+                    if isinstance(source, (NodeNameResolver, RelationNameResolver)):
+                        transformation = source.resolve(self)
+                    else:
+                        transformation = source
+                    if varprops.get("source_prop"):
+                        transformation += f".{varprops['source_prop']}"
+                    transformation += f" AS {name}"
+                    if varprops.get("include_in_return"):
+                        returned_items += [name]
+                    injected_vars.append(transformation)
+                query += ",".join(injected_vars)
+                if not transform["ordering"]:
+                    continue
+                query += " ORDER BY "
+                ordering: list = []
+                for item in transform["ordering"]:
+                    if isinstance(item, RawCypher):
+                        ordering.append(item.render({}))
+                        continue
+                    if item.startswith("-"):
+                        ordering.append(f"{item[1:]} DESC")
+                    else:
+                        ordering.append(item)
+                query += ",".join(ordering)
+
+        if hasattr(self.node_set, "_subqueries"):
+            for subquery, return_set in self.node_set._subqueries:
+                outer_primary_var = self._ast.return_clause
+                query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
+                for varname in return_set:
+                    # We declare the returned variables as "virtual" relations of the
+                    # root node class to make sure they will be translated by a call to
+                    # resolve_subgraph() (otherwise, they will be lost).
+                    # This is probably a temporary solution until we find something better...
+                    self._ast.subgraph[varname] = {
+                        "target": None,  # We don't need target class in this use case
+                        "children": {},
+                        "variable_name": varname,
+                        "rel_variable_name": varname,
+                    }
+                returned_items += return_set
+
         query += " RETURN "
-        if self._ast.return_clause:
-            query += self._ast.return_clause
+        if self._ast.return_clause and not self._subquery_context:
+            returned_items.append(self._ast.return_clause)
         if self._ast.additional_return:
-            if self._ast.return_clause:
-                query += ", "
-            query += ", ".join(self._ast.additional_return)
+            returned_items += self._ast.additional_return
+        if hasattr(self.node_set, "_extra_results"):
+            for props in self.node_set._extra_results:
+                leftpart = props["vardef"].render(self)
+                varname = (
+                    props["alias"]
+                    if props.get("alias")
+                    else props["vardef"].get_internal_name()
+                )
+                if varname in returned_items:
+                    # We're about to override an existing variable, delete it first to
+                    # avoid duplicate error
+                    returned_items.remove(varname)
+                returned_items.append(f"{leftpart} AS {varname}")
+
+        query += ", ".join(returned_items)
 
         if self._ast.order_by:
             query += " ORDER BY "
@@ -754,7 +954,6 @@ class QueryBuilder:
     def _contains(self, node_element_id):
         # inject id = into ast
         if not self._ast.return_clause:
-            print(self._ast.additional_return)
             self._ast.return_clause = self._ast.additional_return[0]
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
@@ -762,7 +961,7 @@ class QueryBuilder:
         self._query_params[place_holder] = node_element_id
         return self._count() >= 1
 
-    def _execute(self, lazy=False):
+    def _execute(self, lazy: bool = False, dict_output: bool = False):
         if lazy:
             # inject id() into return or return_set
             if self._ast.return_clause:
@@ -776,7 +975,15 @@ class QueryBuilder:
                         for item in self._ast.additional_return
                     ]
         query = self.build_query()
-        results, _ = db.cypher_query(query, self._query_params, resolve_objects=True)
+        results, prop_names = db.cypher_query(
+            query,
+            self._query_params,
+            resolve_objects=True,
+        )
+        if dict_output:
+            for item in results:
+                yield dict(zip(prop_names, item))
+            return
         # The following is not as elegant as it could be but had to be copied from the
         # version prior to cypher_query with the resolve_objects capability.
         # It seems that certain calls are only supposed to be focusing to the first
@@ -797,6 +1004,7 @@ class BaseSet:
     """
 
     query_cls = QueryBuilder
+    source_class: StructuredNode
 
     def all(self, lazy=False):
         """
@@ -820,7 +1028,7 @@ class BaseSet:
         ast = self.query_cls(self).build_ast()
         return ast._count()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any nodes, False otherwise
@@ -830,7 +1038,7 @@ class BaseSet:
         _count = ast._count()
         return _count > 0
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         """
         Override for __bool__ dunder method.
         :return: True if the set contains any node, False otherwise
@@ -878,12 +1086,135 @@ class Optional:  # type: ignore[no-redef]
     relation: str
 
 
+@dataclass
+class RelationNameResolver:
+    """Helper to refer to a relation variable name.
+
+    Since variable names are generated automatically within MATCH statements (for
+    anything injected using fetch_relations or traverse_relations), we need a way to
+    retrieve them.
+
+    """
+
+    relation: str
+
+    def resolve(self, qbuilder: QueryBuilder) -> str:
+        result = qbuilder.lookup_query_variable(self.relation, True)
+        if result is None:
+            raise ValueError(
+                f"Unable to resolve variable name for relation {self.relation}"
+            )
+        return result[0]
+
+
+@dataclass
+class NodeNameResolver:
+    """Helper to refer to a node variable name.
+
+    Since variable names are generated automatically within MATCH statements (for
+    anything injected using fetch_relations or traverse_relations), we need a way to
+    retrieve them.
+
+    """
+
+    node: str
+
+    def resolve(self, qbuilder: QueryBuilder) -> str:
+        result = qbuilder.lookup_query_variable(self.node)
+        if result is None:
+            raise ValueError(f"Unable to resolve variable name for node {self.node}")
+        return result[0]
+
+
+@dataclass
+class BaseFunction:
+    input_name: Union[str, "BaseFunction", NodeNameResolver, RelationNameResolver]
+
+    def __post_init__(self) -> None:
+        self._internal_name: str = ""
+
+    def get_internal_name(self) -> str:
+        return self._internal_name
+
+    def resolve_internal_name(self, qbuilder: QueryBuilder) -> str:
+        if isinstance(self.input_name, (NodeNameResolver, RelationNameResolver)):
+            self._internal_name = self.input_name.resolve(qbuilder)
+        else:
+            self._internal_name = str(self.input_name)
+        return self._internal_name
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        raise NotImplementedError
+
+
+@dataclass
+class AggregatingFunction(BaseFunction):
+    """Base aggregating function class."""
+
+    pass
+
+
+@dataclass
+class Collect(AggregatingFunction):
+    """collect() function."""
+
+    distinct: bool = False
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        varname = self.resolve_internal_name(qbuilder)
+        if self.distinct:
+            return f"collect(DISTINCT {varname})"
+        return f"collect({varname})"
+
+
+@dataclass
+class ScalarFunction(BaseFunction):
+    """Base scalar function class."""
+
+    pass
+
+
+@dataclass
+class Last(ScalarFunction):
+    """last() function."""
+
+    def render(self, qbuilder: QueryBuilder) -> str:
+        if isinstance(self.input_name, str):
+            content = str(self.input_name)
+        elif isinstance(self.input_name, BaseFunction):
+            content = self.input_name.render(qbuilder)
+            self._internal_name = self.input_name.get_internal_name()
+        else:
+            content = self.resolve_internal_name(qbuilder)
+        return f"last({content})"
+
+
+@dataclass
+class RawCypher:
+    """Helper to inject raw cypher statement.
+
+    Can be used in order_by() call for example.
+
+    """
+
+    statement: str
+
+    def __post_init__(self):
+        if CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR.search(self.statement):
+            raise ValueError(
+                "RawCypher: Do not include any action that has side effect"
+            )
+
+    def render(self, context: Dict) -> str:
+        return string.Template(self.statement).substitute(context)
+
+
 class NodeSet(BaseSet):
     """
     A class representing as set of nodes matching common query parameters
     """
 
-    def __init__(self, source):
+    def __init__(self, source) -> None:
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
@@ -897,14 +1228,18 @@ class NodeSet(BaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters = []
+        self.filters: List = []
         self.q_filters = Q()
+        self.order_by_elements: List = []
 
         # used by has()
-        self.must_match = {}
-        self.dont_match = {}
+        self.must_match: Dict = {}
+        self.dont_match: Dict = {}
 
-        self.relations_to_fetch: list = []
+        self.relations_to_fetch: List = []
+        self._extra_results: List = []
+        self._subqueries: list[Tuple[str, list[str]]] = []
+        self._intermediate_transforms: list = []
 
     def __await__(self):
         return self.all().__await__()
@@ -969,7 +1304,7 @@ class NodeSet(BaseSet):
             pass
         return None
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args, **kwargs) -> "BaseSet":
         """
         Apply filters to the existing nodes in the set.
 
@@ -1039,6 +1374,9 @@ class NodeSet(BaseSet):
             self.order_by_elements.append("?")
         else:
             for prop in props:
+                if isinstance(prop, RawCypher):
+                    self.order_by_elements.append(prop)
+                    continue
                 prop = prop.strip()
                 if prop.startswith("-"):
                     prop = prop[1:]
@@ -1046,29 +1384,188 @@ class NodeSet(BaseSet):
                 else:
                     desc = False
 
-                if prop not in self.source_class.defined_properties(rels=False):
-                    raise ValueError(
-                        f"No such property {prop} on {self.source_class.__name__}. Note that Neo4j internals like id or element_id are not allowed for use in this operation."
-                    )
-
-                property_obj = getattr(self.source_class, prop)
-                if isinstance(property_obj, AliasProperty):
-                    prop = property_obj.aliased_to()
+                if prop in self.source_class.defined_properties(rels=False):
+                    property_obj = getattr(self.source_class, prop)
+                    if isinstance(property_obj, AliasProperty):
+                        prop = property_obj.aliased_to()
 
                 self.order_by_elements.append(prop + (" DESC" if desc else ""))
 
         return self
 
+    def _register_relation_to_fetch(
+        self,
+        relation_def: Any,
+        alias: TOptional[str] = None,
+        include_in_return: bool = True,
+    ):
+        if isinstance(relation_def, Optional):
+            item = {"path": relation_def.relation, "optional": True}
+        else:
+            item = {"path": relation_def}
+        item["include_in_return"] = include_in_return
+
+        if alias:
+            item["alias"] = alias
+        return item
+
     def fetch_relations(self, *relation_names):
-        """Specify a set of relations to return."""
+        """Specify a set of relations to traverse and return."""
         relations = []
         for relation_name in relation_names:
-            if isinstance(relation_name, Optional):  # type: ignore[arg-type]
-                item = {"path": relation_name.relation, "optional": True}
-            else:
-                item = {"path": relation_name}
-            relations.append(item)
+            relations.append(self._register_relation_to_fetch(relation_name))
         self.relations_to_fetch = relations
+        return self
+
+    def traverse_relations(self, *relation_names, **aliased_relation_names):
+        """Specify a set of relations to traverse only."""
+        relations = []
+        for relation_name in relation_names:
+            relations.append(
+                self._register_relation_to_fetch(relation_name, include_in_return=False)
+            )
+        for alias, relation_def in aliased_relation_names.items():
+            relations.append(
+                self._register_relation_to_fetch(
+                    relation_def, alias, include_in_return=False
+                )
+            )
+
+        self.relations_to_fetch = relations
+        return self
+
+    def annotate(self, *vars, **aliased_vars):
+        """Annotate node set results with extra variables."""
+
+        def register_extra_var(vardef, varname: Union[str, None] = None):
+            if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
+                self._extra_results.append(
+                    {"vardef": vardef, "alias": varname if varname else ""}
+                )
+            else:
+                raise NotImplementedError
+
+        for vardef in vars:
+            register_extra_var(vardef)
+        for varname, vardef in aliased_vars.items():
+            register_extra_var(vardef, varname)
+
+        return self
+
+    def _to_subgraph(self, root_node, other_nodes, subgraph):
+        """Recursive method to build root_node's relation graph from subgraph."""
+        root_node._relations = {}
+        for name, relation_def in subgraph.items():
+            for var_name, node in other_nodes.items():
+                if (
+                    var_name
+                    not in [
+                        relation_def["variable_name"],
+                        relation_def["rel_variable_name"],
+                    ]
+                    or node is None
+                ):
+                    continue
+                if isinstance(node, list):
+                    if len(node) > 0 and isinstance(node[0], StructuredRel):
+                        name += "_relationship"
+                    root_node._relations[name] = []
+                    for item in node:
+                        root_node._relations[name].append(
+                            self._to_subgraph(
+                                item, other_nodes, relation_def["children"]
+                            )
+                        )
+                else:
+                    if isinstance(node, StructuredRel):
+                        name += "_relationship"
+                    root_node._relations[name] = self._to_subgraph(
+                        node, other_nodes, relation_def["children"]
+                    )
+
+        return root_node
+
+    def resolve_subgraph(self) -> list:
+        """
+        Convert every result contained in this node set to a subgraph.
+
+        By default, we receive results from neomodel as a list of
+        nodes without the hierarchy. This method tries to rebuild this
+        hierarchy without overriding anything in the node, that's why
+        we use a dedicated property to store node's relations.
+
+        """
+        if (
+            self.relations_to_fetch
+            and not self.relations_to_fetch[0]["include_in_return"]
+        ):
+            raise NotImplementedError(
+                "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
+            )
+        results: list = []
+        qbuilder = self.query_cls(self)
+        qbuilder.build_ast()
+        if not qbuilder._ast.subgraph:
+            raise RuntimeError(
+                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+            )
+        other_nodes = {}
+        root_node = None
+        for row in qbuilder._execute(dict_output=True):
+            for name, node in row.items():
+                if node.__class__ is self.source and "_" not in name:
+                    root_node = node
+                    continue
+                if isinstance(node, list) and isinstance(node[0], list):
+                    other_nodes[name] = node[0]
+                    continue
+                other_nodes[name] = node
+            results.append(
+                self._to_subgraph(root_node, other_nodes, qbuilder._ast.subgraph)
+            )
+        return results
+
+    def subquery(self, nodeset: "NodeSet", return_set: List[str]) -> "NodeSet":
+        """Add a subquery to this node set.
+
+        A subquery is a regular cypher query but executed within the context of a CALL
+        statement. Such query will generally fetch additional variables which must be
+        declared inside return_set variable in order to be included in the final RETURN
+        statement.
+        """
+        qbuilder = nodeset.query_cls(nodeset, subquery_context=True).build_ast()
+        for var in return_set:
+            if (
+                var != qbuilder._ast.return_clause
+                and var not in qbuilder._ast.additional_return
+                and var
+                not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
+            ):
+                raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
+        self._subqueries.append((qbuilder.build_query(), return_set))
+        return self
+
+    def intermediate_transform(
+        self,
+        vars: Dict[str, Transformation],
+        distinct: bool = False,
+        ordering: TOptional[list] = None,
+    ) -> "NodeSet":
+        if not vars:
+            raise ValueError(
+                "You must provide one variable at least when calling intermediate_transform()"
+            )
+        for name, props in vars.items():
+            source = props["source"]
+            if type(source) is not str and not isinstance(
+                source, (NodeNameResolver, RelationNameResolver, RawCypher)
+            ):
+                raise ValueError(
+                    f"Wrong source type specified for variable '{name}', should be a string or an instance of NodeNameResolver or RelationNameResolver"
+                )
+        self._intermediate_transforms.append(
+            {"vars": vars, "distinct": distinct, "ordering": ordering}
+        )
         return self
 
 
@@ -1084,7 +1581,7 @@ class Traversal(BaseSet):
     :type name: :class:`str`
     :param definition: A relationship definition that most certainly deserves
                        a documentation here.
-    :type defintion: :class:`dict`
+    :type definition: :class:`dict`
     """
 
     definition: dict
@@ -1097,7 +1594,7 @@ class Traversal(BaseSet):
     def __await__(self):
         return self.all().__await__()
 
-    def __init__(self, source: Any, name: str, definition: dict):
+    def __init__(self, source: Any, name: str, definition: dict) -> None:
         """
         Create a traversal
 
@@ -1127,7 +1624,7 @@ class Traversal(BaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters = []
+        self.filters: List = []
 
     def match(self, **kwargs):
         """

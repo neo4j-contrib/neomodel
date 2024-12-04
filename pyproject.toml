@@ -22,9 +22,9 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j~=5.19.0",
+    "neo4j~=5.26.0",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dynamic = ["version"]
 
 [project.urls]
@@ -38,6 +38,7 @@ dev = [
     "pytest>=7.1",
     "pytest-asyncio",
     "pytest-cov>=4.0",
+    "pytest-mock",
     "pre-commit",
     "black",
     "isort",
@@ -59,6 +60,7 @@ where = ["./"]
 [tool.pytest.ini_options]
 addopts = "--resetdb"
 testpaths = "test"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.isort]
 profile = 'black'

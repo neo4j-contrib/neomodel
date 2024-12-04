@@ -63,11 +63,6 @@ def test_relationship_definer_second_sibling():
     B.rel_2.connect(C)
     C.rel_3.connect(A)
 
-    # Clean up
-    A.delete()
-    B.delete()
-    C.delete()
-
 
 @mark_sync_test
 def test_relationship_definer_parent_last():
@@ -80,8 +75,3 @@ def test_relationship_definer_parent_last():
     A.rel_1.connect(B)
     B.rel_2.connect(C)
     C.rel_3.connect(A)
-
-    # Clean up
-    A.delete()
-    B.delete()
-    C.delete()

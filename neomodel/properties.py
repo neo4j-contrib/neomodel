@@ -2,6 +2,7 @@ import functools
 import json
 import re
 import uuid
+from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -38,7 +39,7 @@ def validator(fn):
     return _validator
 
 
-class FulltextIndex(object):
+class FulltextIndex:
     """
     Fulltext index definition
     """
@@ -58,7 +59,7 @@ class FulltextIndex(object):
         self.eventually_consistent = eventually_consistent
 
 
-class VectorIndex(object):
+class VectorIndex:
     """
     Vector index definition
     """
@@ -74,7 +75,7 @@ class VectorIndex(object):
         self.similarity_function = similarity_function
 
 
-class Property:
+class Property(metaclass=ABCMeta):
     """
     Base class for object properties.
 
@@ -171,6 +172,10 @@ class Property:
     @property
     def is_indexed(self):
         return self.unique_index or self.index
+
+    @abstractmethod
+    def deflate(self, value: Any) -> Any:
+        pass
 
 
 class NormalizedProperty(Property):
@@ -424,7 +429,7 @@ class DateTimeFormatProperty(Property):
     """
     Store a datetime by custom format
     :param default_now: If ``True``, the creation time (Local) will be used as default.
-                        Defaults to ``False``.
+    Defaults to ``False``.
     :param format:      Date format string, default is %Y-%m-%d
 
     :type default_now:  :class:`bool`
@@ -540,8 +545,9 @@ class JSONProperty(Property):
     The structure will be inflated when a node is retrieved.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, ensure_ascii=True, *args, **kwargs):
+        self.ensure_ascii = ensure_ascii
+        super(JSONProperty, self).__init__(*args, **kwargs)
 
     @validator
     def inflate(self, value):
@@ -549,7 +555,7 @@ class JSONProperty(Property):
 
     @validator
     def deflate(self, value):
-        return json.dumps(value)
+        return json.dumps(value, ensure_ascii=self.ensure_ascii)
 
 
 class AliasProperty(property, Property):
