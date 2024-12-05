@@ -1,9 +1,8 @@
 import inspect
 import re
 import string
-import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 from typing import Optional as TOptional
 from typing import Tuple, Union
 
@@ -322,7 +321,7 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
     return property_obj, operator, prop
 
 
-def process_filter_args(cls, kwargs) -> Dict:
+def process_filter_args(cls, kwargs) -> dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
@@ -370,32 +369,32 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: List[str]
-    optional_match: List[str]
-    where: List[str]
+    match: list[str]
+    optional_match: list[str]
+    where: list[str]
     with_clause: TOptional[str]
     return_clause: TOptional[str]
-    order_by: TOptional[List[str]]
+    order_by: TOptional[list[str]]
     skip: TOptional[int]
     limit: TOptional[int]
     result_class: TOptional[type]
     lookup: TOptional[str]
-    additional_return: List[str]
+    additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: TOptional[List[str]] = None,
-        optional_match: TOptional[List[str]] = None,
-        where: TOptional[List[str]] = None,
+        match: TOptional[list[str]] = None,
+        optional_match: TOptional[list[str]] = None,
+        where: TOptional[list[str]] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
-        order_by: TOptional[List[str]] = None,
+        order_by: TOptional[list[str]] = None,
         skip: TOptional[int] = None,
         limit: TOptional[int] = None,
         result_class: TOptional[type] = None,
         lookup: TOptional[str] = None,
-        additional_return: TOptional[List[str]] = None,
+        additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
     ) -> None:
         self.match = match if match else []
@@ -408,17 +407,19 @@ class QueryAST:
         self.limit = limit
         self.result_class = result_class
         self.lookup = lookup
-        self.additional_return = additional_return if additional_return else []
+        self.additional_return: list[str] = (
+            additional_return if additional_return else []
+        )
         self.is_count = is_count
-        self.subgraph: Dict = {}
+        self.subgraph: dict = {}
 
 
 class AsyncQueryBuilder:
     def __init__(self, node_set, subquery_context: bool = False) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
-        self._query_params: Dict = {}
-        self._place_holder_registry: Dict = {}
+        self._query_params: dict = {}
+        self._place_holder_registry: dict = {}
         self._ident_count: int = 0
         self._subquery_context: bool = subquery_context
 
@@ -527,7 +528,11 @@ class AsyncQueryBuilder:
         return traversal_ident
 
     def _additional_return(self, name: str):
-        if name not in self._ast.additional_return and name != self._ast.return_clause:
+        if (
+            not self._ast.additional_return or name not in self._ast.additional_return
+        ) and name != self._ast.return_clause:
+            if not self._ast.additional_return:
+                self._ast.additional_return = []
             self._ast.additional_return.append(name)
 
     def build_traversal_from_path(
@@ -715,7 +720,7 @@ class AsyncQueryBuilder:
         return statement
 
     def _build_filter_statements(
-        self, ident: str, filters, target: List[str], source_class
+        self, ident: str, filters, target: list[str], source_class
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
@@ -952,8 +957,10 @@ class AsyncQueryBuilder:
 
     async def _contains(self, node_element_id):
         # inject id = into ast
-        if not self._ast.return_clause:
+        if not self._ast.return_clause and self._ast.additional_return:
             self._ast.return_clause = self._ast.additional_return[0]
+        if not self._ast.return_clause:
+            raise ValueError("Cannot use contains without a return clause")
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
         self._ast.where.append(
@@ -970,10 +977,11 @@ class AsyncQueryBuilder:
                     f"{await adb.get_id_method()}({self._ast.return_clause})"
                 )
             else:
-                self._ast.additional_return = [
-                    f"{await adb.get_id_method()}({item})"
-                    for item in self._ast.additional_return
-                ]
+                if self._ast.additional_return is not None:
+                    self._ast.additional_return = [
+                        f"{await adb.get_id_method()}({item})"
+                        for item in self._ast.additional_return
+                    ]
         query = self.build_query()
         results, prop_names = await adb.cypher_query(
             query,
@@ -1004,7 +1012,7 @@ class AsyncBaseSet:
     """
 
     query_cls = AsyncQueryBuilder
-    source_class: AsyncStructuredNode
+    source_class: type[AsyncStructuredNode]
 
     async def all(self, lazy=False):
         """
@@ -1080,7 +1088,7 @@ class AsyncBaseSet:
 
 
 @dataclass
-class Optional:
+class Optional:  # type: ignore[no-redef]
     """Simple relation qualifier."""
 
     relation: str
@@ -1205,7 +1213,7 @@ class RawCypher:
                 "RawCypher: Do not include any action that has side effect"
             )
 
-    def render(self, context: Dict) -> str:
+    def render(self, context: dict) -> str:
         return string.Template(self.statement).substitute(context)
 
 
@@ -1228,16 +1236,16 @@ class AsyncNodeSet(AsyncBaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters: List = []
+        self.filters: list = []
         self.q_filters = Q()
-        self.order_by_elements: List = []
+        self.order_by_elements: list = []
 
         # used by has()
-        self.must_match: Dict = {}
-        self.dont_match: Dict = {}
+        self.must_match: dict = {}
+        self.dont_match: dict = {}
 
-        self.relations_to_fetch: List = []
-        self._extra_results: List = []
+        self.relations_to_fetch: list = []
+        self._extra_results: list = []
         self._subqueries: list[Tuple[str, list[str]]] = []
         self._intermediate_transforms: list = []
 
@@ -1404,6 +1412,7 @@ class AsyncNodeSet(AsyncBaseSet):
         else:
             item = {"path": relation_def}
         item["include_in_return"] = include_in_return
+
         if alias:
             item["alias"] = alias
         return item
@@ -1525,7 +1534,7 @@ class AsyncNodeSet(AsyncBaseSet):
         return results
 
     async def subquery(
-        self, nodeset: "AsyncNodeSet", return_set: List[str]
+        self, nodeset: "AsyncNodeSet", return_set: list[str]
     ) -> "AsyncNodeSet":
         """Add a subquery to this node set.
 
@@ -1538,7 +1547,10 @@ class AsyncNodeSet(AsyncBaseSet):
         for var in return_set:
             if (
                 var != qbuilder._ast.return_clause
-                and var not in qbuilder._ast.additional_return
+                and (
+                    not qbuilder._ast.additional_return
+                    or var not in qbuilder._ast.additional_return
+                )
                 and var
                 not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
             ):
@@ -1548,7 +1560,7 @@ class AsyncNodeSet(AsyncBaseSet):
 
     def intermediate_transform(
         self,
-        vars: Dict[str, Transformation],
+        vars: dict[str, Transformation],
         distinct: bool = False,
         ordering: TOptional[list] = None,
     ) -> "AsyncNodeSet":
@@ -1585,10 +1597,17 @@ class AsyncTraversal(AsyncBaseSet):
     :type definition: :class:`dict`
     """
 
+    definition: dict
+    source: Any
+    source_class: Any
+    target_class: Any
+    name: str
+    filters: list
+
     def __await__(self):
         return self.all().__await__()
 
-    def __init__(self, source, name, definition) -> None:
+    def __init__(self, source: Any, name: str, definition: dict) -> None:
         """
         Create a traversal
 
@@ -1618,7 +1637,7 @@ class AsyncTraversal(AsyncBaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters: List = []
+        self.filters: list = []
 
     def match(self, **kwargs):
         """

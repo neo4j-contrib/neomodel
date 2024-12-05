@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import os
 import sys
@@ -9,7 +7,7 @@ from asyncio import iscoroutinefunction
 from functools import wraps
 from itertools import combinations
 from threading import local
-from typing import Any, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence, Type, Union
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -90,23 +88,24 @@ class Database(local):
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
-    _NODE_CLASS_REGISTRY = {}
-    _DB_SPECIFIC_CLASS_REGISTRY = {}
+    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
+    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict] = {}
 
     def __init__(self):
-        self._active_transaction = None
-        self.url = None
-        self.driver = None
-        self._session = None
-        self._pid = None
-        self._database_name = DEFAULT_DATABASE
-        self.protocol_version = None
-        self._database_version = None
-        self._database_edition = None
-        self.impersonated_user = None
-        self._parallel_runtime = False
+        self._active_transaction: Optional[Transaction] = None
+        self.url: Optional[str] = None
+        self.driver: Optional[Driver] = None
+        self._session: Optional[Session] = None
+        self._pid: Optional[int] = None
+        self._database_name: Optional[str] = DEFAULT_DATABASE
+        self._database_version: Optional[str] = None
+        self._database_edition: Optional[str] = None
+        self.impersonated_user: Optional[str] = None
+        self._parallel_runtime: Optional[bool] = False
 
-    def set_connection(self, url: str = None, driver: Driver = None):
+    def set_connection(
+        self, url: Optional[str] = None, driver: Optional[Driver] = None
+    ):
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
 
@@ -189,8 +188,9 @@ class Database(local):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
+        # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options
+            parsed_url.scheme + "://" + hostname, **options  # type: ignore[arg-type]
         )
         self.url = url
         # The database name can be provided through the url or the config
@@ -208,8 +208,9 @@ class Database(local):
         self._database_version = None
         self._database_edition = None
         self._database_name = None
-        self.driver.close()
-        self.driver = None
+        if self.driver is not None:
+            self.driver.close()
+            self.driver = None
 
     @property
     def database_version(self):
@@ -270,13 +271,18 @@ class Database(local):
             and self._active_transaction is not None
         ):
             raise SystemError("Transaction in progress")
-        self._session: Session = self.driver.session(
+
+        assert self.driver is not None, "Driver has not been created"
+
+        self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: Transaction = self._session.begin_transaction()
+
+        assert self._session is not None, "Session has not been created"
+        self._active_transaction = self._session.begin_transaction()
 
     @ensure_connection
     def commit(self):
@@ -286,14 +292,21 @@ class Database(local):
         :return: last_bookmarks
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.commit()
+
+            assert self._session is not None, "No session open"
             last_bookmarks: Bookmarks = self._session.last_bookmarks()
         finally:
-            # In case when something went wrong during
+            # In case something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             self._session.close()
+
             self._active_transaction = None
             self._session = None
 
@@ -305,12 +318,17 @@ class Database(local):
         Rolls back the current transaction and closes its session
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             self._session.close()
+
             self._active_transaction = None
             self._session = None
 
@@ -458,7 +476,7 @@ class Database(local):
         :return: A tuple containing a list of results and a tuple of headers.
         """
         if self._active_transaction:
-            # Use current session is a transaction is currently active
+            # Use current transaction if a transaction is currently active
             results, meta = self._run_cypher_query(
                 self._active_transaction,
                 query,
@@ -469,23 +487,27 @@ class Database(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with self.driver.session(
-                database=self._database_name, impersonated_user=self.impersonated_user
-            ) as session:
-                results, meta = self._run_cypher_query(
-                    session,
-                    query,
-                    params,
-                    handle_unique,
-                    retry_on_session_expire,
-                    resolve_objects,
-                )
+            if self.driver:
+                with self.driver.session(
+                    database=self._database_name,
+                    impersonated_user=self.impersonated_user,
+                ) as session:
+                    results, meta = self._run_cypher_query(
+                        session,
+                        query,
+                        params,
+                        handle_unique,
+                        retry_on_session_expire,
+                        resolve_objects,
+                    )
+            else:
+                raise ValueError("No driver has been set")
 
         return results, meta
 
     def _run_cypher_query(
         self,
-        session: Session,
+        session: Union[Session, Transaction],
         query,
         params,
         handle_unique,
@@ -507,12 +529,18 @@ class Database(local):
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if "already exists with label" in e.message and handle_unique:
+                if (
+                    hasattr(e, "message")
+                    and e.message is not None
+                    and "already exists with label" in e.message
+                    and handle_unique
+                ):
                     raise UniqueProperty(e.message) from e
 
                 raise ConstraintValidationFailed(e.message) from e
             exc_info = sys.exc_info()
-            raise exc_info[1].with_traceback(exc_info[2])
+            if exc_info[1] is not None and exc_info[2] is not None:
+                raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
                 self.set_connection(url=self.url)
@@ -1178,11 +1206,14 @@ class TransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
     def __init__(
-        self, db: Database, access_mode: str = None, parallel_runtime: bool = False
+        self,
+        db: Database,
+        access_mode: Optional[str] = None,
+        parallel_runtime: Optional[bool] = False,
     ):
-        self.db = db
-        self.access_mode = access_mode
-        self.parallel_runtime = parallel_runtime
+        self.db: Database = db
+        self.access_mode: Optional[str] = access_mode
+        self.parallel_runtime: Optional[bool] = parallel_runtime
 
     @ensure_connection
     def __enter__(self):
@@ -1270,6 +1301,16 @@ class ImpersonationHandler:
 
 
 class NodeMeta(type):
+    DoesNotExist: Type[DoesNotExist]
+    __required_properties__: tuple[str, ...]
+    __all_properties__: tuple[tuple[str, Any], ...]
+    __all_aliases__: tuple[tuple[str, Any], ...]
+    __all_relationships__: tuple[tuple[str, Any], ...]
+    __label__: str
+    __optional_labels__: list[str]
+
+    defined_properties: Callable[..., dict[str, Any]]
+
     def __new__(mcs, name, bases, namespace):
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
         cls = super().__new__(mcs, name, bases, namespace)
@@ -1361,7 +1402,7 @@ def build_class_registry(cls):
                     )
 
 
-NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
+NodeBase: Type = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
 
 
 class StructuredNode(NodeBase):
@@ -1387,7 +1428,7 @@ class StructuredNode(NodeBase):
 
         super().__init__(*args, **kwargs)
 
-    def __eq__(self, other: StructuredNode | Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """
         Compare two node objects.
         If both nodes were saved to the database, compare them by their element_id.

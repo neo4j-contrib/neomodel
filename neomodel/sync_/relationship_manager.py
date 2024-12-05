@@ -2,6 +2,7 @@ import functools
 import inspect
 import sys
 from importlib import import_module
+from typing import Any
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
@@ -14,12 +15,6 @@ from neomodel.util import (
     enumerate_traceback,
     get_graph_entity_properties,
 )
-
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
 
 
 # check source node is saved and not deleted
@@ -49,7 +44,13 @@ class RelationshipManager(object):
     I.e the 'friends' object in  `user.friends.all()`
     """
 
-    def __init__(self, source, key, definition):
+    source: Any
+    source_class: Any
+    name: str
+    definition: dict
+    description: str = "relationship"
+
+    def __init__(self, source: Any, key: str, definition: dict):
         self.source = source
         self.source_class = source.__class__
         self.name = key
@@ -452,14 +453,14 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(self, cls_name, model):
-        if not isinstance(cls_name, (basestring, object)):
+        if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (StructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
     def lookup_node_class(self):
-        if not isinstance(self._raw_class, basestring):
+        if not isinstance(self._raw_class, str):
             self.definition["node_class"] = self._raw_class
         else:
             name = self._raw_class
