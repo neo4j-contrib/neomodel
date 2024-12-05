@@ -1,5 +1,5 @@
 # neomodel
--e .[pandas,numpy]
+-e .[extras]
 
 unasync>=0.5.0
 pytest>=7.1
@@ -9,4 +9,3 @@ pytest-mock
 pre-commit
 black
 isort
-Shapely>=2.0.0

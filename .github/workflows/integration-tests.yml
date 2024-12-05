@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e '.[dev,pandas,numpy]'
+        pip install -e '.[dev,extras]'
     - name: Test with pytest
       env:
         AURA_TEST_DB_USER: ${{ secrets.AURA_TEST_DB_USER }}
@@ -39,6 +39,10 @@ jobs:
         AURA_TEST_DB_HOSTNAME: ${{ secrets.AURA_TEST_DB_HOSTNAME }}
       run: |
         pytest --cov=neomodel --cov-report=html:coverage_report
+    - name: Install neo4j-rust-ext and verify it is installed
+      run: |
+        pip install -e '.[rust-driver-ext]'
+        pip list | grep neo4j-rust-ext || exit 1
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
       with:

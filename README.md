@@ -65,9 +65,13 @@ Install from pypi (recommended):
 
     $ pip install neomodel ($ source dev # To install all things needed in a Python3 venv)
 
-    # Neomodel has some optional dependencies (including Shapely), to install these use:
+    # neomodel can use the Rust extension to the Neo4j driver for faster transport, to install use:
 
-    $ pip install neomodel['extras']
+    $ pip install neomodel['rust-driver-ext']
+
+    # neomodel has some optional dependencies (Shapely, pandas, numpy), to install these use:
+
+    $ pip install neomodel['extras, rust-driver-ext']
 
 To install from github:
 
