@@ -1,5 +1,5 @@
 Vesion 5.4.2 2024-12
-* Add support for Neo4j Rust driver extension : pip install neomodel['rust-driver-ext']
+* Add support for Neo4j Rust driver extension : pip install neomodel[rust-driver-ext]
 
 Version 5.4.1 2024-11
 * Add support for Cypher parallel runtime
