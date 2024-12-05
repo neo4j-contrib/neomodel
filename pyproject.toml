@@ -5,6 +5,7 @@ authors = [
 ]
 maintainers = [
     {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
+    {name = "Antoine Nguyen", email = "tonio@ngyn.org"},
     {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
 ]
 description = "An object mapper for the neo4j graph database."
