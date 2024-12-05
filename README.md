@@ -67,11 +67,11 @@ Install from pypi (recommended):
 
     # neomodel can use the Rust extension to the Neo4j driver for faster transport, to install use:
 
-    $ pip install neomodel['rust-driver-ext']
+    $ pip install neomodel[rust-driver-ext]
 
     # neomodel has some optional dependencies (Shapely, pandas, numpy), to install these use:
 
-    $ pip install neomodel['extras, rust-driver-ext']
+    $ pip install neomodel[extras, rust-driver-ext]
 
 To install from github:
 
