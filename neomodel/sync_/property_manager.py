@@ -1,4 +1,5 @@
 import types
+from typing import Any
 
 from neomodel.exceptions import RequiredProperty
 from neomodel.properties import AliasProperty, Property
@@ -117,7 +118,9 @@ class PropertyManager:
         return cls(**inflated)
 
     @classmethod
-    def defined_properties(cls, aliases=True, properties=True, rels=True):
+    def defined_properties(
+        cls, aliases=True, properties=True, rels=True
+    ) -> dict[str, Any]:
         from neomodel.sync_.relationship_manager import RelationshipDefinition
 
         props = {}

@@ -1,4 +1,4 @@
-import typing as t
+from collections.abc import Iterator
 
 from neo4j.graph import Path
 
@@ -24,8 +24,8 @@ class AsyncNeomodelPath(object):
 
     :param nodes: Neomodel nodes appearing in the path in order of appearance.
     :param relationships: Neomodel relationships appearing in the path in order of appearance.
-    :type nodes: List[StructuredNode]
-    :type relationships: List[StructuredRel]
+    :type nodes: list[StructuredNode]
+    :type relationships: list[StructuredRel]
     """
 
     def __init__(self, a_neopath: Path):
@@ -56,7 +56,7 @@ class AsyncNeomodelPath(object):
     def __len__(self) -> int:
         return len(self._relationships)
 
-    def __iter__(self) -> t.Iterator[AsyncStructuredRel]:
+    def __iter__(self) -> Iterator[AsyncStructuredRel]:
         return iter(self._relationships)
 
     @property

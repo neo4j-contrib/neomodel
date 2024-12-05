@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import os
 import sys
@@ -9,7 +7,7 @@ from asyncio import iscoroutinefunction
 from functools import wraps
 from itertools import combinations
 from threading import local
-from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Optional, Sequence, Type, Union
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -1311,12 +1309,14 @@ class ImpersonationHandler:
 
 class NodeMeta(type):
     DoesNotExist: Type[DoesNotExist]
-    __required_properties__: Tuple[str, ...]
-    __all_properties__: Tuple[str, Any]
-    __all_aliases__: Tuple[str, Any]
-    __all_relationships__: Tuple[str, Any]
+    __required_properties__: tuple[str, ...]
+    __all_properties__: tuple[tuple[str, Any], ...]
+    __all_aliases__: tuple[tuple[str, Any], ...]
+    __all_relationships__: tuple[tuple[str, Any], ...]
     __label__: str
     __optional_labels__: list[str]
+
+    defined_properties: Callable[..., dict[str, Any]]
 
     def __new__(mcs, name, bases, namespace):
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
@@ -1437,7 +1437,7 @@ class AsyncStructuredNode(NodeBase):
 
         super().__init__(*args, **kwargs)
 
-    def __eq__(self, other: AsyncStructuredNode | Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """
         Compare two node objects.
         If both nodes were saved to the database, compare them by their element_id.

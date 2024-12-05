@@ -42,7 +42,11 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=2.0.0"
+    "Shapely>=2.0.0",
+    "mypy",
+    "pandas-stubs",
+    "types-pytz",
+    "types-shapely"
 ]
 pandas = ["pandas"]
 numpy = ["numpy"]
@@ -75,6 +79,11 @@ good-names = 'i,j,k,ex,_,e,fn,x,y,z,id,db,q'
 [tool.pylint.'DESIGN']
 max-attributes = 10
 max-args = 8
+
+[tool.mypy]
+[[tool.mypy.overrides]]
+module = ["neomodel.scripts.*", "neomodel.contrib.spatial_properties"]
+ignore_errors = true
 
 [project.scripts]
 neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"

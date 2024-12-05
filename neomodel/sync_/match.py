@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 from typing import Optional as TOptional
 from typing import Tuple, Union
 
@@ -321,7 +321,7 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
     return property_obj, operator, prop
 
 
-def process_filter_args(cls, kwargs) -> Dict:
+def process_filter_args(cls, kwargs) -> dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
@@ -369,32 +369,32 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: List[str]
-    optional_match: List[str]
-    where: List[str]
+    match: list[str]
+    optional_match: list[str]
+    where: list[str]
     with_clause: TOptional[str]
     return_clause: TOptional[str]
-    order_by: TOptional[List[str]]
+    order_by: TOptional[list[str]]
     skip: TOptional[int]
     limit: TOptional[int]
     result_class: TOptional[type]
     lookup: TOptional[str]
-    additional_return: TOptional[List[str]]
+    additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: TOptional[List[str]] = None,
-        optional_match: TOptional[List[str]] = None,
-        where: TOptional[List[str]] = None,
+        match: TOptional[list[str]] = None,
+        optional_match: TOptional[list[str]] = None,
+        where: TOptional[list[str]] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
-        order_by: TOptional[List[str]] = None,
+        order_by: TOptional[list[str]] = None,
         skip: TOptional[int] = None,
         limit: TOptional[int] = None,
         result_class: TOptional[type] = None,
         lookup: TOptional[str] = None,
-        additional_return: TOptional[List[str]] = None,
+        additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
     ) -> None:
         self.match = match if match else []
@@ -407,19 +407,19 @@ class QueryAST:
         self.limit = limit
         self.result_class = result_class
         self.lookup = lookup
-        self.additional_return: List[str] = (
+        self.additional_return: list[str] = (
             additional_return if additional_return else []
         )
         self.is_count = is_count
-        self.subgraph: Dict = {}
+        self.subgraph: dict = {}
 
 
 class QueryBuilder:
     def __init__(self, node_set, subquery_context: bool = False) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
-        self._query_params: Dict = {}
-        self._place_holder_registry: Dict = {}
+        self._query_params: dict = {}
+        self._place_holder_registry: dict = {}
         self._ident_count: int = 0
         self._subquery_context: bool = subquery_context
 
@@ -720,7 +720,7 @@ class QueryBuilder:
         return statement
 
     def _build_filter_statements(
-        self, ident: str, filters, target: List[str], source_class
+        self, ident: str, filters, target: list[str], source_class
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
@@ -1211,7 +1211,7 @@ class RawCypher:
                 "RawCypher: Do not include any action that has side effect"
             )
 
-    def render(self, context: Dict) -> str:
+    def render(self, context: dict) -> str:
         return string.Template(self.statement).substitute(context)
 
 
@@ -1234,16 +1234,16 @@ class NodeSet(BaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters: List = []
+        self.filters: list = []
         self.q_filters = Q()
-        self.order_by_elements: List = []
+        self.order_by_elements: list = []
 
         # used by has()
-        self.must_match: Dict = {}
-        self.dont_match: Dict = {}
+        self.must_match: dict = {}
+        self.dont_match: dict = {}
 
-        self.relations_to_fetch: List = []
-        self._extra_results: List = []
+        self.relations_to_fetch: list = []
+        self._extra_results: list = []
         self._subqueries: list[Tuple[str, list[str]]] = []
         self._intermediate_transforms: list = []
 
@@ -1531,7 +1531,7 @@ class NodeSet(BaseSet):
             )
         return results
 
-    def subquery(self, nodeset: "NodeSet", return_set: List[str]) -> "NodeSet":
+    def subquery(self, nodeset: "NodeSet", return_set: list[str]) -> "NodeSet":
         """Add a subquery to this node set.
 
         A subquery is a regular cypher query but executed within the context of a CALL
@@ -1556,7 +1556,7 @@ class NodeSet(BaseSet):
 
     def intermediate_transform(
         self,
-        vars: Dict[str, Transformation],
+        vars: dict[str, Transformation],
         distinct: bool = False,
         ordering: TOptional[list] = None,
     ) -> "NodeSet":
@@ -1633,7 +1633,7 @@ class Traversal(BaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters: List = []
+        self.filters: list = []
 
     def match(self, **kwargs):
         """
