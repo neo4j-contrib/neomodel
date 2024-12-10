@@ -871,6 +871,7 @@ def test_subquery():
         )
         .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],
+        [NodeNameResolver("self")],
     )
     result = result.all()
     assert len(result) == 1
@@ -887,6 +888,34 @@ def test_subquery():
             ),
             ["unknown"],
         )
+
+
+@mark_sync_test
+def test_subquery_other_node():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1)
+    nescafe.suppliers.connect(supplier2)
+    nescafe.species.connect(arabica)
+
+    result = Coffee.nodes.subquery(
+        Supplier.nodes.filter(name="Supplier 2").intermediate_transform(
+            {
+                "cost": {
+                    "source": "supplier",
+                    "source_prop": "delivery_cost",
+                    "include_in_return": True,
+                }
+            }
+        ),
+        ["cost"],
+    )
+    result = result.all()
+    assert len(result) == 1
+    assert result[0][0] == 20
 
 
 @mark_sync_test
