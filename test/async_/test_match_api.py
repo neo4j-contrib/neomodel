@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from test._async_compat import mark_async_test
 
+import numpy as np
 from pytest import raises, skip, warns
 
 from neomodel import (
@@ -880,15 +881,16 @@ async def test_subquery():
     await nescafe.suppliers.connect(supplier2)
     await nescafe.species.connect(arabica)
 
-    result = await Coffee.nodes.subquery(
+    subquery = await Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
             {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
         .annotate(supps=Last(Collect("suppliers"))),
         ["supps"],
+        [NodeNameResolver("self")],
     )
-    result = await result.all()
+    result = await subquery.all()
     assert len(result) == 1
     assert len(result[0]) == 2
     assert result[0][0] == supplier2
@@ -903,6 +905,58 @@ async def test_subquery():
             ),
             ["unknown"],
         )
+
+    result_string_context = await subquery.subquery(
+        Coffee.nodes.traverse_relations(supps2="suppliers").annotate(
+            supps2=Collect("supps")
+        ),
+        ["supps2"],
+        ["supps"],
+    )
+    result_string_context = await result_string_context.all()
+    assert len(result) == 1
+    additional_elements = [
+        item for item in result_string_context[0] if item not in result[0]
+    ]
+    assert len(additional_elements) == 1
+    assert isinstance(additional_elements[0], list)
+
+    with raises(ValueError, match=r"Wrong variable specified in initial context"):
+        result = await Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["supps"],
+            [2],
+        )
+
+
+@mark_async_test
+async def test_subquery_other_node():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1)
+    await nescafe.suppliers.connect(supplier2)
+    await nescafe.species.connect(arabica)
+
+    result = await Coffee.nodes.subquery(
+        Supplier.nodes.filter(name="Supplier 2").intermediate_transform(
+            {
+                "cost": {
+                    "source": "supplier",
+                    "source_prop": "delivery_cost",
+                    "include_in_return": True,
+                }
+            }
+        ),
+        ["cost"],
+    )
+    result = await result.all()
+    assert len(result) == 1
+    assert result[0][0] == 20
 
 
 @mark_async_test
