@@ -1,6 +1,6 @@
 """Custom types used for annotations."""
 
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 Transformation = TypedDict(
     "Transformation",
@@ -16,8 +16,8 @@ Subquery = TypedDict(
     "Subquery",
     {
         "query": str,
-        "query_params": Dict,
-        "return_set": List[str],
-        "initial_context": Optional[List[Any]],
+        "query_params": dict,
+        "return_set": list[str],
+        "initial_context": Optional[list[Any]],
     },
 )

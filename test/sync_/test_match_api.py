@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
+import numpy as np
 from pytest import raises, skip, warns
 
 from neomodel import (
@@ -864,7 +865,7 @@ def test_subquery():
     nescafe.suppliers.connect(supplier2)
     nescafe.species.connect(arabica)
 
-    result = Coffee.nodes.subquery(
+    subquery = Coffee.nodes.subquery(
         Coffee.nodes.traverse_relations(suppliers="suppliers")
         .intermediate_transform(
             {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
@@ -873,7 +874,7 @@ def test_subquery():
         ["supps"],
         [NodeNameResolver("self")],
     )
-    result = result.all()
+    result = subquery.all()
     assert len(result) == 1
     assert len(result[0]) == 2
     assert result[0][0] == supplier2
@@ -887,6 +888,30 @@ def test_subquery():
                 supps=Collect("suppliers")
             ),
             ["unknown"],
+        )
+
+    result_string_context = subquery.subquery(
+        Coffee.nodes.traverse_relations(supps2="suppliers").annotate(
+            supps2=Collect("supps")
+        ),
+        ["supps2"],
+        ["supps"],
+    )
+    result_string_context = result_string_context.all()
+    assert len(result) == 1
+    additional_elements = [
+        item for item in result_string_context[0] if item not in result[0]
+    ]
+    assert len(additional_elements) == 1
+    assert isinstance(additional_elements[0], list)
+
+    with raises(ValueError, match=r"Wrong variable specified in initial context"):
+        result = Coffee.nodes.subquery(
+            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+                supps=Collect("suppliers")
+            ),
+            ["supps"],
+            [2],
         )
 
 

@@ -117,7 +117,7 @@ Options for `subquery` calls are:
 .. note::
    In the example above, we reference `self` to be included in the initial context. It will actually inject the outer variable corresponding to `Coffee` node.
 
-   We know this is confusing to read, but have not found a better wat to do this yet. If you have any suggestions, please let us know.
+   We know this is confusing to read, but have not found a better way to do this yet. If you have any suggestions, please let us know.
 
 Helpers
 -------
