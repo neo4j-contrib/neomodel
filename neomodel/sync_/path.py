@@ -1,10 +1,12 @@
+from collections.abc import Iterator
+
 from neo4j.graph import Path
 
-from neomodel.sync_.core import db
+from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
 
 
-class NeomodelPath(Path):
+class NeomodelPath(object):
     """
     Represents paths within neomodel.
 
@@ -22,13 +24,13 @@ class NeomodelPath(Path):
 
     :param nodes: Neomodel nodes appearing in the path in order of appearance.
     :param relationships: Neomodel relationships appearing in the path in order of appearance.
-    :type nodes: List[StructuredNode]
-    :type relationships: List[StructuredRel]
+    :type nodes: list[StructuredNode]
+    :type relationships: list[StructuredRel]
     """
 
-    def __init__(self, a_neopath):
-        self._nodes = []
-        self._relationships = []
+    def __init__(self, a_neopath: Path):
+        self._nodes: list[StructuredNode] = []
+        self._relationships: list[StructuredRel] = []
 
         for a_node in a_neopath.nodes:
             self._nodes.append(db._object_resolution(a_node))
@@ -44,10 +46,33 @@ class NeomodelPath(Path):
                 new_rel = StructuredRel.inflate(a_relationship)
             self._relationships.append(new_rel)
 
+    def __repr__(self) -> str:
+        return "<Path start=%r end=%r size=%s>" % (
+            self.start_node,
+            self.end_node,
+            len(self),
+        )
+
+    def __len__(self) -> int:
+        return len(self._relationships)
+
+    def __iter__(self) -> Iterator[StructuredRel]:
+        return iter(self._relationships)
+
     @property
-    def nodes(self):
+    def nodes(self) -> list[StructuredNode]:
         return self._nodes
 
     @property
-    def relationships(self):
+    def start_node(self) -> StructuredNode:
+        """The first :class:`.StructuredNode` in this path."""
+        return self._nodes[0]
+
+    @property
+    def end_node(self) -> StructuredNode:
+        """The last :class:`.StructuredNode` in this path."""
+        return self._nodes[-1]
+
+    @property
+    def relationships(self) -> list[StructuredRel]:
         return self._relationships

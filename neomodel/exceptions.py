@@ -1,3 +1,6 @@
+from typing import Optional, Type
+
+
 class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
@@ -182,7 +185,7 @@ class DeflateError(ValueError, NeomodelException):
 
 
 class DoesNotExist(NeomodelException):
-    _model_class = None
+    _model_class: Optional[Type] = None
     """
     This class property refers the model class that a subclass of this class
     belongs to. It is set by :class:`~neomodel.core.NodeMeta`.
@@ -191,7 +194,7 @@ class DoesNotExist(NeomodelException):
     def __init__(self, msg):
         if self._model_class is None:
             raise RuntimeError("This class hasn't been setup properly.")
-        self.message = msg
+        self.message: str = msg
         super().__init__(self, msg)
 
     def __reduce__(self):
