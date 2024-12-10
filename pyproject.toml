@@ -5,6 +5,7 @@ authors = [
 ]
 maintainers = [
     {name = "Marius Conjeaud", email = "marius.conjeaud@outlook.com"},
+    {name = "Antoine Nguyen", email = "tonio@ngyn.org"},
     {name = "Athanasios Anastasiou", email = "athanastasiou@gmail.com"},
 ]
 description = "An object mapper for the neo4j graph database."
@@ -22,9 +23,9 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j~=5.26.0",
+    "neo4j~=5.27.0",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
 
 [project.urls]
@@ -33,6 +34,11 @@ repository = "http://github.com/neo4j-contrib/neomodel"
 changelog = "https://github.com/neo4j-contrib/neomodel/releases"
 
 [project.optional-dependencies]
+extras = [
+    "shapely",
+    "pandas",
+    "numpy"
+]
 dev = [
     "unasync",
     "pytest>=7.1",
@@ -42,14 +48,15 @@ dev = [
     "pre-commit",
     "black",
     "isort",
-    "Shapely>=2.0.0",
     "mypy",
     "pandas-stubs",
     "types-pytz",
     "types-shapely"
 ]
+shapely = ["Shapely>=2.0.0"]
 pandas = ["pandas"]
 numpy = ["numpy"]
+rust-driver-ext = ["neo4j-rust-ext==5.27.0.0"]
 
 [build-system]
 requires = ["setuptools>=68"]
