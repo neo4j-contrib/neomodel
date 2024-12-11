@@ -1,12 +1,16 @@
 import warnings
+from types import FrameType
+from typing import Any, Callable, Optional
+
+from neo4j.graph import Entity
 
 OUTGOING, INCOMING, EITHER = 1, -1, 0
 
 
-def deprecated(message):
+def deprecated(message: str) -> Callable:
     # pylint:disable=invalid-name
-    def f__(f):
-        def f_(*args, **kwargs):
+    def f__(f: Callable) -> Callable:
+        def f_(*args, **kwargs) -> Any:  # type: ignore
             warnings.warn(message, category=DeprecationWarning, stacklevel=2)
             return f(*args, **kwargs)
 
@@ -18,12 +22,12 @@ def deprecated(message):
     return f__
 
 
-def classproperty(f):
+def classproperty(f: Callable) -> Any:
     class cpf:
-        def __init__(self, getter):
+        def __init__(self, getter: Callable) -> None:
             self.getter = getter
 
-        def __get__(self, obj, type=None):
+        def __get__(self, obj: Any, type: Optional[Any] = None) -> Any:
             return self.getter(type)
 
     return cpf(f)
@@ -31,21 +35,21 @@ def classproperty(f):
 
 # Just used for error messages
 class _UnsavedNode:
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<unsaved node>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.__repr__()
 
 
-def get_graph_entity_properties(entity):
+def get_graph_entity_properties(entity: Entity) -> dict:
     """
     Get the properties from a neo4j.graph.Entity (neo4j.graph.Node or neo4j.graph.Relationship) object.
     """
     return entity._properties
 
 
-def enumerate_traceback(initial_frame):
+def enumerate_traceback(initial_frame: Optional[FrameType] = None) -> Any:
     depth, frame = 0, initial_frame
     while frame is not None:
         yield depth, frame
@@ -53,7 +57,7 @@ def enumerate_traceback(initial_frame):
         depth += 1
 
 
-def version_tag_to_integer(version_tag):
+def version_tag_to_integer(version_tag: str) -> int:
     """
     Converts a version string to an integer representation to allow for quick comparisons between versions.
 

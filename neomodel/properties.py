@@ -4,7 +4,7 @@ import re
 import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import neo4j.time
 import pytz
@@ -15,13 +15,15 @@ from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 TOO_MANY_DEFAULTS = "too many defaults"
 
 
-def validator(fn):
+def validator(fn: Callable) -> Callable:
     fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
     if fn_name not in ["inflate", "deflate"]:
         raise ValueError("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
-    def _validator(self, value, obj=None, rethrow=True):
+    def _validator(  # type: ignore
+        self, value: Any, obj: Optional[Any] = None, rethrow: Optional[bool] = True
+    ) -> Any:
         if rethrow:
             try:
                 return fn(self, value)
@@ -46,8 +48,8 @@ class FulltextIndex:
 
     def __init__(
         self,
-        analyzer="standard-no-stop-words",
-        eventually_consistent=False,
+        analyzer: Optional[str] = "standard-no-stop-words",
+        eventually_consistent: Optional[bool] = False,
     ):
         """
         Initializes new fulltext index definition with analyzer and eventually consistent
@@ -64,7 +66,11 @@ class VectorIndex:
     Vector index definition
     """
 
-    def __init__(self, dimensions=1536, similarity_function="cosine"):
+    def __init__(
+        self,
+        dimensions: Optional[int] = 1536,
+        similarity_function: Optional[str] = "cosine",
+    ):
         """
         Initializes new vector index definition with dimensions and similarity
 
@@ -119,16 +125,16 @@ class Property(metaclass=ABCMeta):
         self,
         name: Optional[str] = None,
         owner: Optional[Any] = None,
-        unique_index=False,
-        index=False,
+        unique_index: bool = False,
+        index: bool = False,
         fulltext_index: Optional[FulltextIndex] = None,
         vector_index: Optional[VectorIndex] = None,
-        required=False,
-        default=None,
-        db_property=None,
-        label=None,
-        help_text=None,
-        **kwargs,
+        required: bool = False,
+        default: Optional[Any] = None,
+        db_property: Optional[str] = None,
+        label: Optional[str] = None,
+        help_text: Optional[str] = None,
+        **kwargs: dict[str, Any],
     ):
         if default is not None and required:
             raise ValueError(
@@ -150,7 +156,7 @@ class Property(metaclass=ABCMeta):
         self.label = label
         self.help_text = help_text
 
-    def default_value(self):
+    def default_value(self) -> Any:
         """
         Generate a default value
 
@@ -162,7 +168,7 @@ class Property(metaclass=ABCMeta):
             return self.default
         raise ValueError("No default value specified")
 
-    def get_db_property_name(self, attribute_name):
+    def get_db_property_name(self, attribute_name: str) -> str:
         """
         Returns the name that should be used for the property in the database. This is db_property if supplied upon
         construction, otherwise the given attribute_name from the model is used.
@@ -170,11 +176,15 @@ class Property(metaclass=ABCMeta):
         return self.db_property or attribute_name
 
     @property
-    def is_indexed(self):
+    def is_indexed(self) -> bool:
         return self.unique_index or self.index
 
     @abstractmethod
-    def deflate(self, value: Any) -> Any:
+    def inflate(self, value: Any, rethrow: bool) -> Any:
+        pass
+
+    @abstractmethod
+    def deflate(self, value: Any, rethrow: bool) -> Any:
         pass
 
 
@@ -185,18 +195,18 @@ class NormalizedProperty(Property):
     """
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> Any:
         return self.normalize(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> Any:
         return self.normalize(value)
 
-    def default_value(self):
+    def default_value(self) -> Any:
         default = super().default_value()
         return self.normalize(default)
 
-    def normalize(self, value):
+    def normalize(self, value: Any) -> Any:
         raise NotImplementedError("Specialize normalize method")
 
 
@@ -213,7 +223,7 @@ class RegexProperty(NormalizedProperty):
 
     expression: str
 
-    def __init__(self, expression=None, **kwargs):
+    def __init__(self, expression: Optional[str] = None, **kwargs: Any):
         """
         Initializes new property with an expression.
 
@@ -222,7 +232,7 @@ class RegexProperty(NormalizedProperty):
         super().__init__(**kwargs)
         self.expression = expression or self.expression
 
-    def normalize(self, value):
+    def normalize(self, value: Any) -> str:
         normal = str(value)
         if not re.match(self.expression, normal):
             raise ValueError(f"{value!r} does not match {self.expression!r}")
@@ -250,7 +260,12 @@ class StringProperty(NormalizedProperty):
     :type max_length: int
     """
 
-    def __init__(self, choices=None, max_length=None, **kwargs):
+    def __init__(
+        self,
+        choices: Optional[Any] = None,
+        max_length: Optional[int] = None,
+        **kwargs: Any,
+    ):
         if max_length is not None:
             if choices is not None:
                 raise ValueError(
@@ -273,7 +288,7 @@ class StringProperty(NormalizedProperty):
                 ) from exc
             self.form_field_class = "TypedChoiceField"
 
-    def normalize(self, value):
+    def normalize(self, value: str) -> str:
         # One thing to note here is that the following two checks can remain uncoupled
         # as long as it is guaranteed (by the constructor) that `choices` and `max_length`
         # are mutually exclusive. If that check in the constructor ever has to be removed,
@@ -287,7 +302,7 @@ class StringProperty(NormalizedProperty):
             )
         return str(value)
 
-    def default_value(self):
+    def default_value(self) -> str:
         return self.normalize(super().default_value())
 
 
@@ -299,14 +314,14 @@ class IntegerProperty(Property):
     form_field_class = "IntegerField"
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> int:
         return int(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> int:
         return int(value)
 
-    def default_value(self):
+    def default_value(self) -> int:
         return int(super().default_value())
 
 
@@ -315,7 +330,7 @@ class ArrayProperty(Property):
     Stores a list of items
     """
 
-    def __init__(self, base_property=None, **kwargs):
+    def __init__(self, base_property: Optional[Property] = None, **kwargs: Any):
         """
         Store a list of values, optionally of a specific type.
 
@@ -347,20 +362,20 @@ class ArrayProperty(Property):
         super().__init__(**kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> list:
         if self.base_property:
             return [self.base_property.inflate(item, rethrow=False) for item in value]
 
         return list(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> list:
         if self.base_property:
             return [self.base_property.deflate(item, rethrow=False) for item in value]
 
         return list(value)
 
-    def default_value(self):
+    def default_value(self) -> list:
         return list(super().default_value())
 
 
@@ -372,14 +387,14 @@ class FloatProperty(Property):
     form_field_class = "FloatField"
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> float:
         return float(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> float:
         return float(value)
 
-    def default_value(self):
+    def default_value(self) -> float:
         return float(super().default_value())
 
 
@@ -391,14 +406,14 @@ class BooleanProperty(Property):
     form_field_class = "BooleanField"
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> bool:
         return bool(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> bool:
         return bool(value)
 
-    def default_value(self):
+    def default_value(self) -> bool:
         return bool(super().default_value())
 
 
@@ -410,7 +425,7 @@ class DateProperty(Property):
     form_field_class = "DateField"
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> date:
         if isinstance(value, neo4j.time.DateTime):
             value = date(value.year, value.month, value.day)
         elif isinstance(value, str) and "T" in value:
@@ -418,7 +433,7 @@ class DateProperty(Property):
         return datetime.strptime(str(value), "%Y-%m-%d").date()
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: date) -> str:
         if not isinstance(value, date):
             msg = f"datetime.date object expected, got {repr(value)}"
             raise ValueError(msg)
@@ -438,7 +453,9 @@ class DateTimeFormatProperty(Property):
 
     form_field_class = "DateTimeFormatField"
 
-    def __init__(self, default_now=False, format="%Y-%m-%d", **kwargs):
+    def __init__(
+        self, default_now: bool = False, format: str = "%Y-%m-%d", **kwargs: Any
+    ):
         if default_now:
             if "default" in kwargs:
                 raise ValueError(TOO_MANY_DEFAULTS)
@@ -448,11 +465,11 @@ class DateTimeFormatProperty(Property):
         super().__init__(**kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> datetime:
         return datetime.strptime(str(value), self.format)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: datetime) -> str:
         if not isinstance(value, datetime):
             raise ValueError(f"datetime object expected, got {type(value)}.")
         return datetime.strftime(value, self.format)
@@ -469,16 +486,16 @@ class DateTimeProperty(Property):
 
     form_field_class = "DateTimeField"
 
-    def __init__(self, default_now=False, **kwargs):
+    def __init__(self, default_now: bool = False, **kwargs: Any):
         if default_now:
             if "default" in kwargs:
                 raise ValueError(TOO_MANY_DEFAULTS)
-            kwargs["default"] = lambda: datetime.utcnow().replace(tzinfo=pytz.utc)
+            kwargs["default"] = lambda: datetime.now(pytz.utc)
 
         super().__init__(**kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> datetime:
         try:
             epoch = float(value)
         except ValueError as exc:
@@ -489,10 +506,10 @@ class DateTimeProperty(Property):
             raise TypeError(
                 f"Float or integer expected. Can't inflate {type(value)} to datetime."
             ) from exc
-        return datetime.utcfromtimestamp(epoch).replace(tzinfo=pytz.utc)
+        return datetime.fromtimestamp(epoch, tz=pytz.utc)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: datetime) -> float:
         if not isinstance(value, datetime):
             raise ValueError(f"datetime object expected, got {type(value)}.")
         if value.tzinfo:
@@ -518,7 +535,7 @@ class DateTimeNeo4jFormatProperty(Property):
 
     form_field_class = "DateTimeNeo4jFormatField"
 
-    def __init__(self, default_now=False, **kwargs):
+    def __init__(self, default_now: bool = False, **kwargs: Any):
         if default_now:
             if "default" in kwargs:
                 raise ValueError(TOO_MANY_DEFAULTS)
@@ -528,11 +545,11 @@ class DateTimeNeo4jFormatProperty(Property):
         super(DateTimeNeo4jFormatProperty, self).__init__(**kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> datetime:
         return value.to_native()
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: datetime) -> neo4j.time.DateTime:
         if not isinstance(value, datetime):
             raise ValueError("datetime object expected, got {0}.".format(type(value)))
         return neo4j.time.DateTime.from_native(value)
@@ -545,16 +562,16 @@ class JSONProperty(Property):
     The structure will be inflated when a node is retrieved.
     """
 
-    def __init__(self, ensure_ascii=True, *args, **kwargs):
+    def __init__(self, ensure_ascii: bool = True, *args: Any, **kwargs: Any):
         self.ensure_ascii = ensure_ascii
         super(JSONProperty, self).__init__(*args, **kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> Any:
         return json.loads(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> str:
         return json.dumps(value, ensure_ascii=self.ensure_ascii)
 
 
@@ -563,7 +580,7 @@ class AliasProperty(property, Property):
     Alias another existing property
     """
 
-    def __init__(self, to=None):
+    def __init__(self, to: str):
         """
         Create new alias
 
@@ -575,22 +592,30 @@ class AliasProperty(property, Property):
         self.required = False
         self.has_default = False
 
-    def aliased_to(self):
+    def aliased_to(self) -> str:
         return self.target
 
-    def __get__(self, obj: Any, _type: Optional[Any] = None):
+    def __get__(self, obj: Any, _type: Optional[Any] = None) -> Property:
         return getattr(obj, self.aliased_to()) if obj else self
 
-    def __set__(self, obj, value):
+    def __set__(self, obj: Any, value: Property) -> None:
         setattr(obj, self.aliased_to(), value)
 
     @property
-    def index(self):
+    def index(self) -> bool:
         return getattr(self.owner, self.aliased_to()).index
 
+    @index.setter
+    def index(self, value: bool) -> None:
+        raise AttributeError("Cannot set read-only property 'index'")
+
     @property
-    def unique_index(self):
+    def unique_index(self) -> bool:
         return getattr(self.owner, self.aliased_to()).unique_index
+
+    @unique_index.setter
+    def unique_index(self, value: bool) -> None:
+        raise AttributeError("Cannot set read-only property 'unique_index'")
 
 
 class UniqueIdProperty(Property):
@@ -598,7 +623,7 @@ class UniqueIdProperty(Property):
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         for item in ["required", "unique_index", "index", "default"]:
             if item in kwargs:
                 raise ValueError(
@@ -610,9 +635,9 @@ class UniqueIdProperty(Property):
         super().__init__(**kwargs)
 
     @validator
-    def inflate(self, value):
+    def inflate(self, value: Any) -> str:
         return str(value)
 
     @validator
-    def deflate(self, value):
+    def deflate(self, value: Any) -> str:
         return str(value)
