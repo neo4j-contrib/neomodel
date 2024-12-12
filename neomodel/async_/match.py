@@ -12,7 +12,7 @@ from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.typing import Transformation
+from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
@@ -415,13 +415,13 @@ class QueryAST:
 
 
 class AsyncQueryBuilder:
-    def __init__(self, node_set, subquery_context: bool = False) -> None:
+    def __init__(self, node_set, subquery_namespace: TOptional[str] = None) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
         self._query_params: dict = {}
         self._place_holder_registry: dict = {}
         self._ident_count: int = 0
-        self._subquery_context: bool = subquery_context
+        self._subquery_namespace: TOptional[str] = subquery_namespace
 
     async def build_ast(self) -> "AsyncQueryBuilder":
         if hasattr(self.node_set, "relations_to_fetch"):
@@ -563,7 +563,7 @@ class AsyncQueryBuilder:
                     # contains the primary node so _contains() works
                     # as usual
                     self._ast.return_clause = lhs_name
-                    if self._subquery_context:
+                    if self._subquery_namespace:
                         # Don't include label in identifier if we are in a subquery
                         lhs_ident = lhs_name
                 elif relation["include_in_return"]:
@@ -677,7 +677,10 @@ class AsyncQueryBuilder:
             self._place_holder_registry[key] += 1
         else:
             self._place_holder_registry[key] = 1
-        return key + "_" + str(self._place_holder_registry[key])
+        place_holder = f"{key}_{self._place_holder_registry[key]}"
+        if self._subquery_namespace:
+            place_holder = f"{self._subquery_namespace}_{place_holder}"
+        return place_holder
 
     def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str, Any]:
         is_rel_filter = "|" in prop
@@ -884,10 +887,21 @@ class AsyncQueryBuilder:
                 query += ",".join(ordering)
 
         if hasattr(self.node_set, "_subqueries"):
-            for subquery, return_set in self.node_set._subqueries:
-                outer_primary_var = self._ast.return_clause
-                query += f" CALL {{ WITH {outer_primary_var} {subquery} }} "
-                for varname in return_set:
+            for subquery in self.node_set._subqueries:
+                query += " CALL {"
+                if subquery["initial_context"]:
+                    query += " WITH "
+                    context: List[str] = []
+                    for var in subquery["initial_context"]:
+                        if isinstance(var, (NodeNameResolver, RelationNameResolver)):
+                            context.append(var.resolve(self))
+                        else:
+                            context.append(var)
+                    query += ",".join(context)
+
+                query += f"{subquery['query']} }} "
+                self._query_params.update(subquery["query_params"])
+                for varname in subquery["return_set"]:
                     # We declare the returned variables as "virtual" relations of the
                     # root node class to make sure they will be translated by a call to
                     # resolve_subgraph() (otherwise, they will be lost).
@@ -898,10 +912,10 @@ class AsyncQueryBuilder:
                         "variable_name": varname,
                         "rel_variable_name": varname,
                     }
-                returned_items += return_set
+                returned_items += subquery["return_set"]
 
         query += " RETURN "
-        if self._ast.return_clause and not self._subquery_context:
+        if self._ast.return_clause and not self._subquery_namespace:
             returned_items.append(self._ast.return_clause)
         if self._ast.additional_return:
             returned_items += self._ast.additional_return
@@ -1128,6 +1142,8 @@ class NodeNameResolver:
     node: str
 
     def resolve(self, qbuilder: AsyncQueryBuilder) -> str:
+        if self.node == "self" and qbuilder._ast.return_clause:
+            return qbuilder._ast.return_clause
         result = qbuilder.lookup_query_variable(self.node)
         if result is None:
             raise ValueError(f"Unable to resolve variable name for node {self.node}")
@@ -1246,7 +1262,7 @@ class AsyncNodeSet(AsyncBaseSet):
 
         self.relations_to_fetch: list = []
         self._extra_results: list = []
-        self._subqueries: list[Tuple[str, list[str]]] = []
+        self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
 
     def __await__(self):
@@ -1534,7 +1550,10 @@ class AsyncNodeSet(AsyncBaseSet):
         return results
 
     async def subquery(
-        self, nodeset: "AsyncNodeSet", return_set: list[str]
+        self,
+        nodeset: "AsyncNodeSet",
+        return_set: list[str],
+        initial_context: TOptional[list[str]] = None,
     ) -> "AsyncNodeSet":
         """Add a subquery to this node set.
 
@@ -1543,7 +1562,10 @@ class AsyncNodeSet(AsyncBaseSet):
         declared inside return_set variable in order to be included in the final RETURN
         statement.
         """
-        qbuilder = await nodeset.query_cls(nodeset, subquery_context=True).build_ast()
+        namespace = f"sq{len(self._subqueries) + 1}"
+        qbuilder = await nodeset.query_cls(
+            nodeset, subquery_namespace=namespace
+        ).build_ast()
         for var in return_set:
             if (
                 var != qbuilder._ast.return_clause
@@ -1553,9 +1575,31 @@ class AsyncNodeSet(AsyncBaseSet):
                 )
                 and var
                 not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
+                and var
+                not in [
+                    varname
+                    for tr in nodeset._intermediate_transforms
+                    for varname, vardef in tr["vars"].items()
+                    if vardef.get("include_in_return")
+                ]
             ):
                 raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
-        self._subqueries.append((qbuilder.build_query(), return_set))
+        if initial_context:
+            for var in initial_context:
+                if type(var) is not str and not isinstance(
+                    var, (NodeNameResolver, RelationNameResolver, RawCypher)
+                ):
+                    raise ValueError(
+                        f"Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
+                    )
+        self._subqueries.append(
+            {
+                "query": qbuilder.build_query(),
+                "query_params": qbuilder._query_params,
+                "return_set": return_set,
+                "initial_context": initial_context,
+            }
+        )
         return self
 
     def intermediate_transform(
