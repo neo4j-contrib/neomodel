@@ -65,7 +65,7 @@ def ensure_connection(func: Callable) -> Callable:
 
     """
 
-    async def wrapper(self, *args: Any, **kwargs: Any) -> Callable:
+    async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Callable:
         # Sort out where to find url
         if hasattr(self, "db"):
             _db = self.db
@@ -91,7 +91,7 @@ class AsyncDatabase(local):
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._active_transaction: Optional[AsyncTransaction] = None
         self.url: Optional[str] = None
         self.driver: Optional[AsyncDriver] = None
@@ -768,7 +768,7 @@ class AsyncDatabase(local):
         if not stdout or stdout is None:
             stdout = sys.stdout
 
-        def subsub(cls):  # recursively return all subclasses
+        def subsub(cls: Any) -> list:  # recursively return all subclasses
             subclasses = cls.__subclasses__()
             if not subclasses:  # base case: no more subclasses
                 return []
@@ -919,7 +919,7 @@ class AsyncDatabase(local):
 
     async def _create_node_constraint(
         self, target_cls: Any, property_name: str, stdout: TextIO, quiet: bool
-    ):
+    ) -> None:
         label = target_cls.__label__
         constraint_name = f"constraint_unique_{label}_{property_name}"
         if not quiet:
@@ -1196,7 +1196,7 @@ async def clear_neo4j_database(
     await db.clear_neo4j_database(clear_constraints, clear_indexes)
 
 
-async def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None):
+async def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, adb for async).
@@ -1230,7 +1230,7 @@ async def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
 
 
 async def install_labels(
-    cls, quiet: bool = True, stdout: Optional[TextIO] = None
+    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
 ) -> None:
     deprecated(
         """
@@ -1365,10 +1365,10 @@ class NodeMeta(type):
     defined_properties: Callable[..., dict[str, Any]]
 
     def __new__(
-        mcs: "NodeMeta", name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+        mcs: type, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
     ) -> Any:
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
-        cls = super().__new__(mcs, name, bases, namespace)
+        cls: NodeMeta = type.__new__(mcs, name, bases, namespace)
         cls.DoesNotExist._model_class = cls
 
         if hasattr(cls, "__abstract_node__"):
@@ -1425,7 +1425,7 @@ class NodeMeta(type):
         return cls
 
 
-def build_class_registry(cls) -> None:
+def build_class_registry(cls: Any) -> None:
     base_label_set = frozenset(cls.inherited_labels())
     optional_label_set = set(cls.inherited_optional_labels())
 
@@ -1677,7 +1677,7 @@ class AsyncStructuredNode(NodeBase):
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :rtype: list
         """
-        lazy: bool = kwargs.get("lazy", False)
+        lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
 
         # build merge query, make sure to update only explicitly specified properties
@@ -1726,12 +1726,14 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("cypher")
         _params = params or {}
+        if self.element_id is None:
+            raise ValueError("Can't run cypher operation on unsaved node")
         element_id = await adb.parse_element_id(self.element_id)
         _params.update({"self": element_id})
         return await adb.cypher_query(query, _params)
 
     @hooks
-    async def delete(self):
+    async def delete(self) -> bool:
         """
         Delete a node and its relationships
 
@@ -1746,7 +1748,7 @@ class AsyncStructuredNode(NodeBase):
         return True
 
     @classmethod
-    async def get_or_create(cls, *props, **kwargs):
+    async def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
@@ -1769,7 +1771,7 @@ class AsyncStructuredNode(NodeBase):
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
         query, params = await cls._build_merge_query(
-            get_or_create_params, relationship=relationship, lazy=lazy
+            tuple(get_or_create_params), relationship=relationship, lazy=lazy
         )
 
         if "streaming" in kwargs:
@@ -1784,7 +1786,7 @@ class AsyncStructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
-    def inflate(cls, node):
+    def inflate(cls: Any, node: Any) -> Any:
         """
         Inflate a raw neo4j_driver node to a neomodel node
         :param node:
@@ -1801,7 +1803,7 @@ class AsyncStructuredNode(NodeBase):
         return snode
 
     @classmethod
-    def inherited_labels(cls):
+    def inherited_labels(cls: Any) -> list[str]:
         """
         Return list of labels from nodes class hierarchy.
 
@@ -1814,7 +1816,7 @@ class AsyncStructuredNode(NodeBase):
         ]
 
     @classmethod
-    def inherited_optional_labels(cls):
+    def inherited_optional_labels(cls: Any) -> list[str]:
         """
         Return list of optional labels from nodes class hierarchy.
 
@@ -1828,7 +1830,7 @@ class AsyncStructuredNode(NodeBase):
             if not hasattr(scls, "__abstract_node__")
         ]
 
-    async def labels(self):
+    async def labels(self) -> list[str]:
         """
         Returns list of labels tied to the node from neo4j.
 
@@ -1839,9 +1841,11 @@ class AsyncStructuredNode(NodeBase):
         result = await self.cypher(
             f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self " "RETURN labels(n)"
         )
+        if result is None or result[0] is None:
+            raise ValueError("Could not get labels, node may not exist")
         return result[0][0][0]
 
-    def _pre_action_check(self, action):
+    def _pre_action_check(self, action: str) -> None:
         if hasattr(self, "deleted") and self.deleted:
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on deleted node"
@@ -1851,7 +1855,7 @@ class AsyncStructuredNode(NodeBase):
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
 
-    async def refresh(self):
+    async def refresh(self) -> None:
         """
         Reload the node from neo4j
         """
@@ -1870,7 +1874,7 @@ class AsyncStructuredNode(NodeBase):
             raise ValueError("Can't refresh unsaved node")
 
     @hooks
-    async def save(self):
+    async def save(self) -> "AsyncStructuredNode":
         """
         Save the node to neo4j or raise an exception
 

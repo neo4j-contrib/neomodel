@@ -1,12 +1,14 @@
 import types
 from typing import Any
 
+from neo4j.graph import Entity
+
 from neomodel.exceptions import RequiredProperty
 from neomodel.properties import AliasProperty, Property
 
 
-def display_for(key):
-    def display_choice(self):
+def display_for(key: str) -> Any:
+    def display_choice(self: Any) -> Any:
         return getattr(self.__class__, key).choices[getattr(self, key)]
 
     return display_choice
@@ -17,7 +19,7 @@ class PropertyManager:
     Common methods for handling properties on node and relationship objects.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: dict[str, Any]) -> None:
         properties = getattr(self, "__all_properties__", None)
         if properties is None:
             properties = self.defined_properties(rels=False, aliases=False).items()
@@ -55,7 +57,7 @@ class PropertyManager:
             setattr(self, name, property)
 
     @property
-    def __properties__(self):
+    def __properties__(self) -> dict[str, Any]:
         from neomodel.sync_.relationship_manager import RelationshipManager
 
         return dict(
@@ -73,7 +75,9 @@ class PropertyManager:
         )
 
     @classmethod
-    def deflate(cls, properties, obj=None, skip_empty=False):
+    def deflate(
+        cls, properties: Any, obj: Any = None, skip_empty: bool = False
+    ) -> dict[str, Any]:
         """
         Deflate the properties of a PropertyManager subclass (a user-defined StructuredNode or StructuredRel) so that it
         can be put into a neo4j.graph.Entity (a neo4j.graph.Node or neo4j.graph.Relationship) for storage. properties
@@ -97,7 +101,7 @@ class PropertyManager:
         return deflated
 
     @classmethod
-    def inflate(cls, graph_entity):
+    def inflate(cls: Any, graph_entity: Entity) -> Any:
         """
         Inflate the properties of a neo4j.graph.Entity (a neo4j.graph.Node or neo4j.graph.Relationship) into an instance
         of cls.
@@ -119,7 +123,7 @@ class PropertyManager:
 
     @classmethod
     def defined_properties(
-        cls, aliases=True, properties=True, rels=True
+        cls: Any, aliases: bool = True, properties: bool = True, rels: bool = True
     ) -> dict[str, Any]:
         from neomodel.sync_.relationship_manager import RelationshipDefinition
 
