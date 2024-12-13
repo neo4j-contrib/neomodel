@@ -2,7 +2,7 @@ import functools
 import inspect
 import sys
 from importlib import import_module
-from typing import Any
+from typing import Any, Callable
 
 from neomodel.async_.core import adb
 from neomodel.async_.match import (
@@ -23,11 +23,11 @@ from neomodel.util import (
 
 
 # check source node is saved and not deleted
-def check_source(fn):
+def check_source(fn: Callable) -> Callable:
     fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
 
     @functools.wraps(fn)
-    def checker(self, *args, **kwargs):
+    def checker(self: Any, *args: Any, **kwargs: Any) -> Callable:
         self.source._pre_action_check(self.name + "." + fn_name)
         return fn(self, *args, **kwargs)
 
@@ -35,7 +35,7 @@ def check_source(fn):
 
 
 # checks if obj is a direct subclass, 1 level
-def is_direct_subclass(obj, classinfo):
+def is_direct_subclass(obj: Any, classinfo: Any) -> bool:
     for base in obj.__bases__:
         if base == classinfo:
             return True
@@ -61,7 +61,7 @@ class AsyncRelationshipManager(object):
         self.name = key
         self.definition = definition
 
-    def __str__(self):
+    def __str__(self) -> str:
         direction = "either"
         if self.definition["direction"] == OUTGOING:
             direction = "a outgoing"

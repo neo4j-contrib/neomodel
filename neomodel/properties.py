@@ -180,11 +180,11 @@ class Property(metaclass=ABCMeta):
         return self.unique_index or self.index
 
     @abstractmethod
-    def inflate(self, value: Any, rethrow: bool) -> Any:
+    def inflate(self, value: Any, rethrow: bool = False) -> Any:
         pass
 
     @abstractmethod
-    def deflate(self, value: Any, rethrow: bool) -> Any:
+    def deflate(self, value: Any, rethrow: bool = False) -> Any:
         pass
 
 

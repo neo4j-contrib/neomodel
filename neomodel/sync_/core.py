@@ -581,7 +581,11 @@ class Database(local):
         else:
             return "elementId"
 
-    def parse_element_id(self, element_id: str) -> Union[str, int]:
+    def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+        if element_id is None:
+            raise ValueError(
+                "Unable to parse element id, are you sure this element has been saved ?"
+            )
         db_version = self.database_version
         if db_version is None:
             raise RuntimeError(
