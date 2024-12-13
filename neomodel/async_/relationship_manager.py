@@ -75,7 +75,7 @@ class AsyncRelationshipManager(object):
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def __await__(self) -> Any:
-        return self.all().__await__()
+        return self.all().__await__()  # type: ignore[attr-defined]
 
     def _check_node(self, obj: type["AsyncStructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""

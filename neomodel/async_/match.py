@@ -1306,7 +1306,7 @@ class AsyncNodeSet(AsyncBaseSet):
         self._intermediate_transforms: list = []
 
     def __await__(self) -> Any:
-        return self.all().__await__()
+        return self.all().__await__()  # type: ignore[attr-defined]
 
     async def _get(
         self, limit: TOptional[int] = None, lazy: bool = False, **kwargs: dict[str, Any]
@@ -1696,7 +1696,7 @@ class AsyncTraversal(AsyncBaseSet):
     filters: list
 
     def __await__(self) -> Any:
-        return self.all().__await__()
+        return self.all().__await__()  # type: ignore[attr-defined]
 
     def __init__(self, source: Any, name: str, definition: dict) -> None:
         """
