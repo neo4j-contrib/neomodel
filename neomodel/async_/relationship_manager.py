@@ -323,23 +323,23 @@ class AsyncRelationshipManager(object):
         return AsyncTraversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
-    def get(self, **kwargs: Any) -> AsyncNodeSet:
+    async def get(self, **kwargs: Any) -> AsyncNodeSet:
         """
         Retrieve a related node with the matching node properties.
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return AsyncNodeSet(self._new_traversal()).get(**kwargs)
+        return await AsyncNodeSet(self._new_traversal()).get(**kwargs)
 
-    def get_or_none(self, **kwargs: dict) -> AsyncNodeSet:
+    async def get_or_none(self, **kwargs: dict) -> AsyncNodeSet:
         """
         Retrieve a related node with the matching node properties or return None.
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return AsyncNodeSet(self._new_traversal()).get_or_none(**kwargs)
+        return await AsyncNodeSet(self._new_traversal()).get_or_none(**kwargs)
 
     def filter(self, *args: Any, **kwargs: dict) -> "AsyncBaseSet":
         """
