@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING, Any, Optional
+
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
     ZeroOrMore,
 )
+
+if TYPE_CHECKING:
+    from neomodel import StructuredNode, StructuredRel
 
 
 class ZeroOrOne(RelationshipManager):
@@ -10,7 +15,7 @@ class ZeroOrOne(RelationshipManager):
 
     description = "zero or one relationship"
 
-    def single(self):
+    def single(self) -> Optional["StructuredNode"]:
         """
         Return the associated node.
 
@@ -23,11 +28,13 @@ class ZeroOrOne(RelationshipManager):
             raise CardinalityViolation(self, len(nodes))
         return None
 
-    def all(self):
+    def all(self) -> list["StructuredNode"]:
         node = self.single()
         return [node] if node else []
 
-    def connect(self, node, properties=None):
+    def connect(
+        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "StructuredRel":
         """
         Connect to a node.
 
@@ -49,7 +56,7 @@ class OneOrMore(RelationshipManager):
 
     description = "one or more relationships"
 
-    def single(self):
+    def single(self) -> "StructuredNode":
         """
         Fetch one of the related nodes
 
@@ -60,7 +67,7 @@ class OneOrMore(RelationshipManager):
             return nodes[0]
         raise CardinalityViolation(self, "none")
 
-    def all(self):
+    def all(self) -> list["StructuredNode"]:
         """
         Returns all related nodes.
 
@@ -71,7 +78,7 @@ class OneOrMore(RelationshipManager):
             return nodes
         raise CardinalityViolation(self, "none")
 
-    def disconnect(self, node):
+    def disconnect(self, node: "StructuredNode") -> None:
         """
         Disconnect node
         :param node:
@@ -89,7 +96,7 @@ class One(RelationshipManager):
 
     description = "one relationship"
 
-    def single(self):
+    def single(self) -> "StructuredNode":
         """
         Return the associated node.
 
@@ -102,7 +109,7 @@ class One(RelationshipManager):
             raise CardinalityViolation(self, len(nodes))
         raise CardinalityViolation(self, "none")
 
-    def all(self):
+    def all(self) -> list["StructuredNode"]:
         """
         Return single node in an array
 
@@ -110,17 +117,19 @@ class One(RelationshipManager):
         """
         return [self.single()]
 
-    def disconnect(self, node):
+    def disconnect(self, node: "StructuredNode") -> None:
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect use reconnect."
         )
 
-    def disconnect_all(self):
+    def disconnect_all(self) -> None:
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect_all use reconnect."
         )
 
-    def connect(self, node, properties=None):
+    def connect(
+        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "StructuredRel":
         """
         Connect a node
 

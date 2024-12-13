@@ -70,7 +70,7 @@ def generate_plantuml(classes):
             f"{prop}: {parse_property_key(cls.defined_properties(aliases=False, rels=False)[prop])}"
             for prop in cls.defined_properties(aliases=False, rels=False)
         ]
-        label += " \l ".join(properties)
+        label += r" \l ".join(properties)
         label += "}}"
 
         # Node definition
@@ -196,18 +196,22 @@ def generate_arrows_json(classes):
                     "type": rel.definition["relation_type"],
                     "style": {},
                     "properties": {},
-                    "fromId": node_id
-                    if (
-                        isinstance(rel, RelationshipTo)
-                        or isinstance(rel, AsyncRelationshipTo)
-                    )
-                    else target_id,
-                    "toId": target_id
-                    if (
-                        isinstance(rel, RelationshipTo)
-                        or isinstance(rel, AsyncRelationshipTo)
-                    )
-                    else node_id,
+                    "fromId": (
+                        node_id
+                        if (
+                            isinstance(rel, RelationshipTo)
+                            or isinstance(rel, AsyncRelationshipTo)
+                        )
+                        else target_id
+                    ),
+                    "toId": (
+                        target_id
+                        if (
+                            isinstance(rel, RelationshipTo)
+                            or isinstance(rel, AsyncRelationshipTo)
+                        )
+                        else node_id
+                    ),
                 }
             )
 

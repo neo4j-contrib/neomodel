@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Iterator
 from typing import Optional as TOptional
 from typing import Tuple, Union
 
@@ -19,14 +19,14 @@ CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETA
 
 
 def _rel_helper(
-    lhs,
-    rhs,
-    ident=None,
-    relation_type=None,
-    direction=None,
-    relation_properties=None,
-    **kwargs,  # NOSONAR
-):
+    lhs: str,
+    rhs: str,
+    ident: TOptional[str] = None,
+    relation_type: TOptional[str] = None,
+    direction: TOptional[int] = None,
+    relation_properties: TOptional[dict] = None,
+    **kwargs: dict[str, Any],  # NOSONAR
+) -> str:
     """
     Generate a relationship matching string, with specified parameters.
     Examples:
@@ -83,14 +83,14 @@ def _rel_helper(
 
 
 def _rel_merge_helper(
-    lhs,
-    rhs,
-    ident="neomodelident",
-    relation_type=None,
-    direction=None,
-    relation_properties=None,
-    **kwargs,  # NOSONAR
-):
+    lhs: str,
+    rhs: str,
+    ident: str = "neomodelident",
+    relation_type: TOptional[str] = None,
+    direction: TOptional[int] = None,
+    relation_properties: TOptional[dict] = None,
+    **kwargs: dict[str, Any],  # NOSONAR
+) -> str:
     """
     Generate a relationship merging string, with specified parameters.
     Examples:
@@ -204,7 +204,7 @@ OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
 path_split_regex = re.compile(r"__(?!_)|\|")
 
 
-def install_traversals(cls, node_set):
+def install_traversals(cls: type[StructuredNode], node_set: "NodeSet") -> None:
     """
     For a StructuredNode class install Traversal objects for each
     relationship definition on a NodeSet instance
@@ -255,7 +255,12 @@ def _handle_special_operators(
 
 
 def _deflate_value(
-    cls, property_obj: Property, key: str, value: str, operator: str, prop: str
+    cls: type[StructuredNode],
+    property_obj: Property,
+    key: str,
+    value: str,
+    operator: str,
+    prop: str,
 ) -> Tuple[str, str, str]:
     if isinstance(property_obj, AliasProperty):
         prop = property_obj.aliased_to()
@@ -269,7 +274,9 @@ def _deflate_value(
     return deflated_value, operator, prop
 
 
-def _initialize_filter_args_variables(cls, key: str):
+def _initialize_filter_args_variables(
+    cls: type[StructuredNode], key: str
+) -> Tuple[type[StructuredNode], None, None, str, bool, str]:
     current_class = cls
     current_rel_model = None
     leaf_prop = None
@@ -277,10 +284,19 @@ def _initialize_filter_args_variables(cls, key: str):
     is_rel_property = "|" in key
     prop = key
 
-    return current_class, current_rel_model, leaf_prop, operator, is_rel_property, prop
+    return (
+        current_class,
+        current_rel_model,
+        leaf_prop,
+        operator,
+        is_rel_property,
+        prop,
+    )
 
 
-def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
+def _process_filter_key(
+    cls: type[StructuredNode], key: str
+) -> Tuple[Property, str, str]:
     (
         current_class,
         current_rel_model,
@@ -313,6 +329,8 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
             )
         leaf_prop = part
 
+    if leaf_prop is None:
+        raise ValueError(f"Badly formed filter, no property found in {key}")
     if is_rel_property and current_rel_model:
         property_obj = getattr(current_rel_model, leaf_prop)
     else:
@@ -321,7 +339,7 @@ def _process_filter_key(cls, key: str) -> Tuple[Property, str, str]:
     return property_obj, operator, prop
 
 
-def process_filter_args(cls, kwargs) -> Dict:
+def process_filter_args(cls: type[StructuredNode], kwargs: dict[str, Any]) -> dict:
     """
     loop through properties in filter parameters check they match class definition
     deflate them and convert into something easy to generate cypher from
@@ -340,7 +358,9 @@ def process_filter_args(cls, kwargs) -> Dict:
     return output
 
 
-def process_has_args(cls, kwargs):
+def process_has_args(
+    cls: type[StructuredNode], kwargs: dict[str, Any]
+) -> tuple[dict, dict]:
     """
     loop through has parameters check they correspond to class rels defined
     """
@@ -369,32 +389,32 @@ def process_has_args(cls, kwargs):
 
 
 class QueryAST:
-    match: List[str]
-    optional_match: List[str]
-    where: List[str]
+    match: list[str]
+    optional_match: list[str]
+    where: list[str]
     with_clause: TOptional[str]
     return_clause: TOptional[str]
-    order_by: TOptional[List[str]]
+    order_by: TOptional[list[str]]
     skip: TOptional[int]
     limit: TOptional[int]
     result_class: TOptional[type]
     lookup: TOptional[str]
-    additional_return: List[str]
+    additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
 
     def __init__(
         self,
-        match: TOptional[List[str]] = None,
-        optional_match: TOptional[List[str]] = None,
-        where: TOptional[List[str]] = None,
+        match: TOptional[list[str]] = None,
+        optional_match: TOptional[list[str]] = None,
+        where: TOptional[list[str]] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
-        order_by: TOptional[List[str]] = None,
+        order_by: TOptional[list[str]] = None,
         skip: TOptional[int] = None,
         limit: TOptional[int] = None,
         result_class: TOptional[type] = None,
         lookup: TOptional[str] = None,
-        additional_return: TOptional[List[str]] = None,
+        additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
     ) -> None:
         self.match = match if match else []
@@ -407,22 +427,28 @@ class QueryAST:
         self.limit = limit
         self.result_class = result_class
         self.lookup = lookup
-        self.additional_return = additional_return if additional_return else []
+        self.additional_return: list[str] = (
+            additional_return if additional_return else []
+        )
         self.is_count = is_count
-        self.subgraph: Dict = {}
+        self.subgraph: dict = {}
 
 
 class QueryBuilder:
-    def __init__(self, node_set, subquery_namespace: TOptional[str] = None) -> None:
+    def __init__(
+        self, node_set: "BaseSet", subquery_namespace: TOptional[str] = None
+    ) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
-        self._query_params: Dict = {}
-        self._place_holder_registry: Dict = {}
+        self._query_params: dict = {}
+        self._place_holder_registry: dict = {}
         self._ident_count: int = 0
         self._subquery_namespace: TOptional[str] = subquery_namespace
 
     def build_ast(self) -> "QueryBuilder":
-        if hasattr(self.node_set, "relations_to_fetch"):
+        if isinstance(self.node_set, NodeSet) and hasattr(
+            self.node_set, "relations_to_fetch"
+        ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
@@ -435,7 +461,9 @@ class QueryBuilder:
 
         return self
 
-    def build_source(self, source) -> str:
+    def build_source(
+        self, source: Union["Traversal", "NodeSet", StructuredNode, Any]
+    ) -> str:
         if isinstance(source, Traversal):
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
@@ -453,10 +481,10 @@ class QueryBuilder:
 
             if source.filters or source.q_filters:
                 self.build_where_stmt(
-                    ident,
-                    source.filters,
-                    source.q_filters,
+                    ident=ident,
+                    filters=source.filters,
                     source_class=source.source_class,
+                    q_filters=source.q_filters,
                 )
 
             return ident
@@ -497,7 +525,7 @@ class QueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_traversal(self, traversal) -> str:
+    def build_traversal(self, traversal: "Traversal") -> str:
         """
         traverse a relationship from a node to a set of nodes
         """
@@ -521,16 +549,20 @@ class QueryBuilder:
         self._ast.match.append(stmt)
 
         if traversal.filters:
-            self.build_where_stmt(rel_ident, traversal.filters)
+            self.build_where_stmt(rel_ident, traversal.filters, traversal.source_class)
 
         return traversal_ident
 
-    def _additional_return(self, name: str):
-        if name not in self._ast.additional_return and name != self._ast.return_clause:
+    def _additional_return(self, name: str) -> None:
+        if (
+            not self._ast.additional_return or name not in self._ast.additional_return
+        ) and name != self._ast.return_clause:
+            if not self._ast.additional_return:
+                self._ast.additional_return = []
             self._ast.additional_return.append(name)
 
     def build_traversal_from_path(
-        self, relation: dict, source_class
+        self, relation: dict, source_class: Any
     ) -> Tuple[str, Any]:
         path: str = relation["path"]
         stmt: str = ""
@@ -616,7 +648,7 @@ class QueryBuilder:
 
         return existing_rhs_name, relationship.definition["node_class"]
 
-    def build_node(self, node):
+    def build_node(self, node: StructuredNode) -> str:
         ident = node.__class__.__name__.lower()
         place_holder = self._register_place_holder(ident)
 
@@ -630,7 +662,7 @@ class QueryBuilder:
         self._ast.result_class = node.__class__
         return ident
 
-    def build_label(self, ident, cls) -> str:
+    def build_label(self, ident: str, cls: type[StructuredNode]) -> str:
         """
         match nodes by a label
         """
@@ -644,7 +676,7 @@ class QueryBuilder:
             self._ast.result_class = cls
         return ident
 
-    def build_additional_match(self, ident, node_set):
+    def build_additional_match(self, ident: str, node_set: "NodeSet") -> None:
         """
         handle additional matches supplied by 'has()' calls
         """
@@ -676,7 +708,9 @@ class QueryBuilder:
             place_holder = f"{self._subquery_namespace}_{place_holder}"
         return place_holder
 
-    def _parse_path(self, source_class, prop: str) -> Tuple[str, str, str, Any]:
+    def _parse_path(
+        self, source_class: type[StructuredNode], prop: str
+    ) -> Tuple[str, str, str, Any]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -717,7 +751,11 @@ class QueryBuilder:
         return statement
 
     def _build_filter_statements(
-        self, ident: str, filters, target: List[str], source_class
+        self,
+        ident: str,
+        filters: dict[str, tuple],
+        target: list[str],
+        source_class: type[StructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
@@ -733,7 +771,9 @@ class QueryBuilder:
             statement = self._finalize_filter_statement(operator, ident, prop, val)
             target.append(statement)
 
-    def _parse_q_filters(self, ident, q, source_class) -> str:
+    def _parse_q_filters(
+        self, ident: str, q: Union[QBase, Any], source_class: type[StructuredNode]
+    ) -> str:
         target = []
         for child in q.children:
             if isinstance(child, QBase):
@@ -751,7 +791,11 @@ class QueryBuilder:
         return ret
 
     def build_where_stmt(
-        self, ident: str, filters, q_filters=None, source_class=None
+        self,
+        ident: str,
+        filters: list,
+        source_class: type[StructuredNode],
+        q_filters: Union[QBase, Any, None] = None,
     ) -> None:
         """
         construct a where statement from some filters
@@ -885,7 +929,7 @@ class QueryBuilder:
                 query += " CALL {"
                 if subquery["initial_context"]:
                     query += " WITH "
-                    context: List[str] = []
+                    context: list[str] = []
                     for var in subquery["initial_context"]:
                         if isinstance(var, (NodeNameResolver, RelationNameResolver)):
                             context.append(var.resolve(self))
@@ -943,7 +987,7 @@ class QueryBuilder:
 
         return query
 
-    def _count(self):
+    def _count(self) -> int:
         self._ast.is_count = True
         # If we return a count with pagination, pagination has to happen before RETURN
         # Like : WITH my_var SKIP 10 LIMIT 10 RETURN count(my_var)
@@ -963,17 +1007,19 @@ class QueryBuilder:
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
 
-    def _contains(self, node_element_id):
+    def _contains(self, node_element_id: TOptional[Union[str, int]]) -> bool:
         # inject id = into ast
-        if not self._ast.return_clause:
+        if not self._ast.return_clause and self._ast.additional_return:
             self._ast.return_clause = self._ast.additional_return[0]
+        if not self._ast.return_clause:
+            raise ValueError("Cannot use contains without a return clause")
         ident = self._ast.return_clause
         place_holder = self._register_place_holder(ident + "_contains")
         self._ast.where.append(f"{db.get_id_method()}({ident}) = ${place_holder}")
         self._query_params[place_holder] = node_element_id
         return self._count() >= 1
 
-    def _execute(self, lazy: bool = False, dict_output: bool = False):
+    def _execute(self, lazy: bool = False, dict_output: bool = False) -> Any:
         if lazy:
             # inject id() into return or return_set
             if self._ast.return_clause:
@@ -981,10 +1027,11 @@ class QueryBuilder:
                     f"{db.get_id_method()}({self._ast.return_clause})"
                 )
             else:
-                self._ast.additional_return = [
-                    f"{db.get_id_method()}({item})"
-                    for item in self._ast.additional_return
-                ]
+                if self._ast.additional_return is not None:
+                    self._ast.additional_return = [
+                        f"{db.get_id_method()}({item})"
+                        for item in self._ast.additional_return
+                    ]
         query = self.build_query()
         results, prop_names = db.cypher_query(
             query,
@@ -1015,9 +1062,9 @@ class BaseSet:
     """
 
     query_cls = QueryBuilder
-    source_class: StructuredNode
+    source_class: type[StructuredNode]
 
-    def all(self, lazy=False):
+    def all(self, lazy: bool = False) -> list:
         """
         Return all nodes belonging to the set
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1030,12 +1077,12 @@ class BaseSet:
         ]  # Collect all nodes asynchronously
         return results
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         ast = self.query_cls(self).build_ast()
         for item in ast._execute():
             yield item
 
-    def __len__(self):
+    def __len__(self) -> int:
         ast = self.query_cls(self).build_ast()
         return ast._count()
 
@@ -1057,7 +1104,7 @@ class BaseSet:
         """
         return self.__bool__()
 
-    def __contains__(self, obj):
+    def __contains__(self, obj: Union[StructuredNode, Any]) -> bool:
         if isinstance(obj, StructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 ast = self.query_cls(self).build_ast()
@@ -1067,7 +1114,7 @@ class BaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[int, slice]) -> TOptional["BaseSet"]:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1091,7 +1138,7 @@ class BaseSet:
 
 
 @dataclass
-class Optional:
+class Optional:  # type: ignore[no-redef]
     """Simple relation qualifier."""
 
     relation: str
@@ -1212,13 +1259,13 @@ class RawCypher:
 
     statement: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR.search(self.statement):
             raise ValueError(
                 "RawCypher: Do not include any action that has side effect"
             )
 
-    def render(self, context: Dict) -> str:
+    def render(self, context: dict) -> str:
         return string.Template(self.statement).substitute(context)
 
 
@@ -1227,7 +1274,7 @@ class NodeSet(BaseSet):
     A class representing as set of nodes matching common query parameters
     """
 
-    def __init__(self, source) -> None:
+    def __init__(self, source: Any) -> None:
         self.source = source  # could be a Traverse object or a node class
         if isinstance(source, Traversal):
             self.source_class = source.target_class
@@ -1241,23 +1288,25 @@ class NodeSet(BaseSet):
         # setup Traversal objects using relationship definitions
         install_traversals(self.source_class, self)
 
-        self.filters: List = []
+        self.filters: list = []
         self.q_filters = Q()
-        self.order_by_elements: List = []
+        self.order_by_elements: list = []
 
         # used by has()
-        self.must_match: Dict = {}
-        self.dont_match: Dict = {}
+        self.must_match: dict = {}
+        self.dont_match: dict = {}
 
-        self.relations_to_fetch: List = []
-        self._extra_results: List = []
+        self.relations_to_fetch: list = []
+        self._extra_results: list = []
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
 
-    def __await__(self):
-        return self.all().__await__()
+    def __await__(self) -> Any:
+        return self.all().__await__()  # type: ignore[attr-defined]
 
-    def _get(self, limit=None, lazy=False, **kwargs):
+    def _get(
+        self, limit: TOptional[int] = None, lazy: bool = False, **kwargs: dict[str, Any]
+    ) -> list:
         self.filter(**kwargs)
         if limit:
             self.limit = limit
@@ -1265,7 +1314,7 @@ class NodeSet(BaseSet):
         results = [node for node in ast._execute(lazy)]
         return results
 
-    def get(self, lazy=False, **kwargs):
+    def get(self, lazy: bool = False, **kwargs: Any) -> Any:
         """
         Retrieve one node from the set matching supplied parameters
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1279,7 +1328,7 @@ class NodeSet(BaseSet):
             raise self.source_class.DoesNotExist(repr(kwargs))
         return result[0]
 
-    def get_or_none(self, **kwargs):
+    def get_or_none(self, **kwargs: Any) -> Any:
         """
         Retrieve a node from the set matching supplied parameters or return none
 
@@ -1291,7 +1340,7 @@ class NodeSet(BaseSet):
         except self.source_class.DoesNotExist:
             return None
 
-    def first(self, **kwargs):
+    def first(self, **kwargs: Any) -> Any:
         """
         Retrieve the first node from the set matching supplied parameters
 
@@ -1304,7 +1353,7 @@ class NodeSet(BaseSet):
         else:
             raise self.source_class.DoesNotExist(repr(kwargs))
 
-    def first_or_none(self, **kwargs):
+    def first_or_none(self, **kwargs: Any) -> Any:
         """
         Retrieve the first node from the set matching supplied parameters or return none
 
@@ -1317,7 +1366,7 @@ class NodeSet(BaseSet):
             pass
         return None
 
-    def filter(self, *args, **kwargs) -> "BaseSet":
+    def filter(self, *args: Any, **kwargs: Any) -> "BaseSet":
         """
         Apply filters to the existing nodes in the set.
 
@@ -1356,7 +1405,7 @@ class NodeSet(BaseSet):
             self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
         return self
 
-    def exclude(self, *args, **kwargs):
+    def exclude(self, *args: Any, **kwargs: Any) -> "BaseSet":
         """
         Exclude nodes from the NodeSet via filters.
 
@@ -1367,13 +1416,13 @@ class NodeSet(BaseSet):
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
-    def has(self, **kwargs):
+    def has(self, **kwargs: Any) -> "BaseSet":
         must_match, dont_match = process_has_args(self.source_class, kwargs)
         self.must_match.update(must_match)
         self.dont_match.update(dont_match)
         return self
 
-    def order_by(self, *props):
+    def order_by(self, *props: Any) -> "BaseSet":
         """
         Order by properties. Prepend with minus to do descending. Pass None to
         remove ordering.
@@ -1411,17 +1460,18 @@ class NodeSet(BaseSet):
         relation_def: Any,
         alias: TOptional[str] = None,
         include_in_return: bool = True,
-    ):
+    ) -> dict:
         if isinstance(relation_def, Optional):
             item = {"path": relation_def.relation, "optional": True}
         else:
             item = {"path": relation_def}
         item["include_in_return"] = include_in_return
+
         if alias:
             item["alias"] = alias
         return item
 
-    def fetch_relations(self, *relation_names):
+    def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
         """Specify a set of relations to traverse and return."""
         relations = []
         for relation_name in relation_names:
@@ -1429,7 +1479,9 @@ class NodeSet(BaseSet):
         self.relations_to_fetch = relations
         return self
 
-    def traverse_relations(self, *relation_names, **aliased_relation_names):
+    def traverse_relations(
+        self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
+    ) -> "NodeSet":
         """Specify a set of relations to traverse only."""
         relations = []
         for relation_name in relation_names:
@@ -1446,10 +1498,13 @@ class NodeSet(BaseSet):
         self.relations_to_fetch = relations
         return self
 
-    def annotate(self, *vars, **aliased_vars):
+    def annotate(self, *vars: tuple, **aliased_vars: tuple) -> "NodeSet":
         """Annotate node set results with extra variables."""
 
-        def register_extra_var(vardef, varname: Union[str, None] = None):
+        def register_extra_var(
+            vardef: Union[AggregatingFunction, ScalarFunction, Any],
+            varname: Union[str, None] = None,
+        ) -> None:
             if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
                 self._extra_results.append(
                     {"vardef": vardef, "alias": varname if varname else ""}
@@ -1464,7 +1519,7 @@ class NodeSet(BaseSet):
 
         return self
 
-    def _to_subgraph(self, root_node, other_nodes, subgraph):
+    def _to_subgraph(self, root_node: Any, other_nodes: Any, subgraph: dict) -> Any:
         """Recursive method to build root_node's relation graph from subgraph."""
         root_node._relations = {}
         for name, relation_def in subgraph.items():
@@ -1540,8 +1595,8 @@ class NodeSet(BaseSet):
     def subquery(
         self,
         nodeset: "NodeSet",
-        return_set: List[str],
-        initial_context: TOptional[List[str]] = None,
+        return_set: list[str],
+        initial_context: TOptional[list[str]] = None,
     ) -> "NodeSet":
         """Add a subquery to this node set.
 
@@ -1555,7 +1610,10 @@ class NodeSet(BaseSet):
         for var in return_set:
             if (
                 var != qbuilder._ast.return_clause
-                and var not in qbuilder._ast.additional_return
+                and (
+                    not qbuilder._ast.additional_return
+                    or var not in qbuilder._ast.additional_return
+                )
                 and var
                 not in [res["alias"] for res in nodeset._extra_results if res["alias"]]
                 and var
@@ -1587,7 +1645,7 @@ class NodeSet(BaseSet):
 
     def intermediate_transform(
         self,
-        vars: Dict[str, Transformation],
+        vars: dict[str, Transformation],
         distinct: bool = False,
         ordering: TOptional[list] = None,
     ) -> "NodeSet":
@@ -1624,10 +1682,17 @@ class Traversal(BaseSet):
     :type definition: :class:`dict`
     """
 
-    def __await__(self):
-        return self.all().__await__()
+    definition: dict
+    source: Any
+    source_class: Any
+    target_class: Any
+    name: str
+    filters: list
 
-    def __init__(self, source, name, definition) -> None:
+    def __await__(self) -> Any:
+        return self.all().__await__()  # type: ignore[attr-defined]
+
+    def __init__(self, source: Any, name: str, definition: dict) -> None:
         """
         Create a traversal
 
@@ -1657,9 +1722,9 @@ class Traversal(BaseSet):
         self.definition = definition
         self.target_class = definition["node_class"]
         self.name = name
-        self.filters: List = []
+        self.filters: list = []
 
-    def match(self, **kwargs):
+    def match(self, **kwargs: Any) -> "Traversal":
         """
         Traverse relationships with properties matching the given parameters.
 

@@ -34,6 +34,7 @@ import argparse
 import string
 import textwrap
 from os import environ
+from typing import Any
 
 from neomodel.sync_.core import db
 
@@ -293,9 +294,9 @@ def inspect_database(
     print(f"Connecting to {bolt_url}")
     db.set_connection(bolt_url)
 
-    node_labels = get_node_labels()
-    defined_rel_types = []
-    class_definitions = ""
+    node_labels: list[Any] = get_node_labels()
+    defined_rel_types: list[str] = []
+    class_definitions: str = ""
 
     if node_labels:
         IMPORTS.append("StructuredNode")

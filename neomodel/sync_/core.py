@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import os
 import sys
@@ -9,7 +7,7 @@ from asyncio import iscoroutinefunction
 from functools import wraps
 from itertools import combinations
 from threading import local
-from typing import Any, Optional, Sequence
+from typing import Any, Callable, Optional, TextIO, Union
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -56,7 +54,7 @@ NOT_COROUTINE_ERROR = "The decorated function must be a coroutine"
 
 
 # make sure the connection url has been set prior to executing the wrapped function
-def ensure_connection(func):
+def ensure_connection(func: Callable) -> Callable:
     """Decorator that ensures a connection is established before executing the decorated function.
 
     Args:
@@ -67,7 +65,7 @@ def ensure_connection(func):
 
     """
 
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Callable:
         # Sort out where to find url
         if hasattr(self, "db"):
             _db = self.db
@@ -90,23 +88,24 @@ class Database(local):
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
-    _NODE_CLASS_REGISTRY = {}
-    _DB_SPECIFIC_CLASS_REGISTRY = {}
+    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
+    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
-    def __init__(self):
-        self._active_transaction = None
-        self.url = None
-        self.driver = None
-        self._session = None
-        self._pid = None
-        self._database_name = DEFAULT_DATABASE
-        self.protocol_version = None
-        self._database_version = None
-        self._database_edition = None
-        self.impersonated_user = None
-        self._parallel_runtime = False
+    def __init__(self) -> None:
+        self._active_transaction: Optional[Transaction] = None
+        self.url: Optional[str] = None
+        self.driver: Optional[Driver] = None
+        self._session: Optional[Session] = None
+        self._pid: Optional[int] = None
+        self._database_name: Optional[str] = DEFAULT_DATABASE
+        self._database_version: Optional[str] = None
+        self._database_edition: Optional[str] = None
+        self.impersonated_user: Optional[str] = None
+        self._parallel_runtime: Optional[bool] = False
 
-    def set_connection(self, url: str = None, driver: Driver = None):
+    def set_connection(
+        self, url: Optional[str] = None, driver: Optional[Driver] = None
+    ) -> None:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
 
@@ -189,8 +188,9 @@ class Database(local):
             options["encrypted"] = config.ENCRYPTED
             options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
 
+        # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options
+            parsed_url.scheme + "://" + hostname, **options  # type: ignore[arg-type]
         )
         self.url = url
         # The database name can be provided through the url or the config
@@ -200,7 +200,7 @@ class Database(local):
         else:
             self._database_name = database_name
 
-    def close_connection(self):
+    def close_connection(self) -> None:
         """
         Closes the currently open driver.
         The driver should always be closed at the end of the application's lifecyle.
@@ -208,40 +208,41 @@ class Database(local):
         self._database_version = None
         self._database_edition = None
         self._database_name = None
-        self.driver.close()
-        self.driver = None
+        if self.driver is not None:
+            self.driver.close()
+            self.driver = None
 
     @property
-    def database_version(self):
+    def database_version(self) -> Optional[str]:
         if self._database_version is None:
             self._update_database_version()
 
         return self._database_version
 
     @property
-    def database_edition(self):
+    def database_edition(self) -> Optional[str]:
         if self._database_edition is None:
             self._update_database_version()
 
         return self._database_edition
 
     @property
-    def transaction(self):
+    def transaction(self) -> "TransactionProxy":
         """
         Returns the current transaction object
         """
         return TransactionProxy(self)
 
     @property
-    def write_transaction(self):
+    def write_transaction(self) -> "TransactionProxy":
         return TransactionProxy(self, access_mode="WRITE")
 
     @property
-    def read_transaction(self):
+    def read_transaction(self) -> "TransactionProxy":
         return TransactionProxy(self, access_mode="READ")
 
     @property
-    def parallel_read_transaction(self):
+    def parallel_read_transaction(self) -> "TransactionProxy":
         return TransactionProxy(self, access_mode="READ", parallel_runtime=True)
 
     def impersonate(self, user: str) -> "ImpersonationHandler":
@@ -261,7 +262,7 @@ class Database(local):
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
-    def begin(self, access_mode=None, **parameters):
+    def begin(self, access_mode: str = "WRITE", **parameters: Any) -> None:
         """
         Begins a new transaction. Raises SystemError if a transaction is already active.
         """
@@ -270,51 +271,68 @@ class Database(local):
             and self._active_transaction is not None
         ):
             raise SystemError("Transaction in progress")
-        self._session: Session = self.driver.session(
+
+        assert self.driver is not None, "Driver has not been created"
+
+        self._session = self.driver.session(
             default_access_mode=access_mode,
             database=self._database_name,
             impersonated_user=self.impersonated_user,
             **parameters,
         )
-        self._active_transaction: Transaction = self._session.begin_transaction()
+
+        assert self._session is not None, "Session has not been created"
+        self._active_transaction = self._session.begin_transaction()
 
     @ensure_connection
-    def commit(self):
+    def commit(self) -> Bookmarks:
         """
         Commits the current transaction and closes its session
 
         :return: last_bookmarks
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.commit()
+
+            assert self._session is not None, "No session open"
             last_bookmarks: Bookmarks = self._session.last_bookmarks()
         finally:
-            # In case when something went wrong during
+            # In case something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             self._session.close()
+
             self._active_transaction = None
             self._session = None
 
         return last_bookmarks
 
     @ensure_connection
-    def rollback(self):
+    def rollback(self) -> None:
         """
         Rolls back the current transaction and closes its session
         """
         try:
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
+            assert self._active_transaction is not None, "No transaction in progress"
             self._active_transaction.close()
+
+            assert self._session is not None, "No session open"
             self._session.close()
+
             self._active_transaction = None
             self._session = None
 
-    def _update_database_version(self):
+    def _update_database_version(self) -> None:
         """
         Updates the database server information when it is required
         """
@@ -328,7 +346,7 @@ class Database(local):
             # The database server is not running yet
             pass
 
-    def _object_resolution(self, object_to_resolve):
+    def _object_resolution(self, object_to_resolve: Any) -> Any:
         """
         Performs in place automatic object resolution on a result
         returned by cypher_query.
@@ -403,7 +421,7 @@ class Database(local):
 
         return object_to_resolve
 
-    def _result_resolution(self, result_list):
+    def _result_resolution(self, result_list: list) -> list:
         """
         Performs in place automatic object resolution on a set of results
         returned by cypher_query.
@@ -434,12 +452,12 @@ class Database(local):
     @ensure_connection
     def cypher_query(
         self,
-        query,
-        params=None,
-        handle_unique=True,
-        retry_on_session_expire=False,
-        resolve_objects=False,
-    ):
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        handle_unique: bool = True,
+        retry_on_session_expire: bool = False,
+        resolve_objects: bool = False,
+    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -457,8 +475,10 @@ class Database(local):
 
         :return: A tuple containing a list of results and a tuple of headers.
         """
+        if params is None:
+            params = {}
         if self._active_transaction:
-            # Use current session is a transaction is currently active
+            # Use current transaction if a transaction is currently active
             results, meta = self._run_cypher_query(
                 self._active_transaction,
                 query,
@@ -469,35 +489,39 @@ class Database(local):
             )
         else:
             # Otherwise create a new session in a with to dispose of it after it has been run
-            with self.driver.session(
-                database=self._database_name, impersonated_user=self.impersonated_user
-            ) as session:
-                results, meta = self._run_cypher_query(
-                    session,
-                    query,
-                    params,
-                    handle_unique,
-                    retry_on_session_expire,
-                    resolve_objects,
-                )
+            if self.driver:
+                with self.driver.session(
+                    database=self._database_name,
+                    impersonated_user=self.impersonated_user,
+                ) as session:
+                    results, meta = self._run_cypher_query(
+                        session,
+                        query,
+                        params,
+                        handle_unique,
+                        retry_on_session_expire,
+                        resolve_objects,
+                    )
+            else:
+                raise ValueError("No driver has been set")
 
         return results, meta
 
     def _run_cypher_query(
         self,
-        session: Session,
-        query,
-        params,
-        handle_unique,
-        retry_on_session_expire,
-        resolve_objects,
-    ):
+        session: Union[Session, Transaction],
+        query: str,
+        params: dict[str, Any],
+        handle_unique: bool,
+        retry_on_session_expire: bool,
+        resolve_objects: bool,
+    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
         try:
             # Retrieve the data
             start = time.time()
             if self._parallel_runtime:
                 query = "CYPHER runtime=parallel " + query
-            response: Result = session.run(query, params)
+            response: Result = session.run(query=query, parameters=params)
             results, meta = [list(r.values()) for r in response], response.keys()
             end = time.time()
 
@@ -507,12 +531,17 @@ class Database(local):
 
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if "already exists with label" in e.message and handle_unique:
-                    raise UniqueProperty(e.message) from e
+                if hasattr(e, "message") and e.message is not None:
+                    if "already exists with label" in e.message and handle_unique:
+                        raise UniqueProperty(e.message) from e
+                    raise ConstraintValidationFailed(e.message) from e
+                raise ConstraintValidationFailed(
+                    "A constraint validation failed"
+                ) from e
 
-                raise ConstraintValidationFailed(e.message) from e
             exc_info = sys.exc_info()
-            raise exc_info[1].with_traceback(exc_info[2])
+            if exc_info[1] is not None and exc_info[2] is not None:
+                raise exc_info[1].with_traceback(exc_info[2])
         except SessionExpired:
             if retry_on_session_expire:
                 self.set_connection(url=self.url)
@@ -540,16 +569,34 @@ class Database(local):
 
     def get_id_method(self) -> str:
         db_version = self.database_version
+        if db_version is None:
+            raise RuntimeError(
+                """
+                Unable to perform this operation because the database server version is not known. 
+                This might mean that the database server is offline.
+                """
+            )
         if db_version.startswith("4"):
             return "id"
         else:
             return "elementId"
 
-    def parse_element_id(self, element_id: str):
+    def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+        if element_id is None:
+            raise ValueError(
+                "Unable to parse element id, are you sure this element has been saved ?"
+            )
         db_version = self.database_version
+        if db_version is None:
+            raise RuntimeError(
+                """
+                Unable to perform this operation because the database server version is not known. 
+                This might mean that the database server is offline.
+                """
+            )
         return int(element_id) if db_version.startswith("4") else element_id
 
-    def list_indexes(self, exclude_token_lookup=False) -> Sequence[dict]:
+    def list_indexes(self, exclude_token_lookup: bool = False) -> list[dict]:
         """Returns all indexes existing in the database
 
         Arguments:
@@ -568,7 +615,7 @@ class Database(local):
 
         return indexes_as_dict
 
-    def list_constraints(self) -> Sequence[dict]:
+    def list_constraints(self) -> list[dict]:
         """Returns all constraints existing in the database
 
         Returns:
@@ -590,6 +637,13 @@ class Database(local):
             bool: True if the database version is higher or equal to the given version
         """
         db_version = self.database_version
+        if db_version is None:
+            raise RuntimeError(
+                """
+                Unable to perform this operation because the database server version is not known. 
+                This might mean that the database server is offline.
+                """
+            )
         return version_tag_to_integer(db_version) >= version_tag_to_integer(version_tag)
 
     @ensure_connection
@@ -600,6 +654,13 @@ class Database(local):
             bool: True if the database edition is enterprise
         """
         edition = self.database_edition
+        if edition is None:
+            raise RuntimeError(
+                """
+                Unable to perform this operation because the database server edition is not known. 
+                This might mean that the database server is offline.
+                """
+            )
         return edition == "enterprise"
 
     @ensure_connection
@@ -611,10 +672,12 @@ class Database(local):
         """
         return self.version_is_higher_than("5.13") and self.edition_is_enterprise()
 
-    def change_neo4j_password(self, user, new_password):
+    def change_neo4j_password(self, user: str, new_password: str) -> None:
         self.cypher_query(f"ALTER USER {user} SET PASSWORD '{new_password}'")
 
-    def clear_neo4j_database(self, clear_constraints=False, clear_indexes=False):
+    def clear_neo4j_database(
+        self, clear_constraints: bool = False, clear_indexes: bool = False
+    ) -> None:
         self.cypher_query(
             """
             MATCH (a)
@@ -627,7 +690,9 @@ class Database(local):
         if clear_indexes:
             drop_indexes()
 
-    def drop_constraints(self, quiet=True, stdout=None):
+    def drop_constraints(
+        self, quiet: bool = True, stdout: Optional[TextIO] = None
+    ) -> None:
         """
         Discover and drop all constraints.
 
@@ -653,7 +718,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def drop_indexes(self, quiet=True, stdout=None):
+    def drop_indexes(self, quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
 
@@ -673,7 +738,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def remove_all_labels(self, stdout=None):
+    def remove_all_labels(self, stdout: Optional[TextIO] = None) -> None:
         """
         Calls functions for dropping constraints and indexes.
 
@@ -690,7 +755,7 @@ class Database(local):
         stdout.write("Dropping indexes...\n")
         self.drop_indexes(quiet=False, stdout=stdout)
 
-    def install_all_labels(self, stdout=None):
+    def install_all_labels(self, stdout: Optional[TextIO] = None) -> None:
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -702,7 +767,7 @@ class Database(local):
         if not stdout or stdout is None:
             stdout = sys.stdout
 
-        def subsub(cls):  # recursively return all subclasses
+        def subsub(cls: Any) -> list:  # recursively return all subclasses
             subclasses = cls.__subclasses__()
             if not subclasses:  # base case: no more subclasses
                 return []
@@ -721,7 +786,9 @@ class Database(local):
 
         stdout.write(f"Finished {i} classes.\n")
 
-    def install_labels(self, cls, quiet=True, stdout=None):
+    def install_labels(
+        self, cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+    ) -> None:
         """
         Setup labels with indexes and constraints for a given class
 
@@ -732,25 +799,26 @@ class Database(local):
         :type: bool
         :return: None
         """
-        if not stdout or stdout is None:
-            stdout = sys.stdout
+        _stdout = stdout if stdout else sys.stdout
 
         if not hasattr(cls, "__label__"):
             if not quiet:
-                stdout.write(
+                _stdout.write(
                     f" ! Skipping class {cls.__module__}.{cls.__name__} is abstract\n"
                 )
             return
 
         for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            self._install_node(cls, name, property, quiet, stdout)
+            self._install_node(cls, name, property, quiet, _stdout)
 
         for _, relationship in cls.defined_properties(
             aliases=False, rels=True, properties=False
         ).items():
-            self._install_relationship(cls, relationship, quiet, stdout)
+            self._install_relationship(cls, relationship, quiet, _stdout)
 
-    def _create_node_index(self, target_cls, property_name: str, stdout, quiet: bool):
+    def _create_node_index(
+        self, target_cls: Any, property_name: str, stdout: TextIO, quiet: bool
+    ) -> None:
         label = target_cls.__label__
         index_name = f"index_{label}_{property_name}"
         if not quiet:
@@ -772,12 +840,12 @@ class Database(local):
 
     def _create_node_fulltext_index(
         self,
-        target_cls,
+        target_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         fulltext_index: FulltextIndex,
         quiet: bool,
-    ):
+    ) -> None:
         if self.version_is_higher_than("5.16"):
             label = target_cls.__label__
             index_name = f"fulltext_index_{label}_{property_name}"
@@ -811,12 +879,12 @@ class Database(local):
 
     def _create_node_vector_index(
         self,
-        target_cls,
+        target_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         vector_index: VectorIndex,
         quiet: bool,
-    ):
+    ) -> None:
         if self.version_is_higher_than("5.15"):
             label = target_cls.__label__
             index_name = f"vector_index_{label}_{property_name}"
@@ -849,8 +917,8 @@ class Database(local):
             )
 
     def _create_node_constraint(
-        self, target_cls, property_name: str, stdout, quiet: bool
-    ):
+        self, target_cls: Any, property_name: str, stdout: TextIO, quiet: bool
+    ) -> None:
         label = target_cls.__label__
         constraint_name = f"constraint_unique_{label}_{property_name}"
         if not quiet:
@@ -874,12 +942,12 @@ class Database(local):
     def _create_relationship_index(
         self,
         relationship_type: str,
-        target_cls,
-        relationship_cls,
+        target_cls: Any,
+        relationship_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         quiet: bool,
-    ):
+    ) -> None:
         index_name = f"index_{relationship_type}_{property_name}"
         if not quiet:
             stdout.write(
@@ -901,13 +969,13 @@ class Database(local):
     def _create_relationship_fulltext_index(
         self,
         relationship_type: str,
-        target_cls,
-        relationship_cls,
+        target_cls: Any,
+        relationship_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         fulltext_index: FulltextIndex,
         quiet: bool,
-    ):
+    ) -> None:
         if self.version_is_higher_than("5.16"):
             index_name = f"fulltext_index_{relationship_type}_{property_name}"
             if not quiet:
@@ -941,13 +1009,13 @@ class Database(local):
     def _create_relationship_vector_index(
         self,
         relationship_type: str,
-        target_cls,
-        relationship_cls,
+        target_cls: Any,
+        relationship_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         vector_index: VectorIndex,
         quiet: bool,
-    ):
+    ) -> None:
         if self.version_is_higher_than("5.18"):
             index_name = f"vector_index_{relationship_type}_{property_name}"
             if not quiet:
@@ -981,12 +1049,12 @@ class Database(local):
     def _create_relationship_constraint(
         self,
         relationship_type: str,
-        target_cls,
-        relationship_cls,
+        target_cls: Any,
+        relationship_cls: Any,
         property_name: str,
-        stdout,
+        stdout: TextIO,
         quiet: bool,
-    ):
+    ) -> None:
         if self.version_is_higher_than("5.7"):
             constraint_name = f"constraint_unique_{relationship_type}_{property_name}"
             if not quiet:
@@ -1011,7 +1079,9 @@ class Database(local):
                 f"Unique indexes on relationships are not supported in Neo4j version {self.database_version}. Please upgrade to Neo4j 5.7 or higher."
             )
 
-    def _install_node(self, cls, name, property, quiet, stdout):
+    def _install_node(
+        self, cls: Any, name: str, property: Property, quiet: bool, stdout: TextIO
+    ) -> None:
         # Create indexes and constraints for node property
         db_property = property.get_db_property_name(name)
         if property.index:
@@ -1041,7 +1111,9 @@ class Database(local):
                 quiet=quiet,
             )
 
-    def _install_relationship(self, cls, relationship, quiet, stdout):
+    def _install_relationship(
+        self, cls: Any, relationship: Any, quiet: bool, stdout: TextIO
+    ) -> None:
         # Create indexes and constraints for relationship property
         relationship_cls = relationship.definition["model"]
         if relationship_cls is not None:
@@ -1097,7 +1169,7 @@ db = Database()
 
 
 # Deprecated methods
-def change_neo4j_password(db: Database, user, new_password):
+def change_neo4j_password(db: Database, user: str, new_password: str) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1108,7 +1180,9 @@ def change_neo4j_password(db: Database, user, new_password):
     db.change_neo4j_password(user, new_password)
 
 
-def clear_neo4j_database(db: Database, clear_constraints=False, clear_indexes=False):
+def clear_neo4j_database(
+    db: Database, clear_constraints: bool = False, clear_indexes: bool = False
+) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1119,7 +1193,7 @@ def clear_neo4j_database(db: Database, clear_constraints=False, clear_indexes=Fa
     db.clear_neo4j_database(clear_constraints, clear_indexes)
 
 
-def drop_constraints(quiet=True, stdout=None):
+def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1130,7 +1204,7 @@ def drop_constraints(quiet=True, stdout=None):
     db.drop_constraints(quiet, stdout)
 
 
-def drop_indexes(quiet=True, stdout=None):
+def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1141,7 +1215,7 @@ def drop_indexes(quiet=True, stdout=None):
     db.drop_indexes(quiet, stdout)
 
 
-def remove_all_labels(stdout=None):
+def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1152,7 +1226,9 @@ def remove_all_labels(stdout=None):
     db.remove_all_labels(stdout)
 
 
-def install_labels(cls, quiet=True, stdout=None):
+def install_labels(
+    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1163,7 +1239,7 @@ def install_labels(cls, quiet=True, stdout=None):
     db.install_labels(cls, quiet, stdout)
 
 
-def install_all_labels(stdout=None):
+def install_all_labels(stdout: Optional[TextIO] = None) -> None:
     deprecated(
         """
         This method has been moved to the Database singleton (db for sync, db for async).
@@ -1178,14 +1254,17 @@ class TransactionProxy:
     bookmarks: Optional[Bookmarks] = None
 
     def __init__(
-        self, db: Database, access_mode: str = None, parallel_runtime: bool = False
+        self,
+        db: Database,
+        access_mode: Optional[str] = None,
+        parallel_runtime: Optional[bool] = False,
     ):
-        self.db = db
-        self.access_mode = access_mode
-        self.parallel_runtime = parallel_runtime
+        self.db: Database = db
+        self.access_mode: Optional[str] = access_mode
+        self.parallel_runtime: Optional[bool] = parallel_runtime
 
     @ensure_connection
-    def __enter__(self):
+    def __enter__(self) -> "TransactionProxy":
         if self.parallel_runtime and not self.db.parallel_runtime_available():
             warnings.warn(
                 "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
@@ -1198,7 +1277,7 @@ class TransactionProxy:
         self.bookmarks = None
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.db._parallel_runtime = False
         if exc_value:
             self.db.rollback()
@@ -1212,28 +1291,28 @@ class TransactionProxy:
         if not exc_value:
             self.last_bookmark = self.db.commit()
 
-    def __call__(self, func):
+    def __call__(self, func: Callable) -> Callable:
         if Util.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Callable:
             with self:
                 return func(*args, **kwargs)
 
         return wrapper
 
     @property
-    def with_bookmark(self):
+    def with_bookmark(self) -> "BookmarkingAsyncTransactionProxy":
         return BookmarkingAsyncTransactionProxy(self.db, self.access_mode)
 
 
 class BookmarkingAsyncTransactionProxy(TransactionProxy):
-    def __call__(self, func):
+    def __call__(self, func: Callable) -> Callable:
         if Util.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> tuple[Any, None]:
             self.bookmarks = kwargs.pop("bookmarks", None)
 
             with self:
@@ -1250,19 +1329,21 @@ class ImpersonationHandler:
         self.db = db
         self.impersonated_user = impersonated_user
 
-    def __enter__(self):
+    def __enter__(self) -> "ImpersonationHandler":
         self.db.impersonated_user = self.impersonated_user
         return self
 
-    def __exit__(self, exception_type, exception_value, exception_traceback):
+    def __exit__(
+        self, exception_type: Any, exception_value: Any, exception_traceback: Any
+    ) -> None:
         self.db.impersonated_user = None
 
         print("\nException type:", exception_type)
         print("\nException value:", exception_value)
         print("\nTraceback:", exception_traceback)
 
-    def __call__(self, func):
-        def wrapper(*args, **kwargs):
+    def __call__(self, func: Callable) -> Callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Callable:
             with self:
                 return func(*args, **kwargs)
 
@@ -1270,9 +1351,21 @@ class ImpersonationHandler:
 
 
 class NodeMeta(type):
-    def __new__(mcs, name, bases, namespace):
+    DoesNotExist: type[DoesNotExist]
+    __required_properties__: tuple[str, ...]
+    __all_properties__: tuple[tuple[str, Any], ...]
+    __all_aliases__: tuple[tuple[str, Any], ...]
+    __all_relationships__: tuple[tuple[str, Any], ...]
+    __label__: str
+    __optional_labels__: list[str]
+
+    defined_properties: Callable[..., dict[str, Any]]
+
+    def __new__(
+        mcs: type, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ) -> Any:
         namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
-        cls = super().__new__(mcs, name, bases, namespace)
+        cls: NodeMeta = type.__new__(mcs, name, bases, namespace)
         cls.DoesNotExist._model_class = cls
 
         if hasattr(cls, "__abstract_node__"):
@@ -1329,7 +1422,7 @@ class NodeMeta(type):
         return cls
 
 
-def build_class_registry(cls):
+def build_class_registry(cls: Any) -> None:
     base_label_set = frozenset(cls.inherited_labels())
     optional_label_set = set(cls.inherited_optional_labels())
 
@@ -1361,7 +1454,7 @@ def build_class_registry(cls):
                     )
 
 
-NodeBase = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
+NodeBase: type = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
 
 
 class StructuredNode(NodeBase):
@@ -1378,7 +1471,7 @@ class StructuredNode(NodeBase):
 
     # magic methods
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         if "deleted" in kwargs:
             raise ValueError("deleted property is reserved for neomodel")
 
@@ -1387,7 +1480,7 @@ class StructuredNode(NodeBase):
 
         super().__init__(*args, **kwargs)
 
-    def __eq__(self, other: StructuredNode | Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """
         Compare two node objects.
         If both nodes were saved to the database, compare them by their element_id.
@@ -1400,19 +1493,19 @@ class StructuredNode(NodeBase):
             return self.element_id == other.element_id
         return id(self) == id(other)
 
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self}>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return repr(self.__properties__)
 
     # dynamic properties
 
     @classproperty
-    def nodes(cls):
+    def nodes(self) -> Any:
         """
         Returns a NodeSet object representing all nodes of the classes label
         :return: NodeSet
@@ -1420,17 +1513,17 @@ class StructuredNode(NodeBase):
         """
         from neomodel.sync_.match import NodeSet
 
-        return NodeSet(cls)
+        return NodeSet(self)
 
     @property
-    def element_id(self):
+    def element_id(self) -> Optional[Any]:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
-    def id(self):
+    def id(self) -> int:
         try:
             return int(self.element_id_property)
         except (TypeError, ValueError):
@@ -1449,8 +1542,12 @@ class StructuredNode(NodeBase):
 
     @classmethod
     def _build_merge_query(
-        cls, merge_params, update_existing=False, lazy=False, relationship=None
-    ):
+        cls,
+        merge_params: tuple[dict[str, Any], ...],
+        update_existing: bool = False,
+        lazy: bool = False,
+        relationship: Optional[Any] = None,
+    ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
 
@@ -1460,7 +1557,7 @@ class StructuredNode(NodeBase):
         :type update_existing: bool
         :rtype: tuple
         """
-        query_params = dict(merge_params=merge_params)
+        query_params: dict[str, Any] = {"merge_params": merge_params}
         n_merge_labels = ":".join(cls.inherited_labels())
         n_merge_prm = ", ".join(
             (
@@ -1486,6 +1583,10 @@ class StructuredNode(NodeBase):
 
             from neomodel.sync_.match import _rel_helper
 
+            if relationship.source.element_id is None:
+                raise RuntimeError(
+                    "Could not identify the relationship source, its element id was None."
+                )
             query_params["source_id"] = db.parse_element_id(
                 relationship.source.element_id
             )
@@ -1514,7 +1615,7 @@ class StructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
-    def create(cls, *props, **kwargs):
+    def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
@@ -1558,7 +1659,7 @@ class StructuredNode(NodeBase):
         return nodes
 
     @classmethod
-    def create_or_update(cls, *props, **kwargs):
+    def create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
@@ -1571,7 +1672,7 @@ class StructuredNode(NodeBase):
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
         :rtype: list
         """
-        lazy = kwargs.get("lazy", False)
+        lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
 
         # build merge query, make sure to update only explicitly specified properties
@@ -1588,7 +1689,7 @@ class StructuredNode(NodeBase):
                 }
             )
         query, params = cls._build_merge_query(
-            create_or_update_params,
+            tuple(create_or_update_params),
             update_existing=True,
             relationship=relationship,
             lazy=lazy,
@@ -1605,7 +1706,9 @@ class StructuredNode(NodeBase):
         results = db.cypher_query(query, params)
         return [cls.inflate(r[0]) for r in results[0]]
 
-    def cypher(self, query, params=None):
+    def cypher(
+        self, query: str, params: Optional[dict[str, Any]] = None
+    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 
@@ -1613,17 +1716,19 @@ class StructuredNode(NodeBase):
         :type: string
         :param params: query parameters
         :type: dict
-        :return: list containing query results
-        :rtype: list
+        :return: tuple containing a list of query results, and the meta information as a tuple
+        :rtype: tuple
         """
         self._pre_action_check("cypher")
-        params = params or {}
+        _params = params or {}
+        if self.element_id is None:
+            raise ValueError("Can't run cypher operation on unsaved node")
         element_id = db.parse_element_id(self.element_id)
-        params.update({"self": element_id})
-        return db.cypher_query(query, params)
+        _params.update({"self": element_id})
+        return db.cypher_query(query, _params)
 
     @hooks
-    def delete(self):
+    def delete(self) -> bool:
         """
         Delete a node and its relationships
 
@@ -1638,7 +1743,7 @@ class StructuredNode(NodeBase):
         return True
 
     @classmethod
-    def get_or_create(cls, *props, **kwargs):
+    def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
@@ -1661,7 +1766,7 @@ class StructuredNode(NodeBase):
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
         query, params = cls._build_merge_query(
-            get_or_create_params, relationship=relationship, lazy=lazy
+            tuple(get_or_create_params), relationship=relationship, lazy=lazy
         )
 
         if "streaming" in kwargs:
@@ -1676,7 +1781,7 @@ class StructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
-    def inflate(cls, node):
+    def inflate(cls: Any, node: Any) -> Any:
         """
         Inflate a raw neo4j_driver node to a neomodel node
         :param node:
@@ -1693,7 +1798,7 @@ class StructuredNode(NodeBase):
         return snode
 
     @classmethod
-    def inherited_labels(cls):
+    def inherited_labels(cls: Any) -> list[str]:
         """
         Return list of labels from nodes class hierarchy.
 
@@ -1706,7 +1811,7 @@ class StructuredNode(NodeBase):
         ]
 
     @classmethod
-    def inherited_optional_labels(cls):
+    def inherited_optional_labels(cls: Any) -> list[str]:
         """
         Return list of optional labels from nodes class hierarchy.
 
@@ -1720,7 +1825,7 @@ class StructuredNode(NodeBase):
             if not hasattr(scls, "__abstract_node__")
         ]
 
-    def labels(self):
+    def labels(self) -> list[str]:
         """
         Returns list of labels tied to the node from neo4j.
 
@@ -1731,9 +1836,11 @@ class StructuredNode(NodeBase):
         result = self.cypher(
             f"MATCH (n) WHERE {db.get_id_method()}(n)=$self " "RETURN labels(n)"
         )
+        if result is None or result[0] is None:
+            raise ValueError("Could not get labels, node may not exist")
         return result[0][0][0]
 
-    def _pre_action_check(self, action):
+    def _pre_action_check(self, action: str) -> None:
         if hasattr(self, "deleted") and self.deleted:
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on deleted node"
@@ -1743,7 +1850,7 @@ class StructuredNode(NodeBase):
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
 
-    def refresh(self):
+    def refresh(self) -> None:
         """
         Reload the node from neo4j
         """
@@ -1762,7 +1869,7 @@ class StructuredNode(NodeBase):
             raise ValueError("Can't refresh unsaved node")
 
     @hooks
-    def save(self):
+    def save(self) -> "StructuredNode":
         """
         Save the node to neo4j or raise an exception
 

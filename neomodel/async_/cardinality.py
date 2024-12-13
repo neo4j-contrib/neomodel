@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING, Any, Optional
+
 from neomodel.async_.relationship_manager import (  # pylint:disable=unused-import
     AsyncRelationshipManager,
     AsyncZeroOrMore,
 )
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
+
+if TYPE_CHECKING:
+    from neomodel import AsyncStructuredNode, AsyncStructuredRel
 
 
 class AsyncZeroOrOne(AsyncRelationshipManager):
@@ -10,7 +15,7 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
 
     description = "zero or one relationship"
 
-    async def single(self):
+    async def single(self) -> Optional["AsyncStructuredNode"]:
         """
         Return the associated node.
 
@@ -23,11 +28,13 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
             raise CardinalityViolation(self, len(nodes))
         return None
 
-    async def all(self):
+    async def all(self) -> list["AsyncStructuredNode"]:
         node = await self.single()
         return [node] if node else []
 
-    async def connect(self, node, properties=None):
+    async def connect(
+        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "AsyncStructuredRel":
         """
         Connect to a node.
 
@@ -49,7 +56,7 @@ class AsyncOneOrMore(AsyncRelationshipManager):
 
     description = "one or more relationships"
 
-    async def single(self):
+    async def single(self) -> "AsyncStructuredNode":
         """
         Fetch one of the related nodes
 
@@ -60,7 +67,7 @@ class AsyncOneOrMore(AsyncRelationshipManager):
             return nodes[0]
         raise CardinalityViolation(self, "none")
 
-    async def all(self):
+    async def all(self) -> list["AsyncStructuredNode"]:
         """
         Returns all related nodes.
 
@@ -71,7 +78,7 @@ class AsyncOneOrMore(AsyncRelationshipManager):
             return nodes
         raise CardinalityViolation(self, "none")
 
-    async def disconnect(self, node):
+    async def disconnect(self, node: "AsyncStructuredNode") -> None:
         """
         Disconnect node
         :param node:
@@ -89,7 +96,7 @@ class AsyncOne(AsyncRelationshipManager):
 
     description = "one relationship"
 
-    async def single(self):
+    async def single(self) -> "AsyncStructuredNode":
         """
         Return the associated node.
 
@@ -102,7 +109,7 @@ class AsyncOne(AsyncRelationshipManager):
             raise CardinalityViolation(self, len(nodes))
         raise CardinalityViolation(self, "none")
 
-    async def all(self):
+    async def all(self) -> list["AsyncStructuredNode"]:
         """
         Return single node in an array
 
@@ -110,17 +117,19 @@ class AsyncOne(AsyncRelationshipManager):
         """
         return [await self.single()]
 
-    async def disconnect(self, node):
+    async def disconnect(self, node: "AsyncStructuredNode") -> None:
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect use reconnect."
         )
 
-    async def disconnect_all(self):
+    async def disconnect_all(self) -> None:
         raise AttemptedCardinalityViolation(
             "Cardinality one, cannot disconnect_all use reconnect."
         )
 
-    async def connect(self, node, properties=None):
+    async def connect(
+        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "AsyncStructuredRel":
         """
         Connect a node
 
