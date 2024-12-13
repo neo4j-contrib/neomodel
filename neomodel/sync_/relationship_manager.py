@@ -2,7 +2,7 @@ import functools
 import inspect
 import sys
 from importlib import import_module
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
@@ -15,6 +15,10 @@ from neomodel.util import (
     enumerate_traceback,
     get_graph_entity_properties,
 )
+
+if TYPE_CHECKING:
+    from neomodel import StructuredNode
+    from neomodel.sync_.match import BaseSet
 
 
 # check source node is saved and not deleted
@@ -65,10 +69,10 @@ class RelationshipManager(object):
 
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
-    def __await__(self):
+    def __await__(self) -> Any:
         return self.all().__await__()
 
-    def _check_node(self, obj):
+    def _check_node(self, obj: type["StructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""
         if not issubclass(type(obj), self.definition["node_class"]):
             raise ValueError(
@@ -78,7 +82,9 @@ class RelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    def connect(self, node, properties=None):
+    def connect(
+        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> Optional[StructuredRel]:
         """
         Connect a node
 
@@ -130,7 +136,7 @@ class RelationshipManager(object):
 
         if not rel_model:
             self.source.cypher(q, params)
-            return True
+            return None
 
         results = self.source.cypher(q + " RETURN r", params)
         rel_ = results[0][0][0]
@@ -142,7 +148,9 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
-    def replace(self, node, properties=None):
+    def replace(
+        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> None:
         """
         Disconnect all existing nodes and connect the supplied node
 
@@ -155,7 +163,7 @@ class RelationshipManager(object):
         self.connect(node, properties)
 
     @check_source
-    def relationship(self, node):
+    def relationship(self, node: "StructuredNode") -> Optional[StructuredRel]:
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -172,14 +180,14 @@ class RelationshipManager(object):
         results = self.source.cypher(q, {"them": db.parse_element_id(node.element_id)})
         rels = results[0]
         if not rels:
-            return
+            return None
 
         rel_model = self.definition.get("model") or StructuredRel
 
         return self._set_start_end_cls(rel_model.inflate(rels[0][0]), node)
 
     @check_source
-    def all_relationships(self, node):
+    def all_relationships(self, node: "StructuredNode") -> list[StructuredRel]:
         """
         Retrieve all relationship objects between self and node.
 
@@ -200,7 +208,9 @@ class RelationshipManager(object):
             self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels
         ]
 
-    def _set_start_end_cls(self, rel_instance, obj):
+    def _set_start_end_cls(
+        self, rel_instance: StructuredRel, obj: "StructuredNode"
+    ) -> StructuredRel:
         if self.definition["direction"] == INCOMING:
             rel_instance._start_node_class = obj.__class__
             rel_instance._end_node_class = self.source_class
@@ -210,7 +220,7 @@ class RelationshipManager(object):
         return rel_instance
 
     @check_source
-    def reconnect(self, old_node, new_node):
+    def reconnect(self, old_node: "StructuredNode", new_node: "StructuredNode") -> None:
         """
         Disconnect old_node and connect new_node copying over any properties on the original relationship.
 
@@ -259,7 +269,7 @@ class RelationshipManager(object):
         self.source.cypher(q, {"old": old_node_element_id, "new": new_node_element_id})
 
     @check_source
-    def disconnect(self, node):
+    def disconnect(self, node: "StructuredNode") -> None:
         """
         Disconnect a node
 
@@ -274,7 +284,7 @@ class RelationshipManager(object):
         self.source.cypher(q, {"them": db.parse_element_id(node.element_id)})
 
     @check_source
-    def disconnect_all(self):
+    def disconnect_all(self) -> None:
         """
         Disconnect all nodes
 
@@ -286,11 +296,11 @@ class RelationshipManager(object):
         self.source.cypher(q)
 
     @check_source
-    def _new_traversal(self):
+    def _new_traversal(self) -> Traversal:
         return Traversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
-    def get(self, **kwargs):
+    def get(self, **kwargs: Any) -> NodeSet:
         """
         Retrieve a related node with the matching node properties.
 
@@ -299,7 +309,7 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).get(**kwargs)
 
-    def get_or_none(self, **kwargs):
+    def get_or_none(self, **kwargs: dict) -> NodeSet:
         """
         Retrieve a related node with the matching node properties or return None.
 
@@ -308,7 +318,7 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).get_or_none(**kwargs)
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args: Any, **kwargs: dict) -> "BaseSet":
         """
         Retrieve related nodes matching the provided properties.
 
@@ -318,7 +328,7 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).filter(*args, **kwargs)
 
-    def order_by(self, *props):
+    def order_by(self, *props: Any) -> "BaseSet":
         """
         Order related nodes by specified properties
 
@@ -327,7 +337,7 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).order_by(*props)
 
-    def exclude(self, *args, **kwargs):
+    def exclude(self, *args: Any, **kwargs: dict) -> "BaseSet":
         """
         Exclude nodes that match the provided properties.
 
@@ -337,7 +347,7 @@ class RelationshipManager(object):
         """
         return NodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
-    def is_connected(self, node):
+    def is_connected(self, node: "StructuredNode") -> bool:
         """
         Check if a node is connected with this relationship type
         :param node:
@@ -345,7 +355,7 @@ class RelationshipManager(object):
         """
         return self._new_traversal().__contains__(node)
 
-    def single(self):
+    def single(self) -> Optional["StructuredNode"]:
         """
         Get a single related node or none.
 
@@ -355,9 +365,9 @@ class RelationshipManager(object):
             rels = self
             return rels[0]
         except IndexError:
-            pass
+            return None
 
-    def match(self, **kwargs):
+    def match(self, **kwargs: dict) -> NodeSet:
         """
         Return set of nodes who's relationship properties match supplied args
 
@@ -366,7 +376,7 @@ class RelationshipManager(object):
         """
         return self._new_traversal().match(**kwargs)
 
-    def all(self):
+    def all(self) -> list:
         """
         Return all related nodes.
 
@@ -374,34 +384,34 @@ class RelationshipManager(object):
         """
         return self._new_traversal().all()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return self._new_traversal().__iter__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._new_traversal().__len__()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self._new_traversal().__bool__()
 
-    def __nonzero__(self):
+    def __nonzero__(self) -> bool:
         return self._new_traversal().__nonzero__()
 
-    def __contains__(self, obj):
+    def __contains__(self, obj: Any) -> bool:
         return self._new_traversal().__contains__(obj)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[int, slice]) -> Any:
         return self._new_traversal().__getitem__(key)
 
 
 class RelationshipDefinition:
     def __init__(
         self,
-        relation_type,
-        cls_name,
-        direction,
-        manager=RelationshipManager,
-        model=None,
-    ):
+        relation_type: str,
+        cls_name: str,
+        direction: int,
+        manager: type[RelationshipManager] = RelationshipManager,
+        model: Optional[StructuredRel] = None,
+    ) -> None:
         self._validate_class(cls_name, model)
 
         current_frame = inspect.currentframe()
@@ -452,14 +462,16 @@ class RelationshipDefinition:
                 # If the mapping does not exist then it is simply created.
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
-    def _validate_class(self, cls_name, model):
+    def _validate_class(
+        self, cls_name: str, model: Optional[StructuredRel] = None
+    ) -> None:
         if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (StructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
-    def lookup_node_class(self):
+    def lookup_node_class(self) -> None:
         if not isinstance(self._raw_class, str):
             self.definition["node_class"] = self._raw_class
         else:
@@ -496,7 +508,7 @@ class RelationshipDefinition:
                     module = import_module(namespace).__name__
             self.definition["node_class"] = getattr(sys.modules[module], name)
 
-    def build_manager(self, source, name):
+    def build_manager(self, source: "StructuredNode", name: str) -> RelationshipManager:
         self.lookup_node_class()
         return self.manager(source, name, self.definition)
 
@@ -512,11 +524,11 @@ class ZeroOrMore(RelationshipManager):
 class RelationshipTo(RelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=ZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[RelationshipManager] = ZeroOrMore,
+        model: Optional[StructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
         )
@@ -525,11 +537,11 @@ class RelationshipTo(RelationshipDefinition):
 class RelationshipFrom(RelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=ZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[RelationshipManager] = ZeroOrMore,
+        model: Optional[StructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
         )
@@ -538,11 +550,11 @@ class RelationshipFrom(RelationshipDefinition):
 class Relationship(RelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=ZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[RelationshipManager] = ZeroOrMore,
+        model: Optional[StructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
         )

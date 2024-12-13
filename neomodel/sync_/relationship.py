@@ -1,4 +1,6 @@
-from typing import Type
+from typing import Any, Optional
+
+from neo4j.graph import Relationship
 
 from neomodel.hooks import hooks
 from neomodel.properties import Property
@@ -9,8 +11,10 @@ ELEMENT_ID_MIGRATION_NOTICE = "id is deprecated in Neo4j version 5, please migra
 
 
 class RelationshipMeta(type):
-    def __new__(mcs, name, bases, dct):
-        inst = super().__new__(mcs, name, bases, dct)
+    def __new__(
+        mcs: type, name: str, bases: tuple[type, ...], dct: dict[str, Any]
+    ) -> Any:
+        inst: RelationshipMeta = type.__new__(mcs, name, bases, dct)
         for key, value in dct.items():
             if issubclass(value.__class__, Property):
                 if key == "source" or key == "target":
@@ -40,7 +44,7 @@ class RelationshipMeta(type):
         return inst
 
 
-StructuredRelBase: Type = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
+StructuredRelBase: type = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
 
 
 class StructuredRel(StructuredRelBase):
@@ -48,27 +52,30 @@ class StructuredRel(StructuredRelBase):
     Base class for relationship objects
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
 
     @property
-    def element_id(self):
+    def element_id(self) -> Optional[Any]:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
+        return None
 
     @property
-    def _start_node_element_id(self):
+    def _start_node_element_id(self) -> Optional[Any]:
         if hasattr(self, "_start_node_element_id_property"):
             return self._start_node_element_id_property
+        return None
 
     @property
-    def _end_node_element_id(self):
+    def _end_node_element_id(self) -> Optional[Any]:
         if hasattr(self, "_end_node_element_id_property"):
             return self._end_node_element_id_property
+        return None
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
-    def id(self):
+    def id(self) -> int:
         try:
             return int(self.element_id_property)
         except (TypeError, ValueError) as exc:
@@ -76,7 +83,7 @@ class StructuredRel(StructuredRelBase):
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
-    def _start_node_id(self):
+    def _start_node_id(self) -> int:
         try:
             return int(self._start_node_element_id_property)
         except (TypeError, ValueError) as exc:
@@ -84,14 +91,14 @@ class StructuredRel(StructuredRelBase):
 
     # Version 4.4 support - id is deprecated in version 5.x
     @property
-    def _end_node_id(self):
+    def _end_node_id(self) -> int:
         try:
             return int(self._end_node_element_id_property)
         except (TypeError, ValueError) as exc:
             raise ValueError(ELEMENT_ID_MIGRATION_NOTICE) from exc
 
     @hooks
-    def save(self):
+    def save(self) -> "StructuredRel":
         """
         Save the relationship
 
@@ -106,7 +113,7 @@ class StructuredRel(StructuredRelBase):
 
         return self
 
-    def start_node(self):
+    def start_node(self) -> Any:
         """
         Get start node
 
@@ -121,9 +128,13 @@ class StructuredRel(StructuredRelBase):
             {"start_node_element_id": db.parse_element_id(self._start_node_element_id)},
             resolve_objects=True,
         )
+        if results is None or results[0] is None or results[0][0] is None:
+            raise ValueError(
+                f"Start node with elementId {self._start_node_element_id} not found"
+            )
         return results[0][0][0]
 
-    def end_node(self):
+    def end_node(self) -> Any:
         """
         Get end node
 
@@ -138,17 +149,23 @@ class StructuredRel(StructuredRelBase):
             {"end_node_element_id": db.parse_element_id(self._end_node_element_id)},
             resolve_objects=True,
         )
+        if results is None or results[0] is None or results[0][0] is None:
+            raise ValueError(
+                f"Start node with elementId {self._start_node_element_id} not found"
+            )
         return results[0][0][0]
 
     @classmethod
-    def inflate(cls, rel):
+    def inflate(cls: Any, rel: Relationship) -> "StructuredRel":
         """
         Inflate a neo4j_driver relationship object to a neomodel object
         :param rel:
         :return: StructuredRel
         """
         srel = super().inflate(rel)
-        srel._start_node_element_id_property = rel.start_node.element_id
-        srel._end_node_element_id_property = rel.end_node.element_id
+        if rel.start_node is not None:
+            srel._start_node_element_id_property = rel.start_node.element_id
+        if rel.end_node is not None:
+            srel._end_node_element_id_property = rel.end_node.element_id
         srel.element_id_property = rel.element_id
         return srel
