@@ -1174,7 +1174,7 @@ async def test_async_iterator():
 
 
 def assert_last_query_startswith(mock_func, query) -> bool:
-    return mock_func.call_args_list[-1].args[0].startswith(query)
+    return mock_func.call_args_list[-1].kwargs["query"].startswith(query)
 
 
 @mark_async_test
