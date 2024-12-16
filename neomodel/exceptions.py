@@ -1,3 +1,6 @@
+from typing import Any, Optional, Type, Union
+
+
 class NeomodelException(Exception):
     """
     A base class that identifies all exceptions raised by :mod:`neomodel`.
@@ -23,11 +26,11 @@ class CardinalityViolation(NeomodelException):
     For example a relationship type `OneOrMore` returns no nodes.
     """
 
-    def __init__(self, rel_manager, actual):
+    def __init__(self, rel_manager: Any, actual: Union[int, str]):
         self.rel_manager = str(rel_manager)
         self.actual = str(actual)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"CardinalityViolation: Expected: {self.rel_manager}, got: {self.actual}."
         )
@@ -40,9 +43,9 @@ class ModelDefinitionException(NeomodelException):
 
     def __init__(
         self,
-        db_node_rel_class,
-        current_node_class_registry,
-        current_db_specific_node_class_registry,
+        db_node_rel_class: Any,
+        current_node_class_registry: dict[frozenset, Any],
+        current_db_specific_node_class_registry: dict[str, dict],
     ):
         """
         Initialises the exception with the database node that caused the missmatch.
@@ -60,7 +63,7 @@ class ModelDefinitionException(NeomodelException):
             current_db_specific_node_class_registry
         )
 
-    def _get_node_class_registry_formatted(self):
+    def _get_node_class_registry_formatted(self) -> str:
         """
         Returns the current node class registry string formatted as a list of
         Labels --> <class to instantiate> entries.
@@ -96,7 +99,7 @@ class NodeClassNotDefined(ModelDefinitionException):
     In either of these cases the mismatch must be reported
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         node_labels = ",".join(self.db_node_rel_class.labels)
 
         return f"Node with labels {node_labels} does not resolve to any of the known objects\n{self._get_node_class_registry_formatted()}\n"
@@ -108,7 +111,7 @@ class RelationshipClassNotDefined(ModelDefinitionException):
     a data model object.
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         relationship_type = self.db_node_rel_class.type
         return f"""
             Relationship of type {relationship_type} does not resolve to any of the known objects
@@ -125,10 +128,10 @@ class RelationshipClassRedefined(ModelDefinitionException):
 
     def __init__(
         self,
-        db_rel_class_type,
-        current_node_class_registry,
-        current_db_specific_node_class_registry,
-        remapping_to_class,
+        db_rel_class_type: Any,
+        current_node_class_registry: dict[frozenset, Any],
+        current_db_specific_node_class_registry: dict[str, dict],
+        remapping_to_class: Any,
     ):
         """
         Initialises a relationship redefinition exception with the required data as follows:
@@ -148,7 +151,7 @@ class RelationshipClassRedefined(ModelDefinitionException):
         )
         self.remapping_to_class = remapping_to_class
 
-    def __str__(self):
+    def __str__(self) -> str:
         relationship_type = self.db_node_rel_class
         return f"Relationship of type {relationship_type} redefined as {self.remapping_to_class}.\n{self._get_node_class_registry_formatted()}\n"
 
@@ -159,113 +162,113 @@ class NodeClassAlreadyDefined(ModelDefinitionException):
     that already has a mapping within the node-to-class registry.
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         node_class_labels = ",".join(self.db_node_rel_class.inherited_labels())
 
         return f"Class {self.db_node_rel_class.__module__}.{self.db_node_rel_class.__name__} with labels {node_class_labels} already defined:\n{self._get_node_class_registry_formatted()}\n"
 
 
 class ConstraintValidationFailed(ValueError, NeomodelException):
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         self.message = msg
 
 
 class DeflateError(ValueError, NeomodelException):
-    def __init__(self, key, cls, msg, obj):
+    def __init__(self, key: str, cls: Any, msg: str, obj: Any):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
         self.obj = repr(obj)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Attempting to deflate property '{self.property_name}' on {self.obj} of class '{self.node_class.__name__}': {self.msg}"
 
 
 class DoesNotExist(NeomodelException):
-    _model_class = None
+    _model_class: Optional[Type] = None
     """
     This class property refers the model class that a subclass of this class
     belongs to. It is set by :class:`~neomodel.core.NodeMeta`.
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         if self._model_class is None:
             raise RuntimeError("This class hasn't been setup properly.")
-        self.message = msg
+        self.message: str = msg
         super().__init__(self, msg)
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple:
         return _unpickle_does_not_exist, (self._model_class, self.message)
 
 
-def _unpickle_does_not_exist(_model_class, message):
+def _unpickle_does_not_exist(_model_class: Any, message: str) -> DoesNotExist:
     return _model_class.DoesNotExist(message)
 
 
 class InflateConflict(NeomodelException):
-    def __init__(self, cls, key, value, nid):
+    def __init__(self, cls: Any, key: str, value: Any, nid: str):
         self.cls_name = cls.__name__
         self.property_name = key
         self.value = value
         self.nid = nid
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Found conflict with node {self.nid}, has property '{self.property_name}' with value '{self.value}' although class {self.cls_name} already has a property '{self.property_name}'"
 
 
 class InflateError(ValueError, NeomodelException):
-    def __init__(self, key, cls, msg, obj=None):
+    def __init__(self, key: str, cls: Any, msg: str, obj: Optional[Any] = None):
         self.property_name = key
         self.node_class = cls
         self.msg = msg
         self.obj = repr(obj)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Attempting to inflate property '{self.property_name}' on {self.obj} of class '{self.node_class.__name__}': {self.msg}"
 
 
 class DeflateConflict(InflateConflict):
-    def __init__(self, cls, key, value, nid):
+    def __init__(self, cls: Any, key: str, value: Any, nid: str):
         self.cls_name = cls.__name__
         self.property_name = key
         self.value = value
         self.nid = nid if nid else "(unsaved)"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Found trying to set property '{self.property_name}' with value '{self.value}' on node {self.nid} although class {self.cls_name} already has a property '{self.property_name}'"
 
 
 class MultipleNodesReturned(ValueError, NeomodelException):
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         self.message = msg
 
 
 class NotConnected(NeomodelException):
-    def __init__(self, action, node1, node2):
+    def __init__(self, action: str, node1: Any, node2: Any):
         self.action = action
         self.node1 = node1
         self.node2 = node2
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Error performing '{self.action}' - Node {self.node1.element_id} of type '{self.node1.__class__.__name__}' is not connected to {self.node2.element_id} of type '{self.node2.__class__.__name__}'."
 
 
 class RequiredProperty(NeomodelException):
-    def __init__(self, key, cls):
+    def __init__(self, key: str, cls: Any):
         self.property_name = key
         self.node_class = cls
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"property '{self.property_name}' on objects of class {self.node_class.__name__}"
 
 
 class UniqueProperty(ConstraintValidationFailed):
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         self.message = msg
 
 
 class FeatureNotSupported(NeomodelException):
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         self.message = msg
 
 

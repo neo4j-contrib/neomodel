@@ -10,3 +10,14 @@ Transformation = TypedDict(
         "include_in_return": Optional[bool],
     },
 )
+
+
+Subquery = TypedDict(
+    "Subquery",
+    {
+        "query": str,
+        "query_params": dict,
+        "return_set": list[str],
+        "initial_context": Optional[list[Any]],
+    },
+)

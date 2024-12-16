@@ -516,7 +516,7 @@ def test_regex_property():
     class MissingExpression(RegexProperty):
         pass
 
-    with raises(ValueError):
+    with raises(AttributeError):
         MissingExpression()
 
     class TestProperty(RegexProperty):

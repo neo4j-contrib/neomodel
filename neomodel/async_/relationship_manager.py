@@ -2,6 +2,7 @@ import functools
 import inspect
 import sys
 from importlib import import_module
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
 
 from neomodel.async_.core import adb
 from neomodel.async_.match import (
@@ -20,19 +21,17 @@ from neomodel.util import (
     get_graph_entity_properties,
 )
 
-# basestring python 3.x fallback
-try:
-    basestring
-except NameError:
-    basestring = str
+if TYPE_CHECKING:
+    from neomodel import AsyncStructuredNode
+    from neomodel.async_.match import AsyncBaseSet
 
 
 # check source node is saved and not deleted
-def check_source(fn):
+def check_source(fn: Callable) -> Callable:
     fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
 
     @functools.wraps(fn)
-    def checker(self, *args, **kwargs):
+    def checker(self: Any, *args: Any, **kwargs: Any) -> Callable:
         self.source._pre_action_check(self.name + "." + fn_name)
         return fn(self, *args, **kwargs)
 
@@ -40,7 +39,7 @@ def check_source(fn):
 
 
 # checks if obj is a direct subclass, 1 level
-def is_direct_subclass(obj, classinfo):
+def is_direct_subclass(obj: Any, classinfo: Any) -> bool:
     for base in obj.__bases__:
         if base == classinfo:
             return True
@@ -54,13 +53,19 @@ class AsyncRelationshipManager(object):
     I.e the 'friends' object in  `user.friends.all()`
     """
 
-    def __init__(self, source, key, definition):
+    source: Any
+    source_class: Any
+    name: str
+    definition: dict
+    description: str = "relationship"
+
+    def __init__(self, source: Any, key: str, definition: dict):
         self.source = source
         self.source_class = source.__class__
         self.name = key
         self.definition = definition
 
-    def __str__(self):
+    def __str__(self) -> str:
         direction = "either"
         if self.definition["direction"] == OUTGOING:
             direction = "a outgoing"
@@ -69,10 +74,10 @@ class AsyncRelationshipManager(object):
 
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
-    def __await__(self):
-        return self.all().__await__()
+    def __await__(self) -> Any:
+        return self.all().__await__()  # type: ignore[attr-defined]
 
-    def _check_node(self, obj):
+    def _check_node(self, obj: type["AsyncStructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""
         if not issubclass(type(obj), self.definition["node_class"]):
             raise ValueError(
@@ -82,7 +87,9 @@ class AsyncRelationshipManager(object):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
     @check_source
-    async def connect(self, node, properties=None):
+    async def connect(
+        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> Optional[AsyncStructuredRel]:
         """
         Connect a node
 
@@ -134,7 +141,7 @@ class AsyncRelationshipManager(object):
 
         if not rel_model:
             await self.source.cypher(q, params)
-            return True
+            return None
 
         results = await self.source.cypher(q + " RETURN r", params)
         rel_ = results[0][0][0]
@@ -146,7 +153,9 @@ class AsyncRelationshipManager(object):
         return rel_instance
 
     @check_source
-    async def replace(self, node, properties=None):
+    async def replace(
+        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> None:
         """
         Disconnect all existing nodes and connect the supplied node
 
@@ -159,7 +168,9 @@ class AsyncRelationshipManager(object):
         await self.connect(node, properties)
 
     @check_source
-    async def relationship(self, node):
+    async def relationship(
+        self, node: "AsyncStructuredNode"
+    ) -> Optional[AsyncStructuredRel]:
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -178,14 +189,16 @@ class AsyncRelationshipManager(object):
         )
         rels = results[0]
         if not rels:
-            return
+            return None
 
         rel_model = self.definition.get("model") or AsyncStructuredRel
 
         return self._set_start_end_cls(rel_model.inflate(rels[0][0]), node)
 
     @check_source
-    async def all_relationships(self, node):
+    async def all_relationships(
+        self, node: "AsyncStructuredNode"
+    ) -> list[AsyncStructuredRel]:
         """
         Retrieve all relationship objects between self and node.
 
@@ -208,7 +221,9 @@ class AsyncRelationshipManager(object):
             self._set_start_end_cls(rel_model.inflate(rel[0]), node) for rel in rels
         ]
 
-    def _set_start_end_cls(self, rel_instance, obj):
+    def _set_start_end_cls(
+        self, rel_instance: AsyncStructuredRel, obj: "AsyncStructuredNode"
+    ) -> AsyncStructuredRel:
         if self.definition["direction"] == INCOMING:
             rel_instance._start_node_class = obj.__class__
             rel_instance._end_node_class = self.source_class
@@ -218,7 +233,9 @@ class AsyncRelationshipManager(object):
         return rel_instance
 
     @check_source
-    async def reconnect(self, old_node, new_node):
+    async def reconnect(
+        self, old_node: "AsyncStructuredNode", new_node: "AsyncStructuredNode"
+    ) -> None:
         """
         Disconnect old_node and connect new_node copying over any properties on the original relationship.
 
@@ -269,7 +286,7 @@ class AsyncRelationshipManager(object):
         )
 
     @check_source
-    async def disconnect(self, node):
+    async def disconnect(self, node: "AsyncStructuredNode") -> None:
         """
         Disconnect a node
 
@@ -286,7 +303,7 @@ class AsyncRelationshipManager(object):
         )
 
     @check_source
-    async def disconnect_all(self):
+    async def disconnect_all(self) -> None:
         """
         Disconnect all nodes
 
@@ -302,29 +319,29 @@ class AsyncRelationshipManager(object):
         await self.source.cypher(q)
 
     @check_source
-    def _new_traversal(self):
+    def _new_traversal(self) -> AsyncTraversal:
         return AsyncTraversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
-    def get(self, **kwargs):
+    async def get(self, **kwargs: Any) -> AsyncNodeSet:
         """
         Retrieve a related node with the matching node properties.
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return AsyncNodeSet(self._new_traversal()).get(**kwargs)
+        return await AsyncNodeSet(self._new_traversal()).get(**kwargs)
 
-    def get_or_none(self, **kwargs):
+    async def get_or_none(self, **kwargs: dict) -> AsyncNodeSet:
         """
         Retrieve a related node with the matching node properties or return None.
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: node
         """
-        return AsyncNodeSet(self._new_traversal()).get_or_none(**kwargs)
+        return await AsyncNodeSet(self._new_traversal()).get_or_none(**kwargs)
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args: Any, **kwargs: dict) -> "AsyncBaseSet":
         """
         Retrieve related nodes matching the provided properties.
 
@@ -334,7 +351,7 @@ class AsyncRelationshipManager(object):
         """
         return AsyncNodeSet(self._new_traversal()).filter(*args, **kwargs)
 
-    def order_by(self, *props):
+    def order_by(self, *props: Any) -> "AsyncBaseSet":
         """
         Order related nodes by specified properties
 
@@ -343,7 +360,7 @@ class AsyncRelationshipManager(object):
         """
         return AsyncNodeSet(self._new_traversal()).order_by(*props)
 
-    def exclude(self, *args, **kwargs):
+    def exclude(self, *args: Any, **kwargs: dict) -> "AsyncBaseSet":
         """
         Exclude nodes that match the provided properties.
 
@@ -353,7 +370,7 @@ class AsyncRelationshipManager(object):
         """
         return AsyncNodeSet(self._new_traversal()).exclude(*args, **kwargs)
 
-    async def is_connected(self, node):
+    async def is_connected(self, node: "AsyncStructuredNode") -> bool:
         """
         Check if a node is connected with this relationship type
         :param node:
@@ -361,7 +378,7 @@ class AsyncRelationshipManager(object):
         """
         return await self._new_traversal().check_contains(node)
 
-    async def single(self):
+    async def single(self) -> Optional["AsyncStructuredNode"]:
         """
         Get a single related node or none.
 
@@ -371,9 +388,9 @@ class AsyncRelationshipManager(object):
             rels = await self
             return rels[0]
         except IndexError:
-            pass
+            return None
 
-    def match(self, **kwargs):
+    def match(self, **kwargs: dict) -> AsyncNodeSet:
         """
         Return set of nodes who's relationship properties match supplied args
 
@@ -382,7 +399,7 @@ class AsyncRelationshipManager(object):
         """
         return self._new_traversal().match(**kwargs)
 
-    async def all(self):
+    async def all(self) -> list:
         """
         Return all related nodes.
 
@@ -390,34 +407,34 @@ class AsyncRelationshipManager(object):
         """
         return await self._new_traversal().all()
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> AsyncIterator:
         return self._new_traversal().__aiter__()
 
-    async def get_len(self):
+    async def get_len(self) -> int:
         return await self._new_traversal().get_len()
 
-    async def check_bool(self):
+    async def check_bool(self) -> bool:
         return await self._new_traversal().check_bool()
 
-    async def check_nonzero(self):
+    async def check_nonzero(self) -> bool:
         return self._new_traversal().check_nonzero()
 
-    async def check_contains(self, obj):
+    async def check_contains(self, obj: Any) -> bool:
         return self._new_traversal().check_contains(obj)
 
-    async def get_item(self, key):
+    async def get_item(self, key: Union[int, slice]) -> Any:
         return self._new_traversal().get_item(key)
 
 
 class AsyncRelationshipDefinition:
     def __init__(
         self,
-        relation_type,
-        cls_name,
-        direction,
-        manager=AsyncRelationshipManager,
-        model=None,
-    ):
+        relation_type: str,
+        cls_name: str,
+        direction: int,
+        manager: type[AsyncRelationshipManager] = AsyncRelationshipManager,
+        model: Optional[AsyncStructuredRel] = None,
+    ) -> None:
         self._validate_class(cls_name, model)
 
         current_frame = inspect.currentframe()
@@ -468,15 +485,17 @@ class AsyncRelationshipDefinition:
                 # If the mapping does not exist then it is simply created.
                 adb._NODE_CLASS_REGISTRY[label_set] = model
 
-    def _validate_class(self, cls_name, model):
-        if not isinstance(cls_name, (basestring, object)):
+    def _validate_class(
+        self, cls_name: str, model: Optional[AsyncStructuredRel] = None
+    ) -> None:
+        if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (AsyncStructuredRel,)):
             raise ValueError("model must be a StructuredRel")
 
-    def lookup_node_class(self):
-        if not isinstance(self._raw_class, basestring):
+    def lookup_node_class(self) -> None:
+        if not isinstance(self._raw_class, str):
             self.definition["node_class"] = self._raw_class
         else:
             name = self._raw_class
@@ -512,7 +531,9 @@ class AsyncRelationshipDefinition:
                     module = import_module(namespace).__name__
             self.definition["node_class"] = getattr(sys.modules[module], name)
 
-    def build_manager(self, source, name):
+    def build_manager(
+        self, source: "AsyncStructuredNode", name: str
+    ) -> AsyncRelationshipManager:
         self.lookup_node_class()
         return self.manager(source, name, self.definition)
 
@@ -528,11 +549,11 @@ class AsyncZeroOrMore(AsyncRelationshipManager):
 class AsyncRelationshipTo(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=AsyncZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
+        model: Optional[AsyncStructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
         )
@@ -541,11 +562,11 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
 class AsyncRelationshipFrom(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=AsyncZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
+        model: Optional[AsyncStructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
         )
@@ -554,11 +575,11 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
 class AsyncRelationship(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name,
-        relation_type,
-        cardinality=AsyncZeroOrMore,
-        model=None,
-    ):
+        cls_name: str,
+        relation_type: str,
+        cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
+        model: Optional[AsyncStructuredRel] = None,
+    ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
         )
