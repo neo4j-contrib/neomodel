@@ -235,7 +235,7 @@ Working with relationships::
     len(germany.inhabitant) # 1
 
     # Find people called 'Jim' in germany
-    germany.inhabitant.search(name='Jim')
+    germany.inhabitant.filter(name='Jim')
 
     # Find all the people called in germany except 'Jim'
     germany.inhabitant.exclude(name='Jim')
