@@ -157,9 +157,11 @@ Working with `PointProperty`
 ----------------------------
 To define a ``PointProperty`` Node property, simply specify it along with its ``crs``: ::
 
+    from neomodel.contrib import spatial_properties as neomodel_spatial 
+
     class SomeEntity(neomodel.StructuredNode):
         entity_id = neomodel.UniqueIdProperty()
-        location = neomodel.PointProperty(crs='wgs-84')
+        location = neomodel_spatial.PointProperty(crs='wgs-84')
 
 Given this definition of ``SomeEntity``, an object can be created by: ::
 
