@@ -410,7 +410,7 @@ class RelationshipDefinition:
         cls_name: str,
         direction: int,
         manager: type[RelationshipManager] = RelationshipManager,
-        model: Optional[StructuredRel] = None,
+        model: Optional[type[StructuredRel]] = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -463,7 +463,7 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: Optional[StructuredRel] = None
+        self, cls_name: str, model: Optional[type[StructuredRel]] = None
     ) -> None:
         if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
@@ -527,7 +527,7 @@ class RelationshipTo(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[StructuredRel] = None,
+        model: Optional[type[StructuredRel]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
@@ -540,7 +540,7 @@ class RelationshipFrom(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[StructuredRel] = None,
+        model: Optional[type[StructuredRel]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
@@ -553,7 +553,7 @@ class Relationship(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[StructuredRel] = None,
+        model: Optional[type[StructuredRel]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
