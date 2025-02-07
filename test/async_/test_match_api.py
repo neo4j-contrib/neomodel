@@ -31,12 +31,9 @@ from neomodel.async_.match import (
     Optional,
     RawCypher,
     RelationNameResolver,
+    Size,
 )
-from neomodel.exceptions import (
-    FeatureNotSupported,
-    MultipleNodesReturned,
-    RelationshipClassNotDefined,
-)
+from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 
 
 class SupplierRel(AsyncStructuredRel):
@@ -777,6 +774,13 @@ async def test_annotate_and_collect():
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        await Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Size(Collect("species", distinct=True)))
+        .all()
+    )
+    assert result[0][1] == 2  # 2 species
 
     result = (
         await Supplier.nodes.traverse_relations(species="coffees__species")
