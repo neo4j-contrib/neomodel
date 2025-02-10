@@ -442,7 +442,8 @@ class QueryBuilder:
         self._ast = QueryAST()
         self._query_params: dict = {}
         self._place_holder_registry: dict = {}
-        self._ident_count: int = 0
+        self._relation_identifier_count: int = 0
+        self._node_identifier_count: int = 0
         self._subquery_namespace: TOptional[str] = subquery_namespace
 
     def build_ast(self) -> "QueryBuilder":
@@ -492,9 +493,13 @@ class QueryBuilder:
             return self.build_node(source)
         raise ValueError("Unknown source type " + repr(source))
 
-    def create_ident(self) -> str:
-        self._ident_count += 1
-        return f"r{self._ident_count}"
+    def create_relation_identifier(self) -> str:
+        self._relation_identifier_count += 1
+        return f"r{self._relation_identifier_count}"
+
+    def create_node_identifier(self, prefix: str) -> str:
+        self._node_identifier_count += 1
+        return f"{prefix}{self._node_identifier_count}"
 
     def build_order_by(self, ident: str, source: "NodeSet") -> None:
         if "?" in source.order_by_elements:
@@ -533,7 +538,7 @@ class QueryBuilder:
         rhs_label = ":" + traversal.target_class.__label__
 
         # build source
-        rel_ident = self.create_ident()
+        rel_ident = self.create_relation_identifier()
         lhs_ident = self.build_source(traversal.source)
         traversal_ident = f"{traversal.name}_{rel_ident}"
         rhs_ident = traversal_ident + rhs_label
@@ -598,7 +603,7 @@ class QueryBuilder:
                 lhs_ident = stmt
 
             already_present = part in subgraph
-            rel_ident = self.create_ident()
+            rel_ident = self.create_relation_identifier()
             rhs_label = relationship.definition["node_class"].__label__
             if relation.get("relation_filtering"):
                 rhs_name = rel_ident
@@ -608,6 +613,7 @@ class QueryBuilder:
                     rhs_name = relation["alias"]
                 else:
                     rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
+                    rhs_name = self.create_node_identifier(rhs_name)
             rhs_ident = f"{rhs_name}:{rhs_label}"
             if relation["include_in_return"] and not already_present:
                 self._additional_return(rhs_name)
@@ -1231,12 +1237,9 @@ class Collect(AggregatingFunction):
 class ScalarFunction(BaseFunction):
     """Base scalar function class."""
 
-    pass
-
-
-@dataclass
-class Last(ScalarFunction):
-    """last() function."""
+    @property
+    def function_name(self) -> str:
+        raise NotImplementedError
 
     def render(self, qbuilder: QueryBuilder) -> str:
         if isinstance(self.input_name, str):
@@ -1246,7 +1249,25 @@ class Last(ScalarFunction):
             self._internal_name = self.input_name.get_internal_name()
         else:
             content = self.resolve_internal_name(qbuilder)
-        return f"last({content})"
+        return f"{self.function_name}({content})"
+
+
+@dataclass
+class Last(ScalarFunction):
+    """last() function."""
+
+    @property
+    def function_name(self) -> str:
+        return "last"
+
+
+@dataclass
+class Size(ScalarFunction):
+    """size() function."""
+
+    @property
+    def function_name(self) -> str:
+        return "size"
 
 
 @dataclass
