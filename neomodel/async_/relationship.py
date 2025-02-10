@@ -44,9 +44,8 @@ class RelationshipMeta(type):
         return inst
 
 
-StructuredRelBase: type = RelationshipMeta(
-    "RelationshipBase", (AsyncPropertyManager,), {}
-)
+class StructuredRelBase(AsyncPropertyManager, metaclass=RelationshipMeta):
+    pass
 
 
 class AsyncStructuredRel(StructuredRelBase):

@@ -44,7 +44,8 @@ class RelationshipMeta(type):
         return inst
 
 
-StructuredRelBase: type = RelationshipMeta("RelationshipBase", (PropertyManager,), {})
+class StructuredRelBase(PropertyManager, metaclass=RelationshipMeta):
+    pass
 
 
 class StructuredRel(StructuredRelBase):

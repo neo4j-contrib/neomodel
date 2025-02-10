@@ -21,11 +21,7 @@ from neomodel import (
     db,
 )
 from neomodel._async_compat.util import Util
-from neomodel.exceptions import (
-    FeatureNotSupported,
-    MultipleNodesReturned,
-    RelationshipClassNotDefined,
-)
+from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
 from neomodel.sync_.match import (
     Collect,
     Last,
@@ -35,6 +31,7 @@ from neomodel.sync_.match import (
     QueryBuilder,
     RawCypher,
     RelationNameResolver,
+    Size,
     Traversal,
 )
 
@@ -761,6 +758,13 @@ def test_annotate_and_collect():
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
+
+    result = (
+        Supplier.nodes.traverse_relations(species="coffees__species")
+        .annotate(Size(Collect("species", distinct=True)))
+        .all()
+    )
+    assert result[0][1] == 2  # 2 species
 
     result = (
         Supplier.nodes.traverse_relations(species="coffees__species")
