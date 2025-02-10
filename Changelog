@@ -1,3 +1,9 @@
+Version 5.4.3 2025-02
+* Add Size() scalar function
+* Fix potential duplicate variable name in multiple traversals
+* Minor fixes
+* Note : With Neo4j now using CalVer, we can soon shift to true SemVer
+
 Version 5.4.2 2024-12
 * Add support for Neo4j Rust driver extension : pip install neomodel[rust-driver-ext]
 * Add initial_context parameter to subqueries
