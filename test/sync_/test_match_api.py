@@ -541,11 +541,19 @@ def test_q_filters():
     assert c6 in combined_coffees
     assert c3 not in combined_coffees
 
+    with raises(
+        ValueError,
+        match=r"Cannot filter using OR operator on variables coming from both MATCH and OPTIONAL MATCH statements",
+    ):
+        Coffee.nodes.fetch_relations(Optional("species")).filter(
+            Q(name="Latte") | Q(species__name="Robusta")
+        )
+
     class QQ:
         pass
 
     with raises(TypeError):
-        wrong_Q = Coffee.nodes.filter(Q(price=5) | QQ()).all()
+        Coffee.nodes.filter(Q(price=5) | QQ()).all()
 
 
 def test_qbase():
@@ -683,7 +691,7 @@ def test_fetch_relations():
         .fetch_relations(Optional("coffees__suppliers"))
         .all()
     )
-    assert len(result) == 0
+    assert len(result) == 1
 
     if Util.is_async_code:
         count = (
