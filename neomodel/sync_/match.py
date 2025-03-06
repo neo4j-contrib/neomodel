@@ -687,7 +687,7 @@ class QueryBuilder:
                 self._ast.return_clause = ident
                 self._ast.result_class = cls
         elif not self._ast.match:
-            # If we get here, it means we called return_clause was filled because of an
+            # If we get here, it means return_clause was filled because of an
             # optional match, so we add a regular match for root node.
             # Not very elegant, this part would deserve a refactoring...
             self._ast.match.append(f"({ident_w_label})")
