@@ -164,14 +164,14 @@ _SPECIAL_OPERATOR_REGEX = "=~"
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
-_REGEX_INSESITIVE = _SPECIAL_OPERATOR_INSENSITIVE + "{}"
+_REGEX_INSENSITIVE = _SPECIAL_OPERATOR_INSENSITIVE + "{}"
 _REGEX_CONTAINS = ".*{}.*"
 _REGEX_STARTSWITH = "{}.*"
 _REGEX_ENDSWITH = ".*{}"
 
 # regex operations that require escaping
 _STRING_REGEX_OPERATOR_TABLE = {
-    "iexact": _REGEX_INSESITIVE,
+    "iexact": _REGEX_INSENSITIVE,
     "contains": _REGEX_CONTAINS,
     "icontains": _SPECIAL_OPERATOR_INSENSITIVE + _REGEX_CONTAINS,
     "startswith": _REGEX_STARTSWITH,
@@ -181,7 +181,7 @@ _STRING_REGEX_OPERATOR_TABLE = {
 }
 # regex operations that do not require escaping
 _REGEX_OPERATOR_TABLE = {
-    "iregex": _REGEX_INSESITIVE,
+    "iregex": _REGEX_INSENSITIVE,
 }
 # list all regex operations, these will require formatting of the value
 _REGEX_OPERATOR_TABLE.update(_STRING_REGEX_OPERATOR_TABLE)
@@ -407,6 +407,7 @@ class QueryAST:
         match: TOptional[list[str]] = None,
         optional_match: TOptional[list[str]] = None,
         where: TOptional[list[str]] = None,
+        optional_where: TOptional[list[str]] = None,
         with_clause: TOptional[str] = None,
         return_clause: TOptional[str] = None,
         order_by: TOptional[list[str]] = None,
@@ -420,6 +421,7 @@ class QueryAST:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
+        self.optional_where = optional_where if optional_where else []
         self.with_clause = with_clause
         self.return_clause = return_clause
         self.order_by = order_by
@@ -480,6 +482,8 @@ class QueryBuilder:
             if hasattr(source, "order_by_elements"):
                 self.build_order_by(ident, source)
 
+            # source.filters seems to be used only by Traversal objects
+            # source.q_filters is used by NodeSet objects
             if source.filters or source.q_filters:
                 self.build_where_stmt(
                     ident=ident,
@@ -674,11 +678,19 @@ class QueryBuilder:
         """
         ident_w_label = ident + ":" + cls.__label__
 
-        if not self._ast.return_clause and (
-            not self._ast.additional_return or ident not in self._ast.additional_return
-        ):
+        if not self._ast.return_clause:
+            if (
+                not self._ast.additional_return
+                or ident not in self._ast.additional_return
+            ):
+                self._ast.match.append(f"({ident_w_label})")
+                self._ast.return_clause = ident
+                self._ast.result_class = cls
+        elif not self._ast.match:
+            # If we get here, it means return_clause was filled because of an
+            # optional match, so we add a regular match for root node.
+            # Not very elegant, this part would deserve a refactoring...
             self._ast.match.append(f"({ident_w_label})")
-            self._ast.return_clause = ident
             self._ast.result_class = cls
         return ident
 
@@ -691,7 +703,7 @@ class QueryBuilder:
         for _, value in node_set.must_match.items():
             if isinstance(value, dict):
                 label = ":" + value["node_class"].__label__
-                stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **value)
+                stmt = f"EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **value)})"
                 self._ast.where.append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(value))
@@ -699,8 +711,8 @@ class QueryBuilder:
         for _, val in node_set.dont_match.items():
             if isinstance(val, dict):
                 label = ":" + val["node_class"].__label__
-                stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **val)
-                self._ast.where.append("NOT " + stmt)
+                stmt = f"NOT EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **val)})"
+                self._ast.where.append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
@@ -716,13 +728,14 @@ class QueryBuilder:
 
     def _parse_path(
         self, source_class: type[StructuredNode], prop: str
-    ) -> Tuple[str, str, str, Any]:
+    ) -> Tuple[str, str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
         else:
             path, prop = prop.rsplit("__", 1)
         result = self.lookup_query_variable(path, return_relation=is_rel_filter)
+        is_optional_relation = False
         if not result:
             ident, target_class = self.build_traversal_from_path(
                 {
@@ -733,8 +746,8 @@ class QueryBuilder:
                 source_class,
             )
         else:
-            ident, target_class = result
-        return ident, path, prop, target_class
+            ident, target_class, is_optional_relation = result
+        return ident, path, prop, target_class, is_optional_relation
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -760,41 +773,66 @@ class QueryBuilder:
         self,
         ident: str,
         filters: dict[str, tuple],
-        target: list[str],
+        target: list[tuple[str, bool]],
         source_class: type[StructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
             path = None
             is_rel_filter = "|" in prop
             target_class = source_class
+            is_optional_relation = False
             if "__" in prop or is_rel_filter:
-                ident, path, prop, target_class = self._parse_path(source_class, prop)
+                (
+                    ident,
+                    path,
+                    prop,
+                    target_class,
+                    is_optional_relation,
+                ) = self._parse_path(source_class, prop)
             operator, val = op_and_val
             if not is_rel_filter:
                 prop = target_class.defined_properties(rels=False)[
                     prop
                 ].get_db_property_name(prop)
             statement = self._finalize_filter_statement(operator, ident, prop, val)
-            target.append(statement)
+            target.append((statement, is_optional_relation))
 
     def _parse_q_filters(
         self, ident: str, q: Union[QBase, Any], source_class: type[StructuredNode]
-    ) -> str:
-        target = []
+    ) -> tuple[str, str]:
+        target: list[tuple[str, bool]] = []
+
+        def add_to_target(statement: str, connector: Q, optional: bool) -> None:
+            if not statement:
+                return
+            if connector == Q.OR:
+                statement = f"({statement})"
+            target.append((statement, optional))
+
         for child in q.children:
             if isinstance(child, QBase):
-                q_childs = self._parse_q_filters(ident, child, source_class)
-                if child.connector == Q.OR:
-                    q_childs = "(" + q_childs + ")"
-                target.append(q_childs)
+                q_childs, q_opt_childs = self._parse_q_filters(
+                    ident, child, source_class
+                )
+                add_to_target(q_childs, child.connector, False)
+                add_to_target(q_opt_childs, child.connector, True)
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(source_class, kwargs)
                 self._build_filter_statements(ident, filters, target, source_class)
-        ret = f" {q.connector} ".join(target)
-        if q.negated:
+        match_filters = [filter[0] for filter in target if not filter[1]]
+        opt_match_filters = [filter[0] for filter in target if filter[1]]
+        if q.connector == Q.OR and match_filters and opt_match_filters:
+            raise ValueError(
+                "Cannot filter using OR operator on variables coming from both MATCH and OPTIONAL MATCH statements"
+            )
+        ret = f" {q.connector} ".join(match_filters)
+        if ret and q.negated:
             ret = f"NOT ({ret})"
-        return ret
+        opt_ret = f" {q.connector} ".join(opt_match_filters)
+        if opt_ret and q.negated:
+            opt_ret = f"NOT ({opt_ret})"
+        return ret, opt_ret
 
     def build_where_stmt(
         self,
@@ -804,12 +842,18 @@ class QueryBuilder:
         q_filters: Union[QBase, Any, None] = None,
     ) -> None:
         """
-        construct a where statement from some filters
+        Construct a where statement from some filters.
+
+        We make a difference between filters applied to variables coming from MATCH and
+        OPTIONAL MATCH statements.
+
         """
         if q_filters is not None:
-            stmt = self._parse_q_filters(ident, q_filters, source_class)
+            stmt, opt_stmt = self._parse_q_filters(ident, q_filters, source_class)
             if stmt:
                 self._ast.where.append(stmt)
+            if opt_stmt:
+                self._ast.optional_where.append(opt_stmt)
         else:
             stmts = []
             for row in filters:
@@ -837,7 +881,7 @@ class QueryBuilder:
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
-    ) -> TOptional[Tuple[str, Any]]:
+    ) -> TOptional[Tuple[str, Any, bool]]:
         """Retrieve the variable name generated internally for the given traversal path."""
         subgraph = self._ast.subgraph
         if not subgraph:
@@ -847,10 +891,19 @@ class QueryBuilder:
             raise ValueError("Can only lookup traversal variables")
         if traversals[0] not in subgraph:
             return None
+
+        # Check if relation is coming from an optional MATCH
+        # (declared using fetch|traverse_relations)
+        is_optional_relation = False
+        for relation in self.node_set.relations_to_fetch:
+            if relation["path"] == path:
+                is_optional_relation = relation.get("optional", False)
+                break
+
         subgraph = subgraph[traversals[0]]
         if len(traversals) == 1:
             variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
-            return variable_to_return, subgraph["target"]
+            return variable_to_return, subgraph["target"], is_optional_relation
         variable_to_return = ""
         last_property = traversals[-1]
         for part in traversals[1:]:
@@ -862,7 +915,7 @@ class QueryBuilder:
                 # if last part of prop is the last traversal
                 # we are safe to lookup the variable from the query
                 variable_to_return = f"{subgraph['rel_variable_name' if return_relation else 'variable_name']}"
-        return variable_to_return, subgraph["target"]
+        return variable_to_return, subgraph["target"], is_optional_relation
 
     def build_query(self) -> str:
         query: str = ""
@@ -879,16 +932,19 @@ class QueryBuilder:
             query += " MATCH "
             query += " MATCH ".join(i for i in self._ast.match)
 
+        if self._ast.where:
+            query += " WHERE "
+            query += " AND ".join(self._ast.where)
+
         if self._ast.optional_match:
             query += " OPTIONAL MATCH "
             query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
 
-        if self._ast.where:
-            if self._ast.optional_match:
-                # Make sure filtering works as expected with optional match, even if it's not performant...
-                query += " WITH *"
+        if self._ast.optional_where:
+            # Make sure filtering works as expected with optional match, even if it's not performant...
+            query += " WITH *"
             query += " WHERE "
-            query += " AND ".join(self._ast.where)
+            query += " AND ".join(self._ast.optional_where)
 
         if self._ast.with_clause:
             query += " WITH "
