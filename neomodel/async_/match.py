@@ -164,14 +164,14 @@ _SPECIAL_OPERATOR_REGEX = "=~"
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
-_REGEX_INSESITIVE = _SPECIAL_OPERATOR_INSENSITIVE + "{}"
+_REGEX_INSENSITIVE = _SPECIAL_OPERATOR_INSENSITIVE + "{}"
 _REGEX_CONTAINS = ".*{}.*"
 _REGEX_STARTSWITH = "{}.*"
 _REGEX_ENDSWITH = ".*{}"
 
 # regex operations that require escaping
 _STRING_REGEX_OPERATOR_TABLE = {
-    "iexact": _REGEX_INSESITIVE,
+    "iexact": _REGEX_INSENSITIVE,
     "contains": _REGEX_CONTAINS,
     "icontains": _SPECIAL_OPERATOR_INSENSITIVE + _REGEX_CONTAINS,
     "startswith": _REGEX_STARTSWITH,
@@ -181,7 +181,7 @@ _STRING_REGEX_OPERATOR_TABLE = {
 }
 # regex operations that do not require escaping
 _REGEX_OPERATOR_TABLE = {
-    "iregex": _REGEX_INSESITIVE,
+    "iregex": _REGEX_INSENSITIVE,
 }
 # list all regex operations, these will require formatting of the value
 _REGEX_OPERATOR_TABLE.update(_STRING_REGEX_OPERATOR_TABLE)
@@ -693,7 +693,7 @@ class AsyncQueryBuilder:
         for _, value in node_set.must_match.items():
             if isinstance(value, dict):
                 label = ":" + value["node_class"].__label__
-                stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **value)
+                stmt = f"EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **value)})"
                 self._ast.where.append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(value))
@@ -701,8 +701,8 @@ class AsyncQueryBuilder:
         for _, val in node_set.dont_match.items():
             if isinstance(val, dict):
                 label = ":" + val["node_class"].__label__
-                stmt = _rel_helper(lhs=source_ident, rhs=label, ident="", **val)
-                self._ast.where.append("NOT " + stmt)
+                stmt = f"NOT EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **val)})"
+                self._ast.where.append(stmt)
             else:
                 raise ValueError("Expecting dict got: " + repr(val))
 
