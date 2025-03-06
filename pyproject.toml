@@ -56,7 +56,7 @@ dev = [
 shapely = ["Shapely>=2.0.0"]
 pandas = ["pandas"]
 numpy = ["numpy"]
-rust-driver-ext = ["neo4j-rust-ext==5.27.0.0"]
+rust-driver-ext = ["neo4j-rust-ext==5.28.1.0"]
 
 [build-system]
 requires = ["setuptools>=68"]
