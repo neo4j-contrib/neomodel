@@ -801,20 +801,21 @@ class QueryBuilder:
         self, ident: str, q: Union[QBase, Any], source_class: type[StructuredNode]
     ) -> tuple[str, str]:
         target: list[tuple[str, bool]] = []
+
+        def add_to_target(statement: str, connector: Q, optional: bool) -> None:
+            if not statement:
+                return
+            if connector == Q.OR:
+                statement = f"({statement})"
+            target.append((statement, optional))
+
         for child in q.children:
             if isinstance(child, QBase):
                 q_childs, q_opt_childs = self._parse_q_filters(
                     ident, child, source_class
                 )
-                if child.connector == Q.OR:
-                    if q_childs:
-                        q_childs = f"({q_childs})"
-                    if q_opt_childs:
-                        q_opt_childs = f"({q_opt_childs})"
-                if q_childs:
-                    target.append((q_childs, False))
-                if q_opt_childs:
-                    target.append((q_opt_childs, True))
+                add_to_target(q_childs, child.connector, False)
+                add_to_target(q_opt_childs, child.connector, True)
             else:
                 kwargs = {child[0]: child[1]}
                 filters = process_filter_args(source_class, kwargs)

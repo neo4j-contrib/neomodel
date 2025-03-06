@@ -551,7 +551,7 @@ async def test_q_filters():
     ):
         await Coffee.nodes.fetch_relations(Optional("species")).filter(
             Q(name="Latte") | Q(species__name="Robusta")
-        )
+        ).all()
 
     class QQ:
         pass

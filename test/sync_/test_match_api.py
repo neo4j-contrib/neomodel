@@ -547,7 +547,7 @@ def test_q_filters():
     ):
         Coffee.nodes.fetch_relations(Optional("species")).filter(
             Q(name="Latte") | Q(species__name="Robusta")
-        )
+        ).all()
 
     class QQ:
         pass
