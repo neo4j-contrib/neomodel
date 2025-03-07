@@ -611,6 +611,7 @@ class QueryBuilder:
             rhs_label = relationship.definition["node_class"].__label__
             if relation.get("relation_filtering"):
                 rhs_name = rel_ident
+                rhs_ident = f":{rhs_label}"
             else:
                 if index + 1 == len(parts) and "alias" in relation:
                     # If an alias is defined, use it to store the last hop in the path
@@ -618,7 +619,7 @@ class QueryBuilder:
                 else:
                     rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
                     rhs_name = self.create_node_identifier(rhs_name)
-            rhs_ident = f"{rhs_name}:{rhs_label}"
+                rhs_ident = f"{rhs_name}:{rhs_label}"
             if relation["include_in_return"] and not already_present:
                 self._additional_return(rhs_name)
 
