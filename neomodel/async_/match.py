@@ -825,9 +825,11 @@ class AsyncQueryBuilder:
         match_filters = [filter[0] for filter in target if not filter[1]]
         opt_match_filters = [filter[0] for filter in target if filter[1]]
         if q.connector == Q.OR and match_filters and opt_match_filters:
-            raise ValueError(
-                "Cannot filter using OR operator on variables coming from both MATCH and OPTIONAL MATCH statements"
-            )
+            # In this case, we can't split filters in two WHERE statements so we move
+            # everything into the one applied after OPTIONAL MATCH statements...
+            opt_match_filters += match_filters
+            match_filters = []
+
         ret = f" {q.connector} ".join(match_filters)
         if ret and q.negated:
             ret = f"NOT ({ret})"
