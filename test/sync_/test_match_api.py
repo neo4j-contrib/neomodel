@@ -623,6 +623,11 @@ def test_relation_prop_filtering():
     nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
     nescafe.species.connect(arabica)
 
+    result = Coffee.nodes.filter(
+        **{"suppliers|since__gt": datetime(2010, 4, 1, 0, 0)}
+    ).all()
+    assert len(result) == 1
+
     results = Supplier.nodes.filter(
         **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
     ).all()
