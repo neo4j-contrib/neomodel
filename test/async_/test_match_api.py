@@ -545,13 +545,14 @@ async def test_q_filters():
     assert c6 in combined_coffees
     assert c3 not in combined_coffees
 
-    with raises(
-        ValueError,
-        match=r"Cannot filter using OR operator on variables coming from both MATCH and OPTIONAL MATCH statements",
-    ):
-        await Coffee.nodes.fetch_relations(Optional("species")).filter(
-            Q(name="Latte") | Q(species__name="Robusta")
-        ).all()
+    robusta = await Species(name="Robusta").save()
+    await c4.species.connect(robusta)
+    latte_or_robusta_coffee = (
+        await Coffee.nodes.fetch_relations(Optional("species"))
+        .filter(Q(name="Latte") | Q(species__name="Robusta"))
+        .all()
+    )
+    assert len(latte_or_robusta_coffee) == 2
 
     class QQ:
         pass
