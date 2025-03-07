@@ -77,6 +77,26 @@ With both `traverse_relations` and `fetch_relations`, you can force the use of a
 
     Person.nodes.fetch_relations('city__country', Optional('country')).all()
 
+Unique variables
+----------------
+
+If you want to use the same variable name for traversed nodes when chaining traversals, you can use the `unique_variables` method::
+
+    # This does not guarantee that coffees__species will traverse the same nodes as coffees
+    # So coffees__species can traverse the Coffee node "Gold 3000"
+    nodeset = (
+        Supplier.nodes.fetch_relations("coffees", "coffees__species")
+        .filter(coffees__name="Nescafe")
+    )
+
+    # This guarantees that coffees__species will traverse the same nodes as coffees
+    # So when fetching species, it will only fetch those of the Coffee node "Nescafe"
+    nodeset = (
+        Supplier.nodes.fetch_relations("coffees", "coffees__species")
+        .filter(coffees__name="Nescafe")
+        .unique_variables("coffees")
+    )
+
 Resolve results
 ---------------
 
