@@ -632,6 +632,11 @@ async def test_relation_prop_filtering():
     await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
     await nescafe.species.connect(arabica)
 
+    result = await Coffee.nodes.filter(
+        **{"suppliers|since__gt": datetime(2010, 4, 1, 0, 0)}
+    ).all()
+    assert len(result) == 1
+
     results = await Supplier.nodes.filter(
         **{"coffees__name": "Nescafe", "coffees|since__gt": datetime(2018, 4, 1, 0, 0)}
     ).all()
