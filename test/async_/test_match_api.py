@@ -1156,6 +1156,37 @@ async def test_in_filter_with_array_property():
 
 
 @mark_async_test
+async def test_unique_variables():
+    arabica = await Species(name="Arabica").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    supplier1 = await Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = await Supplier(name="Supplier 2", delivery_cost=20).save()
+
+    await nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    await nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    await nescafe.species.connect(arabica)
+
+    nodeset = Supplier.nodes.fetch_relations("coffees", "coffees__species").filter(
+        coffees__name="Nescafe"
+    )
+    ast = await nodeset.query_cls(nodeset).build_ast()
+    query = ast.build_query()
+    assert "coffee_coffees1" in query
+    assert "coffee_coffees2" in query
+
+    nodeset = (
+        Supplier.nodes.fetch_relations("coffees", "coffees__species")
+        .filter(coffees__name="Nescafe")
+        .unique_variables("coffees")
+    )
+    ast = await nodeset.query_cls(nodeset).build_ast()
+    query = ast.build_query()
+    assert "coffee_coffees" in query
+    assert "coffee_coffees1" not in query
+    assert "coffee_coffees2" not in query
+
+
+@mark_async_test
 async def test_async_iterator():
     n = 10
     if AsyncUtil.is_async_code:
