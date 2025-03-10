@@ -2,7 +2,6 @@ import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
-import numpy as np
 from pytest import raises, skip, warns
 
 from neomodel import (
@@ -1143,6 +1142,49 @@ def test_in_filter_with_array_property():
     assert arabica not in Species.nodes.filter(
         tags__in=no_match
     ), "Species found by tags with not match tags given"
+
+
+@mark_sync_test
+def test_unique_variables():
+    arabica = Species(name="Arabica").save()
+    nescafe = Coffee(name="Nescafe", price=99).save()
+    gold3000 = Coffee(name="Gold 3000", price=11).save()
+    supplier1 = Supplier(name="Supplier 1", delivery_cost=3).save()
+    supplier2 = Supplier(name="Supplier 2", delivery_cost=20).save()
+    supplier3 = Supplier(name="Supplier 3", delivery_cost=20).save()
+
+    nescafe.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
+    nescafe.species.connect(arabica)
+    gold3000.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
+    gold3000.species.connect(arabica)
+
+    nodeset = Supplier.nodes.fetch_relations("coffees", "coffees__species").filter(
+        coffees__name="Nescafe"
+    )
+    ast = nodeset.query_cls(nodeset).build_ast()
+    query = ast.build_query()
+    assert "coffee_coffees1" in query
+    assert "coffee_coffees2" in query
+    results = nodeset.all()
+    # This will be 3 because 2 suppliers for Nescafe and 1 for Gold 3000
+    # Gold 3000 is traversed because coffees__species redefines the coffees traversal
+    assert len(results) == 3
+
+    nodeset = (
+        Supplier.nodes.fetch_relations("coffees", "coffees__species")
+        .filter(coffees__name="Nescafe")
+        .unique_variables("coffees")
+    )
+    ast = nodeset.query_cls(nodeset).build_ast()
+    query = ast.build_query()
+    assert "coffee_coffees" in query
+    assert "coffee_coffees1" not in query
+    assert "coffee_coffees2" not in query
+    results = nodeset.all()
+    # This will 2 because Gold 3000 is excluded this time
+    # As coffees will be reused in coffees__species
+    assert len(results) == 2
 
 
 @mark_sync_test
