@@ -501,9 +501,11 @@ class QueryBuilder:
         self._relation_identifier_count += 1
         return f"r{self._relation_identifier_count}"
 
-    def create_node_identifier(self, prefix: str) -> str:
-        self._node_identifier_count += 1
-        return f"{prefix}{self._node_identifier_count}"
+    def create_node_identifier(self, prefix: str, path: str) -> str:
+        if path not in self.node_set._unique_variables:
+            self._node_identifier_count += 1
+            return f"{prefix}{self._node_identifier_count}"
+        return prefix
 
     def build_order_by(self, ident: str, source: "NodeSet") -> None:
         if "?" in source.order_by_elements:
@@ -611,14 +613,16 @@ class QueryBuilder:
             rhs_label = relationship.definition["node_class"].__label__
             if relation.get("relation_filtering"):
                 rhs_name = rel_ident
+                rhs_ident = f":{rhs_label}"
             else:
                 if index + 1 == len(parts) and "alias" in relation:
                     # If an alias is defined, use it to store the last hop in the path
                     rhs_name = relation["alias"]
                 else:
                     rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
-                    rhs_name = self.create_node_identifier(rhs_name)
-            rhs_ident = f"{rhs_name}:{rhs_label}"
+                    rhs_name = self.create_node_identifier(rhs_name, rel_iterator)
+                rhs_ident = f"{rhs_name}:{rhs_label}"
+
             if relation["include_in_return"] and not already_present:
                 self._additional_return(rhs_name)
 
@@ -823,9 +827,11 @@ class QueryBuilder:
         match_filters = [filter[0] for filter in target if not filter[1]]
         opt_match_filters = [filter[0] for filter in target if filter[1]]
         if q.connector == Q.OR and match_filters and opt_match_filters:
-            raise ValueError(
-                "Cannot filter using OR operator on variables coming from both MATCH and OPTIONAL MATCH statements"
-            )
+            # In this case, we can't split filters in two WHERE statements so we move
+            # everything into the one applied after OPTIONAL MATCH statements...
+            opt_match_filters += match_filters
+            match_filters = []
+
         ret = f" {q.connector} ".join(match_filters)
         if ret and q.negated:
             ret = f"NOT ({ret})"
@@ -1377,6 +1383,7 @@ class NodeSet(BaseSet):
         self._extra_results: list = []
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
+        self._unique_variables: list[str] = []
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1547,6 +1554,11 @@ class NodeSet(BaseSet):
         if alias:
             item["alias"] = alias
         return item
+
+    def unique_variables(self, *pathes: tuple[str, ...]) -> "NodeSet":
+        """Generate unique variable names for the given pathes."""
+        self._unique_variables = pathes
+        return self
 
     def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
         """Specify a set of relations to traverse and return."""
