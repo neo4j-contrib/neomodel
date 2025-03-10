@@ -622,8 +622,8 @@ class AsyncQueryBuilder:
                     rhs_name = relation["alias"]
                 else:
                     rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
-                    rhs_name = self.create_node_identifier(rhs_name)
-                rhs_ident = f"{rhs_name}:{rhs_label}"
+                    rhs_name = self.create_node_identifier(rhs_name, rel_iterator)
+            rhs_ident = f"{rhs_name}:{rhs_label}"
 
             if relation["include_in_return"] and not already_present:
                 self._additional_return(rhs_name)
