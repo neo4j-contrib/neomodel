@@ -549,6 +549,17 @@ def test_q_filters():
     )
     assert len(latte_or_robusta_coffee) == 2
 
+    robusta_coffee = (
+        Coffee.nodes.fetch_relations(Optional("species"))
+        .filter(species__name="Robusta")
+        .all()
+    )
+    # Since we first do a MATCH on Coffee, the filter which is applied after the
+    # OPTIONAL MATCH is useless because we don't inject any WITH * statement in this
+    # case.
+    # So, that's the result we expect...
+    assert len(robusta_coffee) == 6
+
     class QQ:
         pass
 

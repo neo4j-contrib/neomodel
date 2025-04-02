@@ -434,6 +434,7 @@ class QueryAST:
         )
         self.is_count = is_count
         self.subgraph: dict = {}
+        self.mixed_filters: bool = False
 
 
 class QueryBuilder:
@@ -831,6 +832,7 @@ class QueryBuilder:
             # everything into the one applied after OPTIONAL MATCH statements...
             opt_match_filters += match_filters
             match_filters = []
+            self._ast.mixed_filters = True
 
         ret = f" {q.connector} ".join(match_filters)
         if ret and q.negated:
@@ -947,8 +949,9 @@ class QueryBuilder:
             query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
 
         if self._ast.optional_where:
-            # Make sure filtering works as expected with optional match, even if it's not performant...
-            query += " WITH *"
+            if self._ast.mixed_filters:
+                # Make sure filtering works as expected with optional match, even if it's not performant...
+                query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.optional_where)
 
