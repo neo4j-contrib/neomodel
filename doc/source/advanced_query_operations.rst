@@ -72,9 +72,9 @@ Here is a full example::
     await Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
-                "coffee": "coffee",
-                "suppliers": NodeNameResolver("suppliers"),
-                "r": RelationNameResolver("suppliers"),
+                "coffee": {"source": "coffee"},
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
                 "coffee": {"source": "coffee", "include_in_return": True}, # Only coffee will be returned
                 "suppliers": {"source": NodeNameResolver("suppliers")},
                 "r": {"source": RelationNameResolver("suppliers")},
