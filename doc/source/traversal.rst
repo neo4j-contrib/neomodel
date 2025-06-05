@@ -66,6 +66,15 @@ The `Country` nodes matched will be made available for the rest of the query, wi
 
     This will generate a Cypher MATCH clause that traverses both paths `Coffee<--Supplier-->Country` and `Coffee<--Pub-->City`.
 
+.. note::
+
+    When using `include_rels_in_return=True` (default), any relationship that you traverse using this method **MUST have a model defined**, even if only the default StructuredRel, like::
+        
+        class Person(StructuredNode):
+            country = RelationshipTo(Country, 'IS_FROM', model=StructuredRel)
+
+    Otherwise, neomodel will not be able to determine which relationship model to resolve into, and will fail.
+
 Traverse relations (deprecated)
 -------------------------------
 
