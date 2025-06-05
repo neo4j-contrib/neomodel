@@ -765,7 +765,7 @@ async def test_traverse():
 
     result = (
         await Species.nodes.filter(name="Robusta")
-        .fetch_relations(Path(value="coffees__suppliers", optional=True))
+        .traverse(Path(value="coffees__suppliers", optional=True))
         .all()
     )
     assert len(result) == 1
@@ -773,7 +773,7 @@ async def test_traverse():
     if AsyncUtil.is_async_code:
         count = (
             await Supplier.nodes.filter(name="Tesco")
-            .fetch_relations("coffees__species")
+            .traverse("coffees__species")
             .get_len()
         )
         assert count == 1
