@@ -1584,7 +1584,7 @@ class NodeSet(BaseSet):
     def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
         """Specify a set of relations to traverse and return."""
         warnings.warn(
-            "fetch_relations() will be deprecated soon, use traverse() instead.",
+            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
         relations = []
@@ -1601,7 +1601,7 @@ class NodeSet(BaseSet):
         """Specify a set of relations to traverse only."""
 
         warnings.warn(
-            "traverse_relations() will be deprecated soon, use traverse() instead.",
+            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
 
