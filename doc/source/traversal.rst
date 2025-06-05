@@ -6,7 +6,9 @@ Path traversal
 
 Neo4j is about traversing the graph, which means leveraging nodes and relations between them. This section will show you how to traverse the graph using neomodel.
 
-We will cover two methods : `traverse_relations` and `fetch_relations`. Those two methods are *mutually exclusive*, so you cannot chain them.
+For this, the method to use is `traverse`.
+
+Note that until version 6, two other methods are available, but deprecated : `traverse_relations` and `fetch_relations`. Those two methods are *mutually exclusive*, so you cannot chain them.
 
 For the examples in this section, we will be using the following model::
 
@@ -27,6 +29,50 @@ For the examples in this section, we will be using the following model::
 Traverse relations
 ------------------
 
+The `traverse` allows you to define multiple, multi-hop traversals, optionally returning traversed elements.
+
+For example, to find all `Coffee` nodes that have a supplier, and retrieve the country of that supplier, you can do::
+
+    Coffee.nodes.traverse("suppliers__country").all()
+
+This will generate a Cypher MATCH clause which traverses `Coffee<--Supplier-->Country`, and by default will return all traversed nodes and relationships.
+
+This method allows you to define a more complex `Path` object, giving you more control over the traversal.
+
+You can specify which elements to return, like::
+
+    # Return only the traversed nodes, not the relationships
+    Coffee.nodes.traverse(Path(value="suppliers__country", include_rels_in_return=False))
+
+    # Return only the traversed relationships, not the nodes
+    Coffee.nodes.traverse(Path(value="suppliers__country", include_nodes_in_return=False))
+
+You can specify that your traversal should be optional, like::
+
+    # Return only the traversed nodes, not the relationships
+    Coffee.nodes.traverse(Path(value="suppliers__country", optional=True))
+
+You can also alias the path, so that you can reference it later in the query, like::
+
+    Coffee.nodes.traverse(Path(value="suppliers__country", alias="supplier_country"))
+
+The `Country` nodes matched will be made available for the rest of the query, with the variable name `country`. Note that this aliasing is optional. See :ref:`Advanced query operations` for examples of how to use this aliasing.
+
+.. note::
+
+    The `traverse` method can be used to traverse multiple paths, like::
+
+        Coffee.nodes.traverse('suppliers__country', 'pub__city').all()
+
+    This will generate a Cypher MATCH clause that traverses both paths `Coffee<--Supplier-->Country` and `Coffee<--Pub-->City`.
+
+Traverse relations (deprecated)
+-------------------------------
+
+.. deprecated:: 5.5.0
+
+    This method is set to disappear in version 6, use `traverse` instead.
+
 The `traverse_relations` method allows you to filter on the existence of more complex traversals. For example, to find all `Coffee` nodes that have a supplier, and retrieve the country of that supplier, you can do::
 
     Coffee.nodes.traverse_relations(country='suppliers__country').all()
@@ -43,8 +89,12 @@ The `Country` nodes matched will be made available for the rest of the query, wi
 
     This will generate a Cypher MATCH clause that enforces the existence of at least one path like `Coffee<--Supplier-->Country` and `Coffee<--Pub-->City`.
 
-Fetch relations
----------------
+Fetch relations (deprecated)
+----------------------------
+
+.. deprecated:: 5.5.0
+
+    This method is set to disappear in version 6, use `traverse` instead.
 
 The syntax for `fetch_relations` is similar to `traverse_relations`, except that the generated Cypher will return all traversed objects (nodes and relations)::
 
@@ -59,8 +109,12 @@ The syntax for `fetch_relations` is similar to `traverse_relations`, except that
 
     Otherwise, neomodel will not be able to determine which relationship model to resolve into, and will fail.
 
-Optional match
---------------
+Optional match (deprecated)
+---------------------------
+
+.. deprecated:: 5.5.50
+
+    This method is set to disappear in version 6, use `traverse` instead.
 
 With both `traverse_relations` and `fetch_relations`, you can force the use of an ``OPTIONAL MATCH`` statement using the following syntax::
 
