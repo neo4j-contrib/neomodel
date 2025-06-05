@@ -28,6 +28,7 @@ from neomodel.async_.match import (
     Last,
     NodeNameResolver,
     Optional,
+    Path,
     RawCypher,
     RelationNameResolver,
     Size,
@@ -553,6 +554,22 @@ async def test_q_filters():
     )
     assert len(latte_or_robusta_coffee) == 2
 
+    arabica = await Species(name="Arabica").save()
+    await c1.species.connect(arabica)
+    robusta_coffee = (
+        await Coffee.nodes.fetch_relations(Optional("species"))
+        .filter(species__name="Robusta")
+        .all()
+    )
+    # Since the filter is applied on the OPTIONAL MATCH
+    # The results will contain all the coffee nodes
+    # But only the one connected to the species Robusta will have the species returned
+    # Everything else will be None
+    assert len(robusta_coffee) == 6
+    coffee_with_species = [n[0] for n in robusta_coffee if n[1] is not None]
+    assert len(coffee_with_species) == 1
+    assert coffee_with_species[0] == c4
+
     class QQ:
         pass
 
@@ -736,6 +753,59 @@ async def test_fetch_relations():
         assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
             name="Tesco"
         )
+
+
+@mark_async_test
+async def test_traverse():
+    arabica = await Species(name="Arabica").save()
+    robusta = await Species(name="Robusta").save()
+    nescafe = await Coffee(name="Nescafe", price=99).save()
+    nescafe_gold = await Coffee(name="Nescafe Gold", price=11).save()
+
+    tesco = await Supplier(name="Tesco", delivery_cost=3).save()
+    await nescafe.suppliers.connect(tesco)
+    await nescafe_gold.suppliers.connect(tesco)
+    await nescafe.species.connect(arabica)
+
+    result = (
+        await Supplier.nodes.filter(name="Tesco")
+        .traverse(Path(value="coffees__species", include_rels_in_return=False))
+        .all()
+    )
+    assert len(result[0]) == 3
+    assert arabica in result[0]
+    assert robusta not in result[0]
+    assert tesco in result[0]
+    assert nescafe in result[0]
+    assert nescafe_gold not in result[0]
+
+    result = (
+        await Species.nodes.filter(name="Robusta")
+        .traverse(Path(value="coffees__suppliers", optional=True))
+        .all()
+    )
+    assert len(result) == 1
+
+    if AsyncUtil.is_async_code:
+        count = (
+            await Supplier.nodes.filter(name="Tesco")
+            .traverse("coffees__species")
+            .get_len()
+        )
+        assert count == 1
+
+        assert (
+            await Supplier.nodes.traverse("coffees__species")
+            .filter(name="Tesco")
+            .check_contains(tesco)
+        )
+    else:
+        count = len(
+            Supplier.nodes.filter(name="Tesco").traverse("coffees__species").all()
+        )
+        assert count == 1
+
+        assert tesco in Supplier.nodes.traverse("coffees__species").filter(name="Tesco")
 
 
 @mark_async_test

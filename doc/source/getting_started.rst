@@ -261,10 +261,10 @@ Retrieving additional relations
 .. note::
 
    You can fetch one or more relations within the same call
-   to `.fetch_relations()` and you can mix optional and non-optional
+   to `.traverse()` and you can mix optional and non-optional
    relations, like::
 
-    Person.nodes.fetch_relations('city__country', Optional('country')).all()
+    Person.nodes.traverse('city__country', Path(value='country', optional=True)).all()
 
 .. note::
 
@@ -368,12 +368,12 @@ The example below will show you how you can mix and match query operations, as d
     full_nodeset = (
         await Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower") # Combine filters
         .order_by("name")
-        .fetch_relations(
+        .traverse(
             "parents",
-            Optional("children__preferred_course"),
-        ) # Combine fetch_relations
+            Path(value="children__preferred_course", optional=True)
+        ) # Combine traversals
         .subquery(
-            Student.nodes.fetch_relations("courses") # Root variable student will be auto-injected here
+            Student.nodes.traverse("courses") # Root variable student will be auto-injected here
             .intermediate_transform(
                 {"rel": RelationNameResolver("courses")},
                 ordering=[
