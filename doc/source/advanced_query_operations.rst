@@ -72,9 +72,9 @@ Here is a full example::
     await Coffee.nodes.fetch_relations("suppliers")
         .intermediate_transform(
             {
-                "coffee": "coffee",
-                "suppliers": NodeNameResolver("suppliers"),
-                "r": RelationNameResolver("suppliers"),
+                "coffee": {"source": "coffee"},
+                "suppliers": {"source": NodeNameResolver("suppliers")},
+                "r": {"source": RelationNameResolver("suppliers")},
                 "coffee": {"source": "coffee", "include_in_return": True}, # Only coffee will be returned
                 "suppliers": {"source": NodeNameResolver("suppliers")},
                 "r": {"source": RelationNameResolver("suppliers")},
@@ -146,3 +146,15 @@ In some cases though, it is not possible to set explicit aliases, for example wh
 .. note:: 
 
     When using the resolvers in combination with a traversal as in the example above, it will resolve the variable name of the last element in the traversal - the Species node for NodeNameResolver, and Coffee--Species relationship for RelationshipNameResolver.
+
+Another example is to reference the root node itself::
+
+    subquery = await Coffee.nodes.subquery(
+        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        .intermediate_transform(
+            {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
+        )
+        .annotate(supps=Last(Collect("suppliers"))),
+        ["supps"],
+        [NodeNameResolver("self")], # This is the root Coffee node
+    )

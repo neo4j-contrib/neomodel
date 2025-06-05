@@ -1,6 +1,7 @@
 import inspect
 import re
 import string
+import warnings
 from dataclasses import dataclass
 from typing import Any, Iterator
 from typing import Optional as TOptional
@@ -574,9 +575,9 @@ class QueryBuilder:
             self._ast.additional_return.append(name)
 
     def build_traversal_from_path(
-        self, relation: dict, source_class: Any
+        self, relation: "Path", source_class: Any
     ) -> Tuple[str, Any]:
-        path: str = relation["path"]
+        path: str = relation.value
         stmt: str = ""
         source_class_iterator = source_class
         parts = re.split(path_split_regex, path)
@@ -604,7 +605,7 @@ class QueryBuilder:
                     if self._subquery_namespace:
                         # Don't include label in identifier if we are in a subquery
                         lhs_ident = lhs_name
-                elif relation["include_in_return"]:
+                elif relation.include_nodes_in_return:
                     self._additional_return(lhs_name)
             else:
                 lhs_ident = stmt
@@ -612,19 +613,19 @@ class QueryBuilder:
             already_present = part in subgraph
             rel_ident = self.create_relation_identifier()
             rhs_label = relationship.definition["node_class"].__label__
-            if relation.get("relation_filtering"):
+            if relation.relation_filtering:
                 rhs_name = rel_ident
                 rhs_ident = f":{rhs_label}"
             else:
-                if index + 1 == len(parts) and "alias" in relation:
+                if index + 1 == len(parts) and relation.alias:
                     # If an alias is defined, use it to store the last hop in the path
-                    rhs_name = relation["alias"]
+                    rhs_name = relation.alias
                 else:
                     rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
                     rhs_name = self.create_node_identifier(rhs_name, rel_iterator)
                 rhs_ident = f"{rhs_name}:{rhs_label}"
 
-            if relation["include_in_return"] and not already_present:
+            if relation.include_nodes_in_return and not already_present:
                 self._additional_return(rhs_name)
 
             if not already_present:
@@ -638,11 +639,11 @@ class QueryBuilder:
                 existing_rhs_name = subgraph[part][
                     (
                         "rel_variable_name"
-                        if relation.get("relation_filtering")
+                        if relation.relation_filtering
                         else "variable_name"
                     )
                 ]
-            if relation["include_in_return"] and not already_present:
+            if relation.include_rels_in_return and not already_present:
                 self._additional_return(rel_ident)
             stmt = _rel_helper(
                 lhs=lhs_ident,
@@ -655,7 +656,7 @@ class QueryBuilder:
             subgraph = subgraph[part]["children"]
 
         if not already_present:
-            if relation.get("optional"):
+            if relation.optional:
                 self._ast.optional_match.append(stmt)
             else:
                 self._ast.match.append(stmt)
@@ -743,11 +744,10 @@ class QueryBuilder:
         is_optional_relation = False
         if not result:
             ident, target_class = self.build_traversal_from_path(
-                {
-                    "path": path,
-                    "include_in_return": True,
-                    "relation_filtering": is_rel_filter,
-                },
+                Path(
+                    value=path,
+                    relation_filtering=is_rel_filter,
+                ),
                 source_class,
             )
         else:
@@ -904,8 +904,8 @@ class QueryBuilder:
         # (declared using fetch|traverse_relations)
         is_optional_relation = False
         for relation in self.node_set.relations_to_fetch:
-            if relation["path"] == path:
-                is_optional_relation = relation.get("optional", False)
+            if relation.value == path:
+                is_optional_relation = relation.optional
                 break
 
         subgraph = subgraph[traversals[0]]
@@ -1216,6 +1216,18 @@ class Optional:  # type: ignore[no-redef]
 
 
 @dataclass
+class Path:
+    """Path traversal definition."""
+
+    value: str
+    optional: bool = False
+    include_nodes_in_return: bool = True
+    include_rels_in_return: bool = True
+    relation_filtering: bool = False
+    alias: TOptional[str] = None
+
+
+@dataclass
 class RelationNameResolver:
     """Helper to refer to a relation variable name.
 
@@ -1382,7 +1394,7 @@ class NodeSet(BaseSet):
         self.must_match: dict = {}
         self.dont_match: dict = {}
 
-        self.relations_to_fetch: list = []
+        self.relations_to_fetch: list[Path] = []
         self._extra_results: list = []
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
@@ -1543,19 +1555,16 @@ class NodeSet(BaseSet):
         return self
 
     def _register_relation_to_fetch(
-        self,
-        relation_def: Any,
-        alias: TOptional[str] = None,
-        include_in_return: bool = True,
-    ) -> dict:
-        if isinstance(relation_def, Optional):
-            item = {"path": relation_def.relation, "optional": True}
+        self, relation_def: Any, alias: TOptional[str] = None
+    ) -> "Path":
+        if isinstance(relation_def, Path):
+            item = relation_def
         else:
-            item = {"path": relation_def}
-        item["include_in_return"] = include_in_return
-
+            item = Path(
+                value=relation_def,
+            )
         if alias:
-            item["alias"] = alias
+            item.alias = alias
         return item
 
     def unique_variables(self, *pathes: tuple[str, ...]) -> "NodeSet":
@@ -1563,10 +1572,28 @@ class NodeSet(BaseSet):
         self._unique_variables = pathes
         return self
 
+    def traverse(self, *pathes: tuple[str, ...], **aliased_pathes: dict) -> "NodeSet":
+        """Specify a set of pathes to traverse."""
+        relations = []
+        for path in pathes:
+            relations.append(self._register_relation_to_fetch(path))
+        for alias, aliased_path in aliased_pathes.items():
+            relations.append(
+                self._register_relation_to_fetch(aliased_path, alias=alias)
+            )
+        self.relations_to_fetch = relations
+        return self
+
     def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
         """Specify a set of relations to traverse and return."""
+        warnings.warn(
+            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
+            DeprecationWarning,
+        )
         relations = []
         for relation_name in relation_names:
+            if isinstance(relation_name, Optional):
+                relation_name = Path(value=relation_name.relation, optional=True)
             relations.append(self._register_relation_to_fetch(relation_name))
         self.relations_to_fetch = relations
         return self
@@ -1575,15 +1602,30 @@ class NodeSet(BaseSet):
         self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
     ) -> "NodeSet":
         """Specify a set of relations to traverse only."""
+
+        warnings.warn(
+            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
+            DeprecationWarning,
+        )
+
+        def convert_to_path(input: Union[str, Optional]) -> Path:
+            if isinstance(input, Optional):
+                path = Path(value=input.relation, optional=True)
+            else:
+                path = Path(value=input)
+            path.include_nodes_in_return = False
+            path.include_rels_in_return = False
+            return path
+
         relations = []
         for relation_name in relation_names:
             relations.append(
-                self._register_relation_to_fetch(relation_name, include_in_return=False)
+                self._register_relation_to_fetch(convert_to_path(relation_name))
             )
         for alias, relation_def in aliased_relation_names.items():
             relations.append(
                 self._register_relation_to_fetch(
-                    relation_def, alias, include_in_return=False
+                    convert_to_path(relation_def), alias=alias
                 )
             )
 
@@ -1656,7 +1698,8 @@ class NodeSet(BaseSet):
         """
         if (
             self.relations_to_fetch
-            and not self.relations_to_fetch[0]["include_in_return"]
+            and not self.relations_to_fetch[0].include_nodes_in_return
+            and not self.relations_to_fetch[0].include_rels_in_return
         ):
             raise NotImplementedError(
                 "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
