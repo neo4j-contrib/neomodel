@@ -1571,19 +1571,19 @@ class AsyncNodeSet(AsyncBaseSet):
             item.alias = alias
         return item
 
-    def unique_variables(self, *pathes: tuple[str, ...]) -> "AsyncNodeSet":
-        """Generate unique variable names for the given pathes."""
-        self._unique_variables = pathes
+    def unique_variables(self, *paths: tuple[str, ...]) -> "AsyncNodeSet":
+        """Generate unique variable names for the given paths."""
+        self._unique_variables = paths
         return self
 
     def traverse(
-        self, *pathes: tuple[str, ...], **aliased_pathes: dict
+        self, *paths: tuple[str, ...], **aliased_paths: dict
     ) -> "AsyncNodeSet":
-        """Specify a set of pathes to traverse."""
+        """Specify a set of paths to traverse."""
         relations = []
-        for path in pathes:
+        for path in paths:
             relations.append(self._register_relation_to_fetch(path))
-        for alias, aliased_path in aliased_pathes.items():
+        for alias, aliased_path in aliased_paths.items():
             relations.append(
                 self._register_relation_to_fetch(aliased_path, alias=alias)
             )
