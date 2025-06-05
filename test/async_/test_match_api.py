@@ -553,6 +553,22 @@ async def test_q_filters():
     )
     assert len(latte_or_robusta_coffee) == 2
 
+    arabica = await Species(name="Arabica").save()
+    await c1.species.connect(arabica)
+    robusta_coffee = (
+        await Coffee.nodes.fetch_relations(Optional("species"))
+        .filter(species__name="Robusta")
+        .all()
+    )
+    # Since the filter is applied on the OPTIONAL MATCH
+    # The results will contain all the coffee nodes
+    # But only the one connected to the species Robusta will have the species returned
+    # Everything else will be None
+    assert len(robusta_coffee) == 6
+    coffee_with_species = [n[0] for n in robusta_coffee if n[1] is not None]
+    assert len(coffee_with_species) == 1
+    assert coffee_with_species[0] == c4
+
     class QQ:
         pass
 
