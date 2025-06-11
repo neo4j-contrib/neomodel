@@ -561,8 +561,6 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)
 
 
 class AsyncRelationshipFrom(AsyncRelationshipDefinition):
@@ -580,8 +578,6 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)
 
 
 class AsyncRelationship(AsyncRelationshipDefinition):
@@ -599,5 +595,3 @@ class AsyncRelationship(AsyncRelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)

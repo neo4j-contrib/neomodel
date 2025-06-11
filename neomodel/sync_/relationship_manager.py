@@ -541,8 +541,6 @@ class RelationshipTo(RelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)
 
 
 class RelationshipFrom(RelationshipDefinition):
@@ -560,8 +558,6 @@ class RelationshipFrom(RelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)
 
 
 class Relationship(RelationshipDefinition):
@@ -579,5 +575,3 @@ class Relationship(RelationshipDefinition):
         )
         if exclusion_group:
             self.definition["exclusion_group"] = exclusion_group
-        if definition:
-            self.definition.update(definition)
