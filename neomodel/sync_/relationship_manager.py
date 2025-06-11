@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
-from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
+from neomodel.sync_.match import (
+    NodeSet,
+    Traversal,
+    _rel_helper,
+    _rel_merge_helper,
+)
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
     EITHER,
@@ -528,10 +533,16 @@ class RelationshipTo(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        definition: Optional[dict] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
+        if definition:
+            self.definition.update(definition)
 
 
 class RelationshipFrom(RelationshipDefinition):
@@ -541,10 +552,16 @@ class RelationshipFrom(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        definition: Optional[dict] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
+        if definition:
+            self.definition.update(definition)
 
 
 class Relationship(RelationshipDefinition):
@@ -554,7 +571,13 @@ class Relationship(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        definition: Optional[dict] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
+        if definition:
+            self.definition.update(definition)

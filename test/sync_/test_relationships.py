@@ -4,6 +4,7 @@ from pytest import raises
 
 from neomodel import (
     IntegerProperty,
+    MutuallyExclusive,
     One,
     Q,
     Relationship,
@@ -14,6 +15,7 @@ from neomodel import (
     StructuredRel,
     db,
 )
+from neomodel.exceptions import MutualExclusionViolation
 
 
 class PersonWithRels(StructuredNode):
@@ -207,3 +209,68 @@ def test_props_relationship():
 
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={"city": "Thessaloniki"})
+
+
+class JealousDog(StructuredNode):
+    name = StringProperty(required=True)
+
+
+class JealousCat(StructuredNode):
+    name = StringProperty(required=True)
+
+
+class ExclusivePerson(StructuredNode):
+    name = StringProperty(required=True)
+
+    # Define mutually exclusive relationships
+    cat = RelationshipTo(
+        "JealousCat",
+        "HAS_PET",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["dog"],
+    )
+    dog = RelationshipTo(
+        "JealousDog",
+        "HAS_PET",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["cat"],
+    )
+
+
+@mark_sync_test
+def test_mutually_exclusive_relationships():
+    # Create test nodes
+    bob = ExclusivePerson(name="Bob")
+    bob.save()
+    rex = JealousDog(name="Rex")
+    rex.save()
+    whiskers = JealousCat(name="Whiskers")
+    whiskers.save()
+
+    # Bob can have a dog
+    bob.dog.connect(rex)
+
+    # But now Bob can't have a cat because he already has a dog
+    with raises(MutualExclusionViolation):
+        bob.cat.connect(whiskers)
+
+    # Create another person
+    alice = ExclusivePerson(name="Alice")
+    alice.save()
+
+    # Alice can have a cat
+    alice.cat.connect(whiskers)
+
+    # But now Alice can't have a dog because she already has a cat
+    with raises(MutualExclusionViolation):
+        alice.dog.connect(rex)
+
+    # If Alice disconnects her cat, she can then have a dog
+    alice.cat.disconnect(whiskers)
+    alice.dog.connect(rex)
+
+    # Verify the connections
+    assert len(bob.dog.all()) == 1
+    assert len(bob.cat.all()) == 0
+    assert len(alice.dog.all()) == 1
+    assert len(alice.cat.all()) == 0

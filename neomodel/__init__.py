@@ -1,5 +1,6 @@
 # pep8: noqa
 from neomodel.async_.cardinality import (
+    AsyncMutuallyExclusive,
     AsyncOne,
     AsyncOneOrMore,
     AsyncZeroOrMore,
@@ -38,7 +39,13 @@ from neomodel.properties import (
     UniqueIdProperty,
     VectorIndex,
 )
-from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
+from neomodel.sync_.cardinality import (
+    MutuallyExclusive,
+    One,
+    OneOrMore,
+    ZeroOrMore,
+    ZeroOrOne,
+)
 from neomodel.sync_.core import (
     StructuredNode,
     change_neo4j_password,

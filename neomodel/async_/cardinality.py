@@ -1,10 +1,14 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from neomodel.async_.relationship_manager import (  # pylint:disable=unused-import
     AsyncRelationshipManager,
     AsyncZeroOrMore,
 )
-from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
+from neomodel.exceptions import (
+    AttemptedCardinalityViolation,
+    CardinalityViolation,
+    MutualExclusionViolation,
+)
 
 if TYPE_CHECKING:
     from neomodel import AsyncStructuredNode, AsyncStructuredRel
@@ -141,4 +145,50 @@ class AsyncOne(AsyncRelationshipManager):
             raise ValueError("Node has not been saved cannot connect!")
         if await super().get_len():
             raise AttemptedCardinalityViolation("Node already has one relationship")
+        return await super().connect(node, properties)
+
+
+class AsyncMutuallyExclusive(AsyncRelationshipManager):
+    """
+    A relationship that is mutually exclusive with other relationships.
+
+    This cardinality constraint ensures that if this relationship is connected,
+    other relationships in the exclusion group cannot be connected, and vice versa.
+    """
+
+    description = "mutually exclusive relationship"
+    exclusion_group: List[str] = []
+
+    def __init__(self, source: Any, key: str, definition: dict):
+        super().__init__(source, key, definition)
+        # Initialize exclusion_group from definition if provided
+        if "exclusion_group" in definition:
+            self.exclusion_group = definition["exclusion_group"]
+
+    async def _check_exclusivity(self) -> None:
+        """
+        Check if any of the mutually exclusive relationships are connected.
+        Raises MutualExclusionViolation if a violation is found.
+        """
+        for rel_name in self.exclusion_group:
+            if not hasattr(self.source, rel_name):
+                continue
+
+            rel_manager = getattr(self.source, rel_name)
+            if await rel_manager.get_len() > 0:
+                raise MutualExclusionViolation(
+                    f"Cannot connect to `{self}` when `{rel_name}` is already connected"
+                )
+
+    async def connect(
+        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "AsyncStructuredRel":
+        """
+        Connect to a node, ensuring mutual exclusivity with other relationships.
+
+        :param node: The node to connect to
+        :param properties: Relationship properties
+        :return: The created relationship
+        """
+        await self._check_exclusivity()
         return await super().connect(node, properties)
