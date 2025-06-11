@@ -237,8 +237,50 @@ class ExclusivePerson(AsyncStructuredNode):
     )
 
 
+class WeirdCompany(AsyncStructuredNode):
+    name = StringProperty(required=True)
+
+    # A company can have either full-time or part-time employees, but not both
+    full_time_employees = AsyncRelationshipFrom(
+        "WeirdEmployee",
+        "WORKS_FULL_TIME_AT",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["part_time_employees"],
+    )
+    part_time_employees = AsyncRelationshipFrom(
+        "WeirdEmployee",
+        "WORKS_PART_TIME_AT",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["full_time_employees"],
+    )
+
+
+class WeirdEmployee(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    salary = IntegerProperty()
+
+
+class SingleMindedPerson(AsyncStructuredNode):
+    name = StringProperty(required=True)
+
+    # A person can be either friends or enemies with another person, but not both
+    friends = AsyncRelationship(
+        "SingleMindedPerson",
+        "FRIENDS_WITH",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["enemies"],
+    )
+    enemies = AsyncRelationship(
+        "SingleMindedPerson",
+        "ENEMIES_WITH",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["friends"],
+    )
+
+
 @mark_async_test
-async def test_mutually_exclusive_relationships():
+async def test_mutually_exclusive_to_relationships():
+    """Test RelationshipTo with MutuallyExclusive cardinality."""
     # Create test nodes
     bob = await ExclusivePerson(name="Bob").save()
     rex = await JealousDog(name="Rex").save()
@@ -270,3 +312,67 @@ async def test_mutually_exclusive_relationships():
     assert len(await bob.cat.all()) == 0
     assert len(await alice.dog.all()) == 1
     assert len(await alice.cat.all()) == 0
+
+
+@mark_async_test
+async def test_mutually_exclusive_from_relationships():
+    """Test RelationshipFrom with MutuallyExclusive cardinality."""
+    # Create test nodes
+    tech_corp = await WeirdCompany(name="TechCorp").save()
+    alice = await WeirdEmployee(name="Alice", salary=50000).save()
+    bob = await WeirdEmployee(name="Bob", salary=30000).save()
+
+    # TechCorp can have full-time employees
+    await tech_corp.full_time_employees.connect(alice)
+
+    # But now TechCorp can't have part-time employees
+    with raises(MutualExclusionViolation):
+        await tech_corp.part_time_employees.connect(bob)
+
+    # Create another company
+    retail_corp = await WeirdCompany(name="RetailCorp").save()
+
+    # RetailCorp can have part-time employees
+    await retail_corp.part_time_employees.connect(bob)
+
+    # But now RetailCorp can't have full-time employees
+    with raises(MutualExclusionViolation):
+        await retail_corp.full_time_employees.connect(alice)
+
+    # If RetailCorp disconnects its part-time employees, it can have full-time employees
+    await retail_corp.part_time_employees.disconnect(bob)
+    await retail_corp.full_time_employees.connect(alice)
+
+    # Verify the connections
+    assert len(await tech_corp.full_time_employees.all()) == 1
+    assert len(await tech_corp.part_time_employees.all()) == 0
+    assert len(await retail_corp.full_time_employees.all()) == 1
+    assert len(await retail_corp.part_time_employees.all()) == 0
+
+
+@mark_async_test
+async def test_mutually_exclusive_bidirectional_relationships():
+    """Test Relationship with MutuallyExclusive cardinality."""
+    # Create test nodes
+    alice = await SingleMindedPerson(name="Alice").save()
+    bob = await SingleMindedPerson(name="Bob").save()
+    charlie = await SingleMindedPerson(name="Charlie").save()
+
+    # Alice and Bob can be friends
+    await alice.friends.connect(bob)
+
+    # But now Alice and Charlie can't be enemies
+    with raises(MutualExclusionViolation):
+        await alice.enemies.connect(charlie)
+
+    # If Alice disconnects from being friends with Bob, she can be enemies with Charlie
+    await alice.friends.disconnect(bob)
+    await alice.enemies.connect(charlie)
+
+    # Verify the connections
+    assert len(await alice.friends.all()) == 0
+    assert len(await alice.enemies.all()) == 1  # Charlie
+    assert len(await charlie.friends.all()) == 0
+    assert len(await charlie.enemies.all()) == 1  # Alice
+    assert len(await bob.friends.all()) == 0
+    assert len(await bob.enemies.all()) == 0
