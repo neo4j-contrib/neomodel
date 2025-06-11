@@ -3,6 +3,7 @@ from test._async_compat import mark_async_test
 from pytest import raises
 
 from neomodel import (
+    AsyncMutuallyExclusive,
     AsyncOne,
     AsyncRelationship,
     AsyncRelationshipFrom,
@@ -14,6 +15,7 @@ from neomodel import (
     StringProperty,
     adb,
 )
+from neomodel.exceptions import MutualExclusionViolation
 
 
 class PersonWithRels(AsyncStructuredNode):
@@ -207,3 +209,64 @@ async def test_props_relationship():
 
     with raises(NotImplementedError):
         await c.inhabitant.connect(u, properties={"city": "Thessaloniki"})
+
+
+class JealousDog(AsyncStructuredNode):
+    name = StringProperty(required=True)
+
+
+class JealousCat(AsyncStructuredNode):
+    name = StringProperty(required=True)
+
+
+class ExclusivePerson(AsyncStructuredNode):
+    name = StringProperty(required=True)
+
+    # Define mutually exclusive relationships
+    cat = AsyncRelationshipTo(
+        "JealousCat",
+        "HAS_PET",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["dog"],
+    )
+    dog = AsyncRelationshipTo(
+        "JealousDog",
+        "HAS_PET",
+        cardinality=AsyncMutuallyExclusive,
+        exclusion_group=["cat"],
+    )
+
+
+@mark_async_test
+async def test_mutually_exclusive_relationships():
+    # Create test nodes
+    bob = await ExclusivePerson(name="Bob").save()
+    rex = await JealousDog(name="Rex").save()
+    whiskers = await JealousCat(name="Whiskers").save()
+
+    # Bob can have a dog
+    await bob.dog.connect(rex)
+
+    # But now Bob can't have a cat because he already has a dog
+    with raises(MutualExclusionViolation):
+        await bob.cat.connect(whiskers)
+
+    # Create another person
+    alice = await ExclusivePerson(name="Alice").save()
+
+    # Alice can have a cat
+    await alice.cat.connect(whiskers)
+
+    # But now Alice can't have a dog because she already has a cat
+    with raises(MutualExclusionViolation):
+        await alice.dog.connect(rex)
+
+    # If Alice disconnects her cat, she can then have a dog
+    await alice.cat.disconnect(whiskers)
+    await alice.dog.connect(rex)
+
+    # Verify the connections
+    assert len(await bob.dog.all()) == 1
+    assert len(await bob.cat.all()) == 0
+    assert len(await alice.dog.all()) == 1
+    assert len(await alice.cat.all()) == 0

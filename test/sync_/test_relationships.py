@@ -240,12 +240,9 @@ class ExclusivePerson(StructuredNode):
 @mark_sync_test
 def test_mutually_exclusive_relationships():
     # Create test nodes
-    bob = ExclusivePerson(name="Bob")
-    bob.save()
-    rex = JealousDog(name="Rex")
-    rex.save()
-    whiskers = JealousCat(name="Whiskers")
-    whiskers.save()
+    bob = ExclusivePerson(name="Bob").save()
+    rex = JealousDog(name="Rex").save()
+    whiskers = JealousCat(name="Whiskers").save()
 
     # Bob can have a dog
     bob.dog.connect(rex)
@@ -255,8 +252,7 @@ def test_mutually_exclusive_relationships():
         bob.cat.connect(whiskers)
 
     # Create another person
-    alice = ExclusivePerson(name="Alice")
-    alice.save()
+    alice = ExclusivePerson(name="Alice").save()
 
     # Alice can have a cat
     alice.cat.connect(whiskers)
