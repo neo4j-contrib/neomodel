@@ -88,10 +88,9 @@ class AsyncDatabase(local):
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
-    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
-    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
-
     def __init__(self) -> None:
+        self._NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
+        self._DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
         self._active_transaction: Optional[AsyncTransaction] = None
         self.url: Optional[str] = None
         self.driver: Optional[AsyncDriver] = None
@@ -1168,6 +1167,46 @@ class AsyncDatabase(local):
                         quiet=quiet,
                     )
 
+    def register_node_class(self, cls: Any) -> None:
+        """
+        Register a node class with this database instance.
+        This allows for runtime registration with different database instances.
+
+        :param cls: The node class to register
+        :type cls: Any
+        """
+        base_label_set = frozenset(cls.inherited_labels())
+        optional_label_set = set(cls.inherited_optional_labels())
+
+        # Construct all possible combinations of labels + optional labels
+        possible_label_combinations = [
+            frozenset(set(x).union(base_label_set))
+            for i in range(1, len(optional_label_set) + 1)
+            for x in combinations(optional_label_set, i)
+        ]
+        possible_label_combinations.append(base_label_set)
+
+        for label_set in possible_label_combinations:
+            if not hasattr(cls, "__target_databases__"):
+                if label_set not in self._NODE_CLASS_REGISTRY:
+                    self._NODE_CLASS_REGISTRY[label_set] = cls
+                else:
+                    raise NodeClassAlreadyDefined(
+                        cls, self._NODE_CLASS_REGISTRY, self._DB_SPECIFIC_CLASS_REGISTRY
+                    )
+            else:
+                for database in cls.__target_databases__:
+                    if database not in self._DB_SPECIFIC_CLASS_REGISTRY:
+                        self._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
+                    if label_set not in self._DB_SPECIFIC_CLASS_REGISTRY[database]:
+                        self._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
+                    else:
+                        raise NodeClassAlreadyDefined(
+                            cls,
+                            self._NODE_CLASS_REGISTRY,
+                            self._DB_SPECIFIC_CLASS_REGISTRY,
+                        )
+
 
 # Create a singleton instance of the database object
 adb = AsyncDatabase()
@@ -1424,41 +1463,9 @@ class NodeMeta(type):
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 
-            build_class_registry(cls)
+            adb.register_node_class(cls)
 
         return cls
-
-
-def build_class_registry(cls: Any) -> None:
-    base_label_set = frozenset(cls.inherited_labels())
-    optional_label_set = set(cls.inherited_optional_labels())
-
-    # Construct all possible combinations of labels + optional labels
-    possible_label_combinations = [
-        frozenset(set(x).union(base_label_set))
-        for i in range(1, len(optional_label_set) + 1)
-        for x in combinations(optional_label_set, i)
-    ]
-    possible_label_combinations.append(base_label_set)
-
-    for label_set in possible_label_combinations:
-        if not hasattr(cls, "__target_databases__"):
-            if label_set not in adb._NODE_CLASS_REGISTRY:
-                adb._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                raise NodeClassAlreadyDefined(
-                    cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
-                )
-        else:
-            for database in cls.__target_databases__:
-                if database not in adb._DB_SPECIFIC_CLASS_REGISTRY:
-                    adb._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
-                if label_set not in adb._DB_SPECIFIC_CLASS_REGISTRY[database]:
-                    adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                else:
-                    raise NodeClassAlreadyDefined(
-                        cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
-                    )
 
 
 NodeBase: type = NodeMeta(
@@ -1488,6 +1495,17 @@ class AsyncStructuredNode(NodeBase):
             self.__dict__[key] = val.build_manager(self, key)
 
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def register_with_database(cls, database: AsyncDatabase) -> None:
+        """
+        Register this node class with a specific database instance.
+        This allows for using the same node class with multiple database connections.
+
+        :param database: The database instance to register with
+        :type database: AsyncDatabase
+        """
+        database.register_node_class(cls)
 
     def __eq__(self, other: Any) -> bool:
         """

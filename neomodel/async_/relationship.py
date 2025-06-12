@@ -178,3 +178,19 @@ class AsyncStructuredRel(StructuredRelBase):
             srel._end_node_element_id_property = rel.end_node.element_id
         srel.element_id_property = rel.element_id
         return srel
+
+    @classmethod
+    def register_with_database(
+        cls, database: "AsyncDatabase", relation_type: str
+    ) -> None:
+        """
+        Register this relationship class with a specific database instance.
+        This allows for using the same relationship class with multiple database connections.
+
+        :param database: The database instance to register with
+        :type database: AsyncDatabase
+        :param relation_type: The relationship type to register this class for
+        :type relation_type: str
+        """
+        label_set = frozenset([relation_type])
+        database._NODE_CLASS_REGISTRY[label_set] = cls

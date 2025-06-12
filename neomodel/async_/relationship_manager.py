@@ -434,6 +434,7 @@ class AsyncRelationshipDefinition:
         direction: int,
         manager: type[AsyncRelationshipManager] = AsyncRelationshipManager,
         model: Optional[type[AsyncStructuredRel]] = None,
+        database: Optional["AsyncDatabase"] = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -455,35 +456,56 @@ class AsyncRelationshipDefinition:
             "model": model,
         }
 
+        # Use the provided database instance or fall back to the global adb
+        target_db = database if database is not None else adb
+
         if model is not None:
-            # Relationships are easier to instantiate because
-            # they cannot have multiple labels.
-            # So, a relationship's type determines the class that should be
-            # instantiated uniquely.
-            # Here however, we still use a `frozenset([relation_type])`
-            # to preserve the mapping type.
-            label_set = frozenset([relation_type])
-            try:
-                # If the relationship mapping exists then it is attempted
-                # to be redefined so that it applies to the same label.
-                # In this case, it has to be ensured that the class
-                # that is overriding the relationship is a descendant
-                # of the already existing class.
-                model_from_registry = adb._NODE_CLASS_REGISTRY[label_set]
-                if not issubclass(model, model_from_registry):
-                    is_parent = issubclass(model_from_registry, model)
-                    if is_direct_subclass(model, AsyncStructuredRel) and not is_parent:
-                        raise RelationshipClassRedefined(
-                            relation_type,
-                            adb._NODE_CLASS_REGISTRY,
-                            adb._DB_SPECIFIC_CLASS_REGISTRY,
-                            model,
-                        )
-                else:
-                    adb._NODE_CLASS_REGISTRY[label_set] = model
-            except KeyError:
-                # If the mapping does not exist then it is simply created.
-                adb._NODE_CLASS_REGISTRY[label_set] = model
+            self.register_with_database(model, relation_type, target_db)
+
+    def register_with_database(
+        self,
+        model: type[AsyncStructuredRel],
+        relation_type: str,
+        database: "AsyncDatabase",
+    ) -> None:
+        """
+        Register a relationship model with a specific database instance.
+
+        :param model: The relationship model to register
+        :type model: type[AsyncStructuredRel]
+        :param relation_type: The relationship type
+        :type relation_type: str
+        :param database: The database instance to register with
+        :type database: AsyncDatabase
+        """
+        # Relationships are easier to instantiate because
+        # they cannot have multiple labels.
+        # So, a relationship's type determines the class that should be
+        # instantiated uniquely.
+        # Here however, we still use a `frozenset([relation_type])`
+        # to preserve the mapping type.
+        label_set = frozenset([relation_type])
+        try:
+            # If the relationship mapping exists then it is attempted
+            # to be redefined so that it applies to the same label.
+            # In this case, it has to be ensured that the class
+            # that is overriding the relationship is a descendant
+            # of the already existing class.
+            model_from_registry = database._NODE_CLASS_REGISTRY[label_set]
+            if not issubclass(model, model_from_registry):
+                is_parent = issubclass(model_from_registry, model)
+                if is_direct_subclass(model, AsyncStructuredRel) and not is_parent:
+                    raise RelationshipClassRedefined(
+                        relation_type,
+                        database._NODE_CLASS_REGISTRY,
+                        database._DB_SPECIFIC_CLASS_REGISTRY,
+                        model,
+                    )
+            else:
+                database._NODE_CLASS_REGISTRY[label_set] = model
+        except KeyError:
+            # If the mapping does not exist then it is simply created.
+            database._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
         self, cls_name: str, model: Optional[type[AsyncStructuredRel]] = None
@@ -553,9 +575,16 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["AsyncDatabase"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, OUTGOING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            OUTGOING,
+            manager=cardinality,
+            model=model,
+            database=database,
         )
 
 
@@ -566,9 +595,16 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["AsyncDatabase"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, INCOMING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            INCOMING,
+            manager=cardinality,
+            model=model,
+            database=database,
         )
 
 
@@ -579,7 +615,14 @@ class AsyncRelationship(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["AsyncDatabase"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, EITHER, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            EITHER,
+            manager=cardinality,
+            model=model,
+            database=database,
         )

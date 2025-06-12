@@ -411,6 +411,7 @@ class RelationshipDefinition:
         direction: int,
         manager: type[RelationshipManager] = RelationshipManager,
         model: Optional[type[StructuredRel]] = None,
+        database: Optional["Database"] = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -432,35 +433,56 @@ class RelationshipDefinition:
             "model": model,
         }
 
+        # Use the provided database instance or fall back to the global adb
+        target_db = database if database is not None else db
+
         if model is not None:
-            # Relationships are easier to instantiate because
-            # they cannot have multiple labels.
-            # So, a relationship's type determines the class that should be
-            # instantiated uniquely.
-            # Here however, we still use a `frozenset([relation_type])`
-            # to preserve the mapping type.
-            label_set = frozenset([relation_type])
-            try:
-                # If the relationship mapping exists then it is attempted
-                # to be redefined so that it applies to the same label.
-                # In this case, it has to be ensured that the class
-                # that is overriding the relationship is a descendant
-                # of the already existing class.
-                model_from_registry = db._NODE_CLASS_REGISTRY[label_set]
-                if not issubclass(model, model_from_registry):
-                    is_parent = issubclass(model_from_registry, model)
-                    if is_direct_subclass(model, StructuredRel) and not is_parent:
-                        raise RelationshipClassRedefined(
-                            relation_type,
-                            db._NODE_CLASS_REGISTRY,
-                            db._DB_SPECIFIC_CLASS_REGISTRY,
-                            model,
-                        )
-                else:
-                    db._NODE_CLASS_REGISTRY[label_set] = model
-            except KeyError:
-                # If the mapping does not exist then it is simply created.
-                db._NODE_CLASS_REGISTRY[label_set] = model
+            self.register_with_database(model, relation_type, target_db)
+
+    def register_with_database(
+        self,
+        model: type[StructuredRel],
+        relation_type: str,
+        database: "Database",
+    ) -> None:
+        """
+        Register a relationship model with a specific database instance.
+
+        :param model: The relationship model to register
+        :type model: type[StructuredRel]
+        :param relation_type: The relationship type
+        :type relation_type: str
+        :param database: The database instance to register with
+        :type database: Database
+        """
+        # Relationships are easier to instantiate because
+        # they cannot have multiple labels.
+        # So, a relationship's type determines the class that should be
+        # instantiated uniquely.
+        # Here however, we still use a `frozenset([relation_type])`
+        # to preserve the mapping type.
+        label_set = frozenset([relation_type])
+        try:
+            # If the relationship mapping exists then it is attempted
+            # to be redefined so that it applies to the same label.
+            # In this case, it has to be ensured that the class
+            # that is overriding the relationship is a descendant
+            # of the already existing class.
+            model_from_registry = database._NODE_CLASS_REGISTRY[label_set]
+            if not issubclass(model, model_from_registry):
+                is_parent = issubclass(model_from_registry, model)
+                if is_direct_subclass(model, StructuredRel) and not is_parent:
+                    raise RelationshipClassRedefined(
+                        relation_type,
+                        database._NODE_CLASS_REGISTRY,
+                        database._DB_SPECIFIC_CLASS_REGISTRY,
+                        model,
+                    )
+            else:
+                database._NODE_CLASS_REGISTRY[label_set] = model
+        except KeyError:
+            # If the mapping does not exist then it is simply created.
+            database._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
         self, cls_name: str, model: Optional[type[StructuredRel]] = None
@@ -528,9 +550,16 @@ class RelationshipTo(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["Database"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, OUTGOING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            OUTGOING,
+            manager=cardinality,
+            model=model,
+            database=database,
         )
 
 
@@ -541,9 +570,16 @@ class RelationshipFrom(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["Database"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, INCOMING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            INCOMING,
+            manager=cardinality,
+            model=model,
+            database=database,
         )
 
 
@@ -554,7 +590,14 @@ class Relationship(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
+        database: Optional["Database"] = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, EITHER, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            EITHER,
+            manager=cardinality,
+            model=model,
+            database=database,
         )
