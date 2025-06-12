@@ -37,12 +37,7 @@ from neomodel.exceptions import (
 from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
 from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import (
-    _UnsavedNode,
-    classproperty,
-    deprecated,
-    version_tag_to_integer,
-)
+from neomodel.util import _UnsavedNode, classproperty, version_tag_to_integer
 
 logger = logging.getLogger(__name__)
 
@@ -1166,88 +1161,6 @@ class Database(local):
 
 # Create a singleton instance of the database object
 db = Database()
-
-
-# Deprecated methods
-def change_neo4j_password(db: Database, user: str, new_password: str) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.change_neo4j_password(user, new_password) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.change_neo4j_password(user, new_password)
-
-
-def clear_neo4j_database(
-    db: Database, clear_constraints: bool = False, clear_indexes: bool = False
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.clear_neo4j_database(clear_constraints, clear_indexes)
-
-
-def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_constraints(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_constraints(quiet, stdout)
-
-
-def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_indexes(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_indexes(quiet, stdout)
-
-
-def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.remove_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.remove_all_labels(stdout)
-
-
-def install_labels(
-    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_labels(cls, quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_labels(cls, quiet, stdout)
-
-
-def install_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_all_labels(stdout)
 
 
 class TransactionProxy:
