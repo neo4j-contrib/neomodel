@@ -681,9 +681,9 @@ class Database(local):
         """
         )
         if clear_constraints:
-            drop_constraints()
+            self.drop_constraints()
         if clear_indexes:
-            drop_indexes()
+            self.drop_indexes()
 
     def drop_constraints(
         self, quiet: bool = True, stdout: Optional[TextIO] = None
@@ -773,7 +773,7 @@ class Database(local):
         i = 0
         for cls in subsub(StructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            install_labels(cls, quiet=False, stdout=stdout)
+            self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:

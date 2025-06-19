@@ -684,9 +684,9 @@ class AsyncDatabase(local):
         """
         )
         if clear_constraints:
-            await drop_constraints()
+            await self.drop_constraints()
         if clear_indexes:
-            await drop_indexes()
+            await self.drop_indexes()
 
     async def drop_constraints(
         self, quiet: bool = True, stdout: Optional[TextIO] = None
@@ -778,7 +778,7 @@ class AsyncDatabase(local):
         i = 0
         for cls in subsub(AsyncStructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            await install_labels(cls, quiet=False, stdout=stdout)
+            await self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
