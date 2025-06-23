@@ -13,6 +13,7 @@ from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
+from neomodel.sync_.vectorfilter import VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
@@ -437,7 +438,6 @@ class QueryAST:
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
-
 class QueryBuilder:
     def __init__(
         self, node_set: "BaseSet", subquery_namespace: TOptional[str] = None
@@ -456,7 +456,11 @@ class QueryBuilder:
         ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
-
+        if isinstance(self.node_set, NodeSet) and hasattr(
+            self.node_set, "_vector_query"
+        ): 
+            # This is where we call the building function the vector filter - I pass through the _vector_query to make it ebundantly obvious the thing that matters
+            self.build_vector_query(self.node_set._vector_query)
         self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
@@ -537,6 +541,13 @@ class QueryBuilder:
                     if result:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
+
+    def build_vector_query(self, vectorfilter: VectorFilter):
+        """
+        Query a vectorIndex on a set of nodes
+        """
+
+        # Actually complete the self._ast logic required to make the vector query CALL 
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -1399,6 +1410,7 @@ class NodeSet(BaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
+        self._vector_query: str = None # This is suggesting that we can only have one vector simnilarity call - seems ok whilst Im still figuring this out
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
