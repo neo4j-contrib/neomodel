@@ -461,6 +461,7 @@ class QueryBuilder:
         ): 
             # This is where we call the building function the vector filter - I pass through the _vector_query to make it ebundantly obvious the thing that matters
             self.build_vector_query(self.node_set._vector_query)
+
         self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
@@ -1513,7 +1514,22 @@ class NodeSet(BaseSet):
         :return: self
         """
         if args or kwargs:
-            self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
+            
+            # Need to grab and remove the VectorFilter from both args and kwargs
+            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. This seems really looking to me
+            for arg in args:
+                if isinstance(arg, VectorFilter) and (not self._vector_query):
+                    self._vector_query = arg
+                new_args.append(arg)
+
+            new_args = tuple(new_args)
+
+            if kwargs.get("vector_filter"):
+                if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
+                    self._vector_query = kwargs.pop("vector_filter")
+
+            self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
+
         return self
 
     def exclude(self, *args: Any, **kwargs: Any) -> "BaseSet":
