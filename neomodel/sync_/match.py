@@ -1520,7 +1520,8 @@ class NodeSet(BaseSet):
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self._vector_query):
                     self._vector_query = arg
-                new_args.append(arg)
+                else:
+                    new_args.append(arg)
 
             new_args = tuple(new_args)
 
