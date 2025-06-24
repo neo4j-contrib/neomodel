@@ -403,6 +403,7 @@ class QueryAST:
     lookup: TOptional[str]
     additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
+    vector_index_query: TOptional[type]
 
     def __init__(
         self,
@@ -419,6 +420,7 @@ class QueryAST:
         lookup: TOptional[str] = None,
         additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
+        vector_index_query: TOptional[type] = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -435,6 +437,7 @@ class QueryAST:
             additional_return if additional_return else []
         )
         self.is_count = is_count
+        self.vector_index_query = vector_index_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
@@ -459,7 +462,6 @@ class QueryBuilder:
         if isinstance(self.node_set, NodeSet) and hasattr(
             self.node_set, "_vector_query"
         ): 
-            # This is where we call the building function the vector filter - I pass through the _vector_query to make it ebundantly obvious the thing that matters
             self.build_vector_query(self.node_set._vector_query)
 
         self.build_source(self.node_set)
@@ -543,12 +545,10 @@ class QueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: VectorFilter):
-        """
-        Query a vectorIndex on a set of nodes
-        """
-
+    def build_vector_query(self, vectorfilter: "VectorFilter"):
         # Actually complete the self._ast logic required to make the vector query CALL 
+        self._ast.vector_index_query = vectorfilter
+        
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -943,6 +943,8 @@ class QueryBuilder:
         if self._ast.lookup:
             query += self._ast.lookup
 
+        if self._ast.vector_index_query:
+            query += f"""CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
         # product issues...).
