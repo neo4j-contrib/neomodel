@@ -421,8 +421,6 @@ class QueryAST:
         additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
         vector_index_query: TOptional[type] = None,
-    ) -> None:
-        self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
         self.optional_where = optional_where if optional_where else []
@@ -548,6 +546,7 @@ class QueryBuilder:
     def build_vector_query(self, vectorfilter: "VectorFilter"):
         # Actually complete the self._ast logic required to make the vector query CALL 
         self._ast.vector_index_query = vectorfilter
+        self._ast.return_clause = "node, score"
         
 
     def build_traversal(self, traversal: "Traversal") -> str:
@@ -943,8 +942,6 @@ class QueryBuilder:
         if self._ast.lookup:
             query += self._ast.lookup
 
-        if self._ast.vector_index_query:
-            query += f"""CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
         # product issues...).
@@ -968,6 +965,9 @@ class QueryBuilder:
                 query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.optional_where)
+
+        if self._ast.vector_index_query:
+            query += f"""CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
 
         if self._ast.with_clause:
             query += " WITH "
