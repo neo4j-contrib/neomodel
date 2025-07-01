@@ -462,7 +462,7 @@ class QueryBuilder:
         if isinstance(self.node_set, NodeSet) and hasattr(
             self.node_set, "_vector_query"
         ): 
-            self.build_vector_query(self.node_set._vector_query)
+            self.build_vector_query(self.node_set._vector_query, self.node_set.source)
 
         self.build_source(self.node_set)
 
@@ -545,8 +545,16 @@ class QueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter"):
-        # Actually complete the self._ast logic required to make the vector query CALL 
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+        try:
+            attribute = getattr(source, vectorfilter.vector_attribute_name)
+        except AttributeError:
+            raise # This raises the base AttributeError and provides potential correction
+        if not attribute.vector_index:
+            raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
+
+        vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = "DISTINCT node, score"
         
