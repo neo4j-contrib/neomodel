@@ -421,6 +421,8 @@ class QueryAST:
         additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
         vector_index_query: TOptional[type] = None,
+    ) -> None:
+        self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
         self.where = where if where else []
         self.optional_where = optional_where if optional_where else []
@@ -942,6 +944,12 @@ class QueryBuilder:
         if self._ast.lookup:
             query += self._ast.lookup
 
+        if self._ast.vector_index_query:
+            query += f""" CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
+            self._ast.match = None
+            # We need this because we place within the return_clause both (node, score) so that we get score this in turn messes up with nodeset.build_label(),
+            # Im not quite sure of the logic that surrounds this but im nervous to attempt to alter it - this is probably improper tech debt tho. 
+
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
         # product issues...).
@@ -965,9 +973,6 @@ class QueryBuilder:
                 query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.optional_where)
-
-        if self._ast.vector_index_query:
-            query += f"""CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
 
         if self._ast.with_clause:
             query += " WITH "
