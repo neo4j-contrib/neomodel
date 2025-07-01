@@ -546,10 +546,14 @@ class QueryBuilder:
             self._ast.order_by = order_by
 
     def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+        """
+        Query a vector indexed property on the node. 
+        """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
         except AttributeError:
             raise # This raises the base AttributeError and provides potential correction
+
         if not attribute.vector_index:
             raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
 

@@ -9,9 +9,8 @@ class VectorFilter(object):
     The keyword argument for this in the filter function is: vector_filter (when we do the fulltextindex filter thing we should change this to be like index_filter or something so that we dont need to do this twice)
     """
     def __init__(self, topk: int, vector_attribute_name: str, candidate_vector: List[float]):
-        # Not doing score thresholding because I dont know how to DJANGO filters.
         self.topk = topk
         self.vector_attribute_name = vector_attribute_name
         self.index_name = None 
         self.vector = candidate_vector
-
+        
