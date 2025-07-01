@@ -561,6 +561,7 @@ class QueryBuilder:
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = "DISTINCT node, score"
+        self._ast.result_class = source.__class__
         
 
     def build_traversal(self, traversal: "Traversal") -> str:
@@ -1536,6 +1537,11 @@ class NodeSet(BaseSet):
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self._vector_query):
                     self._vector_query = arg
+
+                    import warnings
+                    new_args = []
+                    warnings.warn("Other node filters are disregarded when VectorFilter is set If you would like to have other filters, please do a .subquery()", UserWarning)
+                    break
                 else:
                     new_args.append(arg)
 
@@ -1544,6 +1550,11 @@ class NodeSet(BaseSet):
             if kwargs.get("vector_filter"):
                 if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
                     self._vector_query = kwargs.pop("vector_filter")
+                    if kwargs:
+                        import warnings 
+                        warnings.warn("Other node filters are disregarded when VectorFilter is set if you would like to have other filters, please do a .subquery()", UserWarning)
+                        kwargs = {}
+                    
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
