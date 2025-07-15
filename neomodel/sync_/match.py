@@ -462,7 +462,8 @@ class QueryBuilder:
         if isinstance(self.node_set, NodeSet) and hasattr(
             self.node_set, "_vector_query"
         ): 
-            self.build_vector_query(self.node_set._vector_query, self.node_set.source)
+            if self.node_set._vector_query:
+                self.build_vector_query(self.node_set._vector_query, self.node_set.source)
 
         self.build_source(self.node_set)
 
@@ -1443,7 +1444,7 @@ class NodeSet(BaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self._vector_query: str = None # This is suggesting that we can only have one vector simnilarity call - seems ok whilst Im still figuring this out
+        self._vector_query: str = None 
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
