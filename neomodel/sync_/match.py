@@ -558,9 +558,10 @@ class QueryBuilder:
             raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
 
         vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+        vectorfilter.nodeSetLabel = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
-        self._ast.return_clause = "DISTINCT node, score"
+        self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
         self._ast.result_class = source.__class__
         
 
@@ -957,6 +958,23 @@ class QueryBuilder:
         if self._ast.lookup:
             query += self._ast.lookup
 
+        if self._ast.vector_index_query:
+            # This ensures we have no MATCH on the node, preventing a second look up and cartesian product issues
+            # Furthermore, ensuring we dont break other things
+            self._ast.match = ""
+
+            # REMEMBER: the way neomodel is set up for VectorIndex is that each index actually has its own vector index - they can NEVER share them. So can always work under the assumption that
+            # for a single vector index, we are only looking at ONE nodeset
+            # vectorfilter.nodeSetLabel = source.__label__.lower()
+            query += f"""CALL () {{ 
+                CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
+                YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
+                RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
+                }}"""
+
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
+
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
         # product issues...).
@@ -980,9 +998,6 @@ class QueryBuilder:
                 query += " WITH *"
             query += " WHERE "
             query += " AND ".join(self._ast.optional_where)
-
-        if self._ast.vector_index_query:
-            query += f""" CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) YIELD node, score"""
 
         if self._ast.with_clause:
             query += " WITH "
@@ -1533,27 +1548,17 @@ class NodeSet(BaseSet):
         if args or kwargs:
             
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. This seems really looking to me
+            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. 
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self._vector_query):
                     self._vector_query = arg
-
-                    import warnings
-                    new_args = []
-                    warnings.warn("Other node filters are disregarded when VectorFilter is set If you would like to have other filters, please do a .subquery()", UserWarning)
-                    break
-                else:
-                    new_args.append(arg)
+                new_args.append(arg)
 
             new_args = tuple(new_args)
 
             if kwargs.get("vector_filter"):
                 if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
                     self._vector_query = kwargs.pop("vector_filter")
-                    if kwargs:
-                        import warnings 
-                        warnings.warn("Other node filters are disregarded when VectorFilter is set if you would like to have other filters, please do a .subquery()", UserWarning)
-                        kwargs = {}
                     
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
