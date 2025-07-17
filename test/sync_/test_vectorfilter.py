@@ -1,3 +1,4 @@
+from neomodel.sync_ import vectorfilter
 from test._async_compat import mark_sync_test
 from neomodel.sync_.vectorfilter import VectorFilter
 from neomodel import (
@@ -8,7 +9,7 @@ from neomodel import (
     FloatProperty
     )
 
-from neomodel.sync_.core import StructuredNode, install_all_labels, remove_all_labels
+from neomodel.sync_.core import install_all_labels, remove_all_labels
 
 
 class someNode(StructuredNode):
@@ -55,4 +56,25 @@ def test_vectorfilter_with_node_propertyfilter():
     assert result[0][0].name == "John"
     assert all(isinstance(x[1], float) for x in result)
     
+    remove_all_labels()
+
+@mark_sync_test
+def test_dont_duplicate_vector_filter_node():
+    """
+    Tests the situation that another node have the same filter value.
+    Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes. 
+    """
+
+    john = someNode(name="John", vector=[float(0.5), float(0.5)]).save()
+    fred = someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
+    john2 = otherNode(name="John", vector=[float(0.5), float(0.1)]).save()
+    fred2 = otherNode(name="Fred", vector=[float(0.9), float(0.2)]).save()
+
+    install_all_labels()
+    
+    john_vector_search = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector", candidate_vector=[0.25,0]), name="John")
+    result = john_vector_search.all()
+    assert len(result) = 1
+    assert a
+
     remove_all_labels()
