@@ -10,6 +10,7 @@ from typing import Tuple, Union
 from neomodel.async_ import relationship_manager
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
+from neomodel.async_.vectorfilter import VectorFilter
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
@@ -404,7 +405,7 @@ class QueryAST:
     lookup: TOptional[str]
     additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
-
+    vector_index_query: TOptional[type]
     def __init__(
         self,
         match: TOptional[list[str]] = None,
@@ -420,6 +421,7 @@ class QueryAST:
         lookup: TOptional[str] = None,
         additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
+        vector_index_query: TOptional[type] = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -436,6 +438,7 @@ class QueryAST:
             additional_return if additional_return else []
         )
         self.is_count = is_count
+        self.vector_index_query = vector_index_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
@@ -458,6 +461,10 @@ class AsyncQueryBuilder:
         ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
+        
+        if isinstance(self.node_set, AsyncNodeSet) and hasattr(self.node_set, "_vector_query"):
+            if self.node_set._vector_query:
+                self.build_vector_query(self.node_set._vector_query, self.node_set.source)
 
         await self.build_source(self.node_set)
 
@@ -539,6 +546,27 @@ class AsyncQueryBuilder:
                     if result:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
+
+
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+        """
+        Query a vector indexed property on the node. 
+        """
+        try:
+            attribute = getattr(source, vectorfilter.vector_attribute_name)
+        except AttributeError:
+            raise # This raises the base AttributeError and provides potential correction
+
+        if not attribute.vector_index:
+            raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
+
+        vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+        vectorfilter.nodeSetLabel = source.__label__.lower()
+
+        self._ast.vector_index_query = vectorfilter
+        self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
+        self._ast.result_class = source.__class__
+
 
     async def build_traversal(self, traversal: "AsyncTraversal") -> str:
         """
@@ -932,6 +960,23 @@ class AsyncQueryBuilder:
 
         if self._ast.lookup:
             query += self._ast.lookup
+
+        if self._ast.vector_index_query:
+            # This ensures we have no MATCH on the node, preventing a second look up and cartesian product issues
+            # Furthermore, ensuring we dont break other things
+            self._ast.match = ""
+
+            # REMEMBER: the way neomodel is set up for VectorIndex is that each index actually has its own vector index - they can NEVER share them. So can always work under the assumption that
+            # for a single vector index, we are only looking at ONE nodeset
+            # vectorfilter.nodeSetLabel = source.__label__.lower()
+            query += f"""CALL () {{ 
+                CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
+                YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
+                RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
+                }}"""
+
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1403,6 +1448,7 @@ class AsyncNodeSet(AsyncBaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
+        self._vector_query: str = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]

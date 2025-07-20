@@ -74,7 +74,10 @@ def test_dont_duplicate_vector_filter_node():
     
     john_vector_search = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector", candidate_vector=[0.25,0]), name="John")
     result = john_vector_search.all()
-    assert len(result) = 1
-    assert a
+
+    assert len(result) == 1 # Check we only get the one John
+    assert isinstance(result[0][0], someNode) # check we only get the someNode John
+    assert result[0][0].name == "John"
+    assert isinstance(result[0][1], float)
 
     remove_all_labels()
