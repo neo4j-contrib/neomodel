@@ -22,6 +22,3 @@ coverage_report/
 .coverage*
 .DS_STORE
 cov.xml
-secrets*
-
-test_script_*
