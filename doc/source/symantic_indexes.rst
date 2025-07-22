@@ -13,11 +13,9 @@ Defining a Full Text Index on a Property
 Within neomodel, indexing is a decision that is made at class definition time as the index needs to be built. A Full Text index is defined using :class:`~neomodel.properties.FulltextIndex`
 To define a property with a full text index we use the following symantics::
     
-    StringProperty(fulltext_index=FulltextIndex(analyzer=, eventually_consistent=False)
+    StringProperty(fulltext_index=FulltextIndex(analyzer="standard-no-stop-words", eventually_consistent=False)
 
 The index must then be built, this occurs when the function :func:`~neomodel.sync_.core.install_all_labels` or :func:`~neomodel.async_.core.install_all_labels` (depending on whether the nodes you defined as async or sync) is ran.  
-
-The full text index will then have the anme "".
 
 Querying a Full Text Index on a Property
 ---------------------------------------
@@ -45,13 +43,32 @@ The index must then be built, this occurs when the function :func:`~neomodel.syn
 
 The vector indexes will then have the name "vector_index_{node.__label__}_{propertyname_with_vector_index}".
 
+.. attention:: 
+   Neomodel creates a new vectorindex for each specified property, thus you cannot have two distinct properties being placed into the same index. 
+
 Querying a Vector Index on a Property 
 --------------------------------------
 
 Node Property
 ~~~~~~~~~~
-Node properties can be queried using :class:`~neomodel.sync_.vectorfilter.VectorFilter` or 
-# Need to document how VectorIndex actually works, send the user to the appropriate neo4j documentation where required. 
+The following node vector index property::
+
+    class someNode(StructuredNode):
+        vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(dimensions=512, similarity_function="cosine")
+        name = StringProperty()
+
+Can be queried using :class:`~neomodel.sematic_filters.VectorFilter`. Such as::
+
+    from neomodel.sematic_filters import VectorFilter
+    result = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector")).all()
+
+Where the result will be a list of length topk of tuples having the form (someNode, score). 
+
+The :class:`~neomodel.sematic_filters.VectorFilter` can be used in conjunction with the normal filter types.
+
+.. attention:: 
+    If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified. 
+
 # But more importantly the fact that in neomodel they need to specify the vector index on an ARRAYPROPERTY. Furthermore, should make it clear that neomodel creates a new index for each new relation or node that is created with a vector index. There is currently no way to use the same index on two different things. Need to make this clear that this is an implementation issue, not an issue to do with neo4jh thou. 
 
 RelationshipProperty
