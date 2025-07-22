@@ -1,4 +1,4 @@
-from test._async_compat import mark_sync_test
+from test._async_compat import mark_async_test
 from neomodel.async_.vectorfilter import VectorFilter
 from neomodel import (
     AsyncStructuredNode,
@@ -18,7 +18,7 @@ class otherNode(AsyncStructuredNode):
     other_vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine"))
 
 
-@mark_sync_test
+@mark_async_test
 async def test_base_vectorfilter_async():
     """
     Tests that the vectorquery is run, node and score are returned.
@@ -36,7 +36,7 @@ async def test_base_vectorfilter_async():
 
     remove_all_labels()
 
-@mark_sync_test
+@mark_async_test
 async def test_vectorfilter_with_node_propertyfilter():
     """
     Tests that the vector query is run, and "john" node is the only node returned. 
@@ -56,7 +56,7 @@ async def test_vectorfilter_with_node_propertyfilter():
     
     remove_all_labels()
 
-@mark_sync_test
+@mark_async_test
 async def test_dont_duplicate_vector_filter_node():
     """
     Tests the situation that another node have the same filter value.

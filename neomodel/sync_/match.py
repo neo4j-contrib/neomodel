@@ -1547,7 +1547,6 @@ class NodeSet(BaseSet):
         :return: self
         """
         if args or kwargs:
-            
             # Need to grab and remove the VectorFilter from both args and kwargs
             new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. 
             for arg in args:
