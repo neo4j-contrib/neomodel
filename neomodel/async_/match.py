@@ -966,9 +966,6 @@ class AsyncQueryBuilder:
             # Furthermore, ensuring we dont break other things
             self._ast.match = ""
 
-            # REMEMBER: the way neomodel is set up for VectorIndex is that each index actually has its own vector index - they can NEVER share them. So can always work under the assumption that
-            # for a single vector index, we are only looking at ONE nodeset
-            # vectorfilter.nodeSetLabel = source.__label__.lower()
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
                 YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
