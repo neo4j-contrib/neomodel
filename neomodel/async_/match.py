@@ -10,7 +10,7 @@ from typing import Tuple, Union
 from neomodel.async_ import relationship_manager
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
-from neomodel.async_.vectorfilter import VectorFilter
+from neomodel.semantic_filters import VectorFilter
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property

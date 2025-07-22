@@ -1,5 +1,5 @@
 from test._async_compat import mark_async_test
-from neomodel.async_.vectorfilter import VectorFilter
+from neomodel.semantic_filters import VectorFilter
 from neomodel import (
     AsyncStructuredNode,
     VectorIndex,

@@ -13,7 +13,7 @@ from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
-from neomodel.sync_.vectorfilter import VectorFilter
+from neomodel.semantic_filters import VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
