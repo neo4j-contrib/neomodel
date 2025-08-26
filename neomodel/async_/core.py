@@ -4,9 +4,9 @@ import sys
 import time
 import warnings
 from asyncio import iscoroutinefunction
+from contextvars import ContextVar
 from functools import wraps
 from itertools import combinations
-from threading import local
 from typing import Any, Callable, Optional, TextIO, Union
 from urllib.parse import quote, unquote, urlparse
 
@@ -83,25 +83,123 @@ def ensure_connection(func: Callable) -> Callable:
     return wrapper
 
 
-class AsyncDatabase(local):
+class AsyncDatabase:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
+    # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
     def __init__(self) -> None:
-        self._active_transaction: Optional[AsyncTransaction] = None
-        self.url: Optional[str] = None
-        self.driver: Optional[AsyncDriver] = None
-        self._session: Optional[AsyncSession] = None
-        self._pid: Optional[int] = None
-        self._database_name: Optional[str] = DEFAULT_DATABASE
-        self._database_version: Optional[str] = None
-        self._database_edition: Optional[str] = None
-        self.impersonated_user: Optional[str] = None
-        self._parallel_runtime: Optional[bool] = False
+        # Private to instances and contexts
+        self.__active_transaction: ContextVar[Optional[AsyncTransaction]] = ContextVar(
+            "_active_transaction", default=None
+        )
+        self.__url: ContextVar[Optional[str]] = ContextVar("url", default=None)
+        self.__driver: ContextVar[Optional[AsyncDriver]] = ContextVar(
+            "driver", default=None
+        )
+        self.__session: ContextVar[Optional[AsyncSession]] = ContextVar(
+            "_session", default=None
+        )
+        self.__pid: ContextVar[Optional[int]] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[Optional[str]] = ContextVar(
+            "_database_name", default=DEFAULT_DATABASE
+        )
+        self.__database_version: ContextVar[Optional[str]] = ContextVar(
+            "_database_version", default=None
+        )
+        self.__database_edition: ContextVar[Optional[str]] = ContextVar(
+            "_database_edition", default=None
+        )
+        self.__impersonated_user: ContextVar[Optional[str]] = ContextVar(
+            "impersonated_user", default=None
+        )
+        self.__parallel_runtime: ContextVar[Optional[bool]] = ContextVar(
+            "_parallel_runtime", default=False
+        )
+
+    @property
+    def _active_transaction(self) -> Optional[AsyncTransaction]:
+        return self.__active_transaction.get()
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: AsyncTransaction) -> None:
+        self.__active_transaction.set(value)
+
+    @property
+    def url(self) -> Optional[str]:
+        return self.__url.get()
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self.__url.set(value)
+
+    @property
+    def driver(self) -> Optional[AsyncDriver]:
+        return self.__driver.get()
+
+    @driver.setter
+    def driver(self, value: AsyncDriver) -> None:
+        self.__driver.set(value)
+
+    @property
+    def _session(self) -> Optional[AsyncSession]:
+        return self.__session.get()
+
+    @_session.setter
+    def _session(self, value: AsyncSession) -> None:
+        self.__session.set(value)
+
+    @property
+    def _pid(self) -> Optional[int]:
+        return self.__pid.get()
+
+    @_pid.setter
+    def _pid(self, value: int) -> None:
+        self.__pid.set(value)
+
+    @property
+    def _database_name(self) -> Optional[str]:
+        return self.__database_name.get()
+
+    @_database_name.setter
+    def _database_name(self, value: str) -> None:
+        self.__database_name.set(value)
+
+    @property
+    def _database_version(self) -> Optional[str]:
+        return self.__database_version.get()
+
+    @_database_version.setter
+    def _database_version(self, value: str) -> None:
+        self.__database_version.set(value)
+
+    @property
+    def _database_edition(self) -> Optional[str]:
+        return self.__database_edition.get()
+
+    @_database_edition.setter
+    def _database_edition(self, value: str) -> None:
+        self.__database_edition.set(value)
+
+    @property
+    def impersonated_user(self) -> Optional[str]:
+        return self.__impersonated_user.get()
+
+    @impersonated_user.setter
+    def impersonated_user(self, value: str) -> None:
+        self.__impersonated_user.set(value)
+
+    @property
+    def _parallel_runtime(self) -> Optional[bool]:
+        return self.__parallel_runtime.get()
+
+    @_parallel_runtime.setter
+    def _parallel_runtime(self, value: bool) -> None:
+        self.__parallel_runtime.set(value)
 
     async def set_connection(
         self, url: Optional[str] = None, driver: Optional[AsyncDriver] = None
