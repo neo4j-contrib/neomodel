@@ -77,7 +77,8 @@ Where the result will be a list of length topk of tuples having the form (someNo
 The :class:`~neomodel.semantic_filters.VectorFilter` can be used in conjunction with the normal filter types.
 
 .. attention:: 
-    If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified. 
+    If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
+   Furthermore, all other node filters **should** work with VectorFilter, but currently relationship filters do not work in conjunction with VectorFilter. 
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^
