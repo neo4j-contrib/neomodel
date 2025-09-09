@@ -78,7 +78,7 @@ The :class:`~neomodel.semantic_filters.VectorFilter` can be used in conjunction 
 
 .. attention:: 
     If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
-   Furthermore, all other node filters **should** work with VectorFilter, but currently relationship filters do not work in conjunction with VectorFilter. 
+   Furthermore, all node filters **should** work with VectorFilter, relationship filters will also work but WILL NOT return the vector similiarty score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^

@@ -960,17 +960,12 @@ class QueryBuilder:
             query += self._ast.lookup
 
         if self._ast.vector_index_query:
-            # This ensures we have no MATCH on the node, preventing a second look up and cartesian product issues
-            # Furthermore, ensuring we dont break other things
-            self._ast.match = ""
-
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
                 YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
                 RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
                 }}"""
-
-            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            # This ensures that we bring the context of the new nodeSet and score along with us for further filtering
             query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
 
         # Instead of using only one MATCH statement for every relation
@@ -1097,7 +1092,7 @@ class QueryBuilder:
 
         if self._ast.limit and not self._ast.is_count:
             query += f" LIMIT {self._ast.limit}"
-
+        print(query)
         return query
 
     def _count(self) -> int:

@@ -962,9 +962,6 @@ class AsyncQueryBuilder:
             query += self._ast.lookup
 
         if self._ast.vector_index_query:
-            # This ensures we have no MATCH on the node, preventing a second look up and cartesian product issues
-            # Furthermore, ensuring we dont break other things
-            self._ast.match = ""
 
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 

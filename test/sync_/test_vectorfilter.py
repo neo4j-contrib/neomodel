@@ -1,13 +1,17 @@
 from test._async_compat import mark_sync_test
 from test.conftest import check_and_skip_neo4j_least_version
+from datetime import datetime
 from neomodel.semantic_filters import VectorFilter
 from neomodel import (
     StructuredNode,
     VectorIndex,
     StringProperty,
     ArrayProperty,
-    FloatProperty
-    )
+    FloatProperty,
+    RelationshipFrom,
+    StructuredRel, 
+    DateTimeProperty 
+)
 
 from neomodel.sync_.core import install_all_labels, remove_all_labels
 
@@ -23,6 +27,18 @@ class djangoNode(StructuredNode):
     name = StringProperty()
     vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine"))
     number = FloatProperty()
+
+class SupplierV(StructuredNode):
+    name = StringProperty()
+
+class SuppliesVRel(StructuredRel):
+    since = DateTimeProperty(default=datetime.now)
+
+class ProductV(StructuredNode):
+    name = StringProperty()
+    description = StringProperty()
+    description_embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex(dimensions=2))
+    suppliers = RelationshipFrom(SupplierV, 'SUPPLIES', model=SuppliesVRel)
 
 @mark_sync_test
 def test_base_vectorfilter():
@@ -121,5 +137,32 @@ def test_django_filter_w_vector_filter():
 
     remove_all_labels()
 
+@mark_sync_test
+def test_vectorfilter_with_relationshipfilter():
+    """
+    Tests that by filtering on a vector similarity and then performing a relationshipfilter 
+    """
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+    
+    supplier1 = SupplierV(name="Supplier 1").save()
+    supplier2 = SupplierV(name="Supplier 2").save()
+    product1 = ProductV(name="Product A", description="High quality product", description_embedding=[0.1, 0.2]).save()
+    product2 = ProductV(name="Product B", description="High quality product", description_embedding=[0.2, 0.2]).save()
+    product1.suppliers.connect(supplier1) 
+    product1.suppliers.connect(supplier2) 
+    product2.suppliers.connect(supplier1)
+
+
+
+    install_all_labels()
+    filtered_product = ProductV.nodes.filter(vector_filter=VectorFilter(topk=1, vector_attribute_name="description_embedding", candidate_vector=[0.1,0.1]),
+                                            suppliers__name="Supplier 1")
+    result = filtered_product.all()
+    assert len(result) == 1
+    assert isinstance(result[0][0], ProductV)
+    assert isinstance(result[0][1], SupplierV)
+    assert isinstance(result[0][2], SuppliesVRel)
 
 
