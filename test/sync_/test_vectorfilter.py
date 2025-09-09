@@ -11,8 +11,6 @@ from neomodel import (
 
 from neomodel.sync_.core import install_all_labels, remove_all_labels
 
-check_and_skip_neo4j_least_version(required_least_neo4j_version=513, 
-                                   message="Vector Index not Generally Available in Neo4j.")
 class someNode(StructuredNode):
     name = StringProperty()
     vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine"))
@@ -31,6 +29,11 @@ def test_base_vectorfilter():
     """
     Tests that the vectorquery is ran, node and score are returned. 
     """
+
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+
     john = someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
     
@@ -48,6 +51,11 @@ def test_vectorfilter_with_node_propertyfilter():
     """
     Tests that the vector query is ran, and "john" node is the only node returned
     """
+
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+
     john = someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
 
@@ -69,6 +77,10 @@ def test_dont_duplicate_vector_filter_node():
     Tests the situation that another node have the same filter value.
     Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes. 
     """
+
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
 
     john = someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -92,6 +104,10 @@ def test_django_filter_w_vector_filter():
     """
     Tests that django filters still work with the vector filter on.
     """
+
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
 
     nodeone = djangoNode(name="John", vector=[float(0.5), float(0.5)], number=float(10)).save()
     nodetwo = djangoNode(name="Fred", vector=[float(0.8), float(0.5)], number=float(3)).save()

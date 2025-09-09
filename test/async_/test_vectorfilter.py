@@ -18,14 +18,15 @@ class otherNode(AsyncStructuredNode):
     otherName = StringProperty() 
     other_vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine"))
 
-check_and_skip_neo4j_least_version(required_least_neo4j_version=513, 
-                                   message="Vector Index not Generally Available in Neo4j.")
-
 @mark_async_test
 async def test_base_vectorfilter_async():
     """
     Tests that the vectorquery is run, node and score are returned.
     """
+
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
 
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -44,6 +45,10 @@ async def test_vectorfilter_with_node_propertyfilter():
     """
     Tests that the vector query is run, and "john" node is the only node returned. 
     """
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
 
@@ -65,6 +70,10 @@ async def test_dont_duplicate_vector_filter_node():
     Tests the situation that another node have the same filter value.
     Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes. 
     """
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
     john2 = await otherNode(name="John", vector=[float(0.5), float(0.1)]).save()
@@ -82,11 +91,15 @@ async def test_dont_duplicate_vector_filter_node():
 
     remove_all_labels()
 
-@mark_sync_test
+@mark_async_test
 def test_django_filter_w_vector_filter():
     """
     Tests that django filters still work with the vector filter on.
     """
+    # Vector Indexes only exist from 5.13 onwards
+    check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
+                                       message="Vector Index not Generally Available in Neo4j.")
+
 
     nodeone = djangoNode(name="John", vector=[float(0.5), float(0.5)], number=float(10)).save()
     nodetwo = djangoNode(name="Fred", vector=[float(0.8), float(0.5)], number=float(3)).save()
