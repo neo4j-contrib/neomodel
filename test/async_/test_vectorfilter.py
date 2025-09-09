@@ -12,7 +12,7 @@ from neomodel import (
     AsyncStructuredRel,
     DateTimeProperty
     )
-from neomodel.sync_.core import install_all_labels, remove_all_labels
+from neomodel.async_.core import install_all_labels, remove_all_labels
 
 class someNode(AsyncStructuredNode):
     name = StringProperty()
@@ -30,7 +30,7 @@ class djangoNode(AsyncStructuredNode):
 class SupplierV(AsyncStructuredNode):
     name = StringProperty()
 
-class SuppliesVRel(AsyncStructuredRel)
+class SuppliesVRel(AsyncStructuredRel):
     since = DateTimeProperty(default=datetime.now)
 
 class ProductV(AsyncStructuredNode):
@@ -52,14 +52,14 @@ async def test_base_vectorfilter_async():
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
     
-    install_all_labels()
+    await install_all_labels()
 
     someNodeSearch = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]))
     result = await someNodeSearch.all()
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
 
-    remove_all_labels()
+    await remove_all_labels()
 
 @mark_async_test
 async def test_vectorfilter_with_node_propertyfilter():
@@ -73,7 +73,7 @@ async def test_vectorfilter_with_node_propertyfilter():
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
 
-    install_all_labels()
+    await install_all_labels()
 
     vectorsearchFilterforJohn = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]), name="John")
     result = await vectorsearchFilterforJohn.all()
@@ -83,7 +83,7 @@ async def test_vectorfilter_with_node_propertyfilter():
     assert result[0][0].name == "John"
     assert all(isinstance(x[1], float) for x in result)
     
-    remove_all_labels()
+    await remove_all_labels()
 
 @mark_async_test
 async def test_dont_duplicate_vector_filter_node():
@@ -100,7 +100,7 @@ async def test_dont_duplicate_vector_filter_node():
     john2 = await otherNode(name="John", vector=[float(0.5), float(0.1)]).save()
     fred2 = await otherNode(name="Fred", vector=[float(0.9), float(0.2)]).save()
 
-    install_all_labels()
+    await install_all_labels()
     
     john_vector_search = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector", candidate_vector=[0.25,0]), name="John")
     result = await john_vector_search.all()
@@ -110,10 +110,10 @@ async def test_dont_duplicate_vector_filter_node():
     assert result[0][0].name == "John"
     assert isinstance(result[0][1], float)
 
-    remove_all_labels()
+    await remove_all_labels()
 
 @mark_async_test
-def test_django_filter_w_vector_filter():
+async def test_django_filter_w_vector_filter():
     """
     Tests that django filters still work with the vector filter on.
     """
@@ -122,20 +122,21 @@ def test_django_filter_w_vector_filter():
                                        message="Vector Index not Generally Available in Neo4j.")
 
 
-    nodeone = djangoNode(name="John", vector=[float(0.5), float(0.5)], number=float(10)).save()
-    nodetwo = djangoNode(name="Fred", vector=[float(0.8), float(0.5)], number=float(3)).save()
+    nodeone = await djangoNode(name="John", vector=[float(0.5), float(0.5)], number=float(10)).save()
+    nodetwo = await djangoNode(name="Fred", vector=[float(0.8), float(0.5)], number=float(3)).save()
 
-    install_all_labels()
+    await install_all_labels()
+
     vector_search_with_django_filter = djangoNode.nodes.filter(vector_filter=VectorFilter(topk=10, vector_attribute_name="vector", candidate_vector=[0.25, 0.25]), number__gt=5)
-    result = vector_search_with_django_filter.all()
+    result = await vector_search_with_django_filter.all()
     assert len(result) == 1 # we only get the one node
     assert isinstance(result[0][0], djangoNode)
     assert result[0][0].number > 5 
 
-    remove_all_labels()
+    await remove_all_labels()
 
 @mark_async_test
-def test_vectorfilter_with_relationshipfilter():
+async def test_vectorfilter_with_relationshipfilter():
     """
     Tests that by filtering on a vector similarity and then performing a relationshipfilter 
     """
@@ -143,22 +144,24 @@ def test_vectorfilter_with_relationshipfilter():
     check_and_skip_neo4j_least_version(required_least_neo4j_version=50103, 
                                        message="Vector Index not Generally Available in Neo4j.")
     
-    supplier1 = SupplierV(name="Supplier 1").save()
-    supplier2 = SupplierV(name="Supplier 2").save()
-    product1 = ProductV(name="Product A", description="High quality product", description_embedding=[0.1, 0.2]).save()
-    product2 = ProductV(name="Product B", description="High quality product", description_embedding=[0.2, 0.2]).save()
-    product1.suppliers.connect(supplier1) 
-    product1.suppliers.connect(supplier2) 
-    product2.suppliers.connect(supplier1)
+    supplier1 = await SupplierV(name="Supplier 1").save()
+    supplier2 = await SupplierV(name="Supplier 2").save()
+    product1 = await ProductV(name="Product A", description="High quality product", description_embedding=[0.1, 0.2]).save()
+    product2 = await ProductV(name="Product B", description="High quality product", description_embedding=[0.2, 0.2]).save()
+    await product1.suppliers.connect(supplier1) 
+    await product1.suppliers.connect(supplier2) 
+    await product2.suppliers.connect(supplier1)
 
+    await install_all_labels()
 
-
-    install_all_labels()
     filtered_product = ProductV.nodes.filter(vector_filter=VectorFilter(topk=1, vector_attribute_name="description_embedding", candidate_vector=[0.1,0.1]),
                                             suppliers__name="Supplier 1")
-    result = filtered_product.all()
+    result = await filtered_product.all()
+    print(result)
     assert len(result) == 1
     assert isinstance(result[0][0], ProductV)
     assert isinstance(result[0][1], SupplierV)
     assert isinstance(result[0][2], SuppliesVRel)
+
+    await remove_all_labels()
 
