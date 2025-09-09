@@ -157,7 +157,7 @@ async def test_vectorfilter_with_relationshipfilter():
     filtered_product = ProductV.nodes.filter(vector_filter=VectorFilter(topk=1, vector_attribute_name="description_embedding", candidate_vector=[0.1,0.1]),
                                             suppliers__name="Supplier 1")
     result = await filtered_product.all()
-    print(result)
+
     assert len(result) == 1
     assert isinstance(result[0][0], ProductV)
     assert isinstance(result[0][1], SupplierV)
