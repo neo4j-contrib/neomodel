@@ -1,4 +1,5 @@
 from test._async_compat import mark_async_test
+from test.conftest import check_and_skip_neo4j_least_version
 from neomodel.semantic_filters import VectorFilter
 from neomodel import (
     AsyncStructuredNode,
@@ -17,6 +18,8 @@ class otherNode(AsyncStructuredNode):
     otherName = StringProperty() 
     other_vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine"))
 
+check_and_skip_neo4j_least_version(required_least_neo4j_version=513, 
+                                   message="Vector Index not Generally Available in Neo4j.")
 
 @mark_async_test
 async def test_base_vectorfilter_async():
@@ -76,5 +79,23 @@ async def test_dont_duplicate_vector_filter_node():
     assert isinstance(result[0][0], someNode) # check we only get the someNode John
     assert result[0][0].name == "John"
     assert isinstance(result[0][1], float)
+
+    remove_all_labels()
+
+@mark_sync_test
+def test_django_filter_w_vector_filter():
+    """
+    Tests that django filters still work with the vector filter on.
+    """
+
+    nodeone = djangoNode(name="John", vector=[float(0.5), float(0.5)], number=float(10)).save()
+    nodetwo = djangoNode(name="Fred", vector=[float(0.8), float(0.5)], number=float(3)).save()
+
+    install_all_labels()
+    vector_search_with_django_filter = djangoNode.nodes.filter(vector_filter=VectorFilter(topk=10, vector_attribute_name="vector", candidate_vector=[0.25, 0.25]), number__gt=5)
+    result = vector_search_with_django_filter.all()
+    assert len(result) == 1 # we only get the one node
+    assert isinstance(result[0][0], djangoNode)
+    assert result[0][0].number > 5 
 
     remove_all_labels()
