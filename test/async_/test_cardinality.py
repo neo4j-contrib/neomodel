@@ -5,6 +5,7 @@ from pytest import raises
 from neomodel import (
     AsyncOne,
     AsyncOneOrMore,
+    AsyncRelationshipFrom,
     AsyncRelationshipTo,
     AsyncStructuredNode,
     AsyncZeroOrMore,
@@ -43,6 +44,36 @@ class Monkey(AsyncStructuredNode):
 
 class ToothBrush(AsyncStructuredNode):
     name = StringProperty()
+
+
+class Owner(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    pets = AsyncRelationshipTo("Pet", "OWNS")
+
+
+class Pet(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    owner = AsyncRelationshipFrom("Owner", "OWNS", cardinality=AsyncOne)
+
+
+class Company(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    employees = AsyncRelationshipTo("Employee", "EMPLOYS")
+
+
+class Employee(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    employer = AsyncRelationshipFrom("Company", "EMPLOYS", cardinality=AsyncZeroOrOne)
+
+
+class Manager(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    assistant = AsyncRelationshipTo("Assistant", "MANAGES", cardinality=AsyncOne)
+
+
+class Assistant(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    boss = AsyncRelationshipFrom("Manager", "MANAGES", cardinality=AsyncOne)
 
 
 @mark_async_test
@@ -185,3 +216,72 @@ async def test_cardinality_one():
     jp = Monkey(name="Jean-Pierre")
     with raises(ValueError, match="Node has not been saved cannot connect!"):
         await jp.toothbrush.connect(b)
+
+
+@mark_async_test
+async def test_relationship_from_one_cardinality_enforced():
+    """
+    Test that RelationshipFrom with cardinality=One prevents multiple connections.
+    
+    This addresses the GitHub issue where RelationshipFrom cardinality constraints
+    were not being enforced.
+    """
+    # Setup
+    owner1 = await Owner(name="Alice").save()
+    owner2 = await Owner(name="Bob").save()
+    pet = await Pet(name="Fluffy").save()
+    
+    # First connection should succeed
+    await owner1.pets.connect(pet)
+    
+    # Verify connection was established
+    assert await pet.owner.single() == owner1
+    assert pet in await owner1.pets.all()
+    
+    # Second connection should fail due to RelationshipFrom cardinality=One
+    with raises(AttemptedCardinalityViolation):
+        await owner2.pets.connect(pet)
+
+
+@mark_async_test
+async def test_relationship_from_zero_or_one_cardinality_enforced():
+    """
+    Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
+    """
+    # Setup
+    company1 = await Company(name="TechCorp").save()
+    company2 = await Company(name="StartupInc").save()
+    employee = await Employee(name="John").save()
+    
+    # First connection should succeed
+    await company1.employees.connect(employee)
+    
+    # Verify connection was established
+    assert await employee.employer.single() == company1
+    assert employee in await company1.employees.all()
+    
+    # Second connection should fail due to RelationshipFrom cardinality=ZeroOrOne
+    with raises(AttemptedCardinalityViolation):
+        await company2.employees.connect(employee)
+
+
+@mark_async_test
+async def test_bidirectional_cardinality_validation():
+    """
+    Test that cardinality is validated on both ends when both sides have constraints.
+    """
+    # Setup
+    manager1 = await Manager(name="Sarah").save()
+    manager2 = await Manager(name="David").save()
+    assistant = await Assistant(name="Alex").save()
+    
+    # First connection should succeed
+    await manager1.assistant.connect(assistant)
+    
+    # Verify bidirectional connection
+    assert await manager1.assistant.single() == assistant
+    assert await assistant.boss.single() == manager1
+    
+    # Second manager trying to connect to same assistant should fail
+    with raises(AttemptedCardinalityViolation):
+        await manager2.assistant.connect(assistant)
