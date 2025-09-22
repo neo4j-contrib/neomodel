@@ -962,41 +962,6 @@ class AsyncQueryBuilder:
             query += self._ast.with_clause
 
         returned_items: list[str] = []
-        if hasattr(self.node_set, "_intermediate_transforms"):
-            for transform in self.node_set._intermediate_transforms:
-                query += " WITH "
-                query += "DISTINCT " if transform.get("distinct") else ""
-                injected_vars: list = []
-                # Reset return list since we'll probably invalidate most variables
-                self._ast.return_clause = ""
-                self._ast.additional_return = []
-                for name, varprops in transform["vars"].items():
-                    source = varprops["source"]
-                    if isinstance(source, (NodeNameResolver, RelationNameResolver)):
-                        transformation = source.resolve(self)
-                    else:
-                        transformation = source
-                    if varprops.get("source_prop"):
-                        transformation += f".{varprops['source_prop']}"
-                    transformation += f" AS {name}"
-                    if varprops.get("include_in_return"):
-                        returned_items += [name]
-                    injected_vars.append(transformation)
-                query += ",".join(injected_vars)
-                if not transform["ordering"]:
-                    continue
-                query += " ORDER BY "
-                ordering: list = []
-                for item in transform["ordering"]:
-                    if isinstance(item, RawCypher):
-                        ordering.append(item.render({}))
-                        continue
-                    if item.startswith("-"):
-                        ordering.append(f"{item[1:]} DESC")
-                    else:
-                        ordering.append(item)
-                query += ",".join(ordering)
-
         if hasattr(self.node_set, "_subqueries"):
             for subquery in self.node_set._subqueries:
                 query += " CALL {"
@@ -1024,6 +989,42 @@ class AsyncQueryBuilder:
                         "rel_variable_name": varname,
                     }
                 returned_items += subquery["return_set"]
+
+        if hasattr(self.node_set, "_intermediate_transforms"):
+            for transform in self.node_set._intermediate_transforms:
+                query += " WITH "
+                query += "DISTINCT " if transform.get("distinct") else ""
+                injected_vars: list = []
+                # Reset return list since we'll probably invalidate most variables
+                self._ast.return_clause = ""
+                self._ast.additional_return = []
+                returned_items = []
+                for name, varprops in transform["vars"].items():
+                    source = varprops["source"]
+                    if isinstance(source, (NodeNameResolver, RelationNameResolver)):
+                        transformation = source.resolve(self)
+                    else:
+                        transformation = source
+                    if varprops.get("source_prop"):
+                        transformation += f".{varprops['source_prop']}"
+                    transformation += f" AS {name}"
+                    if varprops.get("include_in_return"):
+                        returned_items += [name]
+                    injected_vars.append(transformation)
+                query += ",".join(injected_vars)
+                if not transform["ordering"]:
+                    continue
+                query += " ORDER BY "
+                ordering: list = []
+                for item in transform["ordering"]:
+                    if isinstance(item, RawCypher):
+                        ordering.append(item.render({}))
+                        continue
+                    if item.startswith("-"):
+                        ordering.append(f"{item[1:]} DESC")
+                    else:
+                        ordering.append(item)
+                query += ",".join(ordering)
 
         query += " RETURN "
         if self._ast.return_clause and not self._subquery_namespace:
