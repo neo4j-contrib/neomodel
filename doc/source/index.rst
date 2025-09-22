@@ -77,6 +77,7 @@ Contents
    filtering_ordering
    traversal
    advanced_query_operations
+   semantic_indexes
    cypher
    transactions
    hooks
