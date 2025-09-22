@@ -2,6 +2,7 @@ Version 5.5.1 2025-09
 * Fix cardinality enforcement for RelationshipFrom. Many thanks to @billycalladine
 * Change order of WITH and CALL{} statements in generated Cypher (intermediate_transform & subquery)
 * Add py.typed file to enable support from mypy
+* Bump to neo4j 5.28.2, uniform version pinning for rust-ext
 
 Version 5.5.0 2025-06
 * Add traverse method which merges traverse_relations and fetch_relations and improves them
