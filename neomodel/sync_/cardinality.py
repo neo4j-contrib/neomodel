@@ -15,6 +15,12 @@ class ZeroOrOne(RelationshipManager):
 
     description = "zero or one relationship"
 
+    def _check_cardinality(self, node: "StructuredNode") -> None:
+        if self.__len__():
+            raise AttemptedCardinalityViolation(
+                f"Node already has {self} can't connect more"
+            )
+
     def single(self) -> Optional["StructuredNode"]:
         """
         Return the associated node.
@@ -44,10 +50,6 @@ class ZeroOrOne(RelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if super().__len__():
-            raise AttemptedCardinalityViolation(
-                f"Node already has {self} can't connect more"
-            )
         return super().connect(node, properties)
 
 
@@ -96,6 +98,10 @@ class One(RelationshipManager):
 
     description = "one relationship"
 
+    def _check_cardinality(self, node: "StructuredNode") -> None:
+        if self.__len__():
+            raise AttemptedCardinalityViolation("Node already has one relationship")
+
     def single(self) -> "StructuredNode":
         """
         Return the associated node.
@@ -139,6 +145,4 @@ class One(RelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
-        if super().__len__():
-            raise AttemptedCardinalityViolation("Node already has one relationship")
         return super().connect(node, properties)

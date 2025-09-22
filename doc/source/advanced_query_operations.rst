@@ -65,6 +65,7 @@ Options for `intermediate_transform` *variables* are:
 - `include_in_return`: `bool` - whether to include the variable in the return statement. Defaults to False.
 
 Additional options for the `intermediate_transform` method are:
+
 - `distinct`: `bool` - whether to deduplicate the results. Defaults to False.
 
 Here is a full example::
