@@ -77,6 +77,16 @@ class AsyncRelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
+    async def _check_cardinality(self, node: "AsyncStructuredNode") -> None:
+        """
+        Check whether a new connection to a node would violate the cardinality
+        of the relationship.
+
+        :param node: The node that is being connected.
+        :type: AsyncStructuredNode
+        :raises: AttemptedCardinalityViolation
+        """
+
     def _check_node(self, obj: type["AsyncStructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""
         if not issubclass(type(obj), self.definition["node_class"]):
@@ -99,6 +109,25 @@ class AsyncRelationshipManager(object):
         :return:
         """
         self._check_node(node)
+        await self._check_cardinality(node)
+
+        # Check for cardinality on the remote end.
+        for rel_name, rel_def in node.defined_properties(
+            rels=True, aliases=False, properties=False
+        ).items():
+            # In order to find the inverse relationship, we need to check
+            # that the relationship type is the same, the direction is
+            # opposite, and the node class is the same as the source.
+            if (
+                rel_def.definition["relation_type"] == self.definition["relation_type"]
+                and rel_def.definition["direction"] != self.definition["direction"]
+                and rel_def.definition["node_class"] == self.source_class
+            ):
+                # If we have found the inverse relationship, we need to check
+                # its cardinality.
+                inverse_rel = getattr(node, rel_name)
+                await inverse_rel._check_cardinality(self.source)
+                break
 
         if not self.definition["model"] and properties:
             raise NotImplementedError(
