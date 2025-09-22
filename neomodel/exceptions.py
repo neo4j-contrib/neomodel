@@ -272,6 +272,21 @@ class FeatureNotSupported(NeomodelException):
         self.message = msg
 
 
+class MutualExclusionViolation(NeomodelException):
+    """
+    Attempted to connect a relationship when a mutually exclusive relationship is already connected.
+
+    Example: a Person node with a 'cat' relationship trying to connect a 'dog' relationship
+    when these relationships are defined as mutually exclusive.
+    """
+
+    def __init__(self, message: str):
+        self.message = message
+
+    def __str__(self) -> str:
+        return f"MutualExclusionViolation: {self.message}"
+
+
 __all__ = (
     AttemptedCardinalityViolation.__name__,
     CardinalityViolation.__name__,
@@ -291,4 +306,5 @@ __all__ = (
     RelationshipClassNotDefined.__name__,
     RelationshipClassRedefined.__name__,
     FeatureNotSupported.__name__,
+    MutualExclusionViolation.__name__,
 )

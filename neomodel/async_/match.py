@@ -2022,6 +2022,7 @@ class AsyncTraversal(AsyncBaseSet):
             "model",
             "node_class",
             "relation_type",
+            "exclusion_group",
         }
         if invalid_keys:
             raise ValueError(f"Prohibited keys in Traversal definition: {invalid_keys}")

@@ -562,10 +562,13 @@ class RelationshipTo(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
 
 
 class RelationshipFrom(RelationshipDefinition):
@@ -575,10 +578,13 @@ class RelationshipFrom(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
 
 
 class Relationship(RelationshipDefinition):
@@ -588,7 +594,10 @@ class Relationship(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: Optional[type[StructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
