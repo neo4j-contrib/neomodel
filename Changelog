@@ -1,3 +1,8 @@
+Version 5.5.2 2025-09
+* This is a hotfix for 5.5.1, which fixed something desirable, but introducing a lot of potential side effects by enforcing cardinality on RelationshipFrom.
+* Until version 6.0, RelationshipFrom cardinality will be softly checked by default, only giving a warning. You can switch that using SOFT_INVERSE_CARDINALITY_CHECK=False
+* Version 6.0 will make all checks strict by default.
+
 Version 5.5.1 2025-09
 * Fix cardinality enforcement for RelationshipFrom. Many thanks to @billycalladine
 * Change order of WITH and CALL{} statements in generated Cypher (intermediate_transform & subquery)

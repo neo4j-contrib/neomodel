@@ -4,6 +4,7 @@ import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
 
+from neomodel import config
 from neomodel.async_.core import adb
 from neomodel.async_.match import (
     AsyncNodeSet,
@@ -77,7 +78,9 @@ class AsyncRelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    async def _check_cardinality(self, node: "AsyncStructuredNode") -> None:
+    async def _check_cardinality(
+        self, node: "AsyncStructuredNode", soft_check: bool = False
+    ) -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
@@ -126,7 +129,9 @@ class AsyncRelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                await inverse_rel._check_cardinality(self.source)
+                await inverse_rel._check_cardinality(
+                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
+                )
                 break
 
         if not self.definition["model"] and properties:
