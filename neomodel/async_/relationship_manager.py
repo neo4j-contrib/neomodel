@@ -78,7 +78,9 @@ class AsyncRelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    async def _check_cardinality(self, node: "AsyncStructuredNode") -> None:
+    async def _check_cardinality(
+        self, node: "AsyncStructuredNode", soft_check: bool = False
+    ) -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
