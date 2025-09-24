@@ -4,6 +4,7 @@ import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
 
+from neomodel import config
 from neomodel.async_.core import adb
 from neomodel.async_.match import (
     AsyncNodeSet,
@@ -126,7 +127,9 @@ class AsyncRelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                await inverse_rel._check_cardinality(self.source)
+                await inverse_rel._check_cardinality(
+                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
+                )
                 break
 
         if not self.definition["model"] and properties:

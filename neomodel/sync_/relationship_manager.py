@@ -4,6 +4,7 @@ import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 
+from neomodel import config
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
 from neomodel.sync_.match import (
@@ -126,7 +127,9 @@ class RelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                inverse_rel._check_cardinality(self.source)
+                inverse_rel._check_cardinality(
+                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
+                )
                 break
 
         if not self.definition["model"] and properties:
