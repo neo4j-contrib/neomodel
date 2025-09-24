@@ -15,18 +15,11 @@ class ZeroOrOne(RelationshipManager):
 
     description = "zero or one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def _check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if soft_check:
-                print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
-                )
-            else:
-                raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
-                )
+            raise AttemptedCardinalityViolation(
+                f"Node already has {self} can't connect more"
+            )
 
     def single(self) -> Optional["StructuredNode"]:
         """
@@ -105,18 +98,9 @@ class One(RelationshipManager):
 
     description = "one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def _check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if soft_check:
-                print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
-                )
-            else:
-                raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
-                )
+            raise AttemptedCardinalityViolation("Node already has one relationship")
 
     def single(self) -> "StructuredNode":
         """

@@ -10,10 +10,10 @@ from typing import Tuple, Union
 from neomodel.async_ import relationship_manager
 from neomodel.async_.core import AsyncStructuredNode, adb
 from neomodel.async_.relationship import AsyncStructuredRel
+from neomodel.semantic_filters import VectorFilter
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
@@ -406,7 +406,6 @@ class QueryAST:
     additional_return: TOptional[list[str]]
     is_count: TOptional[bool]
     vector_index_query: TOptional[type]
-
     def __init__(
         self,
         match: TOptional[list[str]] = None,
@@ -462,14 +461,10 @@ class AsyncQueryBuilder:
         ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
-
-        if isinstance(self.node_set, AsyncNodeSet) and hasattr(
-            self.node_set, "_vector_query"
-        ):
+        
+        if isinstance(self.node_set, AsyncNodeSet) and hasattr(self.node_set, "_vector_query"):
             if self.node_set._vector_query:
-                self.build_vector_query(
-                    self.node_set._vector_query, self.node_set.source
-                )
+                self.build_vector_query(self.node_set._vector_query, self.node_set.source)
 
         await self.build_source(self.node_set)
 
@@ -552,28 +547,26 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
+
     def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
         """
-        Query a vector indexed property on the node.
+        Query a vector indexed property on the node. 
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
         except AttributeError:
-            raise  # This raises the base AttributeError and provides potential correction
+            raise # This raises the base AttributeError and provides potential correction
 
         if not attribute.vector_index:
-            raise AttributeError(
-                f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
-            )
+            raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
 
-        vectorfilter.index_name = (
-            f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
-        )
+        vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
         vectorfilter.nodeSetLabel = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
         self._ast.result_class = source.__class__
+
 
     async def build_traversal(self, traversal: "AsyncTraversal") -> str:
         """
@@ -969,6 +962,7 @@ class AsyncQueryBuilder:
             query += self._ast.lookup
 
         if self._ast.vector_index_query:
+
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
                 YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
@@ -1553,9 +1547,7 @@ class AsyncNodeSet(AsyncBaseSet):
         """
         if args or kwargs:
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = (
-                []
-            )  # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q.
+            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. 
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self._vector_query):
                     self._vector_query = arg
@@ -1564,10 +1556,9 @@ class AsyncNodeSet(AsyncBaseSet):
             new_args = tuple(new_args)
 
             if kwargs.get("vector_filter"):
-                if isinstance(kwargs["vector_filter"], VectorFilter) and (
-                    not self._vector_query
-                ):
+                if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
                     self._vector_query = kwargs.pop("vector_filter")
+                    
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
@@ -1656,7 +1647,7 @@ class AsyncNodeSet(AsyncBaseSet):
     def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
         """Specify a set of relations to traverse and return."""
         warnings.warn(
-            "fetch_relations() will be deprecated in version 6.0, use traverse() instead.",
+            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
         relations = []
@@ -1673,13 +1664,12 @@ class AsyncNodeSet(AsyncBaseSet):
         """Specify a set of relations to traverse only."""
 
         warnings.warn(
-            "traverse_relations() will be deprecated in version 6.0, use traverse() instead.",
+            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
 
         def convert_to_path(input: Union[str, Optional]) -> Path:
             self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
-
         return self
 
     def exclude(self, *args: Any, **kwargs: Any) -> "AsyncBaseSet":
@@ -1767,7 +1757,7 @@ class AsyncNodeSet(AsyncBaseSet):
     def fetch_relations(self, *relation_names: tuple[str, ...]) -> "AsyncNodeSet":
         """Specify a set of relations to traverse and return."""
         warnings.warn(
-            "fetch_relations() will be deprecated in version 6.0, use traverse() instead.",
+            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
         relations = []
@@ -1784,7 +1774,7 @@ class AsyncNodeSet(AsyncBaseSet):
         """Specify a set of relations to traverse only."""
 
         warnings.warn(
-            "traverse_relations() will be deprecated in version 6.0, use traverse() instead.",
+            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
             DeprecationWarning,
         )
 

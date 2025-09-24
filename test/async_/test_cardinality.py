@@ -1,6 +1,4 @@
-import io
 from test._async_compat import mark_async_test
-from unittest.mock import patch
 
 from pytest import raises
 
@@ -17,7 +15,6 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     adb,
-    config,
 )
 
 
@@ -225,37 +222,25 @@ async def test_cardinality_one():
 async def test_relationship_from_one_cardinality_enforced():
     """
     Test that RelationshipFrom with cardinality=One prevents multiple connections.
-
+    
     This addresses the GitHub issue where RelationshipFrom cardinality constraints
     were not being enforced.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
     owner1 = await Owner(name="Alice").save()
     owner2 = await Owner(name="Bob").save()
     pet = await Pet(name="Fluffy").save()
-
+    
     # First connection should succeed
     await owner1.pets.connect(pet)
-
+    
     # Verify connection was established
     assert await pet.owner.single() == owner1
     assert pet in await owner1.pets.all()
-
+    
     # Second connection should fail due to RelationshipFrom cardinality=One
     with raises(AttemptedCardinalityViolation):
         await owner2.pets.connect(pet)
-
-    stream = io.StringIO()
-    with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
-        await owner2.pets.connect(pet)
-        assert pet in await owner2.pets.all()
-
-    console_output = stream.getvalue()
-    assert "Cardinality violation detected" in console_output
-    assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
 
 @mark_async_test
@@ -264,32 +249,20 @@ async def test_relationship_from_zero_or_one_cardinality_enforced():
     Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
     company1 = await Company(name="TechCorp").save()
     company2 = await Company(name="StartupInc").save()
     employee = await Employee(name="John").save()
-
+    
     # First connection should succeed
     await company1.employees.connect(employee)
-
+    
     # Verify connection was established
     assert await employee.employer.single() == company1
     assert employee in await company1.employees.all()
-
+    
     # Second connection should fail due to RelationshipFrom cardinality=ZeroOrOne
     with raises(AttemptedCardinalityViolation):
         await company2.employees.connect(employee)
-
-    stream = io.StringIO()
-    with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
-        await company2.employees.connect(employee)
-        assert employee in await company2.employees.all()
-
-    console_output = stream.getvalue()
-    assert "Cardinality violation detected" in console_output
-    assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
 
 @mark_async_test
@@ -298,29 +271,17 @@ async def test_bidirectional_cardinality_validation():
     Test that cardinality is validated on both ends when both sides have constraints.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
     manager1 = await Manager(name="Sarah").save()
     manager2 = await Manager(name="David").save()
     assistant = await Assistant(name="Alex").save()
-
+    
     # First connection should succeed
     await manager1.assistant.connect(assistant)
-
+    
     # Verify bidirectional connection
     assert await manager1.assistant.single() == assistant
     assert await assistant.boss.single() == manager1
-
+    
     # Second manager trying to connect to same assistant should fail
     with raises(AttemptedCardinalityViolation):
         await manager2.assistant.connect(assistant)
-
-    stream = io.StringIO()
-    with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
-        await manager2.assistant.connect(assistant)
-        assert assistant in await manager2.assistant.all()
-
-    console_output = stream.getvalue()
-    assert "Cardinality violation detected" in console_output
-    assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
