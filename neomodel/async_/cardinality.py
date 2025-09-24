@@ -15,6 +15,19 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
 
     description = "zero or one relationship"
 
+    async def _check_cardinality(
+        self, node: "AsyncStructuredNode", soft_check: bool = False
+    ) -> None:
+        if await self.get_len():
+            if soft_check:
+                print(
+                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                )
+            else:
+                raise AttemptedCardinalityViolation(
+                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                )
+
     async def single(self) -> Optional["AsyncStructuredNode"]:
         """
         Return the associated node.
@@ -44,10 +57,6 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         :type: dict
         :return: True / rel instance
         """
-        if await super().get_len():
-            raise AttemptedCardinalityViolation(
-                f"Node already has {self} can't connect more"
-            )
         return await super().connect(node, properties)
 
 
@@ -96,6 +105,19 @@ class AsyncOne(AsyncRelationshipManager):
 
     description = "one relationship"
 
+    async def _check_cardinality(
+        self, node: "AsyncStructuredNode", soft_check: bool = False
+    ) -> None:
+        if await self.get_len():
+            if soft_check:
+                print(
+                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                )
+            else:
+                raise AttemptedCardinalityViolation(
+                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                )
+
     async def single(self) -> "AsyncStructuredNode":
         """
         Return the associated node.
@@ -139,6 +161,4 @@ class AsyncOne(AsyncRelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
-        if await super().get_len():
-            raise AttemptedCardinalityViolation("Node already has one relationship")
         return await super().connect(node, properties)

@@ -25,3 +25,6 @@ USER_AGENT = f"neomodel/v{__version__}"
 DRIVER = None
 # Use this to connect to a specific database when using the self-managed driver
 DATABASE_NAME = None
+
+# Use this to enable soft cardinality check
+SOFT_INVERSE_CARDINALITY_CHECK = True

@@ -36,8 +36,13 @@ The following cardinality constraints are available:
 If a cardinality constraint is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
 
-On attempting to violate a cardinality constraint a 
-:class:`~neomodel.exception.AttemptedCardinalityViolation` is raised.
+It is possible to enable a soft check for cardinality violations. This will print a warning to the console and create the relationship anyway.
+This is useful for development purposes::
+    config.SOFT_INVERSE_CARDINALITY_CHECK = True
+
+Note that this is only available for remote cardinality checks where we check the cardinality of the other end of the relationship. It is enabled by default in this case.
+It will be made available for all cardinality checks in version 6.0, and will be disabled by default in all cases.
+
 
 Properties
 ==========
