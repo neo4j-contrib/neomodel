@@ -4,8 +4,10 @@ import asyncio
 from test._async_compat import mark_async_test
 
 import neo4j
+import pytest
 
 import neomodel
+from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.core import AsyncDatabase
 
 
@@ -35,6 +37,9 @@ def test_async_database_properties():
 
 @mark_async_test
 async def test_parallel_transactions():
+    if not AsyncUtil.is_async_code:
+        pytest.skip("Async only test")
+
     transactions = set()
     sessions = set()
 
