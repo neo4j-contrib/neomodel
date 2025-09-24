@@ -128,6 +128,18 @@ async def test_wrong_url_format(url):
 @mark_async_test
 @pytest.mark.parametrize("protocol", ["neo4j+s", "neo4j+ssc", "bolt+s", "bolt+ssc"])
 async def test_connect_to_aura(protocol):
+    # Skip test if Aura credentials are not available (e.g., in external PRs)
+    required_env_vars = [
+        "AURA_TEST_DB_USER",
+        "AURA_TEST_DB_PASSWORD",
+        "AURA_TEST_DB_HOSTNAME",
+    ]
+    missing_vars = [var for var in required_env_vars if var not in os.environ]
+    if missing_vars:
+        pytest.skip(
+            f"Skipping Aura test - missing environment variables: {', '.join(missing_vars)}"
+        )
+
     cypher_return = "hello world"
     default_cypher_query = f"RETURN '{cypher_return}'"
     await adb.close_connection()
