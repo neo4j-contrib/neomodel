@@ -7,12 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 from neomodel import config
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
-from neomodel.sync_.match import (
-    NodeSet,
-    Traversal,
-    _rel_helper,
-    _rel_merge_helper,
-)
+from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
     EITHER,
@@ -78,7 +73,9 @@ class RelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    def _check_cardinality(self, node: "StructuredNode") -> None:
+    def _check_cardinality(
+        self, node: "StructuredNode", soft_check: bool = False
+    ) -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
