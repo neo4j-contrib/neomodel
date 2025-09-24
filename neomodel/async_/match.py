@@ -465,12 +465,13 @@ class AsyncQueryBuilder:
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
-        if (
-            isinstance(self.node_set, AsyncNodeSet)
-            and hasattr(self.node_set, "vector_query")
-            and self.node_set.vector_query
+        if isinstance(self.node_set, AsyncNodeSet) and hasattr(
+            self.node_set, "_vector_query"
         ):
-            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
+            if self.node_set._vector_query:
+                self.build_vector_query(
+                    self.node_set._vector_query, self.node_set.source
+                )
 
         await self.build_source(self.node_set)
 
@@ -553,25 +554,24 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "AsyncNodeSet"):
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
         """
         Query a vector indexed property on the node.
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
-        except AttributeError as e:
-            raise AttributeError(
-                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
-            ) from e
+        except AttributeError:
+            raise  # This raises the base AttributeError and provides potential correction
 
         if not attribute.vector_index:
             raise AttributeError(
                 f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
             )
+
         vectorfilter.index_name = (
             f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
         )
-        vectorfilter.node_set_label = source.__label__.lower()
+        vectorfilter.nodeSetLabel = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
@@ -1564,7 +1564,7 @@ class AsyncNodeSet(AsyncBaseSet):
             # Need to grab and remove the VectorFilter from both args and kwargs
             new_args = (
                 []
-            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            )  # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q.
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
@@ -1572,12 +1572,11 @@ class AsyncNodeSet(AsyncBaseSet):
 
             new_args = tuple(new_args)
 
-            if (
-                kwargs.get("vector_filter")
-                and isinstance(kwargs["vector_filter"], VectorFilter)
-                and not self.vector_query
-            ):
-                self.vector_query = kwargs.pop("vector_filter")
+            if kwargs.get("vector_filter"):
+                if isinstance(kwargs["vector_filter"], VectorFilter) and (
+                    not self._vector_query
+                ):
+                    self._vector_query = kwargs.pop("vector_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
