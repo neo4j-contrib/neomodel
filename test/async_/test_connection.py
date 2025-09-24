@@ -134,7 +134,11 @@ async def test_connect_to_aura(protocol):
         "AURA_TEST_DB_PASSWORD",
         "AURA_TEST_DB_HOSTNAME",
     ]
-    missing_vars = [var for var in required_env_vars if var not in os.environ]
+    missing_vars = [
+        var
+        for var in required_env_vars
+        if var not in os.environ or os.environ[var] == ""
+    ]
     if missing_vars:
         pytest.skip(
             f"Skipping Aura test - missing environment variables: {', '.join(missing_vars)}"
