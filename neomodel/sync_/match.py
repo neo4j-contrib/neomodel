@@ -10,10 +10,10 @@ from typing import Tuple, Union
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
+from neomodel.semantic_filters import VectorFilter
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
-from neomodel.semantic_filters import VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
@@ -441,6 +441,7 @@ class QueryAST:
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
+
 class QueryBuilder:
     def __init__(
         self, node_set: "BaseSet", subquery_namespace: TOptional[str] = None
@@ -459,11 +460,14 @@ class QueryBuilder:
         ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
+
         if isinstance(self.node_set, NodeSet) and hasattr(
             self.node_set, "_vector_query"
-        ): 
+        ):
             if self.node_set._vector_query:
-                self.build_vector_query(self.node_set._vector_query, self.node_set.source)
+                self.build_vector_query(
+                    self.node_set._vector_query, self.node_set.source
+                )
 
         self.build_source(self.node_set)
 
@@ -548,23 +552,26 @@ class QueryBuilder:
 
     def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
         """
-        Query a vector indexed property on the node. 
+        Query a vector indexed property on the node.
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
         except AttributeError:
-            raise # This raises the base AttributeError and provides potential correction
+            raise  # This raises the base AttributeError and provides potential correction
 
         if not attribute.vector_index:
-            raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
+            raise AttributeError(
+                f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
+            )
 
-        vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+        vectorfilter.index_name = (
+            f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+        )
         vectorfilter.nodeSetLabel = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
         self._ast.result_class = source.__class__
-        
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -965,7 +972,8 @@ class QueryBuilder:
                 YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
                 RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
                 }}"""
-            # This ensures that we bring the context of the new nodeSet and score along with us for further filtering
+
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
 
         # Instead of using only one MATCH statement for every relation
@@ -1093,7 +1101,7 @@ class QueryBuilder:
 
         if self._ast.limit and not self._ast.is_count:
             query += f" LIMIT {self._ast.limit}"
-        print(query)
+
         return query
 
     def _count(self) -> int:
@@ -1437,7 +1445,7 @@ class NodeSet(BaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self._vector_query: str = None 
+        self._vector_query: str = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1541,7 +1549,9 @@ class NodeSet(BaseSet):
         """
         if args or kwargs:
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. 
+            new_args = (
+                []
+            )  # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q.
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self._vector_query):
                     self._vector_query = arg
@@ -1550,9 +1560,10 @@ class NodeSet(BaseSet):
             new_args = tuple(new_args)
 
             if kwargs.get("vector_filter"):
-                if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
+                if isinstance(kwargs["vector_filter"], VectorFilter) and (
+                    not self._vector_query
+                ):
                     self._vector_query = kwargs.pop("vector_filter")
-                    
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
