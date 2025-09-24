@@ -3,6 +3,8 @@
 
 name: Integration tests
 
+# Note: This workflow runs on both internal PRs (secrets available) and external PRs from forks (secrets not available)
+# Aura tests will automatically skip when secrets are not available, which is expected behavior for external PRs
 on:
   pull_request:
     branches: [ "master", "rc/**" ]
@@ -34,9 +36,11 @@ jobs:
         pip install -e '.[dev,extras]'
     - name: Test with pytest
       env:
-        AURA_TEST_DB_USER: ${{ secrets.AURA_TEST_DB_USER }}
-        AURA_TEST_DB_PASSWORD: ${{ secrets.AURA_TEST_DB_PASSWORD }}
-        AURA_TEST_DB_HOSTNAME: ${{ secrets.AURA_TEST_DB_HOSTNAME }}
+        # Aura test credentials - only available for internal PRs
+        # External PRs from forks will have these as empty strings, causing Aura tests to skip
+        AURA_TEST_DB_USER: ${{ secrets.AURA_TEST_DB_USER || '' }}
+        AURA_TEST_DB_PASSWORD: ${{ secrets.AURA_TEST_DB_PASSWORD || '' }}
+        AURA_TEST_DB_HOSTNAME: ${{ secrets.AURA_TEST_DB_HOSTNAME || '' }}
       run: |
         pytest --cov=neomodel --cov-report=html:coverage_report
     - name: Install neo4j-rust-ext and verify it is installed

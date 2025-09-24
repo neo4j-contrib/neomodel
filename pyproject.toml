@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j~=5.28.1",
+    "neo4j~=5.28.2",
 ]
 requires-python = ">=3.9"
 dynamic = ["version"]
@@ -56,7 +56,7 @@ dev = [
 shapely = ["Shapely>=2.0.0"]
 pandas = ["pandas"]
 numpy = ["numpy"]
-rust-driver-ext = ["neo4j-rust-ext==5.28.1.0"]
+rust-driver-ext = ["neo4j-rust-ext~=5.28.2.1"]
 
 [build-system]
 requires = ["setuptools>=68"]
