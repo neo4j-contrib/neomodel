@@ -463,13 +463,12 @@ class AsyncQueryBuilder:
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
-        if isinstance(self.node_set, AsyncNodeSet) and hasattr(
-            self.node_set, "_vector_query"
+        if (
+            isinstance(self.node_set, AsyncNodeSet)
+            and hasattr(self.node_set, "_vector_query")
+            and self.node_set._vector_query
         ):
-            if self.node_set._vector_query:
-                self.build_vector_query(
-                    self.node_set._vector_query, self.node_set.source
-                )
+            self.build_vector_query(self.node_set._vector_query, self.node_set.source)
 
         await self.build_source(self.node_set)
 
@@ -1563,11 +1562,12 @@ class AsyncNodeSet(AsyncBaseSet):
 
             new_args = tuple(new_args)
 
-            if kwargs.get("vector_filter"):
-                if isinstance(kwargs["vector_filter"], VectorFilter) and (
-                    not self._vector_query
-                ):
-                    self._vector_query = kwargs.pop("vector_filter")
+            if (
+                kwargs.get("vector_filter")
+                and isinstance(kwargs["vector_filter"], VectorFilter)
+                and not self._vector_query
+            ):
+                self._vector_query = kwargs.pop("vector_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 

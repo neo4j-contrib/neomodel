@@ -3,9 +3,14 @@ from test._async_compat import mark_sync_test
 
 from neo4j import time
 from pytest import mark, raises
-from pytz import timezone
 
-from neomodel import Relationship, StructuredNode, StructuredRel, config, db
+from neomodel import (
+    Relationship,
+    StructuredNode,
+    StructuredRel,
+    config,
+    db,
+)
 from neomodel.contrib import SemiStructuredNode
 from neomodel.exceptions import (
     DeflateError,

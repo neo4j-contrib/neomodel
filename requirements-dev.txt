@@ -11,5 +11,4 @@ black
 isort
 mypy>=1.11
 pandas-stubs
-types-pytz
 types-shapely

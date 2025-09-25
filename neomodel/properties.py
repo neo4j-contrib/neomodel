@@ -5,9 +5,9 @@ import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
 from typing import Any, Callable, Optional
+from zoneinfo import ZoneInfo
 
 import neo4j.time
-import pytz
 
 from neomodel import config
 from neomodel.exceptions import DeflateError, InflateError, NeomodelException
@@ -490,7 +490,7 @@ class DateTimeProperty(Property):
         if default_now:
             if "default" in kwargs:
                 raise ValueError(TOO_MANY_DEFAULTS)
-            kwargs["default"] = lambda: datetime.now(pytz.utc)
+            kwargs["default"] = lambda: datetime.now(ZoneInfo("UTC"))
 
         super().__init__(**kwargs)
 
@@ -506,15 +506,15 @@ class DateTimeProperty(Property):
             raise TypeError(
                 f"Float or integer expected. Can't inflate {type(value)} to datetime."
             ) from exc
-        return datetime.fromtimestamp(epoch, tz=pytz.utc)
+        return datetime.fromtimestamp(epoch, tz=ZoneInfo("UTC"))
 
     @validator
     def deflate(self, value: datetime) -> float:
         if not isinstance(value, datetime):
             raise ValueError(f"datetime object expected, got {type(value)}.")
         if value.tzinfo:
-            value = value.astimezone(pytz.utc)
-            epoch_date = datetime(1970, 1, 1, tzinfo=pytz.utc)
+            value = value.astimezone(ZoneInfo("UTC"))
+            epoch_date = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
         elif config.FORCE_TIMEZONE:
             raise ValueError(f"Error deflating {value}: No timezone provided.")
         else:

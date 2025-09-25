@@ -3,7 +3,6 @@ from test._async_compat import mark_async_test
 
 from neo4j import time
 from pytest import mark, raises
-from pytz import timezone
 
 from neomodel import (
     AsyncRelationship,
