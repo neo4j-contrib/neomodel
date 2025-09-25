@@ -51,4 +51,4 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}  # Ensure the token is used here
-        fail_ci_if_error: true  # Optional: specify if CI should fail when codecov fails
+        fail_ci_if_error: false  # Optional: specify if CI should fail when codecov fails
