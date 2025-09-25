@@ -1,6 +1,5 @@
 Version 5.5.3 2025-09
 * Fix duplicated code issue in the advanced querying methods
-* Remove py.typed - this was a premature change, we should write stubs for full typing support first
 
 Version 5.5.2 2025-09
 * This is a hotfix for 5.5.1, which fixed something desirable, but introducing a lot of potential side effects by enforcing cardinality on RelationshipFrom.
