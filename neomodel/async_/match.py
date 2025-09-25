@@ -467,10 +467,10 @@ class AsyncQueryBuilder:
 
         if (
             isinstance(self.node_set, AsyncNodeSet)
-            and hasattr(self.node_set, "_vector_query")
-            and self.node_set._vector_query
+            and hasattr(self.node_set, "vector_query")
+            and self.node_set.vector_query
         ):
-            self.build_vector_query(self.node_set._vector_query, self.node_set.source)
+            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
 
         await self.build_source(self.node_set)
 
@@ -559,8 +559,10 @@ class AsyncQueryBuilder:
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
-        except AttributeError:
-            raise  # This raises the base AttributeError and provides potential correction
+        except AttributeError as e:
+            raise AttributeError(
+                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
+            ) from e
 
         if not attribute.vector_index:
             raise AttributeError(
@@ -570,7 +572,7 @@ class AsyncQueryBuilder:
         vectorfilter.index_name = (
             f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
         )
-        vectorfilter.nodeSetLabel = source.__label__.lower()
+        vectorfilter.node_set_label = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
@@ -976,16 +978,6 @@ class AsyncQueryBuilder:
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
-
-        if self._ast.fulltext_index_query:
-            query += f"""CALL () {{
-                CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
-                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score
-                RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
-                }}
-                """
-            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
-            query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1574,9 +1566,9 @@ class AsyncNodeSet(AsyncBaseSet):
             if (
                 kwargs.get("vector_filter")
                 and isinstance(kwargs["vector_filter"], VectorFilter)
-                and not self._vector_query
+                and not self.vector_query
             ):
-                self._vector_query = kwargs.pop("vector_filter")
+                self.vector_query = kwargs.pop("vector_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
