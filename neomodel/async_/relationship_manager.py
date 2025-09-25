@@ -450,14 +450,14 @@ class AsyncRelationshipManager(object):
     async def check_bool(self) -> bool:
         return await self._new_traversal().check_bool()
 
-    async def check_nonzero(self) -> bool:
-        return await self._new_traversal().check_nonzero()
+    def check_nonzero(self) -> bool:
+        return self._new_traversal().check_nonzero()
 
-    async def check_contains(self, obj: Any) -> bool:
-        return await self._new_traversal().check_contains(obj)
+    def check_contains(self, obj: Any) -> bool:
+        return self._new_traversal().check_contains(obj)
 
-    async def get_item(self, key: Union[int, slice]) -> Any:
-        return await self._new_traversal().get_item(key)
+    def get_item(self, key: Union[int, slice]) -> Any:
+        return self._new_traversal().get_item(key)
 
 
 class AsyncRelationshipDefinition:
