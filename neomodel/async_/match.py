@@ -938,7 +938,7 @@ class AsyncQueryBuilder:
             return None
 
         # Check if relation is coming from an optional MATCH
-        # (declared using fetch|traverse_relations)
+        # (declared using traverse)
         is_optional_relation = False
         for relation in self.node_set.relations_to_fetch:
             if relation.value == path:
@@ -1282,7 +1282,7 @@ class RelationNameResolver:
     """Helper to refer to a relation variable name.
 
     Since variable names are generated automatically within MATCH statements (for
-    anything injected using fetch_relations or traverse_relations), we need a way to
+    anything injected using traverse), we need a way to
     retrieve them.
 
     """
@@ -1303,7 +1303,7 @@ class NodeNameResolver:
     """Helper to refer to a node variable name.
 
     Since variable names are generated automatically within MATCH statements (for
-    anything injected using fetch_relations or traverse_relations), we need a way to
+    anything injected using traverse), we need a way to
     retrieve them.
 
     """
@@ -1655,54 +1655,6 @@ class AsyncNodeSet(AsyncBaseSet):
         self.relations_to_fetch = relations
         return self
 
-    def fetch_relations(self, *relation_names: tuple[str, ...]) -> "AsyncNodeSet":
-        """Specify a set of relations to traverse and return."""
-        warnings.warn(
-            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-        relations = []
-        for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
-                relation_name = Path(value=relation_name.relation, optional=True)
-            relations.append(self._register_relation_to_fetch(relation_name))
-        self.relations_to_fetch = relations
-        return self
-
-    def traverse_relations(
-        self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
-    ) -> "AsyncNodeSet":
-        """Specify a set of relations to traverse only."""
-
-        warnings.warn(
-            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-
-        def convert_to_path(input: Union[str, Optional]) -> Path:
-            if isinstance(input, Optional):
-                path = Path(value=input.relation, optional=True)
-            else:
-                path = Path(value=input)
-            path.include_nodes_in_return = False
-            path.include_rels_in_return = False
-            return path
-
-        relations = []
-        for relation_name in relation_names:
-            relations.append(
-                self._register_relation_to_fetch(convert_to_path(relation_name))
-            )
-        for alias, relation_def in aliased_relation_names.items():
-            relations.append(
-                self._register_relation_to_fetch(
-                    convert_to_path(relation_def), alias=alias
-                )
-            )
-
-        self.relations_to_fetch = relations
-        return self
-
     def annotate(self, *vars: tuple, **aliased_vars: tuple) -> "AsyncNodeSet":
         """Annotate node set results with extra variables."""
 
@@ -1767,20 +1719,12 @@ class AsyncNodeSet(AsyncBaseSet):
         we use a dedicated property to store node's relations.
 
         """
-        if (
-            self.relations_to_fetch
-            and not self.relations_to_fetch[0].include_nodes_in_return
-            and not self.relations_to_fetch[0].include_rels_in_return
-        ):
-            raise NotImplementedError(
-                "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
-            )
         results: list = []
         qbuilder = self.query_cls(self)
         await qbuilder.build_ast()
         if not qbuilder._ast.subgraph:
             raise RuntimeError(
-                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+                "Nothing to resolve. Make sure to include relations in the result using traverse() or filter()."
             )
         other_nodes = {}
         root_node = None
