@@ -1,3 +1,6 @@
+Version 5.5.3 2025-09
+* Fix duplicated code issue in the advanced querying methods
+
 Version 5.5.2 2025-09
 * This is a hotfix for 5.5.1, which fixed something desirable, but introducing a lot of potential side effects by enforcing cardinality on RelationshipFrom.
 * Until version 6.0, RelationshipFrom cardinality will be softly checked by default, only giving a warning. You can switch that using SOFT_INVERSE_CARDINALITY_CHECK=False
@@ -5,6 +8,7 @@ Version 5.5.2 2025-09
 
 Version 5.5.1 2025-09
 * Fix cardinality enforcement for RelationshipFrom. Many thanks to @billycalladine
+* Add VectorFilter querying capabilities. Many thanks to @greengori11a
 * Change order of WITH and CALL{} statements in generated Cypher (intermediate_transform & subquery)
 * Add py.typed file to enable support from mypy
 * Bump to neo4j 5.28.2, uniform version pinning for rust-ext
