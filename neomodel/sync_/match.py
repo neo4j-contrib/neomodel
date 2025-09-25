@@ -464,8 +464,10 @@ class QueryBuilder:
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
-        if isinstance(self.node_set, NodeSet) and hasattr(
-            self.node_set, "_vector_query"
+        if (
+            isinstance(self.node_set, NodeSet)
+            and hasattr(self.node_set, "_vector_query")
+            and self.node_set._vector_query
         ):
             self.build_vector_query(self.node_set.vector_query, self.node_set.source)
 
