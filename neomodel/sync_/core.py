@@ -4,9 +4,9 @@ import sys
 import time
 import warnings
 from asyncio import iscoroutinefunction
+from contextvars import ContextVar
 from functools import wraps
 from itertools import combinations
-from threading import local
 from typing import Any, Callable, Optional, TextIO, Union
 from urllib.parse import quote, unquote, urlparse
 
@@ -37,7 +37,12 @@ from neomodel.exceptions import (
 from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
 from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import _UnsavedNode, classproperty, version_tag_to_integer
+from neomodel.util import (
+    _UnsavedNode,
+    classproperty,
+    deprecated,
+    version_tag_to_integer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,25 +83,121 @@ def ensure_connection(func: Callable) -> Callable:
     return wrapper
 
 
-class Database(local):
+class Database:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
+    # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
     def __init__(self) -> None:
-        self._active_transaction: Optional[Transaction] = None
-        self.url: Optional[str] = None
-        self.driver: Optional[Driver] = None
-        self._session: Optional[Session] = None
-        self._pid: Optional[int] = None
-        self._database_name: Optional[str] = DEFAULT_DATABASE
-        self._database_version: Optional[str] = None
-        self._database_edition: Optional[str] = None
-        self.impersonated_user: Optional[str] = None
-        self._parallel_runtime: Optional[bool] = False
+        # Private to instances and contexts
+        self.__active_transaction: ContextVar[Optional[Transaction]] = ContextVar(
+            "_active_transaction", default=None
+        )
+        self.__url: ContextVar[Optional[str]] = ContextVar("url", default=None)
+        self.__driver: ContextVar[Optional[Driver]] = ContextVar("driver", default=None)
+        self.__session: ContextVar[Optional[Session]] = ContextVar(
+            "_session", default=None
+        )
+        self.__pid: ContextVar[Optional[int]] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[Optional[str]] = ContextVar(
+            "_database_name", default=DEFAULT_DATABASE
+        )
+        self.__database_version: ContextVar[Optional[str]] = ContextVar(
+            "_database_version", default=None
+        )
+        self.__database_edition: ContextVar[Optional[str]] = ContextVar(
+            "_database_edition", default=None
+        )
+        self.__impersonated_user: ContextVar[Optional[str]] = ContextVar(
+            "impersonated_user", default=None
+        )
+        self.__parallel_runtime: ContextVar[Optional[bool]] = ContextVar(
+            "_parallel_runtime", default=False
+        )
+
+    @property
+    def _active_transaction(self) -> Optional[Transaction]:
+        return self.__active_transaction.get()
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: Transaction) -> None:
+        self.__active_transaction.set(value)
+
+    @property
+    def url(self) -> Optional[str]:
+        return self.__url.get()
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self.__url.set(value)
+
+    @property
+    def driver(self) -> Optional[Driver]:
+        return self.__driver.get()
+
+    @driver.setter
+    def driver(self, value: Driver) -> None:
+        self.__driver.set(value)
+
+    @property
+    def _session(self) -> Optional[Session]:
+        return self.__session.get()
+
+    @_session.setter
+    def _session(self, value: Session) -> None:
+        self.__session.set(value)
+
+    @property
+    def _pid(self) -> Optional[int]:
+        return self.__pid.get()
+
+    @_pid.setter
+    def _pid(self, value: int) -> None:
+        self.__pid.set(value)
+
+    @property
+    def _database_name(self) -> Optional[str]:
+        return self.__database_name.get()
+
+    @_database_name.setter
+    def _database_name(self, value: str) -> None:
+        self.__database_name.set(value)
+
+    @property
+    def _database_version(self) -> Optional[str]:
+        return self.__database_version.get()
+
+    @_database_version.setter
+    def _database_version(self, value: str) -> None:
+        self.__database_version.set(value)
+
+    @property
+    def _database_edition(self) -> Optional[str]:
+        return self.__database_edition.get()
+
+    @_database_edition.setter
+    def _database_edition(self, value: str) -> None:
+        self.__database_edition.set(value)
+
+    @property
+    def impersonated_user(self) -> Optional[str]:
+        return self.__impersonated_user.get()
+
+    @impersonated_user.setter
+    def impersonated_user(self, value: str) -> None:
+        self.__impersonated_user.set(value)
+
+    @property
+    def _parallel_runtime(self) -> Optional[bool]:
+        return self.__parallel_runtime.get()
+
+    @_parallel_runtime.setter
+    def _parallel_runtime(self, value: bool) -> None:
+        self.__parallel_runtime.set(value)
 
     def set_connection(
         self, url: Optional[str] = None, driver: Optional[Driver] = None
@@ -681,9 +782,9 @@ class Database(local):
         """
         )
         if clear_constraints:
-            self.drop_constraints()
+            drop_constraints()
         if clear_indexes:
-            self.drop_indexes()
+            drop_indexes()
 
     def drop_constraints(
         self, quiet: bool = True, stdout: Optional[TextIO] = None
@@ -773,7 +874,7 @@ class Database(local):
         i = 0
         for cls in subsub(StructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            self.install_labels(cls, quiet=False, stdout=stdout)
+            install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -1161,6 +1262,88 @@ class Database(local):
 
 # Create a singleton instance of the database object
 db = Database()
+
+
+# Deprecated methods
+def change_neo4j_password(db: Database, user: str, new_password: str) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.change_neo4j_password(user, new_password) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.change_neo4j_password(user, new_password)
+
+
+def clear_neo4j_database(
+    db: Database, clear_constraints: bool = False, clear_indexes: bool = False
+) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.clear_neo4j_database(clear_constraints, clear_indexes)
+
+
+def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.drop_constraints(quiet, stdout) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.drop_constraints(quiet, stdout)
+
+
+def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.drop_indexes(quiet, stdout) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.drop_indexes(quiet, stdout)
+
+
+def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.remove_all_labels(stdout) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.remove_all_labels(stdout)
+
+
+def install_labels(
+    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.install_labels(cls, quiet, stdout) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.install_labels(cls, quiet, stdout)
+
+
+def install_all_labels(stdout: Optional[TextIO] = None) -> None:
+    deprecated(
+        """
+        This method has been moved to the Database singleton (db for sync, db for async).
+        Please use db.install_all_labels(stdout) instead.
+        This direct call will be removed in an upcoming version.
+        """
+    )
+    db.install_all_labels(stdout)
 
 
 class TransactionProxy:
