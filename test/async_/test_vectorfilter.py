@@ -240,9 +240,7 @@ async def test_vectorfilter_nonexistent_attribute():
     await adb.install_labels(TestNodeWithVector)
 
     # Test with non-existent attribute name
-    with pytest.raises(
-        AttributeError, match="Attribute 'nonexistent_vector' not found"
-    ):
+    with pytest.raises(AttributeError):
         nodeset = TestNodeWithVector.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,

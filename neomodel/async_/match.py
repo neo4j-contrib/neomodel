@@ -554,7 +554,7 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "AsyncNodeSet"):
         """
         Query a vector indexed property on the node.
         """
@@ -1661,54 +1661,6 @@ class AsyncNodeSet(AsyncBaseSet):
             relations.append(
                 self._register_relation_to_fetch(aliased_path, alias=alias)
             )
-        self.relations_to_fetch = relations
-        return self
-
-    def fetch_relations(self, *relation_names: tuple[str, ...]) -> "AsyncNodeSet":
-        """Specify a set of relations to traverse and return."""
-        warnings.warn(
-            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-        relations = []
-        for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
-                relation_name = Path(value=relation_name.relation, optional=True)
-            relations.append(self._register_relation_to_fetch(relation_name))
-        self.relations_to_fetch = relations
-        return self
-
-    def traverse_relations(
-        self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
-    ) -> "AsyncNodeSet":
-        """Specify a set of relations to traverse only."""
-
-        warnings.warn(
-            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-
-        def convert_to_path(input: Union[str, Optional]) -> Path:
-            if isinstance(input, Optional):
-                path = Path(value=input.relation, optional=True)
-            else:
-                path = Path(value=input)
-            path.include_nodes_in_return = False
-            path.include_rels_in_return = False
-            return path
-
-        relations = []
-        for relation_name in relation_names:
-            relations.append(
-                self._register_relation_to_fetch(convert_to_path(relation_name))
-            )
-        for alias, relation_def in aliased_relation_names.items():
-            relations.append(
-                self._register_relation_to_fetch(
-                    convert_to_path(relation_def), alias=alias
-                )
-            )
-
         self.relations_to_fetch = relations
         return self
 
