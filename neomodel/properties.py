@@ -28,12 +28,15 @@ def validator(fn: Callable) -> Callable:
             try:
                 return fn(self, value)
             except Exception as e:
-                if fn_name == "inflate":
-                    raise InflateError(self.name, self.owner, str(e), obj) from e
-                elif fn_name == "deflate":
-                    raise DeflateError(self.name, self.owner, str(e), obj) from e
-                else:
-                    raise NeomodelException("Unknown Property method " + fn_name) from e
+                match fn_name:
+                    case "inflate":
+                        raise InflateError(self.name, self.owner, str(e), obj) from e
+                    case "deflate":
+                        raise DeflateError(self.name, self.owner, str(e), obj) from e
+                    case _:
+                        raise NeomodelException(
+                            "Unknown Property method " + fn_name
+                        ) from e
         else:
             # For using with ArrayProperty where we don't want an Inflate/Deflate error.
             return fn(self, value)

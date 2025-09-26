@@ -56,17 +56,16 @@ def _rel_helper(
         rel_props = f" {{{rel_props_str}}}"
 
     rel_def = ""
-    # relation_type is unspecified
-    if relation_type is None:
-        rel_def = ""
-    # all("*" wildcard) relation_type
-    elif relation_type == "*":
-        rel_def = "[*]"
-    else:
-        # explicit relation_type
-        rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
+    match relation_type:
+        case None:  # relation_type is unspecified
+            rel_def = ""
+        case "*":  # all("*" wildcard) relation_type
+            rel_def = "[*]"
+        case _:  # explicit relation_type
+            rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
 
     stmt = ""
+
     if direction == OUTGOING:
         stmt = f"-{rel_def}->"
     elif direction == INCOMING:
@@ -142,15 +141,14 @@ def _rel_merge_helper(
             rel_none_props = (
                 f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
             )
-    # relation_type is unspecified
-    if relation_type is None:
-        stmt = stmt.format("")
-    # all("*" wildcard) relation_type
-    elif relation_type == "*":
-        stmt = stmt.format("[*]")
-    else:
-        # explicit relation_type
-        stmt = stmt.format(f"[{ident}:`{relation_type}`{rel_props}]")
+
+    match relation_type:
+        case None:  # relation_type is unspecified
+            stmt = stmt.format("")
+        case "*":  # all("*" wildcard) relation_type
+            stmt = stmt.format("[*]")
+        case _:  # explicit relation_type
+            stmt = stmt.format(f"[{ident}:`{relation_type}`{rel_props}]")
 
     return f"({lhs}){stmt}({rhs}){rel_none_props}"
 

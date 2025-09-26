@@ -7,7 +7,7 @@ from asyncio import iscoroutinefunction
 from contextvars import ContextVar
 from functools import wraps
 from itertools import combinations
-from typing import Any, Callable, Optional, TextIO, Union
+from typing import Any, Callable, TextIO
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
