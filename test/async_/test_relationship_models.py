@@ -1,7 +1,7 @@
 from datetime import datetime
 from test._async_compat import mark_async_test
+from zoneinfo import ZoneInfo
 
-import pytz
 from pytest import raises
 
 from neomodel import (
@@ -19,7 +19,7 @@ HOOKS_CALLED = {"pre_save": 0, "post_save": 0}
 
 
 class FriendRel(AsyncStructuredRel):
-    since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+    since = DateTimeProperty(default=lambda: datetime.now(ZoneInfo("UTC")))
 
 
 class HatesRel(FriendRel):
@@ -55,7 +55,7 @@ async def test_either_connect_with_rel_model():
     assert isinstance(new_rel.since, datetime)
 
     # updating properties
-    new_rel.since = datetime.now(pytz.utc)
+    new_rel.since = datetime.now(ZoneInfo("UTC"))
     assert isinstance(await new_rel.save(), FriendRel)
 
     # start and end nodes are the opposite of what you'd expect when using either..
@@ -115,7 +115,7 @@ async def test_traversal_where_clause():
     tim = await Badger(name="Tim the badger").save()
     bob = await Badger(name="Bob the badger").save()
     rel = await tim.friend.connect(bob)
-    now = datetime.now(pytz.utc)
+    now = datetime.now(ZoneInfo("UTC"))
     assert rel.since < now
     rel2 = await tim.friend.connect(phill)
     assert rel2.since > now

@@ -1,9 +1,9 @@
 from datetime import date, datetime, timedelta
 from test._async_compat import mark_async_test
+from zoneinfo import ZoneInfo
 
 from neo4j import time
 from pytest import mark, raises
-from pytz import timezone
 
 from neomodel import (
     AsyncRelationship,
@@ -138,10 +138,10 @@ def test_datetimes_timezones():
     prop.name = "foo"
     prop.owner = FooBar
     t = datetime.utcnow()
-    gr = timezone("Europe/Athens")
-    gb = timezone("Europe/London")
-    dt1 = gr.localize(t)
-    dt2 = gb.localize(t)
+    gr = ZoneInfo("Europe/Athens")
+    gb = ZoneInfo("Europe/London")
+    dt1 = t.replace(tzinfo=gr)
+    dt2 = t.replace(tzinfo=gb)
     time1 = prop.inflate(prop.deflate(dt1))
     time2 = prop.inflate(prop.deflate(dt2))
     assert time1.utctimetuple() == dt1.utctimetuple()

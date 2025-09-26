@@ -52,6 +52,41 @@ CONSTRAINT_ALREADY_EXISTS = "Neo.ClientError.Schema.ConstraintAlreadyExists"
 STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg"
 NOT_COROUTINE_ERROR = "The decorated function must be a coroutine"
 
+# Access mode constants
+ACCESS_MODE_WRITE = "WRITE"
+ACCESS_MODE_READ = "READ"
+
+# Database edition constants
+ENTERPRISE_EDITION_TAG = "enterprise"
+
+# Neo4j version constants
+VERSION_LEGACY_ID = "4"
+VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT = "5.7"
+VERSION_PARALLEL_RUNTIME_SUPPORT = "5.13"
+VERSION_VECTOR_INDEXES_SUPPORT = "5.15"
+VERSION_FULLTEXT_INDEXES_SUPPORT = "5.16"
+VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT = "5.18"
+
+# ID method constants
+LEGACY_ID_METHOD = "id"
+ELEMENT_ID_METHOD = "elementId"
+
+# Cypher query constants
+LIST_CONSTRAINTS_COMMAND = "SHOW CONSTRAINTS"
+DROP_CONSTRAINT_COMMAND = "DROP CONSTRAINT "
+DROP_INDEX_COMMAND = "DROP INDEX "
+
+# Index type constants
+LOOKUP_INDEX_TYPE = "LOOKUP"
+
+# Info messages constants
+NO_TRANSACTION_IN_PROGRESS = "No transaction in progress"
+NO_SESSION_OPEN = "No session open"
+UNKNOWN_SERVER_VERSION = """
+    Unable to perform this operation because the database server version is not known. 
+    This might mean that the database server is offline.
+"""
+
 
 # make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func: Callable) -> Callable:
@@ -235,15 +270,17 @@ class AsyncDatabase(local):
 
     @property
     def write_transaction(self) -> "AsyncTransactionProxy":
-        return AsyncTransactionProxy(self, access_mode="WRITE")
+        return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_WRITE)
 
     @property
     def read_transaction(self) -> "AsyncTransactionProxy":
-        return AsyncTransactionProxy(self, access_mode="READ")
+        return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_READ)
 
     @property
     def parallel_read_transaction(self) -> "AsyncTransactionProxy":
-        return AsyncTransactionProxy(self, access_mode="READ", parallel_runtime=True)
+        return AsyncTransactionProxy(
+            self, access_mode=ACCESS_MODE_READ, parallel_runtime=True
+        )
 
     async def impersonate(self, user: str) -> "ImpersonationHandler":
         """All queries executed within this context manager will be executed as impersonated user
@@ -255,14 +292,16 @@ class AsyncDatabase(local):
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
         db_edition = await self.database_edition
-        if db_edition != "enterprise":
+        if db_edition != ENTERPRISE_EDITION_TAG:
             raise FeatureNotSupported(
                 "Impersonation is only available in Neo4j Enterprise edition"
             )
         return ImpersonationHandler(self, impersonated_user=user)
 
     @ensure_connection
-    async def begin(self, access_mode: str = "WRITE", **parameters: Any) -> None:
+    async def begin(
+        self, access_mode: str = ACCESS_MODE_WRITE, **parameters: Any
+    ) -> None:
         """
         Begins a new transaction. Raises SystemError if a transaction is already active.
         """
@@ -292,19 +331,19 @@ class AsyncDatabase(local):
         :return: last_bookmarks
         """
         try:
-            assert self._active_transaction is not None, "No transaction in progress"
+            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             await self._active_transaction.commit()
 
-            assert self._session is not None, "No session open"
+            assert self._session is not None, NO_SESSION_OPEN
             last_bookmarks: Bookmarks = await self._session.last_bookmarks()
         finally:
             # In case something went wrong during
             # committing changes to the database
             # we have to close an active transaction and session.
-            assert self._active_transaction is not None, "No transaction in progress"
+            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             await self._active_transaction.close()
 
-            assert self._session is not None, "No session open"
+            assert self._session is not None, NO_SESSION_OPEN
             await self._session.close()
 
             self._active_transaction = None
@@ -318,15 +357,15 @@ class AsyncDatabase(local):
         Rolls back the current transaction and closes its session
         """
         try:
-            assert self._active_transaction is not None, "No transaction in progress"
+            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             await self._active_transaction.rollback()
         finally:
             # In case when something went wrong during changes rollback,
             # we have to close an active transaction and session
-            assert self._active_transaction is not None, "No transaction in progress"
+            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             await self._active_transaction.close()
 
-            assert self._session is not None, "No session open"
+            assert self._session is not None, NO_SESSION_OPEN
             await self._session.close()
 
             self._active_transaction = None
@@ -570,16 +609,11 @@ class AsyncDatabase(local):
     async def get_id_method(self) -> str:
         db_version = await self.database_version
         if db_version is None:
-            raise RuntimeError(
-                """
-                Unable to perform this operation because the database server version is not known. 
-                This might mean that the database server is offline.
-                """
-            )
-        if db_version.startswith("4"):
-            return "id"
+            raise RuntimeError(UNKNOWN_SERVER_VERSION)
+        if db_version.startswith(VERSION_LEGACY_ID):
+            return LEGACY_ID_METHOD
         else:
-            return "elementId"
+            return ELEMENT_ID_METHOD
 
     async def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
         if element_id is None:
@@ -588,13 +622,10 @@ class AsyncDatabase(local):
             )
         db_version = await self.database_version
         if db_version is None:
-            raise RuntimeError(
-                """
-                Unable to perform this operation because the database server version is not known. 
-                This might mean that the database server is offline.
-                """
-            )
-        return int(element_id) if db_version.startswith("4") else element_id
+            raise RuntimeError(UNKNOWN_SERVER_VERSION)
+        return (
+            int(element_id) if db_version.startswith(VERSION_LEGACY_ID) else element_id
+        )
 
     async def list_indexes(self, exclude_token_lookup: bool = False) -> list[dict]:
         """Returns all indexes existing in the database
@@ -610,7 +641,7 @@ class AsyncDatabase(local):
 
         if exclude_token_lookup:
             indexes_as_dict = [
-                obj for obj in indexes_as_dict if obj["type"] != "LOOKUP"
+                obj for obj in indexes_as_dict if obj["type"] != LOOKUP_INDEX_TYPE
             ]
 
         return indexes_as_dict
@@ -621,7 +652,9 @@ class AsyncDatabase(local):
         Returns:
             Sequence[dict]: List of dictionaries, each entry being a constraint definition
         """
-        constraints, meta_constraints = await self.cypher_query("SHOW CONSTRAINTS")
+        constraints, meta_constraints = await self.cypher_query(
+            LIST_CONSTRAINTS_COMMAND
+        )
         constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
 
         return constraints_as_dict
@@ -638,12 +671,7 @@ class AsyncDatabase(local):
         """
         db_version = await self.database_version
         if db_version is None:
-            raise RuntimeError(
-                """
-                Unable to perform this operation because the database server version is not known. 
-                This might mean that the database server is offline.
-                """
-            )
+            raise RuntimeError(UNKNOWN_SERVER_VERSION)
         return version_tag_to_integer(db_version) >= version_tag_to_integer(version_tag)
 
     @ensure_connection
@@ -655,13 +683,8 @@ class AsyncDatabase(local):
         """
         edition = await self.database_edition
         if edition is None:
-            raise RuntimeError(
-                """
-                Unable to perform this operation because the database server edition is not known. 
-                This might mean that the database server is offline.
-                """
-            )
-        return edition == "enterprise"
+            raise RuntimeError(UNKNOWN_SERVER_VERSION)
+        return edition == ENTERPRISE_EDITION_TAG
 
     @ensure_connection
     async def parallel_runtime_available(self) -> bool:
@@ -671,7 +694,7 @@ class AsyncDatabase(local):
             bool: True if the database supports parallel runtime
         """
         return (
-            await self.version_is_higher_than("5.13")
+            await self.version_is_higher_than(VERSION_PARALLEL_RUNTIME_SUPPORT)
             and await self.edition_is_enterprise()
         )
 
@@ -705,11 +728,11 @@ class AsyncDatabase(local):
         if not stdout or stdout is None:
             stdout = sys.stdout
 
-        results, meta = await self.cypher_query("SHOW CONSTRAINTS")
+        results, meta = await self.cypher_query(LIST_CONSTRAINTS_COMMAND)
 
         results_as_dict = [dict(zip(meta, row)) for row in results]
         for constraint in results_as_dict:
-            await self.cypher_query("DROP CONSTRAINT " + constraint["name"])
+            await self.cypher_query(DROP_CONSTRAINT_COMMAND + constraint["name"])
             if not quiet:
                 stdout.write(
                     (
@@ -735,7 +758,7 @@ class AsyncDatabase(local):
 
         indexes = await self.list_indexes(exclude_token_lookup=True)
         for index in indexes:
-            await self.cypher_query("DROP INDEX " + index["name"])
+            await self.cypher_query(DROP_INDEX_COMMAND + index["name"])
             if not quiet:
                 stdout.write(
                     f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
@@ -851,7 +874,7 @@ class AsyncDatabase(local):
         fulltext_index: FulltextIndex,
         quiet: bool,
     ) -> None:
-        if await self.version_is_higher_than("5.16"):
+        if await self.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
             label = target_cls.__label__
             index_name = f"fulltext_index_{label}_{property_name}"
             if not quiet:
@@ -890,7 +913,7 @@ class AsyncDatabase(local):
         vector_index: VectorIndex,
         quiet: bool,
     ) -> None:
-        if await self.version_is_higher_than("5.15"):
+        if await self.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
             label = target_cls.__label__
             index_name = f"vector_index_{label}_{property_name}"
             if not quiet:
@@ -981,7 +1004,7 @@ class AsyncDatabase(local):
         fulltext_index: FulltextIndex,
         quiet: bool,
     ) -> None:
-        if await self.version_is_higher_than("5.16"):
+        if await self.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
             index_name = f"fulltext_index_{relationship_type}_{property_name}"
             if not quiet:
                 stdout.write(
@@ -1021,7 +1044,9 @@ class AsyncDatabase(local):
         vector_index: VectorIndex,
         quiet: bool,
     ) -> None:
-        if await self.version_is_higher_than("5.18"):
+        if await self.version_is_higher_than(
+            VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT
+        ):
             index_name = f"vector_index_{relationship_type}_{property_name}"
             if not quiet:
                 stdout.write(
@@ -1060,7 +1085,7 @@ class AsyncDatabase(local):
         stdout: TextIO,
         quiet: bool,
     ) -> None:
-        if await self.version_is_higher_than("5.7"):
+        if await self.version_is_higher_than(VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT):
             constraint_name = f"constraint_unique_{relationship_type}_{property_name}"
             if not quiet:
                 stdout.write(
