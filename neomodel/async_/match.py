@@ -14,7 +14,7 @@ from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import INCOMING, OUTGOING
+from neomodel.util import RelationshipDirection
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -66,9 +66,9 @@ def _rel_helper(
 
     stmt = ""
 
-    if direction == OUTGOING:
+    if direction == RelationshipDirection.OUTGOING:
         stmt = f"-{rel_def}->"
-    elif direction == INCOMING:
+    elif direction == RelationshipDirection.INCOMING:
         stmt = f"<-{rel_def}-"
     else:
         stmt = f"-{rel_def}-"
@@ -111,9 +111,9 @@ def _rel_merge_helper(
     :returns: string
     """
 
-    if direction == OUTGOING:
+    if direction == RelationshipDirection.OUTGOING:
         stmt = "-{0}->"
-    elif direction == INCOMING:
+    elif direction == RelationshipDirection.INCOMING:
         stmt = "<-{0}-"
     else:
         stmt = "-{0}-"

@@ -1,10 +1,17 @@
 import warnings
+from enum import IntEnum
 from types import FrameType
-from typing import Any, Callable
+from typing import Any, Callable, Final
 
 from neo4j.graph import Entity
 
-OUTGOING, INCOMING, EITHER = 1, -1, 0
+
+class RelationshipDirection(IntEnum):
+    """Enum representing the direction of relationships in Neo4j."""
+
+    OUTGOING: Final[int] = 1
+    INCOMING: Final[int] = -1
+    EITHER: Final[int] = 0
 
 
 def deprecated(message: str) -> Callable:

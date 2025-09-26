@@ -5,7 +5,6 @@ from test._async_compat import mark_async_test
 from pytest import raises, skip, warns
 
 from neomodel import (
-    INCOMING,
     ArrayProperty,
     AsyncRelationshipFrom,
     AsyncRelationshipTo,
@@ -34,6 +33,7 @@ from neomodel.async_.match import (
     Size,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
+from neomodel.util import RelationshipDirection
 
 
 class SupplierRel(AsyncStructuredRel):
@@ -426,7 +426,7 @@ def test_traversal_definition_keys_are_valid():
             "a_name",
             {
                 "node_class": Supplier,
-                "direction": INCOMING,
+                "direction": RelationshipDirection.INCOMING,
                 "relationship_type": "KNOWS",
                 "model": None,
             },
@@ -437,7 +437,7 @@ def test_traversal_definition_keys_are_valid():
         "a_name",
         {
             "node_class": Supplier,
-            "direction": INCOMING,
+            "direction": RelationshipDirection.INCOMING,
             "relation_type": "KNOWS",
             "model": None,
         },
