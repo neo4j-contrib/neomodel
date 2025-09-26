@@ -17,7 +17,7 @@ This avoids cyclic imports::
 
 Cardinality
 ===========
-It is possible to (softly) enforce cardinality constraints on your relationships.
+It is possible to enforce cardinality constraints on your relationships.
 Remember this needs to be declared on both sides of the relationship definition::
 
     class Person(StructuredNode):
@@ -36,12 +36,10 @@ The following cardinality constraints are available:
 If a cardinality constraint is violated by existing data a :class:`~neomodel.exception.CardinalityViolation`
 exception is raised.
 
-It is possible to enable a soft check for cardinality violations. This will print a warning to the console and create the relationship anyway.
+This enforcement is strict by default and will throw an exception if a cardinality constraint is violated.
+It is possible to enable a soft check. This will print a warning to the console and create the relationship anyway.
 This is useful for development purposes::
-    config.SOFT_INVERSE_CARDINALITY_CHECK = True
-
-Note that this is only available for remote cardinality checks where we check the cardinality of the other end of the relationship. It is enabled by default in this case.
-It will be made available for all cardinality checks in version 6.0, and will be disabled by default in all cases.
+    config.SOFT_CARDINALITY_CHECK = True
 
 
 Properties

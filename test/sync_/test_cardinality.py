@@ -63,6 +63,11 @@ class Company(StructuredNode):
 class Employee(StructuredNode):
     name = StringProperty(required=True)
     employer = RelationshipFrom("Company", "EMPLOYS", cardinality=ZeroOrOne)
+    offices = RelationshipFrom("Office", "HOSTS", cardinality=OneOrMore)
+
+
+class Office(StructuredNode):
+    name = StringProperty(required=True)
 
 
 class Manager(StructuredNode):
@@ -169,6 +174,11 @@ def test_cardinality_one_or_more():
     cars = m.car.all()
     assert len(cars) == 1
 
+    with raises(AttemptedCardinalityViolation):
+        m.car.disconnect_all()
+
+    assert m.car.single() is not None
+
 
 @mark_sync_test
 def test_cardinality_one():
@@ -226,7 +236,7 @@ def test_relationship_from_one_cardinality_enforced():
     were not being enforced.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config.SOFT_CARDINALITY_CHECK = False
     owner1 = Owner(name="Alice").save()
     owner2 = Owner(name="Bob").save()
     pet = Pet(name="Fluffy").save()
@@ -244,7 +254,7 @@ def test_relationship_from_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.SOFT_CARDINALITY_CHECK = True
         owner2.pets.connect(pet)
         assert pet in owner2.pets.all()
 
@@ -260,7 +270,7 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config.SOFT_CARDINALITY_CHECK = False
     company1 = Company(name="TechCorp").save()
     company2 = Company(name="StartupInc").save()
     employee = Employee(name="John").save()
@@ -278,7 +288,7 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.SOFT_CARDINALITY_CHECK = True
         company2.employees.connect(employee)
         assert employee in company2.employees.all()
 
@@ -289,12 +299,32 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
 
 
 @mark_sync_test
+def test_relationship_from_one_or_more_cardinality_enforced():
+    """
+    Test that RelationshipFrom with cardinality=OneOrMore prevents disconnecting all nodes.
+    """
+    # Setup
+    config.SOFT_CARDINALITY_CHECK = False
+    office = Office(name="Headquarters").save()
+    employee = Employee(name="John").save()
+    employee.offices.connect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        employee.offices.disconnect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        employee.offices.disconnect_all()
+
+    assert employee.offices.single() is not None
+
+
+@mark_sync_test
 def test_bidirectional_cardinality_validation():
     """
     Test that cardinality is validated on both ends when both sides have constraints.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config.SOFT_CARDINALITY_CHECK = False
     manager1 = Manager(name="Sarah").save()
     manager2 = Manager(name="David").save()
     assistant = Assistant(name="Alex").save()
@@ -312,7 +342,7 @@ def test_bidirectional_cardinality_validation():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.SOFT_CARDINALITY_CHECK = True
         manager2.assistant.connect(assistant)
         assert assistant in manager2.assistant.all()
 

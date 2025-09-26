@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 from neomodel import config
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
-from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
+from neomodel.sync_.match import (
+    NodeSet,
+    Traversal,
+    _rel_helper,
+    _rel_merge_helper,
+)
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
     EITHER,
@@ -73,9 +78,7 @@ class RelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
@@ -107,7 +110,7 @@ class RelationshipManager(object):
         :return:
         """
         self._check_node(node)
-        self._check_cardinality(node)
+        self.check_cardinality(node)
 
         # Check for cardinality on the remote end.
         for rel_name, rel_def in node.defined_properties(
@@ -124,9 +127,7 @@ class RelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                inverse_rel._check_cardinality(
-                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
-                )
+                inverse_rel.check_cardinality(self.source)
                 break
 
         if not self.definition["model"] and properties:
