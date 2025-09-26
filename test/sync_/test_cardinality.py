@@ -263,6 +263,8 @@ def test_relationship_from_one_cardinality_enforced():
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
 
+    config.SOFT_CARDINALITY_CHECK = False
+
 
 @mark_sync_test
 def test_relationship_from_zero_or_one_cardinality_enforced():
@@ -297,6 +299,8 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
 
+    config.SOFT_CARDINALITY_CHECK = False
+
 
 @mark_sync_test
 def test_relationship_from_one_or_more_cardinality_enforced():
@@ -316,6 +320,8 @@ def test_relationship_from_one_or_more_cardinality_enforced():
         employee.offices.disconnect_all()
 
     assert employee.offices.single() is not None
+
+    config.SOFT_CARDINALITY_CHECK = False
 
 
 @mark_sync_test
@@ -350,3 +356,5 @@ def test_bidirectional_cardinality_validation():
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
+
+    config.SOFT_CARDINALITY_CHECK = False
