@@ -37,12 +37,7 @@ from neomodel.exceptions import (
 )
 from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
-from neomodel.util import (
-    _UnsavedNode,
-    classproperty,
-    deprecated,
-    version_tag_to_integer,
-)
+from neomodel.util import _UnsavedNode, classproperty, version_tag_to_integer
 
 logger = logging.getLogger(__name__)
 
@@ -787,9 +782,9 @@ class AsyncDatabase:
         """
         )
         if clear_constraints:
-            await drop_constraints()
+            await self.drop_constraints()
         if clear_indexes:
-            await drop_indexes()
+            await self.drop_indexes()
 
     async def drop_constraints(
         self, quiet: bool = True, stdout: Optional[TextIO] = None
@@ -881,7 +876,7 @@ class AsyncDatabase:
         i = 0
         for cls in subsub(AsyncStructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            await install_labels(cls, quiet=False, stdout=stdout)
+            await self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -1269,90 +1264,6 @@ class AsyncDatabase:
 
 # Create a singleton instance of the database object
 adb = AsyncDatabase()
-
-
-# Deprecated methods
-async def change_neo4j_password(
-    db: AsyncDatabase, user: str, new_password: str
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.change_neo4j_password(user, new_password) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await db.change_neo4j_password(user, new_password)
-
-
-async def clear_neo4j_database(
-    db: AsyncDatabase, clear_constraints: bool = False, clear_indexes: bool = False
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.clear_neo4j_database(clear_constraints, clear_indexes) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await db.clear_neo4j_database(clear_constraints, clear_indexes)
-
-
-async def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_constraints(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.drop_constraints(quiet, stdout)
-
-
-async def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_indexes(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.drop_indexes(quiet, stdout)
-
-
-async def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.remove_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.remove_all_labels(stdout)
-
-
-async def install_labels(
-    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_labels(cls, quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.install_labels(cls, quiet, stdout)
-
-
-async def install_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.install_all_labels(stdout)
 
 
 class AsyncTransactionProxy:

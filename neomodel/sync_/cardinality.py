@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, Optional
 
+from neomodel import config
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
@@ -15,11 +16,9 @@ class ZeroOrOne(RelationshipManager):
 
     description = "zero or one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if soft_check:
+            if config.SOFT_CARDINALITY_CHECK:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )
@@ -97,6 +96,11 @@ class OneOrMore(RelationshipManager):
             raise AttemptedCardinalityViolation("One or more expected")
         return super().disconnect(node)
 
+    def disconnect_all(self) -> None:
+        raise AttemptedCardinalityViolation(
+            "Cardinality one or more, cannot disconnect_all use reconnect."
+        )
+
 
 class One(RelationshipManager):
     """
@@ -105,11 +109,9 @@ class One(RelationshipManager):
 
     description = "one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if soft_check:
+            if config.SOFT_CARDINALITY_CHECK:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )

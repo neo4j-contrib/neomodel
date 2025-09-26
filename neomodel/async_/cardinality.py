@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, Optional
 
+from neomodel import config
 from neomodel.async_.relationship_manager import (  # pylint:disable=unused-import
     AsyncRelationshipManager,
     AsyncZeroOrMore,
@@ -15,11 +16,9 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
 
     description = "zero or one relationship"
 
-    async def _check_cardinality(
-        self, node: "AsyncStructuredNode", soft_check: bool = False
-    ) -> None:
+    async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         if await self.get_len():
-            if soft_check:
+            if config.SOFT_CARDINALITY_CHECK:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )
@@ -97,6 +96,11 @@ class AsyncOneOrMore(AsyncRelationshipManager):
             raise AttemptedCardinalityViolation("One or more expected")
         return await super().disconnect(node)
 
+    async def disconnect_all(self) -> None:
+        raise AttemptedCardinalityViolation(
+            "Cardinality one or more, cannot disconnect_all use reconnect."
+        )
+
 
 class AsyncOne(AsyncRelationshipManager):
     """
@@ -105,11 +109,9 @@ class AsyncOne(AsyncRelationshipManager):
 
     description = "one relationship"
 
-    async def _check_cardinality(
-        self, node: "AsyncStructuredNode", soft_check: bool = False
-    ) -> None:
+    async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         if await self.get_len():
-            if soft_check:
+            if config.SOFT_CARDINALITY_CHECK:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )

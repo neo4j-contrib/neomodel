@@ -78,9 +78,7 @@ class AsyncRelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    async def _check_cardinality(
-        self, node: "AsyncStructuredNode", soft_check: bool = False
-    ) -> None:
+    async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
@@ -112,7 +110,7 @@ class AsyncRelationshipManager(object):
         :return:
         """
         self._check_node(node)
-        await self._check_cardinality(node)
+        await self.check_cardinality(node)
 
         # Check for cardinality on the remote end.
         for rel_name, rel_def in node.defined_properties(
@@ -129,9 +127,7 @@ class AsyncRelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                await inverse_rel._check_cardinality(
-                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
-                )
+                await inverse_rel.check_cardinality(self.source)
                 break
 
         if not self.definition["model"] and properties:

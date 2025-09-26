@@ -116,7 +116,7 @@ class RelationshipClassNotDefined(ModelDefinitionException):
         return f"""
             Relationship of type {relationship_type} does not resolve to any of the known objects
             {self._get_node_class_registry_formatted()}
-            Note that when using the fetch_relations method, the relationship type must be defined in the model, even if only defined to StructuredRel.
+            Note that when using the traverse method, the relationship type must be defined in the model, even if only defined to StructuredRel.
             Otherwise, neomodel will not be able to determine which relationship model to resolve into.
         """
 
