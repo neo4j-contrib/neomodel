@@ -51,7 +51,6 @@ from neomodel.sync_.relationship_manager import (
     RelationshipManager,
     RelationshipTo,
 )
-from neomodel.util import EITHER, INCOMING, OUTGOING
 
 __author__ = "Robin Edwards"
 __email__ = "robin.ge@gmail.com"

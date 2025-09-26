@@ -45,7 +45,7 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         return [node] if node else []
 
     async def connect(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
     ) -> "AsyncStructuredRel":
         """
         Connect to a node.
@@ -152,7 +152,7 @@ class AsyncOne(AsyncRelationshipManager):
         )
 
     async def connect(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
     ) -> "AsyncStructuredRel":
         """
         Connect a node

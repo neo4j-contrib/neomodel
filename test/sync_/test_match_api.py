@@ -5,7 +5,6 @@ from test._async_compat import mark_sync_test
 from pytest import raises, skip, warns
 
 from neomodel import (
-    INCOMING,
     ArrayProperty,
     DateTimeProperty,
     IntegerProperty,
@@ -34,6 +33,7 @@ from neomodel.sync_.match import (
     Size,
     Traversal,
 )
+from neomodel.util import RelationshipDirection
 
 
 class SupplierRel(StructuredRel):
@@ -422,7 +422,7 @@ def test_traversal_definition_keys_are_valid():
             "a_name",
             {
                 "node_class": Supplier,
-                "direction": INCOMING,
+                "direction": RelationshipDirection.INCOMING,
                 "relationship_type": "KNOWS",
                 "model": None,
             },
@@ -433,7 +433,7 @@ def test_traversal_definition_keys_are_valid():
         "a_name",
         {
             "node_class": Supplier,
-            "direction": INCOMING,
+            "direction": RelationshipDirection.INCOMING,
             "relation_type": "KNOWS",
             "model": None,
         },

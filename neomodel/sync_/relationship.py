@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from neo4j.graph import Relationship
 
@@ -57,19 +57,19 @@ class StructuredRel(StructuredRelBase):
         super().__init__(*args, **kwargs)
 
     @property
-    def element_id(self) -> Optional[Any]:
+    def element_id(self) -> Any | None:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
 
     @property
-    def _start_node_element_id(self) -> Optional[Any]:
+    def _start_node_element_id(self) -> Any | None:
         if hasattr(self, "_start_node_element_id_property"):
             return self._start_node_element_id_property
         return None
 
     @property
-    def _end_node_element_id(self) -> Optional[Any]:
+    def _end_node_element_id(self) -> Any | None:
         if hasattr(self, "_end_node_element_id_property"):
             return self._end_node_element_id_property
         return None

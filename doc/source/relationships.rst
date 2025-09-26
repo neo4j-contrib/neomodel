@@ -251,7 +251,7 @@ It is possible to specify a node traversal by creating a
 :class:`~neomodel.match.Traversal` object. This will get all ``Person`` entities
 that are directly related to another ``Person``, through all relationships::
 
-    definition = dict(node_class=Person, direction=OUTGOING,
+    definition = dict(node_class=Person, direction=RelationshipDirection.OUTGOING,
                       relation_type=None, model=None)
     relations_traversal = Traversal(jim, Person.__label__,
                                     definition)
