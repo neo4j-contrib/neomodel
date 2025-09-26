@@ -4,7 +4,7 @@ import string
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
 from typing import Optional as TOptional
-from typing import Tuple, Union
+from typing import Union
 
 from neomodel.async_ import relationship_manager
 from neomodel.async_.core import AsyncStructuredNode, adb
@@ -227,7 +227,7 @@ def install_traversals(
 
 def _handle_special_operators(
     property_obj: Property, key: str, value: str, operator: str, prop: str
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     if operator == _SPECIAL_OPERATOR_IN:
         if not isinstance(value, (list, tuple)):
             raise ValueError(
@@ -264,7 +264,7 @@ def _deflate_value(
     value: str,
     operator: str,
     prop: str,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     if isinstance(property_obj, AliasProperty):
         prop = property_obj.aliased_to()
         deflated_value = getattr(cls, prop).deflate(value)
@@ -279,7 +279,7 @@ def _deflate_value(
 
 def _initialize_filter_args_variables(
     cls: type[AsyncStructuredNode], key: str
-) -> Tuple[type[AsyncStructuredNode], None, None, str, bool, str]:
+) -> tuple[type[AsyncStructuredNode], None, None, str, bool, str]:
     current_class = cls
     current_rel_model = None
     leaf_prop = None
@@ -299,7 +299,7 @@ def _initialize_filter_args_variables(
 
 def _process_filter_key(
     cls: type[AsyncStructuredNode], key: str
-) -> Tuple[Property, str, str]:
+) -> tuple[Property, str, str]:
     (
         current_class,
         current_rel_model,
@@ -612,7 +612,7 @@ class AsyncQueryBuilder:
 
     def build_traversal_from_path(
         self, relation: "Path", source_class: Any
-    ) -> Tuple[str, Any]:
+    ) -> tuple[str, Any]:
         path: str = relation.value
         stmt: str = ""
         source_class_iterator = source_class
@@ -770,7 +770,7 @@ class AsyncQueryBuilder:
 
     def _parse_path(
         self, source_class: type[AsyncStructuredNode], prop: str
-    ) -> Tuple[str, str, str, Any, bool]:
+    ) -> tuple[str, str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
