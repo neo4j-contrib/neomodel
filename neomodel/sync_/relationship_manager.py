@@ -2,9 +2,8 @@ import functools
 import inspect
 import sys
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
-from neomodel import config
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.core import db
 from neomodel.sync_.match import (
@@ -99,8 +98,8 @@ class RelationshipManager(object):
 
     @check_source
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
-    ) -> Optional[StructuredRel]:
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
+    ) -> StructuredRel | None:
         """
         Connect a node
 
@@ -184,7 +183,7 @@ class RelationshipManager(object):
 
     @check_source
     def replace(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> None:
         """
         Disconnect all existing nodes and connect the supplied node
@@ -198,7 +197,7 @@ class RelationshipManager(object):
         self.connect(node, properties)
 
     @check_source
-    def relationship(self, node: "StructuredNode") -> Optional[StructuredRel]:
+    def relationship(self, node: "StructuredNode") -> StructuredRel | None:
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -434,7 +433,7 @@ class RelationshipManager(object):
     def __contains__(self, obj: Any) -> bool:
         return self._new_traversal().__contains__(obj)
 
-    def __getitem__(self, key: Union[int, slice]) -> Any:
+    def __getitem__(self, key: int | slice) -> Any:
         return self._new_traversal().__getitem__(key)
 
 
@@ -445,7 +444,7 @@ class RelationshipDefinition:
         cls_name: str,
         direction: int,
         manager: type[RelationshipManager] = RelationshipManager,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -498,7 +497,7 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: Optional[type[StructuredRel]] = None
+        self, cls_name: str, model: type[StructuredRel] | None = None
     ) -> None:
         if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
@@ -562,7 +561,7 @@ class RelationshipTo(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
@@ -575,7 +574,7 @@ class RelationshipFrom(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
@@ -588,7 +587,7 @@ class Relationship(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model

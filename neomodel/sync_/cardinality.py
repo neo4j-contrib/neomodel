@@ -45,7 +45,7 @@ class ZeroOrOne(RelationshipManager):
         return [node] if node else []
 
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> "StructuredRel":
         """
         Connect to a node.
@@ -152,7 +152,7 @@ class One(RelationshipManager):
         )
 
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> "StructuredRel":
         """
         Connect a node

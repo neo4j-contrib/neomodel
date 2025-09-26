@@ -89,35 +89,35 @@ class AsyncDatabase:
 
     def __init__(self) -> None:
         # Private to instances and contexts
-        self.__active_transaction: ContextVar[Optional[AsyncTransaction]] = ContextVar(
+        self.__active_transaction: ContextVar[AsyncTransaction | None] = ContextVar(
             "_active_transaction", default=None
         )
-        self.__url: ContextVar[Optional[str]] = ContextVar("url", default=None)
-        self.__driver: ContextVar[Optional[AsyncDriver]] = ContextVar(
+        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
+        self.__driver: ContextVar[AsyncDriver | None] = ContextVar(
             "driver", default=None
         )
-        self.__session: ContextVar[Optional[AsyncSession]] = ContextVar(
+        self.__session: ContextVar[AsyncSession | None] = ContextVar(
             "_session", default=None
         )
-        self.__pid: ContextVar[Optional[int]] = ContextVar("_pid", default=None)
-        self.__database_name: ContextVar[Optional[str]] = ContextVar(
+        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[str | None] = ContextVar(
             "_database_name", default=DEFAULT_DATABASE
         )
-        self.__database_version: ContextVar[Optional[str]] = ContextVar(
+        self.__database_version: ContextVar[str | None] = ContextVar(
             "_database_version", default=None
         )
-        self.__database_edition: ContextVar[Optional[str]] = ContextVar(
+        self.__database_edition: ContextVar[str | None] = ContextVar(
             "_database_edition", default=None
         )
-        self.__impersonated_user: ContextVar[Optional[str]] = ContextVar(
+        self.__impersonated_user: ContextVar[str | None] = ContextVar(
             "impersonated_user", default=None
         )
-        self.__parallel_runtime: ContextVar[Optional[bool]] = ContextVar(
+        self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
             "_parallel_runtime", default=False
         )
 
     @property
-    def _active_transaction(self) -> Optional[AsyncTransaction]:
+    def _active_transaction(self) -> AsyncTransaction | None:
         return self.__active_transaction.get()
 
     @_active_transaction.setter
@@ -125,7 +125,7 @@ class AsyncDatabase:
         self.__active_transaction.set(value)
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str | None:
         return self.__url.get()
 
     @url.setter
@@ -133,7 +133,7 @@ class AsyncDatabase:
         self.__url.set(value)
 
     @property
-    def driver(self) -> Optional[AsyncDriver]:
+    def driver(self) -> AsyncDriver | None:
         return self.__driver.get()
 
     @driver.setter
@@ -141,7 +141,7 @@ class AsyncDatabase:
         self.__driver.set(value)
 
     @property
-    def _session(self) -> Optional[AsyncSession]:
+    def _session(self) -> AsyncSession | None:
         return self.__session.get()
 
     @_session.setter
@@ -149,7 +149,7 @@ class AsyncDatabase:
         self.__session.set(value)
 
     @property
-    def _pid(self) -> Optional[int]:
+    def _pid(self) -> int | None:
         return self.__pid.get()
 
     @_pid.setter
@@ -157,7 +157,7 @@ class AsyncDatabase:
         self.__pid.set(value)
 
     @property
-    def _database_name(self) -> Optional[str]:
+    def _database_name(self) -> str | None:
         return self.__database_name.get()
 
     @_database_name.setter
@@ -165,7 +165,7 @@ class AsyncDatabase:
         self.__database_name.set(value)
 
     @property
-    def _database_version(self) -> Optional[str]:
+    def _database_version(self) -> str | None:
         return self.__database_version.get()
 
     @_database_version.setter
@@ -173,7 +173,7 @@ class AsyncDatabase:
         self.__database_version.set(value)
 
     @property
-    def _database_edition(self) -> Optional[str]:
+    def _database_edition(self) -> str | None:
         return self.__database_edition.get()
 
     @_database_edition.setter
@@ -181,7 +181,7 @@ class AsyncDatabase:
         self.__database_edition.set(value)
 
     @property
-    def impersonated_user(self) -> Optional[str]:
+    def impersonated_user(self) -> str | None:
         return self.__impersonated_user.get()
 
     @impersonated_user.setter
@@ -189,7 +189,7 @@ class AsyncDatabase:
         self.__impersonated_user.set(value)
 
     @property
-    def _parallel_runtime(self) -> Optional[bool]:
+    def _parallel_runtime(self) -> bool | None:
         return self.__parallel_runtime.get()
 
     @_parallel_runtime.setter
@@ -197,7 +197,7 @@ class AsyncDatabase:
         self.__parallel_runtime.set(value)
 
     async def set_connection(
-        self, url: Optional[str] = None, driver: Optional[AsyncDriver] = None
+        self, url: str | None = None, driver: AsyncDriver | None = None
     ) -> None:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
@@ -306,14 +306,14 @@ class AsyncDatabase:
             self.driver = None
 
     @property
-    async def database_version(self) -> Optional[str]:
+    async def database_version(self) -> str | None:
         if self._database_version is None:
             await self._update_database_version()
 
         return self._database_version
 
     @property
-    async def database_edition(self) -> Optional[str]:
+    async def database_edition(self) -> str | None:
         if self._database_edition is None:
             await self._update_database_version()
 
@@ -546,11 +546,11 @@ class AsyncDatabase:
     async def cypher_query(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -602,13 +602,13 @@ class AsyncDatabase:
 
     async def _run_cypher_query(
         self,
-        session: Union[AsyncSession, AsyncTransaction],
+        session: AsyncSession | AsyncTransaction,
         query: str,
         params: dict[str, Any],
         handle_unique: bool,
         retry_on_session_expire: bool,
         resolve_objects: bool,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         try:
             # Retrieve the data
             start = time.time()
@@ -674,7 +674,7 @@ class AsyncDatabase:
         else:
             return "elementId"
 
-    async def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+    async def parse_element_id(self, element_id: str | None) -> str | int:
         if element_id is None:
             raise ValueError(
                 "Unable to parse element id, are you sure this element has been saved ?"
@@ -787,7 +787,7 @@ class AsyncDatabase:
             await self.drop_indexes()
 
     async def drop_constraints(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all constraints.
@@ -815,7 +815,7 @@ class AsyncDatabase:
             stdout.write("\n")
 
     async def drop_indexes(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
@@ -836,7 +836,7 @@ class AsyncDatabase:
         if not quiet:
             stdout.write("\n")
 
-    async def remove_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    async def remove_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Calls functions for dropping constraints and indexes.
 
@@ -853,7 +853,7 @@ class AsyncDatabase:
         stdout.write("Dropping indexes...\n")
         await self.drop_indexes(quiet=False, stdout=stdout)
 
-    async def install_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    async def install_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -885,7 +885,7 @@ class AsyncDatabase:
         stdout.write(f"Finished {i} classes.\n")
 
     async def install_labels(
-        self, cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, cls: Any, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Setup labels with indexes and constraints for a given class
@@ -1267,17 +1267,17 @@ adb = AsyncDatabase()
 
 
 class AsyncTransactionProxy:
-    bookmarks: Optional[Bookmarks] = None
+    bookmarks: Bookmarks | None = None
 
     def __init__(
         self,
         db: AsyncDatabase,
-        access_mode: Optional[str] = None,
-        parallel_runtime: Optional[bool] = False,
+        access_mode: str | None = None,
+        parallel_runtime: bool | None = False,
     ):
         self.db: AsyncDatabase = db
-        self.access_mode: Optional[str] = access_mode
-        self.parallel_runtime: Optional[bool] = parallel_runtime
+        self.access_mode: str | None = access_mode
+        self.parallel_runtime: bool | None = parallel_runtime
 
     @ensure_connection
     async def __aenter__(self) -> "AsyncTransactionProxy":
@@ -1534,7 +1534,7 @@ class AsyncStructuredNode(NodeBase):
         return AsyncNodeSet(self)
 
     @property
-    def element_id(self) -> Optional[Any]:
+    def element_id(self) -> Any | None:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
@@ -1564,7 +1564,7 @@ class AsyncStructuredNode(NodeBase):
         merge_params: tuple[dict[str, Any], ...],
         update_existing: bool = False,
         lazy: bool = False,
-        relationship: Optional[Any] = None,
+        relationship: Any | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
@@ -1725,8 +1725,8 @@ class AsyncStructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     async def cypher(
-        self, query: str, params: Optional[dict[str, Any]] = None
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 

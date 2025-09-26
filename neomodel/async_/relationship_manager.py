@@ -2,9 +2,8 @@ import functools
 import inspect
 import sys
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
-from neomodel import config
 from neomodel.async_.core import adb
 from neomodel.async_.match import (
     AsyncNodeSet,
@@ -99,8 +98,8 @@ class AsyncRelationshipManager(object):
 
     @check_source
     async def connect(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
-    ) -> Optional[AsyncStructuredRel]:
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
+    ) -> AsyncStructuredRel | None:
         """
         Connect a node
 
@@ -184,7 +183,7 @@ class AsyncRelationshipManager(object):
 
     @check_source
     async def replace(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
     ) -> None:
         """
         Disconnect all existing nodes and connect the supplied node
@@ -200,7 +199,7 @@ class AsyncRelationshipManager(object):
     @check_source
     async def relationship(
         self, node: "AsyncStructuredNode"
-    ) -> Optional[AsyncStructuredRel]:
+    ) -> AsyncStructuredRel | None:
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -452,7 +451,7 @@ class AsyncRelationshipManager(object):
     async def check_contains(self, obj: Any) -> bool:
         return self._new_traversal().check_contains(obj)
 
-    async def get_item(self, key: Union[int, slice]) -> Any:
+    async def get_item(self, key: int | slice) -> Any:
         return self._new_traversal().get_item(key)
 
 
@@ -463,7 +462,7 @@ class AsyncRelationshipDefinition:
         cls_name: str,
         direction: int,
         manager: type[AsyncRelationshipManager] = AsyncRelationshipManager,
-        model: Optional[type[AsyncStructuredRel]] = None,
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -516,7 +515,7 @@ class AsyncRelationshipDefinition:
                 adb._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: Optional[type[AsyncStructuredRel]] = None
+        self, cls_name: str, model: type[AsyncStructuredRel] | None = None
     ) -> None:
         if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
@@ -582,7 +581,7 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
-        model: Optional[type[AsyncStructuredRel]] = None,
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
@@ -595,7 +594,7 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
-        model: Optional[type[AsyncStructuredRel]] = None,
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
@@ -608,7 +607,7 @@ class AsyncRelationship(AsyncRelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
-        model: Optional[type[AsyncStructuredRel]] = None,
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
