@@ -4,7 +4,7 @@ import re
 import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import neo4j.time
 import pytz
@@ -22,18 +22,21 @@ def validator(fn: Callable) -> Callable:
 
     @functools.wraps(fn)
     def _validator(  # type: ignore
-        self, value: Any, obj: Optional[Any] = None, rethrow: Optional[bool] = True
+        self, value: Any, obj: Any | None = None, rethrow: bool | None = True
     ) -> Any:
         if rethrow:
             try:
                 return fn(self, value)
             except Exception as e:
-                if fn_name == "inflate":
-                    raise InflateError(self.name, self.owner, str(e), obj) from e
-                elif fn_name == "deflate":
-                    raise DeflateError(self.name, self.owner, str(e), obj) from e
-                else:
-                    raise NeomodelException("Unknown Property method " + fn_name) from e
+                match fn_name:
+                    case "inflate":
+                        raise InflateError(self.name, self.owner, str(e), obj) from e
+                    case "deflate":
+                        raise DeflateError(self.name, self.owner, str(e), obj) from e
+                    case _:
+                        raise NeomodelException(
+                            "Unknown Property method " + fn_name
+                        ) from e
         else:
             # For using with ArrayProperty where we don't want an Inflate/Deflate error.
             return fn(self, value)
@@ -48,8 +51,8 @@ class FulltextIndex:
 
     def __init__(
         self,
-        analyzer: Optional[str] = "standard-no-stop-words",
-        eventually_consistent: Optional[bool] = False,
+        analyzer: str | None = "standard-no-stop-words",
+        eventually_consistent: bool | None = False,
     ):
         """
         Initializes new fulltext index definition with analyzer and eventually consistent
@@ -68,8 +71,8 @@ class VectorIndex:
 
     def __init__(
         self,
-        dimensions: Optional[int] = 1536,
-        similarity_function: Optional[str] = "cosine",
+        dimensions: int | None = 1536,
+        similarity_function: str | None = "cosine",
     ):
         """
         Initializes new vector index definition with dimensions and similarity
@@ -108,32 +111,32 @@ class Property(metaclass=ABCMeta):
     """
 
     form_field_class = "CharField"
-    name: Optional[str] = None
-    owner: Optional[Any] = None
+    name: str | None = None
+    owner: Any | None = None
     unique_index: bool = False
     index: bool = False
-    fulltext_index: Optional[FulltextIndex] = None
-    vector_index: Optional[VectorIndex] = None
+    fulltext_index: FulltextIndex | None = None
+    vector_index: VectorIndex | None = None
     required: bool = False
     default: Any = None
-    db_property: Optional[str] = None
-    label: Optional[str] = None
-    help_text: Optional[str] = None
+    db_property: str | None = None
+    label: str | None = None
+    help_text: str | None = None
 
     # pylint:disable=unused-argument
     def __init__(
         self,
-        name: Optional[str] = None,
-        owner: Optional[Any] = None,
+        name: str | None = None,
+        owner: Any | None = None,
         unique_index: bool = False,
         index: bool = False,
-        fulltext_index: Optional[FulltextIndex] = None,
-        vector_index: Optional[VectorIndex] = None,
+        fulltext_index: FulltextIndex | None = None,
+        vector_index: VectorIndex | None = None,
         required: bool = False,
-        default: Optional[Any] = None,
-        db_property: Optional[str] = None,
-        label: Optional[str] = None,
-        help_text: Optional[str] = None,
+        default: Any | None = None,
+        db_property: str | None = None,
+        label: str | None = None,
+        help_text: str | None = None,
         **kwargs: dict[str, Any],
     ):
         if default is not None and required:
@@ -223,7 +226,7 @@ class RegexProperty(NormalizedProperty):
 
     expression: str
 
-    def __init__(self, expression: Optional[str] = None, **kwargs: Any):
+    def __init__(self, expression: str | None = None, **kwargs: Any):
         """
         Initializes new property with an expression.
 
@@ -262,8 +265,8 @@ class StringProperty(NormalizedProperty):
 
     def __init__(
         self,
-        choices: Optional[Any] = None,
-        max_length: Optional[int] = None,
+        choices: Any | None = None,
+        max_length: int | None = None,
         **kwargs: Any,
     ):
         if max_length is not None:
@@ -330,7 +333,7 @@ class ArrayProperty(Property):
     Stores a list of items
     """
 
-    def __init__(self, base_property: Optional[Property] = None, **kwargs: Any):
+    def __init__(self, base_property: Property | None = None, **kwargs: Any):
         """
         Store a list of values, optionally of a specific type.
 
@@ -595,7 +598,7 @@ class AliasProperty(property, Property):
     def aliased_to(self) -> str:
         return self.target
 
-    def __get__(self, obj: Any, _type: Optional[Any] = None) -> Property:
+    def __get__(self, obj: Any, _type: Any | None = None) -> Property:
         return getattr(obj, self.aliased_to()) if obj else self
 
     def __set__(self, obj: Any, value: Property) -> None:

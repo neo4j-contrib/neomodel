@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13", "3.12", "3.11", "3.10", "3.9"]
+        python-version: ["3.13", "3.12", "3.11", "3.10"]
         neo4j-version: ["community", "enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
 
     steps:
@@ -51,4 +51,4 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}  # Ensure the token is used here
-        fail_ci_if_error: true  # Optional: specify if CI should fail when codecov fails
+        fail_ci_if_error: false  # Optional: specify if CI should fail when codecov fails
