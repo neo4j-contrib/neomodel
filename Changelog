@@ -1,5 +1,7 @@
 Version 6.0.0 2025-xx
+* Enforce strict cardinality check by default
 * Removed deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
+* Housekeeping and bug xies
 
 Version 5.5.2 2025-09
 * This is a hotfix for 5.5.1, which fixed something desirable, but introducing a lot of potential side effects by enforcing cardinality on RelationshipFrom.
