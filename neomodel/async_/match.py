@@ -423,6 +423,7 @@ class QueryAST:
         additional_return: TOptional[list[str]] = None,
         is_count: TOptional[bool] = False,
         vector_index_query: TOptional[type] = None,
+        fulltext_index_query: TOptional[type] = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -440,6 +441,7 @@ class QueryAST:
         )
         self.is_count = is_count
         self.vector_index_query = vector_index_query
+        self.fulltext_index_query = fulltext_index_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
@@ -976,6 +978,16 @@ class AsyncQueryBuilder:
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
+
+        if self._ast.fulltext_index_query:
+            query += f"""CALL () {{
+                CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
+                YIELD node AS {self._ast.fulltext_index_query.nodeSetLabel}, score
+                RETURN {self._ast.fulltext_index_query.nodeSetLabel}, score LIMIT {self._ast.fulltext_index_query.topk}
+                }}
+                """
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.fulltext_index_query.nodeSetLabel}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
