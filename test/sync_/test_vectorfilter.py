@@ -21,6 +21,7 @@ from neomodel.semantic_filters import VectorFilter
 def test_base_vectorfilter():
     """
     Tests that the vectorquery is run, node and score are returned.
+    Also tests that if the node property doesnt have a vector index we error.
     """
 
     # Vector Indexes only exist from 5.13 onwards
@@ -46,6 +47,15 @@ def test_base_vectorfilter():
     result = someNodeSearch.all()
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
+
+    errorSearch = someNode.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3, vector_attribute_name="name", candidate_vector=[0.25, 0]
+        )
+    )
+
+    with pytest.raises(AttributeError):
+        errorSearch.all()
 
 
 @mark_sync_test
