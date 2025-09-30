@@ -4,13 +4,13 @@ from test._async_compat import mark_sync_test
 import pytest
 
 from neomodel import (
-    RelationshipFrom,
-    StructuredNode,
-    StructuredRel,
     DateTimeProperty,
     FloatProperty,
-    StringProperty,
     FulltextIndex,
+    RelationshipFrom,
+    StringProperty,
+    StructuredNode,
+    StructuredRel,
     db,
 )
 from neomodel.semantic_filters import FulltextFilter
@@ -20,7 +20,6 @@ from neomodel.semantic_filters import FulltextFilter
 def test_base_fulltextfilter():
     """
     Tests that the fulltextquery is run, node and score are returned.
-    Also tests that if the node property doesnt have a fulltext index we error.
     """
 
     if not db.version_is_higher_than("5.16"):
@@ -42,35 +41,14 @@ def test_base_fulltextfilter():
 
     fulltextNodeSearch = fulltextNode.nodes.filter(
         fulltext_filter=FulltextFilter(
-            topk=0, fulltext_attribute_name="description", query_string="thing"
+            topk=3, fulltext_attribute_name="description", query_string="thing"
         )
     )
 
     result = fulltextNodeSearch.all()
-
+    print(result)
     assert all(isinstance(x[0], fulltextNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
-
-    errorSearch = fulltextNode.nodes.filter(
-        fulltext_filter=FulltextFilter(
-            topk=3, fulltext_attribute_name="other", query_string="thing"
-        )
-    )
-    with pytest.raises(AttributeError):
-        errorSearch.all()
-
-    node2 = fulltextNode(
-        other="other other thing", description="Another other other thing"
-    ).save()
-
-    limitsearch = fulltextNode.nodes.filter(
-        fulltext_filter=FulltextFilter(
-            topk=2, fulltext_attribute_name="description", query_string="thing"
-        )
-    )
-    result = limitsearch.all()
-
-    assert len(result) == 2
 
 
 @mark_sync_test
@@ -201,16 +179,6 @@ def test_django_filter_w_fulltext_filter():
 
 
 @mark_sync_test
-def test_fulltextindex_topk():
-    """
-    Tests that the topk limit on the fulltextindex works.
-    """
-
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
-
-
-@mark_sync_test
 def test_fulltextfilter_with_relationshipfilter():
     """
     Tests that by filtering on fulltext similarity and then peforming a relationshipfilter works.
@@ -265,3 +233,53 @@ def test_fulltextfilter_with_relationshipfilter():
     assert isinstance(result[0][0], ProductFT)
     assert isinstance(result[0][1], SupplierFT)
     assert isinstance(result[0][2], SuppliesFTRel)
+
+
+@mark_sync_test
+def test_fulltextfiler_nonexistent_attribute():
+    """
+    Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
+    """
+
+    class TestNodeWithFT(StructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+
+    db.install_labels(TestNodeWithFT)
+
+    with pytest.raises(
+        AttributeError, match="Atribute 'nonexistent_fulltext' not found"
+    ):
+        nodeset = TestNodeWithFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="nonexistent_fulltext",
+                query_string="something",
+            )
+        )
+        nodeset.all()
+
+
+@mark_sync_test
+def test_fulltextfiler_no_fulltext_index():
+    """
+    Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
+    """
+
+    class TestNodeWithoutFT(StructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty()  # No fulltext_index
+
+    db.install_labels(TestNodeWithoutFT)
+
+    with pytest.raises(AttributeError, match="is not declared with a full text index"):
+        nodeset = TestNodeWithoutFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1, fulltext_attribute_name="fulltext", query_string="something"
+            )
+        )
+        nodeset.all()

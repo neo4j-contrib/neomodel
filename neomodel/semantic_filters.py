@@ -20,7 +20,7 @@ class VectorFilter(object):
         self.topk = topk
         self.vector_attribute_name = vector_attribute_name
         self.index_name = None
-        self.nodeSetLabel = None
+        self.node_set_label = None
         self.vector = candidate_vector
 
 
@@ -40,5 +40,5 @@ class FulltextFilter(object):
         self.query_string = query_string
         self.fulltext_attribute_name = fulltext_attribute_name
         self.index_name = None
-        self.nodeSetLabel = None
+        self.node_set_label = None
         self.topk = topk

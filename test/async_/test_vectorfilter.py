@@ -47,15 +47,6 @@ async def test_base_vectorfilter():
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
 
-    errorSearch = someNode.nodes.filter(
-        vector_filter=VectorFilter(
-            topk=3, vector_attribute_name="name", candidate_vector=[0.25, 0]
-        )
-    )
-
-    with pytest.raises(AttributeError):
-        await errorSearch.all()
-
 
 @mark_async_test
 async def test_vectorfilter_with_node_propertyfilter():
@@ -229,3 +220,59 @@ async def test_vectorfilter_with_relationshipfilter():
     assert isinstance(result[0][0], ProductV)
     assert isinstance(result[0][1], SupplierV)
     assert isinstance(result[0][2], SuppliesVRel)
+
+
+@mark_async_test
+async def test_vectorfilter_nonexistent_attribute():
+    """
+    Tests that AttributeError is raised when vector_attribute_name doesn't exist on the source.
+    """
+    # Vector Indexes only exist from 5.13 onwards
+    if not await adb.version_is_higher_than("5.13"):
+        pytest.skip("Vector Index not Generally Available in Neo4j.")
+
+    class TestNodeWithVector(AsyncStructuredNode):
+        name = StringProperty()
+        vector = ArrayProperty(
+            base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine")
+        )
+
+    await adb.install_labels(TestNodeWithVector)
+
+    # Test with non-existent attribute name
+    with pytest.raises(
+        AttributeError, match="Attribute 'nonexistent_vector' not found"
+    ):
+        nodeset = TestNodeWithVector.nodes.filter(
+            vector_filter=VectorFilter(
+                topk=3,
+                vector_attribute_name="nonexistent_vector",
+                candidate_vector=[0.25, 0],
+            )
+        )
+        await nodeset.all()  # This triggers the build_vector_query call
+
+
+@mark_async_test
+async def test_vectorfilter_no_vector_index():
+    """
+    Tests that AttributeError is raised when the attribute exists but doesn't have a vector index.
+    """
+    # Vector Indexes only exist from 5.13 onwards
+    if not await adb.version_is_higher_than("5.13"):
+        pytest.skip("Vector Index not Generally Available in Neo4j.")
+
+    class TestNodeWithoutVector(AsyncStructuredNode):
+        name = StringProperty()
+        vector = ArrayProperty(base_property=FloatProperty())  # No vector_index
+
+    await adb.install_labels(TestNodeWithoutVector)
+
+    # Test with attribute that exists but has no vector index
+    with pytest.raises(AttributeError, match="is not declared with a vector index"):
+        nodeset = TestNodeWithoutVector.nodes.filter(
+            vector_filter=VectorFilter(
+                topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]
+            )
+        )
+        await nodeset.all()  # This triggers the build_vector_query call
