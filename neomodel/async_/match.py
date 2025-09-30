@@ -472,6 +472,15 @@ class AsyncQueryBuilder:
         ):
             self.build_vector_query(self.node_set.vector_query, self.node_set.source)
 
+        if (
+            isinstance(self.node_set, AsyncNodeSet)
+            and hasattr(self.node_set, "fulltext_query")
+            and self.node_set.fulltext_query
+        ):
+            self.build_fulltext_query(
+                self.node_set.fulltext_query, self.node_set.source
+            )
+
         await self.build_source(self.node_set)
 
         if hasattr(self.node_set, "skip"):
@@ -568,7 +577,6 @@ class AsyncQueryBuilder:
             raise AttributeError(
                 f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
             )
-
         vectorfilter.index_name = (
             f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
         )
@@ -576,6 +584,31 @@ class AsyncQueryBuilder:
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
+        self._ast.result_class = source.__class__
+
+    def build_fulltext_query(self, fulltextquery: "FulltextFilter", source: "NodeSet"):
+        """
+        Query a free text indexed property on the node.
+        """
+        try:
+            attribute = getattr(source, fulltextquery.fulltext_attribute_name)
+        except AttributeError as e:
+            raise AttributeError(
+                f"Atribute '{fulltextquery.fulltext_attribute_name}' not found on '{type(source).__name__}'."
+            ) from e
+
+        if not attribute.fulltext_index:
+            raise AttributeError(
+                f"Attribute {fulltextquery.fulltext_attribute_name} is not declared with a full text index."
+            )
+
+        fulltextquery.index_name = (
+            f"fulltext_index_{source.__label__}_{fulltextquery.fulltext_attribute_name}"
+        )
+        fulltextquery.node_set_label = source.__label__.lower()
+
+        self._ast.fulltext_index_query = fulltextquery
+        self._ast.return_clause = f"{fulltextquery.node_set_label}, score"
         self._ast.result_class = source.__class__
 
     async def build_traversal(self, traversal: "AsyncTraversal") -> str:
@@ -982,12 +1015,12 @@ class AsyncQueryBuilder:
         if self._ast.fulltext_index_query:
             query += f"""CALL () {{
                 CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
-                YIELD node AS {self._ast.fulltext_index_query.nodeSetLabel}, score
-                RETURN {self._ast.fulltext_index_query.nodeSetLabel}, score LIMIT {self._ast.fulltext_index_query.topk}
+                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score
+                RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
                 }}
                 """
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
-            query += f""" WITH {self._ast.fulltext_index_query.nodeSetLabel}, score"""
+            query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1460,6 +1493,7 @@ class AsyncNodeSet(AsyncBaseSet):
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
         self.vector_query: Optional[str] = None
+        self.fulltext_query: Optional[str] = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1569,6 +1603,10 @@ class AsyncNodeSet(AsyncBaseSet):
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
+
+                if isinstance(arg, FulltextFilter) and (not self.fulltext_query):
+                    self.fulltext_query = arg
+
                 new_args.append(arg)
 
             new_args = tuple(new_args)
@@ -1579,6 +1617,13 @@ class AsyncNodeSet(AsyncBaseSet):
                 and not self.vector_query
             ):
                 self.vector_query = kwargs.pop("vector_filter")
+
+            if (
+                kwargs.get("fulltext_filter")
+                and isinstance(kwargs["fulltext_filter"], FulltextFilter)
+                and not self.fulltext_query
+            ):
+                self.fulltext_query = kwargs.pop("fulltext_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
