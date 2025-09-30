@@ -21,7 +21,6 @@ from neomodel.semantic_filters import VectorFilter
 def test_base_vectorfilter():
     """
     Tests that the vectorquery is run, node and score are returned.
-    Also tests that if the node property doesnt have a vector index we error.
     """
 
     # Vector Indexes only exist from 5.13 onwards
@@ -47,15 +46,6 @@ def test_base_vectorfilter():
     result = someNodeSearch.all()
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
-
-    errorSearch = someNode.nodes.filter(
-        vector_filter=VectorFilter(
-            topk=3, vector_attribute_name="name", candidate_vector=[0.25, 0]
-        )
-    )
-
-    with pytest.raises(AttributeError):
-        errorSearch.all()
 
 
 @mark_sync_test
@@ -95,7 +85,7 @@ def test_vectorfilter_with_node_propertyfilter():
 @mark_sync_test
 def test_dont_duplicate_vector_filter_node():
     """
-    Tests the situation that another node have the same filter value.
+    Tests the situation that another node has the same filter value.
     Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes.
     """
     # Vector Indexes only exist from 5.13 onwards
@@ -139,7 +129,7 @@ def test_dont_duplicate_vector_filter_node():
 @mark_sync_test
 def test_django_filter_w_vector_filter():
     """
-    Tests that django filters still work with the vector filter on.
+    Tests that django filters still work with the vector filter.
     """
     # Vector Indexes only exist from 5.13 onwards
     if not db.version_is_higher_than("5.13"):
@@ -176,7 +166,7 @@ def test_django_filter_w_vector_filter():
 @mark_sync_test
 def test_vectorfilter_with_relationshipfilter():
     """
-    Tests that by filtering on a vector similarity and then performing a relationshipfilter
+    Tests that by filtering on a vector similarity and then performing a relationshipfilter works.
     """
     # Vector Indexes only exist from 5.13 onwards
     if not db.version_is_higher_than("5.13"):

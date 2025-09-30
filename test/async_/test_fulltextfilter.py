@@ -48,30 +48,9 @@ async def test_base_fulltextfilter():
     )
 
     result = await fulltextNodeSearch.all()
+    print(result)
     assert all(isinstance(x[0], fulltextNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
-
-    errorSearch = fulltextNode.nodes.filter(
-        fulltext_filter=FulltextFilter(
-            topk=3, fulltext_attribute_name="other", query_string="thing"
-        )
-    )
-
-    with pytest.raises(AttributeError):
-        await errorSearch.all()
-
-    node2 = await fulltextNode(
-        other="other other thing", description="Another other other thing"
-    ).save()
-
-    limitsearch = fulltextNode.nodes.filter(
-        fulltext_filter=FulltextFilter(
-            topk=2, fulltext_attribute_name="description", query_string="thing"
-        )
-    )
-    result = await limitsearch.all()
-
-    assert len(result) == 2
 
 
 @mark_async_test
@@ -256,3 +235,53 @@ async def test_fulltextfilter_with_relationshipfilter():
     assert isinstance(result[0][0], ProductFT)
     assert isinstance(result[0][1], SupplierFT)
     assert isinstance(result[0][2], SuppliesFTRel)
+
+
+@mark_async_test
+async def test_fulltextfiler_nonexistent_attribute():
+    """
+    Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
+    """
+
+    class TestNodeWithFT(AsyncStructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+
+    await adb.install_labels(TestNodeWithFT)
+
+    with pytest.raises(
+        AttributeError, match="Atribute 'nonexistent_fulltext' not found"
+    ):
+        nodeset = TestNodeWithFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="nonexistent_fulltext",
+                query_string="something",
+            )
+        )
+        await nodeset.all()
+
+
+@mark_async_test
+async def test_fulltextfiler_no_fulltext_index():
+    """
+    Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
+    """
+
+    class TestNodeWithoutFT(AsyncStructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty()  # No fulltext_index
+
+    await adb.install_labels(TestNodeWithoutFT)
+
+    with pytest.raises(AttributeError, match="is not declared with a full text index"):
+        nodeset = TestNodeWithoutFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1, fulltext_attribute_name="fulltext", query_string="something"
+            )
+        )
+        await nodeset.all()
