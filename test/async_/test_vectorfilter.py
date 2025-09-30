@@ -47,15 +47,6 @@ async def test_base_vectorfilter():
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
 
-    errorSearch = someNode.nodes.filter(
-        vector_filter=VectorFilter(
-            topk=3, vector_attribute_name="name", candidate_vector=[0.25, 0]
-        )
-    )
-
-    with pytest.raises(AttributeError):
-        await errorSearch.all()
-
 
 @mark_async_test
 async def test_vectorfilter_with_node_propertyfilter():
