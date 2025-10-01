@@ -1550,7 +1550,7 @@ class NodeSet(BaseSet):
             # Need to grab and remove the VectorFilter from both args and kwargs
             new_args = (
                 []
-            )  # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q.
+            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
