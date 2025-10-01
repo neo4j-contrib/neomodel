@@ -4,10 +4,10 @@ import sys
 import time
 import warnings
 from asyncio import iscoroutinefunction
+from contextvars import ContextVar
 from functools import wraps
 from itertools import combinations
-from threading import local
-from typing import Any, Callable, Optional, TextIO, Union
+from typing import Any, Callable, TextIO
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -37,12 +37,7 @@ from neomodel.exceptions import (
 )
 from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
-from neomodel.util import (
-    _UnsavedNode,
-    classproperty,
-    deprecated,
-    version_tag_to_integer,
-)
+from neomodel.util import _UnsavedNode, classproperty, version_tag_to_integer
 
 logger = logging.getLogger(__name__)
 
@@ -118,28 +113,126 @@ def ensure_connection(func: Callable) -> Callable:
     return wrapper
 
 
-class AsyncDatabase(local):
+class AsyncDatabase:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
+    # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
     def __init__(self) -> None:
-        self._active_transaction: Optional[AsyncTransaction] = None
-        self.url: Optional[str] = None
-        self.driver: Optional[AsyncDriver] = None
-        self._session: Optional[AsyncSession] = None
-        self._pid: Optional[int] = None
-        self._database_name: Optional[str] = DEFAULT_DATABASE
-        self._database_version: Optional[str] = None
-        self._database_edition: Optional[str] = None
-        self.impersonated_user: Optional[str] = None
-        self._parallel_runtime: Optional[bool] = False
+        # Private to instances and contexts
+        self.__active_transaction: ContextVar[AsyncTransaction | None] = ContextVar(
+            "_active_transaction", default=None
+        )
+        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
+        self.__driver: ContextVar[AsyncDriver | None] = ContextVar(
+            "driver", default=None
+        )
+        self.__session: ContextVar[AsyncSession | None] = ContextVar(
+            "_session", default=None
+        )
+        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[str | None] = ContextVar(
+            "_database_name", default=DEFAULT_DATABASE
+        )
+        self.__database_version: ContextVar[str | None] = ContextVar(
+            "_database_version", default=None
+        )
+        self.__database_edition: ContextVar[str | None] = ContextVar(
+            "_database_edition", default=None
+        )
+        self.__impersonated_user: ContextVar[str | None] = ContextVar(
+            "impersonated_user", default=None
+        )
+        self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
+            "_parallel_runtime", default=False
+        )
+
+    @property
+    def _active_transaction(self) -> AsyncTransaction | None:
+        return self.__active_transaction.get()
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: AsyncTransaction) -> None:
+        self.__active_transaction.set(value)
+
+    @property
+    def url(self) -> str | None:
+        return self.__url.get()
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self.__url.set(value)
+
+    @property
+    def driver(self) -> AsyncDriver | None:
+        return self.__driver.get()
+
+    @driver.setter
+    def driver(self, value: AsyncDriver) -> None:
+        self.__driver.set(value)
+
+    @property
+    def _session(self) -> AsyncSession | None:
+        return self.__session.get()
+
+    @_session.setter
+    def _session(self, value: AsyncSession) -> None:
+        self.__session.set(value)
+
+    @property
+    def _pid(self) -> int | None:
+        return self.__pid.get()
+
+    @_pid.setter
+    def _pid(self, value: int) -> None:
+        self.__pid.set(value)
+
+    @property
+    def _database_name(self) -> str | None:
+        return self.__database_name.get()
+
+    @_database_name.setter
+    def _database_name(self, value: str) -> None:
+        self.__database_name.set(value)
+
+    @property
+    def _database_version(self) -> str | None:
+        return self.__database_version.get()
+
+    @_database_version.setter
+    def _database_version(self, value: str) -> None:
+        self.__database_version.set(value)
+
+    @property
+    def _database_edition(self) -> str | None:
+        return self.__database_edition.get()
+
+    @_database_edition.setter
+    def _database_edition(self, value: str) -> None:
+        self.__database_edition.set(value)
+
+    @property
+    def impersonated_user(self) -> str | None:
+        return self.__impersonated_user.get()
+
+    @impersonated_user.setter
+    def impersonated_user(self, value: str) -> None:
+        self.__impersonated_user.set(value)
+
+    @property
+    def _parallel_runtime(self) -> bool | None:
+        return self.__parallel_runtime.get()
+
+    @_parallel_runtime.setter
+    def _parallel_runtime(self, value: bool) -> None:
+        self.__parallel_runtime.set(value)
 
     async def set_connection(
-        self, url: Optional[str] = None, driver: Optional[AsyncDriver] = None
+        self, url: str | None = None, driver: AsyncDriver | None = None
     ) -> None:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
@@ -248,14 +341,14 @@ class AsyncDatabase(local):
             self.driver = None
 
     @property
-    async def database_version(self) -> Optional[str]:
+    async def database_version(self) -> str | None:
         if self._database_version is None:
             await self._update_database_version()
 
         return self._database_version
 
     @property
-    async def database_edition(self) -> Optional[str]:
+    async def database_edition(self) -> str | None:
         if self._database_edition is None:
             await self._update_database_version()
 
@@ -492,11 +585,11 @@ class AsyncDatabase(local):
     async def cypher_query(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -548,13 +641,13 @@ class AsyncDatabase(local):
 
     async def _run_cypher_query(
         self,
-        session: Union[AsyncSession, AsyncTransaction],
+        session: AsyncSession | AsyncTransaction,
         query: str,
         params: dict[str, Any],
         handle_unique: bool,
         retry_on_session_expire: bool,
         resolve_objects: bool,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         try:
             # Retrieve the data
             start = time.time()
@@ -615,7 +708,7 @@ class AsyncDatabase(local):
         else:
             return ELEMENT_ID_METHOD
 
-    async def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+    async def parse_element_id(self, element_id: str | None) -> str | int:
         if element_id is None:
             raise ValueError(
                 "Unable to parse element id, are you sure this element has been saved ?"
@@ -712,12 +805,12 @@ class AsyncDatabase(local):
         """
         )
         if clear_constraints:
-            await drop_constraints()
+            await self.drop_constraints()
         if clear_indexes:
-            await drop_indexes()
+            await self.drop_indexes()
 
     async def drop_constraints(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all constraints.
@@ -745,7 +838,7 @@ class AsyncDatabase(local):
             stdout.write("\n")
 
     async def drop_indexes(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
@@ -766,7 +859,7 @@ class AsyncDatabase(local):
         if not quiet:
             stdout.write("\n")
 
-    async def remove_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    async def remove_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Calls functions for dropping constraints and indexes.
 
@@ -783,7 +876,7 @@ class AsyncDatabase(local):
         stdout.write("Dropping indexes...\n")
         await self.drop_indexes(quiet=False, stdout=stdout)
 
-    async def install_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    async def install_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -806,7 +899,7 @@ class AsyncDatabase(local):
         i = 0
         for cls in subsub(AsyncStructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            await install_labels(cls, quiet=False, stdout=stdout)
+            await self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -815,7 +908,7 @@ class AsyncDatabase(local):
         stdout.write(f"Finished {i} classes.\n")
 
     async def install_labels(
-        self, cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, cls: Any, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Setup labels with indexes and constraints for a given class
@@ -1198,102 +1291,18 @@ class AsyncDatabase(local):
 adb = AsyncDatabase()
 
 
-# Deprecated methods
-async def change_neo4j_password(
-    db: AsyncDatabase, user: str, new_password: str
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.change_neo4j_password(user, new_password) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await db.change_neo4j_password(user, new_password)
-
-
-async def clear_neo4j_database(
-    db: AsyncDatabase, clear_constraints: bool = False, clear_indexes: bool = False
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.clear_neo4j_database(clear_constraints, clear_indexes) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await db.clear_neo4j_database(clear_constraints, clear_indexes)
-
-
-async def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_constraints(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.drop_constraints(quiet, stdout)
-
-
-async def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.drop_indexes(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.drop_indexes(quiet, stdout)
-
-
-async def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.remove_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.remove_all_labels(stdout)
-
-
-async def install_labels(
-    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_labels(cls, quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.install_labels(cls, quiet, stdout)
-
-
-async def install_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, adb for async).
-        Please use adb.install_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    await adb.install_all_labels(stdout)
-
-
 class AsyncTransactionProxy:
-    bookmarks: Optional[Bookmarks] = None
+    bookmarks: Bookmarks | None = None
 
     def __init__(
         self,
         db: AsyncDatabase,
-        access_mode: Optional[str] = None,
-        parallel_runtime: Optional[bool] = False,
+        access_mode: str | None = None,
+        parallel_runtime: bool | None = False,
     ):
         self.db: AsyncDatabase = db
-        self.access_mode: Optional[str] = access_mode
-        self.parallel_runtime: Optional[bool] = parallel_runtime
+        self.access_mode: str | None = access_mode
+        self.parallel_runtime: bool | None = parallel_runtime
 
     @ensure_connection
     async def __aenter__(self) -> "AsyncTransactionProxy":
@@ -1550,7 +1559,7 @@ class AsyncStructuredNode(NodeBase):
         return AsyncNodeSet(self)
 
     @property
-    def element_id(self) -> Optional[Any]:
+    def element_id(self) -> Any | None:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
@@ -1580,7 +1589,7 @@ class AsyncStructuredNode(NodeBase):
         merge_params: tuple[dict[str, Any], ...],
         update_existing: bool = False,
         lazy: bool = False,
-        relationship: Optional[Any] = None,
+        relationship: Any | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
@@ -1741,8 +1750,8 @@ class AsyncStructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     async def cypher(
-        self, query: str, params: Optional[dict[str, Any]] = None
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 

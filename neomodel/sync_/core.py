@@ -4,10 +4,10 @@ import sys
 import time
 import warnings
 from asyncio import iscoroutinefunction
+from contextvars import ContextVar
 from functools import wraps
 from itertools import combinations
-from threading import local
-from typing import Any, Callable, Optional, TextIO, Union
+from typing import Any, Callable, TextIO
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -37,12 +37,7 @@ from neomodel.exceptions import (
 from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
 from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import (
-    _UnsavedNode,
-    classproperty,
-    deprecated,
-    version_tag_to_integer,
-)
+from neomodel.util import _UnsavedNode, classproperty, version_tag_to_integer
 
 logger = logging.getLogger(__name__)
 
@@ -118,28 +113,124 @@ def ensure_connection(func: Callable) -> Callable:
     return wrapper
 
 
-class Database(local):
+class Database:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
     """
 
+    # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
     def __init__(self) -> None:
-        self._active_transaction: Optional[Transaction] = None
-        self.url: Optional[str] = None
-        self.driver: Optional[Driver] = None
-        self._session: Optional[Session] = None
-        self._pid: Optional[int] = None
-        self._database_name: Optional[str] = DEFAULT_DATABASE
-        self._database_version: Optional[str] = None
-        self._database_edition: Optional[str] = None
-        self.impersonated_user: Optional[str] = None
-        self._parallel_runtime: Optional[bool] = False
+        # Private to instances and contexts
+        self.__active_transaction: ContextVar[Transaction | None] = ContextVar(
+            "_active_transaction", default=None
+        )
+        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
+        self.__driver: ContextVar[Driver | None] = ContextVar("driver", default=None)
+        self.__session: ContextVar[Session | None] = ContextVar(
+            "_session", default=None
+        )
+        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[str | None] = ContextVar(
+            "_database_name", default=DEFAULT_DATABASE
+        )
+        self.__database_version: ContextVar[str | None] = ContextVar(
+            "_database_version", default=None
+        )
+        self.__database_edition: ContextVar[str | None] = ContextVar(
+            "_database_edition", default=None
+        )
+        self.__impersonated_user: ContextVar[str | None] = ContextVar(
+            "impersonated_user", default=None
+        )
+        self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
+            "_parallel_runtime", default=False
+        )
+
+    @property
+    def _active_transaction(self) -> Transaction | None:
+        return self.__active_transaction.get()
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: Transaction) -> None:
+        self.__active_transaction.set(value)
+
+    @property
+    def url(self) -> str | None:
+        return self.__url.get()
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self.__url.set(value)
+
+    @property
+    def driver(self) -> Driver | None:
+        return self.__driver.get()
+
+    @driver.setter
+    def driver(self, value: Driver) -> None:
+        self.__driver.set(value)
+
+    @property
+    def _session(self) -> Session | None:
+        return self.__session.get()
+
+    @_session.setter
+    def _session(self, value: Session) -> None:
+        self.__session.set(value)
+
+    @property
+    def _pid(self) -> int | None:
+        return self.__pid.get()
+
+    @_pid.setter
+    def _pid(self, value: int) -> None:
+        self.__pid.set(value)
+
+    @property
+    def _database_name(self) -> str | None:
+        return self.__database_name.get()
+
+    @_database_name.setter
+    def _database_name(self, value: str) -> None:
+        self.__database_name.set(value)
+
+    @property
+    def _database_version(self) -> str | None:
+        return self.__database_version.get()
+
+    @_database_version.setter
+    def _database_version(self, value: str) -> None:
+        self.__database_version.set(value)
+
+    @property
+    def _database_edition(self) -> str | None:
+        return self.__database_edition.get()
+
+    @_database_edition.setter
+    def _database_edition(self, value: str) -> None:
+        self.__database_edition.set(value)
+
+    @property
+    def impersonated_user(self) -> str | None:
+        return self.__impersonated_user.get()
+
+    @impersonated_user.setter
+    def impersonated_user(self, value: str) -> None:
+        self.__impersonated_user.set(value)
+
+    @property
+    def _parallel_runtime(self) -> bool | None:
+        return self.__parallel_runtime.get()
+
+    @_parallel_runtime.setter
+    def _parallel_runtime(self, value: bool) -> None:
+        self.__parallel_runtime.set(value)
 
     def set_connection(
-        self, url: Optional[str] = None, driver: Optional[Driver] = None
+        self, url: str | None = None, driver: Driver | None = None
     ) -> None:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
@@ -248,14 +339,14 @@ class Database(local):
             self.driver = None
 
     @property
-    def database_version(self) -> Optional[str]:
+    def database_version(self) -> str | None:
         if self._database_version is None:
             self._update_database_version()
 
         return self._database_version
 
     @property
-    def database_edition(self) -> Optional[str]:
+    def database_edition(self) -> str | None:
         if self._database_edition is None:
             self._update_database_version()
 
@@ -490,11 +581,11 @@ class Database(local):
     def cypher_query(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -546,13 +637,13 @@ class Database(local):
 
     def _run_cypher_query(
         self,
-        session: Union[Session, Transaction],
+        session: Session | Transaction,
         query: str,
         params: dict[str, Any],
         handle_unique: bool,
         retry_on_session_expire: bool,
         resolve_objects: bool,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         try:
             # Retrieve the data
             start = time.time()
@@ -613,7 +704,7 @@ class Database(local):
         else:
             return ELEMENT_ID_METHOD
 
-    def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+    def parse_element_id(self, element_id: str | None) -> str | int:
         if element_id is None:
             raise ValueError(
                 "Unable to parse element id, are you sure this element has been saved ?"
@@ -708,12 +799,12 @@ class Database(local):
         """
         )
         if clear_constraints:
-            drop_constraints()
+            self.drop_constraints()
         if clear_indexes:
-            drop_indexes()
+            self.drop_indexes()
 
     def drop_constraints(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all constraints.
@@ -740,7 +831,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def drop_indexes(self, quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
+    def drop_indexes(self, quiet: bool = True, stdout: TextIO | None = None) -> None:
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
 
@@ -760,7 +851,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def remove_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    def remove_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Calls functions for dropping constraints and indexes.
 
@@ -777,7 +868,7 @@ class Database(local):
         stdout.write("Dropping indexes...\n")
         self.drop_indexes(quiet=False, stdout=stdout)
 
-    def install_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    def install_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -800,7 +891,7 @@ class Database(local):
         i = 0
         for cls in subsub(StructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            install_labels(cls, quiet=False, stdout=stdout)
+            self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -809,7 +900,7 @@ class Database(local):
         stdout.write(f"Finished {i} classes.\n")
 
     def install_labels(
-        self, cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, cls: Any, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Setup labels with indexes and constraints for a given class
@@ -1190,100 +1281,18 @@ class Database(local):
 db = Database()
 
 
-# Deprecated methods
-def change_neo4j_password(db: Database, user: str, new_password: str) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.change_neo4j_password(user, new_password) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.change_neo4j_password(user, new_password)
-
-
-def clear_neo4j_database(
-    db: Database, clear_constraints: bool = False, clear_indexes: bool = False
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.clear_neo4j_database(clear_constraints, clear_indexes)
-
-
-def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_constraints(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_constraints(quiet, stdout)
-
-
-def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_indexes(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_indexes(quiet, stdout)
-
-
-def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.remove_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.remove_all_labels(stdout)
-
-
-def install_labels(
-    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_labels(cls, quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_labels(cls, quiet, stdout)
-
-
-def install_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_all_labels(stdout)
-
-
 class TransactionProxy:
-    bookmarks: Optional[Bookmarks] = None
+    bookmarks: Bookmarks | None = None
 
     def __init__(
         self,
         db: Database,
-        access_mode: Optional[str] = None,
-        parallel_runtime: Optional[bool] = False,
+        access_mode: str | None = None,
+        parallel_runtime: bool | None = False,
     ):
         self.db: Database = db
-        self.access_mode: Optional[str] = access_mode
-        self.parallel_runtime: Optional[bool] = parallel_runtime
+        self.access_mode: str | None = access_mode
+        self.parallel_runtime: bool | None = parallel_runtime
 
     @ensure_connection
     def __enter__(self) -> "TransactionProxy":
@@ -1538,7 +1547,7 @@ class StructuredNode(NodeBase):
         return NodeSet(self)
 
     @property
-    def element_id(self) -> Optional[Any]:
+    def element_id(self) -> Any | None:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
@@ -1568,7 +1577,7 @@ class StructuredNode(NodeBase):
         merge_params: tuple[dict[str, Any], ...],
         update_existing: bool = False,
         lazy: bool = False,
-        relationship: Optional[Any] = None,
+        relationship: Any | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
@@ -1729,8 +1738,8 @@ class StructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     def cypher(
-        self, query: str, params: Optional[dict[str, Any]] = None
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
 

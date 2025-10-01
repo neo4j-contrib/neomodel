@@ -27,4 +27,4 @@ DRIVER = None
 DATABASE_NAME = None
 
 # Use this to enable soft cardinality check
-SOFT_INVERSE_CARDINALITY_CHECK = True
+SOFT_CARDINALITY_CHECK = False
