@@ -50,7 +50,6 @@ dev = [
     "isort",
     "mypy",
     "pandas-stubs",
-    "types-pytz",
     "types-shapely"
 ]
 shapely = ["Shapely>=2.0.0"]

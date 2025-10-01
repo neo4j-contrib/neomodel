@@ -460,13 +460,12 @@ class AsyncQueryBuilder:
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
 
-        if isinstance(self.node_set, AsyncNodeSet) and hasattr(
-            self.node_set, "_vector_query"
+        if (
+            isinstance(self.node_set, AsyncNodeSet)
+            and hasattr(self.node_set, "vector_query")
+            and self.node_set.vector_query
         ):
-            if self.node_set._vector_query:
-                self.build_vector_query(
-                    self.node_set._vector_query, self.node_set.source
-                )
+            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
 
         await self.build_source(self.node_set)
 
@@ -549,14 +548,16 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "AsyncNodeSet"):
         """
         Query a vector indexed property on the node.
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
-        except AttributeError:
-            raise  # This raises the base AttributeError and provides potential correction
+        except AttributeError as e:
+            raise AttributeError(
+                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
+            ) from e
 
         if not attribute.vector_index:
             raise AttributeError(
@@ -566,10 +567,10 @@ class AsyncQueryBuilder:
         vectorfilter.index_name = (
             f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
         )
-        vectorfilter.nodeSetLabel = source.__label__.lower()
+        vectorfilter.node_set_label = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
-        self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
+        self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
         self._ast.result_class = source.__class__
 
     async def build_traversal(self, traversal: "AsyncTraversal") -> str:
@@ -768,7 +769,7 @@ class AsyncQueryBuilder:
 
     def _parse_path(
         self, source_class: type[AsyncStructuredNode], prop: str
-    ) -> tuple[str, str, str, Any, bool]:
+    ) -> tuple[str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -786,7 +787,7 @@ class AsyncQueryBuilder:
             )
         else:
             ident, target_class, is_optional_relation = result
-        return ident, path, prop, target_class, is_optional_relation
+        return ident, prop, target_class, is_optional_relation
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -816,14 +817,12 @@ class AsyncQueryBuilder:
         source_class: type[AsyncStructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
-            path = None
             is_rel_filter = "|" in prop
             target_class = source_class
             is_optional_relation = False
             if "__" in prop or is_rel_filter:
                 (
                     ident,
-                    path,
                     prop,
                     target_class,
                     is_optional_relation,
@@ -968,12 +967,12 @@ class AsyncQueryBuilder:
         if self._ast.vector_index_query:
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
-                YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
-                RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
+                YIELD node AS {self._ast.vector_index_query.node_set_label}, score 
+                RETURN {self._ast.vector_index_query.node_set_label}, score 
                 }}"""
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
-            query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
+            query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1446,7 +1445,7 @@ class AsyncNodeSet(AsyncBaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self._vector_query: str | None = None
+        self.vector_query: str | None = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1552,19 +1551,20 @@ class AsyncNodeSet(AsyncBaseSet):
             # Need to grab and remove the VectorFilter from both args and kwargs
             new_args = (
                 []
-            )  # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q.
+            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
             for arg in args:
-                if isinstance(arg, VectorFilter) and (not self._vector_query):
-                    self._vector_query = arg
+                if isinstance(arg, VectorFilter) and (not self.vector_query):
+                    self.vector_query = arg
                 new_args.append(arg)
 
             new_args = tuple(new_args)
 
-            if kwargs.get("vector_filter"):
-                if isinstance(kwargs["vector_filter"], VectorFilter) and (
-                    not self._vector_query
-                ):
-                    self._vector_query = kwargs.pop("vector_filter")
+            if (
+                kwargs.get("vector_filter")
+                and isinstance(kwargs["vector_filter"], VectorFilter)
+                and not self.vector_query
+            ):
+                self.vector_query = kwargs.pop("vector_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 

@@ -444,13 +444,13 @@ class AsyncRelationshipManager(object):
         return await self._new_traversal().check_bool()
 
     async def check_nonzero(self) -> bool:
-        return self._new_traversal().check_nonzero()
+        return await self._new_traversal().check_nonzero()
 
     async def check_contains(self, obj: Any) -> bool:
-        return self._new_traversal().check_contains(obj)
+        return await self._new_traversal().check_contains(obj)
 
     async def get_item(self, key: int | slice) -> Any:
-        return self._new_traversal().get_item(key)
+        return await self._new_traversal().get_item(key)
 
 
 class AsyncRelationshipDefinition:
