@@ -41,7 +41,7 @@ Default values can be specified for any property, even as the result of a
 
 And in terms of a :term:`function` or :term:`lambda`::
 
-        my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+        my_datetime = DateTimeProperty(default=lambda: datetime.now(ZoneInfo("UTC")))
 
 Mandatory / Optional Properties
 ===============================

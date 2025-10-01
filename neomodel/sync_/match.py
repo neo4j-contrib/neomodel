@@ -10,10 +10,10 @@ from typing import Tuple, Union
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
+from neomodel.semantic_filters import VectorFilter
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
-from neomodel.semantic_filters import VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
@@ -441,6 +441,7 @@ class QueryAST:
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
+
 class QueryBuilder:
     def __init__(
         self, node_set: "BaseSet", subquery_namespace: TOptional[str] = None
@@ -459,11 +460,13 @@ class QueryBuilder:
         ):
             for relation in self.node_set.relations_to_fetch:
                 self.build_traversal_from_path(relation, self.node_set.source)
-        if isinstance(self.node_set, NodeSet) and hasattr(
-            self.node_set, "_vector_query"
-        ): 
-            if self.node_set._vector_query:
-                self.build_vector_query(self.node_set._vector_query, self.node_set.source)
+
+        if (
+            isinstance(self.node_set, NodeSet)
+            and hasattr(self.node_set, "vector_query")
+            and self.node_set.vector_query
+        ):
+            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
 
         self.build_source(self.node_set)
 
@@ -548,23 +551,28 @@ class QueryBuilder:
 
     def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
         """
-        Query a vector indexed property on the node. 
+        Query a vector indexed property on the node.
         """
         try:
             attribute = getattr(source, vectorfilter.vector_attribute_name)
-        except AttributeError:
-            raise # This raises the base AttributeError and provides potential correction
+        except AttributeError as e:
+            raise AttributeError(
+                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
+            ) from e
 
         if not attribute.vector_index:
-            raise AttributeError(f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index.")
+            raise AttributeError(
+                f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
+            )
 
-        vectorfilter.index_name = f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
-        vectorfilter.nodeSetLabel = source.__label__.lower()
+        vectorfilter.index_name = (
+            f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
+        )
+        vectorfilter.node_set_label = source.__label__.lower()
 
         self._ast.vector_index_query = vectorfilter
-        self._ast.return_clause = f"{vectorfilter.nodeSetLabel}, score"
+        self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
         self._ast.result_class = source.__class__
-        
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -762,7 +770,7 @@ class QueryBuilder:
 
     def _parse_path(
         self, source_class: type[StructuredNode], prop: str
-    ) -> Tuple[str, str, str, Any, bool]:
+    ) -> Tuple[str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -780,7 +788,7 @@ class QueryBuilder:
             )
         else:
             ident, target_class, is_optional_relation = result
-        return ident, path, prop, target_class, is_optional_relation
+        return ident, prop, target_class, is_optional_relation
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -810,14 +818,12 @@ class QueryBuilder:
         source_class: type[StructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
-            path = None
             is_rel_filter = "|" in prop
             target_class = source_class
             is_optional_relation = False
             if "__" in prop or is_rel_filter:
                 (
                     ident,
-                    path,
                     prop,
                     target_class,
                     is_optional_relation,
@@ -962,11 +968,12 @@ class QueryBuilder:
         if self._ast.vector_index_query:
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
-                YIELD node AS {self._ast.vector_index_query.nodeSetLabel}, score 
-                RETURN {self._ast.vector_index_query.nodeSetLabel}, score 
+                YIELD node AS {self._ast.vector_index_query.node_set_label}, score 
+                RETURN {self._ast.vector_index_query.node_set_label}, score 
                 }}"""
-            # This ensures that we bring the context of the new nodeSet and score along with us for further filtering
-            query += f""" WITH {self._ast.vector_index_query.nodeSetLabel}, score"""
+
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1093,7 +1100,7 @@ class QueryBuilder:
 
         if self._ast.limit and not self._ast.is_count:
             query += f" LIMIT {self._ast.limit}"
-        print(query)
+
         return query
 
     def _count(self) -> int:
@@ -1437,7 +1444,7 @@ class NodeSet(BaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self._vector_query: str = None 
+        self.vector_query: Optional[str] = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1541,18 +1548,22 @@ class NodeSet(BaseSet):
         """
         if args or kwargs:
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = [] # As args are a tuple, theyre immutable. But we need to remove the vectorfilter from the arguments so they dont go into Q. 
+            new_args = (
+                []
+            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
             for arg in args:
-                if isinstance(arg, VectorFilter) and (not self._vector_query):
-                    self._vector_query = arg
+                if isinstance(arg, VectorFilter) and (not self.vector_query):
+                    self.vector_query = arg
                 new_args.append(arg)
 
             new_args = tuple(new_args)
 
-            if kwargs.get("vector_filter"):
-                if isinstance(kwargs["vector_filter"], VectorFilter) and (not self._vector_query):
-                    self._vector_query = kwargs.pop("vector_filter")
-                    
+            if (
+                kwargs.get("vector_filter")
+                and isinstance(kwargs["vector_filter"], VectorFilter)
+                and not self.vector_query
+            ):
+                self.vector_query = kwargs.pop("vector_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
