@@ -1,7 +1,7 @@
 Configuration
 =============
 
-This section is covering the Neomodel 'config' module and its variables.
+This section covers the Neomodel configuration system, which provides a modern dataclass-based approach with validation and environment variable support while maintaining backward compatibility.
 
 .. _connection_options_doc:
 
@@ -60,6 +60,94 @@ Note that you have to manage the driver's lifecycle yourself.
 However, everything else is still handled by neomodel : sessions, transactions, etc...
 
 NB : Only the synchronous driver will work in this way. See the next section for the preferred method, and how to pass an async driver instance.
+
+Modern Configuration System
+----------------------------
+
+Neomodel now provides a modern dataclass-based configuration system with the following features:
+
+* **Type Safety**: All configuration values are properly typed
+* **Validation**: Configuration values are validated at startup and when changed
+* **Environment Variables**: Support for loading configuration from environment variables
+* **Backward Compatibility**: Existing code continues to work without changes
+
+Using the New Configuration API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can access the configuration object directly::
+
+    from neomodel.config import get_config, set_config, reset_config
+    
+    # Get the current configuration
+    config = get_config()
+    print(config.database_url)
+    print(config.force_timezone)
+    
+    # Update configuration
+    config.update(database_url='bolt://new:url@localhost:7687')
+    
+    # Set a custom configuration
+    from neomodel.config import NeomodelConfig
+    custom_config = NeomodelConfig(
+        database_url='bolt://custom:url@localhost:7687',
+        force_timezone=True
+    )
+    set_config(custom_config)
+    
+    # Reset to defaults (loads from environment variables)
+    reset_config()
+
+Environment Variable Support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Configuration can be loaded from environment variables with the following naming convention:
+
+* ``NEOMODEL_DATABASE_URL`` - Database connection URL
+* ``NEOMODEL_DATABASE_NAME`` - Database name for custom driver
+* ``NEOMODEL_CONNECTION_ACQUISITION_TIMEOUT`` - Connection acquisition timeout
+* ``NEOMODEL_CONNECTION_TIMEOUT`` - Connection timeout
+* ``NEOMODEL_ENCRYPTED`` - Enable encrypted connections
+* ``NEOMODEL_KEEP_ALIVE`` - Enable keep-alive connections
+* ``NEOMODEL_MAX_CONNECTION_LIFETIME`` - Maximum connection lifetime
+* ``NEOMODEL_MAX_CONNECTION_POOL_SIZE`` - Maximum connection pool size
+* ``NEOMODEL_MAX_TRANSACTION_RETRY_TIME`` - Maximum transaction retry time
+* ``NEOMODEL_USER_AGENT`` - User agent string
+* ``NEOMODEL_FORCE_TIMEZONE`` - Force timezone-aware datetime objects
+* ``NEOMODEL_SOFT_CARDINALITY_CHECK`` - Enable soft cardinality checking
+* ``NEOMODEL_CYPHER_DEBUG`` - Enable Cypher debug logging
+* ``NEOMODEL_SLOW_QUERIES`` - Threshold in seconds for slow query logging (0 = disabled)
+
+Example::
+
+    # Set environment variables
+    export NEOMODEL_DATABASE_URL='bolt://neo4j:password@localhost:7687'
+    export NEOMODEL_FORCE_TIMEZONE='true'
+    export NEOMODEL_CONNECTION_TIMEOUT='60.0'
+    
+    # Configuration will be automatically loaded from environment
+    from neomodel import config
+    print(config.DATABASE_URL)  # 'bolt://neo4j:password@localhost:7687'
+    print(config.FORCE_TIMEZONE)  # True
+    print(config.CONNECTION_TIMEOUT)  # 60.0
+
+Configuration Validation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The configuration system validates values when they are set::
+
+    from neomodel import config
+    
+    # This will raise a ValueError
+    try:
+        config.CONNECTION_TIMEOUT = -1
+    except ValueError as e:
+        print(f"Validation error: {e}")
+    
+    # Invalid database URLs are also caught
+    try:
+        config.DATABASE_URL = "invalid-url"
+    except ValueError as e:
+        print(f"Validation error: {e}")
 
 Change/Close the connection
 ---------------------------
