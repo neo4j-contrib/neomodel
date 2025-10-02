@@ -587,10 +587,13 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, OUTGOING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
 
 
 class AsyncRelationshipFrom(AsyncRelationshipDefinition):
@@ -600,10 +603,13 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, INCOMING, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group
 
 
 class AsyncRelationship(AsyncRelationshipDefinition):
@@ -613,7 +619,10 @@ class AsyncRelationship(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: Optional[type[AsyncStructuredRel]] = None,
+        exclusion_group: Optional[list[str]] = None,
     ) -> None:
         super().__init__(
             relation_type, cls_name, EITHER, manager=cardinality, model=model
         )
+        if exclusion_group:
+            self.definition["exclusion_group"] = exclusion_group

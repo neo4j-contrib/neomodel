@@ -4,6 +4,7 @@ from pytest import raises
 
 from neomodel import (
     IntegerProperty,
+    MutuallyExclusive,
     One,
     Q,
     Relationship,
@@ -14,6 +15,7 @@ from neomodel import (
     StructuredRel,
     db,
 )
+from neomodel.exceptions import MutualExclusionViolation
 
 
 class PersonWithRels(StructuredNode):
@@ -207,3 +209,170 @@ def test_props_relationship():
 
     with raises(NotImplementedError):
         c.inhabitant.connect(u, properties={"city": "Thessaloniki"})
+
+
+class JealousDog(StructuredNode):
+    name = StringProperty(required=True)
+
+
+class JealousCat(StructuredNode):
+    name = StringProperty(required=True)
+
+
+class ExclusivePerson(StructuredNode):
+    name = StringProperty(required=True)
+
+    # Define mutually exclusive relationships
+    cat = RelationshipTo(
+        "JealousCat",
+        "HAS_PET",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["dog"],
+    )
+    dog = RelationshipTo(
+        "JealousDog",
+        "HAS_PET",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["cat"],
+    )
+
+
+class WeirdCompany(StructuredNode):
+    name = StringProperty(required=True)
+
+    # A company can have either full-time or part-time employees, but not both
+    full_time_employees = RelationshipFrom(
+        "WeirdEmployee",
+        "WORKS_FULL_TIME_AT",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["part_time_employees"],
+    )
+    part_time_employees = RelationshipFrom(
+        "WeirdEmployee",
+        "WORKS_PART_TIME_AT",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["full_time_employees"],
+    )
+
+
+class WeirdEmployee(StructuredNode):
+    name = StringProperty(required=True)
+    salary = IntegerProperty()
+
+
+class SingleMindedPerson(StructuredNode):
+    name = StringProperty(required=True)
+
+    # A person can be either friends or enemies with another person, but not both
+    friends = Relationship(
+        "SingleMindedPerson",
+        "FRIENDS_WITH",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["enemies"],
+    )
+    enemies = Relationship(
+        "SingleMindedPerson",
+        "ENEMIES_WITH",
+        cardinality=MutuallyExclusive,
+        exclusion_group=["friends"],
+    )
+
+
+@mark_sync_test
+def test_mutually_exclusive_to_relationships():
+    """Test RelationshipTo with MutuallyExclusive cardinality."""
+    # Create test nodes
+    bob = ExclusivePerson(name="Bob").save()
+    rex = JealousDog(name="Rex").save()
+    whiskers = JealousCat(name="Whiskers").save()
+
+    # Bob can have a dog
+    bob.dog.connect(rex)
+
+    # But now Bob can't have a cat because he already has a dog
+    with raises(MutualExclusionViolation):
+        bob.cat.connect(whiskers)
+
+    # Create another person
+    alice = ExclusivePerson(name="Alice").save()
+
+    # Alice can have a cat
+    alice.cat.connect(whiskers)
+
+    # But now Alice can't have a dog because she already has a cat
+    with raises(MutualExclusionViolation):
+        alice.dog.connect(rex)
+
+    # If Alice disconnects her cat, she can then have a dog
+    alice.cat.disconnect(whiskers)
+    alice.dog.connect(rex)
+
+    # Verify the connections
+    assert len(bob.dog.all()) == 1
+    assert len(bob.cat.all()) == 0
+    assert len(alice.dog.all()) == 1
+    assert len(alice.cat.all()) == 0
+
+
+@mark_sync_test
+def test_mutually_exclusive_from_relationships():
+    """Test RelationshipFrom with MutuallyExclusive cardinality."""
+    # Create test nodes
+    tech_corp = WeirdCompany(name="TechCorp").save()
+    alice = WeirdEmployee(name="Alice", salary=50000).save()
+    bob = WeirdEmployee(name="Bob", salary=30000).save()
+
+    # TechCorp can have full-time employees
+    tech_corp.full_time_employees.connect(alice)
+
+    # But now TechCorp can't have part-time employees
+    with raises(MutualExclusionViolation):
+        tech_corp.part_time_employees.connect(bob)
+
+    # Create another company
+    retail_corp = WeirdCompany(name="RetailCorp").save()
+
+    # RetailCorp can have part-time employees
+    retail_corp.part_time_employees.connect(bob)
+
+    # But now RetailCorp can't have full-time employees
+    with raises(MutualExclusionViolation):
+        retail_corp.full_time_employees.connect(alice)
+
+    # If RetailCorp disconnects its part-time employees, it can have full-time employees
+    retail_corp.part_time_employees.disconnect(bob)
+    retail_corp.full_time_employees.connect(alice)
+
+    # Verify the connections
+    assert len(tech_corp.full_time_employees.all()) == 1
+    assert len(tech_corp.part_time_employees.all()) == 0
+    assert len(retail_corp.full_time_employees.all()) == 1
+    assert len(retail_corp.part_time_employees.all()) == 0
+
+
+@mark_sync_test
+def test_mutually_exclusive_bidirectional_relationships():
+    """Test Relationship with MutuallyExclusive cardinality."""
+    # Create test nodes
+    alice = SingleMindedPerson(name="Alice").save()
+    bob = SingleMindedPerson(name="Bob").save()
+    charlie = SingleMindedPerson(name="Charlie").save()
+
+    # Alice and Bob can be friends
+    alice.friends.connect(bob)
+
+    # But now Alice and Charlie can't be enemies
+    with raises(MutualExclusionViolation):
+        alice.enemies.connect(charlie)
+
+    # If Alice disconnects from being friends with Bob, she can be enemies with Charlie
+    alice.friends.disconnect(bob)
+    alice.enemies.connect(charlie)
+
+    # Verify the connections
+    assert len(alice.friends.all()) == 0
+    assert len(alice.enemies.all()) == 1  # Charlie
+    assert len(charlie.friends.all()) == 0
+    assert len(charlie.enemies.all()) == 1  # Alice
+    assert len(bob.friends.all()) == 0
+    assert len(bob.enemies.all()) == 0

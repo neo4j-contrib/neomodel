@@ -1,6 +1,10 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
-from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
+from neomodel.exceptions import (
+    AttemptedCardinalityViolation,
+    CardinalityViolation,
+    MutualExclusionViolation,
+)
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
     ZeroOrMore,
@@ -161,4 +165,50 @@ class One(RelationshipManager):
         """
         if not hasattr(self.source, "element_id") or self.source.element_id is None:
             raise ValueError("Node has not been saved cannot connect!")
+        return super().connect(node, properties)
+
+
+class MutuallyExclusive(RelationshipManager):
+    """
+    A relationship that is mutually exclusive with other relationships.
+
+    This cardinality constraint ensures that if this relationship is connected,
+    other relationships in the exclusion group cannot be connected, and vice versa.
+    """
+
+    description = "mutually exclusive relationship"
+    exclusion_group: List[str] = []
+
+    def __init__(self, source: Any, key: str, definition: dict):
+        super().__init__(source, key, definition)
+        # Initialize exclusion_group from definition if provided
+        if "exclusion_group" in definition:
+            self.exclusion_group = definition["exclusion_group"]
+
+    def _check_exclusivity(self) -> None:
+        """
+        Check if any of the mutually exclusive relationships are connected.
+        Raises MutualExclusionViolation if a violation is found.
+        """
+        for rel_name in self.exclusion_group:
+            if not hasattr(self.source, rel_name):
+                continue
+
+            rel_manager = getattr(self.source, rel_name)
+            if rel_manager.__len__() > 0:
+                raise MutualExclusionViolation(
+                    f"Cannot connect to `{self}` when `{rel_name}` is already connected"
+                )
+
+    def connect(
+        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+    ) -> "StructuredRel":
+        """
+        Connect to a node, ensuring mutual exclusivity with other relationships.
+
+        :param node: The node to connect to
+        :param properties: Relationship properties
+        :return: The created relationship
+        """
+        self._check_exclusivity()
         return super().connect(node, properties)

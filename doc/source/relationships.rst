@@ -90,6 +90,53 @@ Relationship Uniqueness
 By default neomodel applies only one relationship instance between two node instances and 
 this is achieved via use of ``MERGE``. (This used to be ``CREATE UNIQUE`` until Cypher deprecated this command.)
 
+Mutually Exclusive Relationships
+================================
+
+neomodel provides a way to define relationships that are mutually exclusive with other relationships.
+This is useful when a node can have one type of relationship or another, but not both.
+
+For example, consider a model where a Person can have either a Dog or a Cat as a pet, but not both:
+
+.. code-block:: python
+
+    from neomodel import (
+        StructuredNode,
+        StringProperty,
+        RelationshipTo,
+        MutuallyExclusive,
+    )
+
+    class Dog(StructuredNode):
+        name = StringProperty(required=True)
+
+    class Cat(StructuredNode):
+        name = StringProperty(required=True)
+
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+
+        # Define mutually exclusive relationships
+        cat = RelationshipTo('Cat', 'HAS_PET', cardinality=MutuallyExclusive, exclusion_group=["dog"])
+        dog = RelationshipTo('Dog', 'HAS_PET', cardinality=MutuallyExclusive, exclusion_group=["cat"])
+
+With this setup, if a Person node has a relationship to a Dog, it cannot also have a relationship to a Cat, and vice versa.
+If you try to create both relationships, a `MutualExclusionViolation` exception will be raised:
+
+.. code-block:: python
+
+    # Create test nodes
+    bob = Person(name="Bob").save()
+    rex = Dog(name="Rex").save()
+    whiskers = Cat(name="Whiskers").save()
+    
+    # Bob can have a dog
+    bob.dog.connect(rex)
+    
+    # But now Bob can't have a cat because he already has a dog
+    # This will raise MutualExclusionViolation
+    bob.cat.connect(whiskers)
+
 Relationships and Inheritance
 =============================
 
