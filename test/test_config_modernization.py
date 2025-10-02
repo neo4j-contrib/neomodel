@@ -10,8 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from neomodel import config
-from neomodel.config import NeomodelConfig, get_config, reset_config, set_config
+from neomodel import NeomodelConfig, config, get_config, reset_config, set_config
 
 
 class TestNeomodelConfig:
