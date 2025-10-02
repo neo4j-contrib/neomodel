@@ -16,8 +16,8 @@ from neomodel import (
     StructuredNode,
     ZeroOrMore,
     ZeroOrOne,
-    config,
     db,
+    get_config,
 )
 
 
@@ -236,7 +236,8 @@ def test_relationship_from_one_cardinality_enforced():
     were not being enforced.
     """
     # Setup
-    config.SOFT_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     owner1 = Owner(name="Alice").save()
     owner2 = Owner(name="Bob").save()
     pet = Pet(name="Fluffy").save()
@@ -254,7 +255,7 @@ def test_relationship_from_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         owner2.pets.connect(pet)
         assert pet in owner2.pets.all()
 
@@ -263,7 +264,7 @@ def test_relationship_from_one_cardinality_enforced():
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
 
-    config.SOFT_CARDINALITY_CHECK = False
+    config.soft_cardinality_check = False
 
 
 @mark_sync_test
@@ -272,7 +273,8 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
     """
     # Setup
-    config.SOFT_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     company1 = Company(name="TechCorp").save()
     company2 = Company(name="StartupInc").save()
     employee = Employee(name="John").save()
@@ -290,7 +292,7 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         company2.employees.connect(employee)
         assert employee in company2.employees.all()
 
@@ -299,7 +301,7 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
 
-    config.SOFT_CARDINALITY_CHECK = False
+    config.soft_cardinality_check = False
 
 
 @mark_sync_test
@@ -308,7 +310,8 @@ def test_relationship_from_one_or_more_cardinality_enforced():
     Test that RelationshipFrom with cardinality=OneOrMore prevents disconnecting all nodes.
     """
     # Setup
-    config.SOFT_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     office = Office(name="Headquarters").save()
     employee = Employee(name="John").save()
     employee.offices.connect(office)
@@ -321,7 +324,7 @@ def test_relationship_from_one_or_more_cardinality_enforced():
 
     assert employee.offices.single() is not None
 
-    config.SOFT_CARDINALITY_CHECK = False
+    config.soft_cardinality_check = False
 
 
 @mark_sync_test
@@ -330,7 +333,8 @@ def test_bidirectional_cardinality_validation():
     Test that cardinality is validated on both ends when both sides have constraints.
     """
     # Setup
-    config.SOFT_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     manager1 = Manager(name="Sarah").save()
     manager2 = Manager(name="David").save()
     assistant = Assistant(name="Alex").save()
@@ -348,7 +352,7 @@ def test_bidirectional_cardinality_validation():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         manager2.assistant.connect(assistant)
         assert assistant in manager2.assistant.all()
 
@@ -357,4 +361,4 @@ def test_bidirectional_cardinality_validation():
     assert "Soft check is enabled so the relationship will be created" in console_output
     assert "strict check will be enabled by default in version 6.0" in console_output
 
-    config.SOFT_CARDINALITY_CHECK = False
+    config.soft_cardinality_check = False

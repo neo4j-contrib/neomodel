@@ -23,7 +23,7 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
-from neomodel import config
+from neomodel import get_config
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import (
     ConstraintValidationFailed,
@@ -103,10 +103,11 @@ def ensure_connection(func: Callable) -> Callable:
             _db = self
 
         if not _db.driver:
-            if hasattr(config, "DATABASE_URL") and config.DATABASE_URL:
-                _db.set_connection(url=config.DATABASE_URL)
-            elif hasattr(config, "DRIVER") and config.DRIVER:
-                _db.set_connection(driver=config.DRIVER)
+            config = get_config()
+            if hasattr(config, "database_url") and config.database_url:
+                _db.set_connection(url=config.database_url)
+            elif hasattr(config, "driver") and config.driver:
+                _db.set_connection(driver=config.driver)
 
         return func(self, *args, **kwargs)
 
@@ -244,8 +245,9 @@ class Database:
         """
         if driver:
             self.driver = driver
-            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
-                self._database_name = config.DATABASE_NAME
+            config = get_config()
+            if hasattr(config, "database_name") and config.database_name:
+                self._database_name = config.database_name
         elif url:
             self._parse_driver_from_url(url=url)
 
@@ -298,21 +300,22 @@ class Database:
                 f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
             )
 
+        config = get_config()
         options = {
             "auth": basic_auth(username, password),
-            "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
-            "connection_timeout": config.CONNECTION_TIMEOUT,
-            "keep_alive": config.KEEP_ALIVE,
-            "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
-            "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
-            "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
-            "resolver": config.RESOLVER,
-            "user_agent": config.USER_AGENT,
+            "connection_acquisition_timeout": config.connection_acquisition_timeout,
+            "connection_timeout": config.connection_timeout,
+            "keep_alive": config.keep_alive,
+            "max_connection_lifetime": config.max_connection_lifetime,
+            "max_connection_pool_size": config.max_connection_pool_size,
+            "max_transaction_retry_time": config.max_transaction_retry_time,
+            "resolver": config.resolver,
+            "user_agent": config.user_agent,
         }
 
         if "+s" not in parsed_url.scheme:
-            options["encrypted"] = config.ENCRYPTED
-            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
+            options["encrypted"] = config.encrypted
+            options["trusted_certificates"] = config.trusted_certificates
 
         # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
@@ -321,8 +324,8 @@ class Database:
         self.url = url
         # The database name can be provided through the url or the config
         if database_name == "":
-            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
-                self._database_name = config.DATABASE_NAME
+            if hasattr(config, "database_name") and config.database_name:
+                self._database_name = config.database_name
         else:
             self._database_name = database_name
 

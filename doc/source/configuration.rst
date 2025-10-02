@@ -3,7 +3,7 @@ Configuration
 
 Neomodel provides a modern, type-safe configuration system for connecting to your Neo4j database. This guide covers the recommended approach using the new dataclass-based configuration system (available from version 6.0), with backward compatibility information for existing code.
 
-.. _connection_setup:
+.. _configuration_options_doc:
 
 Database Connection Setup
 -------------------------
