@@ -17,5 +17,5 @@ class VectorFilter(object):
         self.topk = topk
         self.vector_attribute_name = vector_attribute_name
         self.index_name = None
-        self.nodeSetLabel = None
+        self.node_set_label = None
         self.vector = candidate_vector

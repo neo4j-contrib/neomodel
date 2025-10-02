@@ -49,7 +49,7 @@ Neomodel uses :mod:`~neomodel.relationship` models to define the properties stor
 
     class FriendRel(StructuredRel):
         since = DateTimeProperty(
-            default=lambda: datetime.now(pytz.utc),
+            default=lambda: datetime.now(ZoneInfo("UTC")),
             index=True
         )
         met = StringProperty()
