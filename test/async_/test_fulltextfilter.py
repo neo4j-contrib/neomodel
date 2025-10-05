@@ -58,6 +58,9 @@ async def test_fulltextfilter_topk_works():
     Tests that the topk filter works.
     """
 
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
     class fulltextNodetopk(AsyncStructuredNode):
         description = StringProperty(
             fulltext_index=FulltextIndex(

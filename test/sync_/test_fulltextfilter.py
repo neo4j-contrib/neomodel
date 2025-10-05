@@ -56,6 +56,9 @@ def test_fulltextfilter_topk_works():
     Tests that the topk filter works.
     """
 
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
     class fulltextNodetopk(StructuredNode):
         description = StringProperty(
             fulltext_index=FulltextIndex(
