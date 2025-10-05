@@ -13,7 +13,7 @@ from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import VectorFilter
+from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import INCOMING, OUTGOING
 
