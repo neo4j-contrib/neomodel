@@ -563,7 +563,7 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+    def build_vector_query(self, vectorfilter: "VectorFilter", source: "AsyncNodeSet"):
         """
         Query a vector indexed property on the node.
         """
@@ -808,7 +808,7 @@ class AsyncQueryBuilder:
 
     def _parse_path(
         self, source_class: type[AsyncStructuredNode], prop: str
-    ) -> Tuple[str, str, str, Any, bool]:
+    ) -> Tuple[str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -826,7 +826,7 @@ class AsyncQueryBuilder:
             )
         else:
             ident, target_class, is_optional_relation = result
-        return ident, path, prop, target_class, is_optional_relation
+        return ident, prop, target_class, is_optional_relation
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -856,14 +856,12 @@ class AsyncQueryBuilder:
         source_class: type[AsyncStructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
-            path = None
             is_rel_filter = "|" in prop
             target_class = source_class
             is_optional_relation = False
             if "__" in prop or is_rel_filter:
                 (
                     ident,
-                    path,
                     prop,
                     target_class,
                     is_optional_relation,
@@ -1006,7 +1004,6 @@ class AsyncQueryBuilder:
             query += self._ast.lookup
 
         if self._ast.vector_index_query:
-
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
                 YIELD node AS {self._ast.vector_index_query.node_set_label}, score 
@@ -1603,7 +1600,7 @@ class AsyncNodeSet(AsyncBaseSet):
             # Need to grab and remove the VectorFilter from both args and kwargs
             new_args = (
                 []
-            )  # As args are a tuple, theyre immutable. But we need to remove the SemanticFilters from the arguments so they dont go into Q.
+            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
@@ -1630,115 +1627,6 @@ class AsyncNodeSet(AsyncBaseSet):
                 self.fulltext_query = kwargs.pop("fulltext_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
-
-        return self
-
-    def exclude(self, *args: Any, **kwargs: Any) -> "BaseSet":
-        """
-        Exclude nodes from the NodeSet via filters.
-
-        :param kwargs: filter parameters see syntax for the filter method
-        :return: self
-        """
-        if args or kwargs:
-            self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
-        return self
-
-    def has(self, **kwargs: Any) -> "BaseSet":
-        must_match, dont_match = process_has_args(self.source_class, kwargs)
-        self.must_match.update(must_match)
-        self.dont_match.update(dont_match)
-        return self
-
-    def order_by(self, *props: Any) -> "BaseSet":
-        """
-        Order by properties. Prepend with minus to do descending. Pass None to
-        remove ordering.
-        """
-        should_remove = len(props) == 1 and props[0] is None
-        if not hasattr(self, "order_by_elements") or should_remove:
-            self.order_by_elements = []
-            if should_remove:
-                return self
-        if "?" in props:
-            self.order_by_elements.append("?")
-        else:
-            for prop in props:
-                if isinstance(prop, RawCypher):
-                    self.order_by_elements.append(prop)
-                    continue
-                prop = prop.strip()
-                if prop.startswith("-"):
-                    prop = prop[1:]
-                    desc = True
-                else:
-                    desc = False
-
-                if prop in self.source_class.defined_properties(rels=False):
-                    property_obj = getattr(self.source_class, prop)
-                    if isinstance(property_obj, AliasProperty):
-                        prop = property_obj.aliased_to()
-
-                self.order_by_elements.append(prop + (" DESC" if desc else ""))
-
-        return self
-
-    def _register_relation_to_fetch(
-        self, relation_def: Any, alias: TOptional[str] = None
-    ) -> "Path":
-        if isinstance(relation_def, Path):
-            item = relation_def
-        else:
-            item = Path(
-                value=relation_def,
-            )
-        if alias:
-            item.alias = alias
-        return item
-
-    def unique_variables(self, *paths: tuple[str, ...]) -> "NodeSet":
-        """Generate unique variable names for the given paths."""
-        self._unique_variables = paths
-        return self
-
-    def traverse(self, *paths: tuple[str, ...], **aliased_paths: dict) -> "NodeSet":
-        """Specify a set of paths to traverse."""
-        relations = []
-        for path in paths:
-            relations.append(self._register_relation_to_fetch(path))
-        for alias, aliased_path in aliased_paths.items():
-            relations.append(
-                self._register_relation_to_fetch(aliased_path, alias=alias)
-            )
-        self.relations_to_fetch = relations
-        return self
-
-    def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
-        """Specify a set of relations to traverse and return."""
-        warnings.warn(
-            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-        relations = []
-        for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
-                relation_name = Path(value=relation_name.relation, optional=True)
-            relations.append(self._register_relation_to_fetch(relation_name))
-        self.relations_to_fetch = relations
-        return self
-
-    def traverse_relations(
-        self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
-    ) -> "NodeSet":
-        """Specify a set of relations to traverse only."""
-
-        warnings.warn(
-            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-
-        def convert_to_path(input: Union[str, Optional]) -> Path:
-            self.q_filters = Q(self.q_filters & Q(*args, **kwargs))
 
         return self
 

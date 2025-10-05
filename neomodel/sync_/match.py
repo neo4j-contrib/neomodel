@@ -806,7 +806,7 @@ class QueryBuilder:
 
     def _parse_path(
         self, source_class: type[StructuredNode], prop: str
-    ) -> Tuple[str, str, str, Any, bool]:
+    ) -> Tuple[str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -824,7 +824,7 @@ class QueryBuilder:
             )
         else:
             ident, target_class, is_optional_relation = result
-        return ident, path, prop, target_class, is_optional_relation
+        return ident, prop, target_class, is_optional_relation
 
     def _finalize_filter_statement(
         self, operator: str, ident: str, prop: str, val: Any
@@ -854,14 +854,12 @@ class QueryBuilder:
         source_class: type[StructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
-            path = None
             is_rel_filter = "|" in prop
             target_class = source_class
             is_optional_relation = False
             if "__" in prop or is_rel_filter:
                 (
                     ident,
-                    path,
                     prop,
                     target_class,
                     is_optional_relation,
