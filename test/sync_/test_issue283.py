@@ -5,8 +5,8 @@ The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/283
 More information about the same issue at:
 https://github.com/aanastasiou/neomodelInheritanceTest
 
-The following example uses a recursive relationship for economy, but the 
-idea remains the same: "Instantiate the correct type of node at the end of 
+The following example uses a recursive relationship for economy, but the
+idea remains the same: "Instantiate the correct type of node at the end of
 a relationship as specified by the model"
 """
 
