@@ -46,9 +46,37 @@ def test_base_fulltextfilter():
     )
 
     result = fulltextNodeSearch.all()
-    print(result)
     assert all(isinstance(x[0], fulltextNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
+
+
+@mark_sync_test
+def test_fulltextfilter_topk_works():
+    """
+    Tests that the topk filter works.
+    """
+
+    class fulltextNodetopk(StructuredNode):
+        description = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+
+    db.install_labels(fulltextNodetopk)
+
+    node1 = fulltextNodetopk(description="this description").save()
+    node2 = fulltextNodetopk(description="that description").save()
+    node3 = fulltextNodetopk(description="my description").save()
+
+    fulltextNodeSearch = fulltextNodetopk.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=2, fulltext_attribute_name="description", query_string="description"
+        )
+    )
+
+    result = fulltextNodeSearch.all()
+    assert len(result) == 2
 
 
 @mark_sync_test
@@ -56,6 +84,9 @@ def test_fulltextfilter_with_node_propertyfilter():
     """
     Tests that the fulltext query is run, and "thing" node is only node returned.
     """
+
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
 
     class fulltextNodeBis(StructuredNode):
         description = StringProperty(
@@ -241,6 +272,9 @@ def test_fulltextfiler_nonexistent_attribute():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
     class TestNodeWithFT(StructuredNode):
         name = StringProperty()
         fulltext = StringProperty(
@@ -269,6 +303,9 @@ def test_fulltextfiler_no_fulltext_index():
     """
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
+
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
 
     class TestNodeWithoutFT(StructuredNode):
         name = StringProperty()

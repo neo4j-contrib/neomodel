@@ -48,16 +48,45 @@ async def test_base_fulltextfilter():
     )
 
     result = await fulltextNodeSearch.all()
-    print(result)
     assert all(isinstance(x[0], fulltextNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
 
+
+@mark_async_test
+async def test_fulltextfilter_topk_works():
+    """
+    Tests that the topk filter works.
+    """
+
+    class fulltextNodetopk(AsyncStructuredNode):
+        description = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+    await adb.install_labels(fulltextNodetopk)
+    
+    node1 = await fulltextNodetopk(description="this description").save()
+    node2 = await fulltextNodetopk(description="that description").save()
+    node3 = await fulltextNodetopk(description="my description").save()
+
+    fulltextNodeSearch = fulltextNodetopk.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=2, fulltext_attribute_name="description", query_string="description"
+        )
+    )
+
+    result = await fulltextNodeSearch.all()
+    assert len(result) == 2
 
 @mark_async_test
 async def test_fulltextfilter_with_node_propertyfilter():
     """
     Tests that the fulltext query is run, and "thing" node is only node returned.
     """
+
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
 
     class fulltextNodeBis(AsyncStructuredNode):
         description = StringProperty(
@@ -243,6 +272,10 @@ async def test_fulltextfiler_nonexistent_attribute():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+
     class TestNodeWithFT(AsyncStructuredNode):
         name = StringProperty()
         fulltext = StringProperty(
@@ -271,6 +304,9 @@ async def test_fulltextfiler_no_fulltext_index():
     """
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
+
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
 
     class TestNodeWithoutFT(AsyncStructuredNode):
         name = StringProperty()
