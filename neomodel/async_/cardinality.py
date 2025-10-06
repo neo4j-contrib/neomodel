@@ -19,13 +19,14 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         self, node: "AsyncStructuredNode", soft_check: bool = False
     ) -> None:
         if await self.get_len():
+            detailed_description = str(self)
             if soft_check:
                 print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )
             else:
                 raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                    f"Node already has {detailed_description}. Use reconnect() to replace the existing relationship."
                 )
 
     async def single(self) -> Optional["AsyncStructuredNode"]:
@@ -109,13 +110,14 @@ class AsyncOne(AsyncRelationshipManager):
         self, node: "AsyncStructuredNode", soft_check: bool = False
     ) -> None:
         if await self.get_len():
+            detailed_description = str(self)
             if soft_check:
                 print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )
             else:
                 raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                    f"Node already has {detailed_description}. Use reconnect() to replace the existing relationship."
                 )
 
     async def single(self) -> "AsyncStructuredNode":
