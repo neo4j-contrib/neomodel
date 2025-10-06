@@ -120,8 +120,11 @@ async def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = await ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.driver.connect(j)
+    
+    error_message = str(exc_info.value)
+    assert f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship." == error_message
 
     await m.driver.reconnect(h, j)
     single_driver = await m.driver.single()
@@ -161,8 +164,11 @@ async def test_cardinality_one_or_more():
     cars = await m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.car.disconnect(c)
+    
+    error_message = str(exc_info.value)
+    assert "One or more expected" == error_message
 
     d = await Car(version=3).save()
     await m.car.connect(d)
@@ -192,8 +198,11 @@ async def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = await ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.toothbrush.connect(x)
+    
+    error_message = str(exc_info.value)
+    assert f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship." == error_message
 
     with raises(AttemptedCardinalityViolation):
         await m.toothbrush.disconnect(b)

@@ -116,8 +116,14 @@ def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.driver.connect(j)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     m.driver.reconnect(h, j)
     single_driver = m.driver.single()
@@ -157,8 +163,11 @@ def test_cardinality_one_or_more():
     cars = m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.car.disconnect(c)
+
+    error_message = str(exc_info.value)
+    assert "One or more expected" == error_message
 
     d = Car(version=3).save()
     m.car.connect(d)
@@ -188,8 +197,14 @@ def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.toothbrush.connect(x)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect(b)
