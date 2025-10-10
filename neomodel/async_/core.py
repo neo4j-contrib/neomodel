@@ -23,9 +23,9 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
-from neomodel import get_config
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.property_manager import AsyncPropertyManager
+from neomodel.config import get_config
 from neomodel.exceptions import (
     ConstraintValidationFailed,
     DoesNotExist,

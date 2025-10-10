@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import neo4j.time
 
-from neomodel import get_config
+from neomodel.config import get_config
 from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 
 TOO_MANY_DEFAULTS = "too many defaults"

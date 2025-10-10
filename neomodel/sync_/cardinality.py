@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, Optional
 
-from neomodel import get_config
+from neomodel.config import get_config
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
