@@ -297,207 +297,173 @@ class _ConfigModule:
     """Module-level configuration access for backward compatibility."""
 
     @property
-    def DATABASE_URL(  # noqa: N802 - uppercase is required here for backward compatibility
+    def DATABASE_URL(
         self,
     ) -> str:
         return _get_attr("database_url")
 
     @DATABASE_URL.setter
-    def DATABASE_URL(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: str
-    ) -> None:
+    def DATABASE_URL(self, value: str) -> None:
         _set_attr("database_url", value)
 
     @property
-    def DRIVER(  # noqa: N802 - uppercase is required here for backward compatibility
+    def DRIVER(
         self,
     ) -> Driver | None:
         return _get_attr("driver")
 
     @DRIVER.setter
-    def DRIVER(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: Driver | None
-    ) -> None:
+    def DRIVER(self, value: Driver | None) -> None:
         _set_attr("driver", value)
 
     @property
-    def DATABASE_NAME(  # noqa: N802 - uppercase is required here for backward compatibility
+    def DATABASE_NAME(
         self,
     ) -> str | None:
         return _get_attr("database_name")
 
     @DATABASE_NAME.setter
-    def DATABASE_NAME(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: str | None
-    ) -> None:
+    def DATABASE_NAME(self, value: str | None) -> None:
         _set_attr("database_name", value)
 
     @property
-    def CONNECTION_ACQUISITION_TIMEOUT(  # noqa: N802 - uppercase is required here for backward compatibility
+    def CONNECTION_ACQUISITION_TIMEOUT(
         self,
     ) -> float:
         return _get_attr("connection_acquisition_timeout")
 
     @CONNECTION_ACQUISITION_TIMEOUT.setter
-    def CONNECTION_ACQUISITION_TIMEOUT(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: float
-    ) -> None:
+    def CONNECTION_ACQUISITION_TIMEOUT(self, value: float) -> None:
         _set_attr("connection_acquisition_timeout", value)
 
     @property
-    def CONNECTION_TIMEOUT(  # noqa: N802 - uppercase is required here for backward compatibility
+    def CONNECTION_TIMEOUT(
         self,
     ) -> float:
         return _get_attr("connection_timeout")
 
     @CONNECTION_TIMEOUT.setter
-    def CONNECTION_TIMEOUT(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: float
-    ) -> None:
+    def CONNECTION_TIMEOUT(self, value: float) -> None:
         _set_attr("connection_timeout", value)
 
     @property
-    def ENCRYPTED(  # noqa: N802 - uppercase is required here for backward compatibility
+    def ENCRYPTED(
         self,
     ) -> bool:
         return _get_attr("encrypted")
 
     @ENCRYPTED.setter
-    def ENCRYPTED(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: bool
-    ) -> None:  # noqa: N802 - uppercase is required here for backward compatibility
+    def ENCRYPTED(self, value: bool) -> None:
         _set_attr("encrypted", value)
 
     @property
-    def KEEP_ALIVE(  # noqa: N802 - uppercase is required here for backward compatibility
+    def KEEP_ALIVE(
         self,
     ) -> bool:
         return _get_attr("keep_alive")
 
     @KEEP_ALIVE.setter
-    def KEEP_ALIVE(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: bool
-    ) -> None:
+    def KEEP_ALIVE(self, value: bool) -> None:
         _set_attr("keep_alive", value)
 
     @property
-    def MAX_CONNECTION_LIFETIME(  # noqa: N802 - uppercase is required here for backward compatibility
+    def MAX_CONNECTION_LIFETIME(
         self,
     ) -> int:
         return _get_attr("max_connection_lifetime")
 
     @MAX_CONNECTION_LIFETIME.setter
-    def MAX_CONNECTION_LIFETIME(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: int
-    ) -> None:
+    def MAX_CONNECTION_LIFETIME(self, value: int) -> None:
         _set_attr("max_connection_lifetime", value)
 
     @property
-    def MAX_CONNECTION_POOL_SIZE(  # noqa: N802 - uppercase is required here for backward compatibility
+    def MAX_CONNECTION_POOL_SIZE(
         self,
     ) -> int:
         return _get_attr("max_connection_pool_size")
 
     @MAX_CONNECTION_POOL_SIZE.setter
-    def MAX_CONNECTION_POOL_SIZE(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: int
-    ) -> None:
+    def MAX_CONNECTION_POOL_SIZE(self, value: int) -> None:
         _set_attr("max_connection_pool_size", value)
 
     @property
-    def MAX_TRANSACTION_RETRY_TIME(  # noqa: N802 - uppercase is required here for backward compatibility
+    def MAX_TRANSACTION_RETRY_TIME(
         self,
     ) -> float:
         return _get_attr("max_transaction_retry_time")
 
     @MAX_TRANSACTION_RETRY_TIME.setter
-    def MAX_TRANSACTION_RETRY_TIME(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: float
-    ) -> None:
+    def MAX_TRANSACTION_RETRY_TIME(self, value: float) -> None:
         _set_attr("max_transaction_retry_time", value)
 
     @property
-    def RESOLVER(  # noqa: N802 - uppercase is required here for backward compatibility
+    def RESOLVER(
         self,
     ) -> Any | None:
         return _get_attr("resolver")
 
     @RESOLVER.setter
-    def RESOLVER(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: Any | None
-    ) -> None:
+    def RESOLVER(self, value: Any | None) -> None:
         _set_attr("resolver", value)
 
     @property
-    def TRUSTED_CERTIFICATES(  # noqa: N802 - uppercase is required here for backward compatibility
+    def TRUSTED_CERTIFICATES(
         self,
     ) -> Any:
         return _get_attr("trusted_certificates")
 
     @TRUSTED_CERTIFICATES.setter
-    def TRUSTED_CERTIFICATES(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: Any
-    ) -> None:
+    def TRUSTED_CERTIFICATES(self, value: Any) -> None:
         _set_attr("trusted_certificates", value)
 
     @property
-    def USER_AGENT(  # noqa: N802 - uppercase is required here for backward compatibility
+    def USER_AGENT(
         self,
     ) -> str:
         return _get_attr("user_agent")
 
     @USER_AGENT.setter
-    def USER_AGENT(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: str
-    ) -> None:
+    def USER_AGENT(self, value: str) -> None:
         _set_attr("user_agent", value)
 
     @property
-    def FORCE_TIMEZONE(  # noqa: N802 - uppercase is required here for backward compatibility
+    def FORCE_TIMEZONE(
         self,
     ) -> bool:
         return _get_attr("force_timezone")
 
     @FORCE_TIMEZONE.setter
-    def FORCE_TIMEZONE(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: bool
-    ) -> None:
+    def FORCE_TIMEZONE(self, value: bool) -> None:
         _set_attr("force_timezone", value)
 
     @property
-    def SOFT_CARDINALITY_CHECK(  # noqa: N802 - uppercase is required here for backward compatibility
+    def SOFT_CARDINALITY_CHECK(
         self,
     ) -> bool:
         return _get_attr("soft_cardinality_check")
 
     @SOFT_CARDINALITY_CHECK.setter
-    def SOFT_CARDINALITY_CHECK(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: bool
-    ) -> None:
+    def SOFT_CARDINALITY_CHECK(self, value: bool) -> None:
         _set_attr("soft_cardinality_check", value)
 
     @property
-    def CYPHER_DEBUG(  # noqa: N802 - uppercase is required here for backward compatibility
+    def CYPHER_DEBUG(
         self,
     ) -> bool:
         return _get_attr("cypher_debug")
 
     @CYPHER_DEBUG.setter
-    def CYPHER_DEBUG(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: bool
-    ) -> None:
+    def CYPHER_DEBUG(self, value: bool) -> None:
         _set_attr("cypher_debug", value)
 
     @property
-    def SLOW_QUERIES(  # noqa: N802 - uppercase is required here for backward compatibility
+    def SLOW_QUERIES(
         self,
     ) -> float:
         return _get_attr("slow_queries")
 
     @SLOW_QUERIES.setter
-    def SLOW_QUERIES(  # noqa: N802 - uppercase is required here for backward compatibility
-        self, value: float
-    ) -> None:
+    def SLOW_QUERIES(self, value: float) -> None:
         _set_attr("slow_queries", value)
 
 
