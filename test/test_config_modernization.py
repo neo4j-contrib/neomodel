@@ -286,6 +286,34 @@ class TestBackwardCompatibility:
         assert config.SLOW_QUERIES == 5.0
         config.SLOW_QUERIES = original_slow_queries
 
+    def test_custom_driver_configuration(self):
+        """Test configuration with a custom Neo4j driver."""
+        from unittest.mock import Mock
+
+        # Create a mock driver
+        mock_driver = Mock()
+        mock_driver.close = Mock()
+
+        # Test setting driver via NeomodelConfig
+        config_obj = NeomodelConfig(driver=mock_driver)
+        assert config_obj.driver is mock_driver
+
+        # Test setting driver via module-level attribute
+        original_driver = config.DRIVER
+        config.DRIVER = mock_driver
+        assert config.DRIVER is mock_driver
+
+        # Test that driver is accessible through the config
+        current_config = get_config()
+        assert current_config.driver is mock_driver
+
+        # Test that driver is excluded from serialization
+        config_dict = config_obj.to_dict()
+        assert "driver" not in config_dict
+
+        # Restore original driver
+        config.DRIVER = original_driver
+
     def test_validation_on_set(self):
         """Test that validation occurs when setting module-level attributes."""
         with pytest.raises(ValueError, match="connection_timeout must be positive"):
