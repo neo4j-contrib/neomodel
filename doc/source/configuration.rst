@@ -116,6 +116,9 @@ Configuration is automatically loaded from environment variables using the ``NEO
 * ``NEOMODEL_CYPHER_DEBUG`` - Enable Cypher debug logging
 * ``NEOMODEL_SLOW_QUERIES`` - Threshold in seconds for slow query logging (0 = disabled)
 
+.. note::
+    For boolean values, the following strings are supported: ``true``, ``1``, ``yes``, ``on``, ``false``, ``0``, ``no``, ``off``.
+
 Example::
 
     # Set environment variables
@@ -128,6 +131,15 @@ Example::
     print(config.DATABASE_URL)  # 'bolt://neo4j:password@localhost:7687'
     print(config.FORCE_TIMEZONE)  # True
     print(config.CONNECTION_TIMEOUT)  # 60.0
+
+.. autofunction:: neomodel.config.get_config
+
+See also the :class:`~neomodel.config.NeomodelConfig` dataclass for a full list of fields, typing and options:
+
+.. autoclass:: neomodel.config.NeomodelConfig
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Configuration Validation
 ~~~~~~~~~~~~~~~~~~~~~~~~
