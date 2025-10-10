@@ -11,12 +11,21 @@ from neomodel import StringProperty, StructuredNode, db, get_config
 
 @mark_sync_test
 @pytest.fixture(autouse=True)
-def setup_teardown():
+def setup_teardown(request):
     yield
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
-    db.close_connection()
-    db.set_connection(url=get_config().database_url)
+    # Skip reconnection for Aura tests except bolt+ssc parameter
+    should_reconnect = True
+    if (
+        "test_connect_to_aura" in request.node.name
+        and "bolt+ssc" not in request.node.name
+    ):
+        should_reconnect = False
+
+    if should_reconnect:
+        db.close_connection()
+        db.set_connection(url=get_config().database_url)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -154,9 +163,9 @@ def test_connect_to_aura(protocol):
 
 
 def _set_connection(protocol):
-    AURA_TEST_DB_USER = os.environ["AURA_TEST_DB_USER"]
-    AURA_TEST_DB_PASSWORD = os.environ["AURA_TEST_DB_PASSWORD"]
-    AURA_TEST_DB_HOSTNAME = os.environ["AURA_TEST_DB_HOSTNAME"]
+    aura_test_db_user = os.environ["AURA_TEST_DB_USER"]
+    aura_test_db_password = os.environ["AURA_TEST_DB_PASSWORD"]
+    aura_test_db_hostname = os.environ["AURA_TEST_DB_HOSTNAME"]
 
-    database_url = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
+    database_url = f"{protocol}://{aura_test_db_user}:{aura_test_db_password}@{aura_test_db_hostname}"
     db.set_connection(url=database_url)
