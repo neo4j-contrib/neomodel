@@ -8,7 +8,7 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
-    config,
+    get_config,
 )
 from neomodel.sync_.core import db
 
@@ -74,7 +74,7 @@ def test_neomodel_remove_labels():
     assert result.returncode == 0
 
     result = subprocess.run(
-        ["neomodel_remove_labels", "--db", config.DATABASE_URL],
+        ["neomodel_remove_labels", "--db", get_config().database_url],
         capture_output=True,
         text=True,
         check=False,
@@ -141,7 +141,7 @@ def test_neomodel_inspect_database(script_flavour):
     )
 
     # Test the console output version of the script
-    args_list = ["neomodel_inspect_database", "--db", config.DATABASE_URL]
+    args_list = ["neomodel_inspect_database", "--db", get_config().database_url]
     if script_flavour == "_light":
         args_list += ["--no-rel-props", "--no-rel-cardinality"]
     result = subprocess.run(

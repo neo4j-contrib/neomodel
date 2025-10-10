@@ -10,7 +10,7 @@ from neomodel import (
     AsyncStructuredNode,
     AsyncStructuredRel,
     adb,
-    config,
+    get_config,
 )
 from neomodel.contrib import AsyncSemiStructuredNode
 from neomodel.exceptions import (
@@ -153,12 +153,13 @@ def test_datetimes_timezones():
             default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
         )
 
-    prev_force_timezone = config.FORCE_TIMEZONE
-    config.FORCE_TIMEZONE = True
+    config = get_config()
+    prev_force_timezone = config.force_timezone
+    config.force_timezone = True
     with raises(ValueError, match=r".*No timezone provided."):
         prop.deflate(datetime.now())
 
-    config.FORCE_TIMEZONE = prev_force_timezone
+    config.force_timezone = prev_force_timezone
 
 
 def test_date():

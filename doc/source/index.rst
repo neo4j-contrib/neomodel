@@ -43,12 +43,12 @@ To install from github::
 
 .. note::
 
-    **Breaking changes in 5.3**
+    **New in 6.0**
 
-    Introducing support for asynchronous programming to neomodel required to introduce some breaking changes:
+    From now on, neomodel will use SemVer (major.minor.patch) for versioning.
 
-    - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` (:ref:`neomodel_install_labels`) command instead.
-    - The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
+    This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
+    See the :ref:`configuration_options_doc` section for more details.
 
     **Deprecations in 5.3**
 

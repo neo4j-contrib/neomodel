@@ -5,7 +5,7 @@ from test._async_compat import (
     mark_async_session_auto_fixture,
 )
 
-from neomodel import adb, config
+from neomodel import adb, get_config
 
 
 @mark_async_session_auto_fixture
@@ -19,7 +19,7 @@ async def setup_neo4j_session(request):
 
     warnings.simplefilter("default")
 
-    config.DATABASE_URL = os.environ.get(
+    get_config().database_url = os.environ.get(
         "NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"
     )
 
