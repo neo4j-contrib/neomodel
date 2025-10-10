@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, Optional
 
-from neomodel import config
+from neomodel.config import get_config
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
@@ -18,7 +18,7 @@ class ZeroOrOne(RelationshipManager):
 
     def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if config.SOFT_CARDINALITY_CHECK:
+            if get_config().soft_cardinality_check:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )
@@ -111,7 +111,7 @@ class One(RelationshipManager):
 
     def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
-            if config.SOFT_CARDINALITY_CHECK:
+            if get_config().soft_cardinality_check:
                 print(
                     f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
                 )

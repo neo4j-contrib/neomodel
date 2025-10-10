@@ -39,7 +39,7 @@ exception is raised.
 This enforcement is strict by default and will throw an exception if a cardinality constraint is violated.
 It is possible to enable a soft check. This will print a warning to the console and create the relationship anyway.
 This is useful for development purposes::
-    config.SOFT_CARDINALITY_CHECK = True
+    config.soft_cardinality_check = True
 
 
 Properties

@@ -17,6 +17,7 @@ from neomodel.async_.relationship_manager import (
     AsyncRelationshipManager,
     AsyncRelationshipTo,
 )
+from neomodel.config import NeomodelConfig, get_config, reset_config, set_config
 from neomodel.exceptions import *
 from neomodel.match_q import Q  # noqa
 from neomodel.properties import (

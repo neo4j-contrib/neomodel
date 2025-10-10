@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import neo4j.time
 
-from neomodel import config
+from neomodel.config import get_config
 from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 
 TOO_MANY_DEFAULTS = "too many defaults"
@@ -518,7 +518,7 @@ class DateTimeProperty(Property):
         if value.tzinfo:
             value = value.astimezone(ZoneInfo("UTC"))
             epoch_date = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
-        elif config.FORCE_TIMEZONE:
+        elif get_config().force_timezone:
             raise ValueError(f"Error deflating {value}: No timezone provided.")
         else:
             # No timezone specified on datetime object.. assuming UTC
