@@ -348,9 +348,7 @@ class StructuredNode(NodeBase):
             create_or_update_params.append(
                 {
                     "create": deflated,
-                    "update": dict(
-                        (k, v) for k, v in deflated.items() if k in specified
-                    ),
+                    "update": {k: v for k, v in deflated.items() if k in specified},
                 }
             )
         query, params = cls._build_merge_query(

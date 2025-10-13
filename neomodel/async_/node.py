@@ -350,9 +350,7 @@ class AsyncStructuredNode(NodeBase):
             create_or_update_params.append(
                 {
                     "create": deflated,
-                    "update": dict(
-                        (k, v) for k, v in deflated.items() if k in specified
-                    ),
+                    "update": {k: v for k, v in deflated.items() if k in specified},
                 }
             )
         query, params = await cls._build_merge_query(
