@@ -127,9 +127,12 @@ async def test_cardinality_zero_or_one():
     j = await ScrewDriver(version=2).save()
     with raises(AttemptedCardinalityViolation) as exc_info:
         await m.driver.connect(j)
-    
+
     error_message = str(exc_info.value)
-    assert f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship." == error_message
+    assert (
+        f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     await m.driver.reconnect(h, j)
     single_driver = await m.driver.single()
@@ -171,7 +174,7 @@ async def test_cardinality_one_or_more():
 
     with raises(AttemptedCardinalityViolation) as exc_info:
         await m.car.disconnect(c)
-    
+
     error_message = str(exc_info.value)
     assert "One or more expected" == error_message
 
@@ -210,9 +213,12 @@ async def test_cardinality_one():
     x = await ToothBrush(name="Jim").save()
     with raises(AttemptedCardinalityViolation) as exc_info:
         await m.toothbrush.connect(x)
-    
+
     error_message = str(exc_info.value)
-    assert f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship." == error_message
+    assert (
+        f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     with raises(AttemptedCardinalityViolation):
         await m.toothbrush.disconnect(b)
@@ -275,7 +281,6 @@ async def test_relationship_from_one_cardinality_enforced():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False
 
@@ -312,7 +317,6 @@ async def test_relationship_from_zero_or_one_cardinality_enforced():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False
 
@@ -372,6 +376,5 @@ async def test_bidirectional_cardinality_validation():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False

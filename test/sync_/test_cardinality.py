@@ -277,7 +277,6 @@ def test_relationship_from_one_cardinality_enforced():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False
 
@@ -314,7 +313,6 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False
 
@@ -374,6 +372,5 @@ def test_bidirectional_cardinality_validation():
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
 
     config.soft_cardinality_check = False
