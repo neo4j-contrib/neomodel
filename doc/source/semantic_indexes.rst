@@ -1,4 +1,4 @@
-.. _Semantic Indexes: 
+.. _Semantic Indexes:
 
 ==================================
 Semantic Indexes
@@ -7,12 +7,12 @@ Semantic Indexes
 Full Text Index
 ----------------
 From version 6.0.0 neomodel provides a way to interact with neo4j `Full Text indexing <https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/full-text-indexes/>`_. 
-The Full Text Index can be be created for both node and relationship properties. Only available for Neo4j version 5.16 or higher.
+The Full Text Index can be created for both node and relationship properties. Only available for Neo4j version 5.16 or higher.
 
 Defining a Full Text Index on a Property
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Within neomodel, indexing is a decision that is made at class definition time as the index needs to be built. A Full Text index is defined using :class:`~neomodel.properties.FulltextIndex`
-To define a property with a full text index we use the following symantics::
+To define a property with a full text index we use the following syntax::
     
     StringProperty(fulltext_index=FulltextIndex(analyzer="standard-no-stop-words", eventually_consistent=False))
 
@@ -54,13 +54,13 @@ The :class:`~neomodel.semantic_filters.FulltextFilter` can be used in conjunctio
 
 .. attention:: 
     If you use FulltextFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
-   Furthermore, all node filters **should** work with FulltextFilter, relationship filters will also work but WILL NOT return the fulltext similiarty score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
+    Furthermore, all node filters **should** work with FulltextFilter, relationship filters will also work but WILL NOT return the fulltext similarity score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^
 
 Currently neomodel has not implemented an OGM method for querying full text indexes on relationships.
-If this is something that you like please submit a github issue requirements highlighting your usage pattern. 
+If this is something that you would like, please submit a GitHub issue with requirements highlighting your usage pattern. 
 
 Alternatively, whilst this has not been implemented yet you can still leverage `db.cypher_query` with the correct syntax to perform your required query. 
 
@@ -74,20 +74,20 @@ Defining a Vector Index on a Property
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Within neomodel, indexing is a decision that is made at class definition time as the index needs to be built. A vector index is defined using :class:`~neomodel.properties.VectorIndex`.
-To define a property with a vector index we use the following symantics::
+To define a property with a vector index we use the following syntax::
 
-    ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(dimensions=512, similarity_function="cosine")
+    ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(dimensions=512, similarity_function="cosine"))
     
 Where,
     - ``dimensions``: The dimension of the vector. The default is 1536.
     - ``similarity_function``: The similarity algorithm to use. The default is ``cosine``.
 
-The index must then be built, this occurs when the function :func:`~neomodel.sync_.core.install_all_labels` is run
+The index must then be built, this occurs when the function :func:`~neomodel.sync_.core.install_all_labels` is run.
 
 The vector indexes will then have the name "vector_index_{node.__label__}_{propertyname_with_vector_index}".
 
 .. attention:: 
-   Neomodel creates a new vectorindex for each specified property, thus you cannot have two distinct properties being placed into the same index. 
+   Neomodel creates a new vector index for each specified property, thus you cannot have two distinct properties being placed into the same index. 
 
 Querying a Vector Index on a Property 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,7 +97,7 @@ Node Property
 The following node vector index property::
 
     class someNode(StructuredNode):
-        vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(dimensions=512, similarity_function="cosine")
+        vector = ArrayProperty(base_property=FloatProperty(), vector_index=VectorIndex(dimensions=512, similarity_function="cosine"))
         name = StringProperty()
 
 Can be queried using :class:`~neomodel.semantic_filters.VectorFilter`. Such as::
@@ -111,11 +111,11 @@ The :class:`~neomodel.semantic_filters.VectorFilter` can be used in conjunction 
 
 .. attention:: 
     If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
-   Furthermore, all node filters **should** work with VectorFilter, relationship filters will also work but WILL NOT return the vector similiarty score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
+    Furthermore, all node filters **should** work with VectorFilter, relationship filters will also work but WILL NOT return the vector similarity score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^
 Currently neomodel has not implemented an OGM method for querying vector indexes on relationships.
-If this is something that you like please submit a github issue requirements highlighting your usage pattern. 
+If this is something that you would like, please submit a GitHub issue with requirements highlighting your usage pattern. 
 
 Alternatively, whilst this has not been implemented yet you can still leverage `db.cypher_query` with the correct syntax to perform your required query. 
