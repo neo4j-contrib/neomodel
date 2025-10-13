@@ -7,12 +7,14 @@ Connecting
 
 Before executing any neomodel code, set the connection url::
 
-    from neomodel import config
-    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'  # default
+    from neomodel import get_config
+    
+    config = get_config()
+    config.database_url = 'bolt://neo4j:password@localhost:7687'  # default
 
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 
-See the Configuration page (:ref:`connection_options_doc`) for config options.
+See the Configuration page (:ref:`_configuration_options_doc`) for config options.
 
 If you are using your neo4j server for the first time you will need to change the default password.
 This can be achieved by visiting the neo4j admin panel (default: ``http://localhost:7474`` ).
@@ -31,10 +33,12 @@ Defining Node Entities and Relationships
 
 Below is a definition of three related nodes `Person`, `City` and `Country`: ::
 
-    from neomodel import (config, StructuredNode, StringProperty, IntegerProperty,
+    from neomodel import (get_config, StructuredNode, StringProperty, IntegerProperty,
         UniqueIdProperty, RelationshipTo)
 
-    config.DATABASE_URL = 'bolt://neo4j_username:neo4j_password@localhost:7687'
+
+    config = get_config()
+    config.database_url = 'bolt://neo4j_username:neo4j_password@localhost:7687'
 
     class Country(StructuredNode):
         code = StringProperty(unique_index=True, required=True)

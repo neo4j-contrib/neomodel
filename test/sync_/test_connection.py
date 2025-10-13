@@ -6,17 +6,26 @@ import pytest
 from neo4j import Driver, GraphDatabase
 from neo4j.debug import watch
 
-from neomodel import StringProperty, StructuredNode, config, db
+from neomodel import StringProperty, StructuredNode, db, get_config
 
 
 @mark_sync_test
 @pytest.fixture(autouse=True)
-def setup_teardown():
+def setup_teardown(request):
     yield
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
-    db.close_connection()
-    db.set_connection(url=config.DATABASE_URL)
+    # Skip reconnection for Aura tests except bolt+ssc parameter
+    should_reconnect = True
+    if (
+        "test_connect_to_aura" in request.node.name
+        and "bolt+ssc" not in request.node.name
+    ):
+        should_reconnect = False
+
+    if should_reconnect:
+        db.close_connection()
+        db.set_connection(url=get_config().database_url)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -67,12 +76,13 @@ def test_config_driver_works():
         NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
     )
 
-    config.DRIVER = driver
+    config = get_config()
+    config.driver = driver
     assert Pastry(name="Grignette").save()
 
     # Clear config
     # No need to close connection - pytest teardown will do it
-    config.DRIVER = None
+    config.driver = None
 
 
 @mark_sync_test
@@ -83,17 +93,18 @@ def test_connect_to_non_default_database():
     db.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
     db.close_connection()
 
+    config = get_config()
     # Set database name in url - for url init only
-    db.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
+    db.set_connection(url=f"{config.database_url}/{database_name}")
     assert get_current_database_name() == "pastries"
 
     db.close_connection()
 
     # Set database name in config - for both url and driver init
-    config.DATABASE_NAME = database_name
+    config.database_name = database_name
 
     # url init
-    db.set_connection(url=config.DATABASE_URL)
+    db.set_connection(url=config.database_url)
     assert get_current_database_name() == "pastries"
 
     db.close_connection()
@@ -106,7 +117,7 @@ def test_connect_to_non_default_database():
 
     # Clear config
     # No need to close connection - pytest teardown will do it
-    config.DATABASE_NAME = None
+    config.database_name = None
 
 
 @mark_sync_test
@@ -152,9 +163,9 @@ def test_connect_to_aura(protocol):
 
 
 def _set_connection(protocol):
-    AURA_TEST_DB_USER = os.environ["AURA_TEST_DB_USER"]
-    AURA_TEST_DB_PASSWORD = os.environ["AURA_TEST_DB_PASSWORD"]
-    AURA_TEST_DB_HOSTNAME = os.environ["AURA_TEST_DB_HOSTNAME"]
+    aura_test_db_user = os.environ["AURA_TEST_DB_USER"]
+    aura_test_db_password = os.environ["AURA_TEST_DB_PASSWORD"]
+    aura_test_db_hostname = os.environ["AURA_TEST_DB_HOSTNAME"]
 
-    database_url = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
+    database_url = f"{protocol}://{aura_test_db_user}:{aura_test_db_password}@{aura_test_db_hostname}"
     db.set_connection(url=database_url)

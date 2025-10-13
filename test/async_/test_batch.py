@@ -9,12 +9,9 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     UniqueIdProperty,
-    config,
 )
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.exceptions import DeflateError, UniqueProperty
-
-config.AUTO_INSTALL_LABELS = True
 
 
 class UniqueUser(AsyncStructuredNode):
