@@ -6,7 +6,7 @@ Semantic Indexes
 
 Full Text Index
 ----------------
-From version 5.5.3 neomodel provides a way to interact with neo4j `Full Text indexing <https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/full-text-indexes/>`_. 
+From version 6.0.0 neomodel provides a way to interact with neo4j `Full Text indexing <https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/full-text-indexes/>`_. 
 The Full Text Index can be be created for both node and relationship properties. Only available for Neo4j version 5.16 or higher.
 
 Defining a Full Text Index on a Property
