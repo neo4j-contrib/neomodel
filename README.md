@@ -50,6 +50,8 @@ From now on, neomodel will use **SemVer (major.minor.patch)** for versioning.
 This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
 See the [documentation](https://neomodel.readthedocs.io/en/latest/configuration.html) section for more details.
 
+[Semantic Indexes](https://neomodel.readthedocs.io/en/latest/semantic_indexes.html#) (Vector and Full-text) are now natively supported so you do not have to use a custom Cypher query. Special thanks to @greengori11a for this.
+
 # Installation
 
 Install from pypi (recommended):
