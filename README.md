@@ -22,6 +22,12 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 
 # Requirements
 
+**For neomodel releases 6.x :**
+
+- Python 3.10+
+- Neo4j 2025.x.x, 5.x, 4.4 (LTS)
+- Neo4j Enterprise, Community and Aura are supported
+
 **For neomodel releases 5.x :**
 
 -   Python 3.8+
@@ -37,27 +43,12 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 Available on
 [readthedocs](http://neomodel.readthedocs.org).
 
-# New in 5.4.0
+# New in 6.0.0
 
-This version adds many new features, expanding neomodel's querying capabilities. Those features were kindly contributed back by the [OpenStudyBuilder team](https://openstudybuilder.com/). A VERY special thanks to [@tonioo](https://github.com/tonioo) for the integration work.
+From now on, neomodel will use **SemVer (major.minor.patch)** for versioning.
 
-There are too many new capabilities here, so I advise you to start by looking at the full summary example in the [Getting Started guide](https://neomodel.readthedocs.io/en/latest/getting_started.html#full-example). It will then point you to the various relevant sections.
-
-We also validated support for [Python 3.13](https://docs.python.org/3/whatsnew/3.13.html).
-
-# New in 5.3.0
-
-neomodel now supports asynchronous programming, thanks to the [Neo4j driver async API](https://neo4j.com/docs/api/python-driver/current/async_api.html). The [documentation](http://neomodel.readthedocs.org) has been updated accordingly, with an updated getting started section, and some specific documentation for the async API.
-
-# Breaking changes in 5.3.0
-
-- config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` script instead. _Note : this is because of the addition of async, but also because it might lead to uncontrolled creation of indexes/constraints. The script makes you more in control of said creation._
-- The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
-- Based on Python version [status](https://devguide.python.org/versions/),
-neomodel will be dropping support for Python 3.7 in an upcoming release
-(5.3 or later). _This does not mean neomodel will stop working on Python 3.7, but
-it will no longer be tested against it_
-- Some standalone methods have been refactored into the Database() class. Check the [documentation](http://neomodel.readthedocs.org) for a full list.
+This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
+See the [documentation](https://neomodel.readthedocs.io/en/latest/configuration.html) section for more details.
 
 # Installation
 
@@ -84,7 +75,7 @@ You can find some performance tests made using Locust [in this repo](https://git
 Two learnings from this :
 
 * The wrapping of the driver made by neomodel is very thin performance-wise : it does not add a lot of overhead ;
-* When used in a concurrent fashion, async neomodel is faster than concurrent sync neomodel, and a lot of faster than serial queries.
+* When used in a concurrent fashion, async neomodel is faster than concurrent sync neomodel, and a lot faster than serial queries.
 
 # Contributing
 

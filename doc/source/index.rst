@@ -41,7 +41,7 @@ To install from github::
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
-.. note::
+.. attention::
 
     **New in 6.0**
 
@@ -50,9 +50,10 @@ To install from github::
     This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
     See the :ref:`configuration_options_doc` section for more details.
 
-    **Deprecations in 5.3**
+    **Breaking changes in 6.0**
 
-    - Some standalone methods are moved into the Database() class and will be removed in a future release :
+    - The soft cardinality check is now available for all cardinalities, and strict check is enabled by default.
+    - Standalone methods moved into the Database() class have been removed outside of the Database() class :
         - change_neo4j_password
         - clear_neo4j_database
         - drop_constraints
@@ -60,7 +61,7 @@ To install from github::
         - remove_all_labels
         - install_labels
         - install_all_labels
-    - Additionally, to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
+    - Note : to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
 
 
 Contents
