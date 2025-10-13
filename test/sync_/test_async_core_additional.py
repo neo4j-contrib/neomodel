@@ -28,16 +28,15 @@ def test_ensure_connection_decorator_no_driver():
         def test_method(self):
             return "success"
 
-    with patch("neomodel.config.get_config") as mock_config:
-        mock_config.return_value.database_url = "bolt://localhost:7687"
-
-        test_db = MockDB()
-        with patch.object(
-            test_db, "set_connection", new_callable=Mock
-        ) as mock_set_connection:
-            result = test_db.test_method()
-            assert result == "success"
-            mock_set_connection.assert_called_once_with(url="bolt://localhost:7687")
+    test_db = MockDB()
+    with patch.object(
+        test_db, "set_connection", new_callable=Mock
+    ) as mock_set_connection:
+        result = test_db.test_method()
+        assert result == "success"
+        mock_set_connection.assert_called_once_with(
+            url="bolt://neo4j:foobarbaz@localhost:7687"
+        )
 
 
 @mark_sync_test
