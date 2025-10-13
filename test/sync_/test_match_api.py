@@ -5,7 +5,6 @@ from test._async_compat import mark_sync_test
 from pytest import raises, skip, warns
 
 from neomodel import (
-    INCOMING,
     ArrayProperty,
     DateTimeProperty,
     IntegerProperty,
@@ -34,6 +33,7 @@ from neomodel.sync_.match import (
     Size,
     Traversal,
 )
+from neomodel.util import RelationshipDirection
 
 
 class SupplierRel(StructuredRel):
@@ -422,7 +422,7 @@ def test_traversal_definition_keys_are_valid():
             "a_name",
             {
                 "node_class": Supplier,
-                "direction": INCOMING,
+                "direction": RelationshipDirection.INCOMING,
                 "relationship_type": "KNOWS",
                 "model": None,
             },
@@ -433,7 +433,7 @@ def test_traversal_definition_keys_are_valid():
         "a_name",
         {
             "node_class": Supplier,
-            "direction": INCOMING,
+            "direction": RelationshipDirection.INCOMING,
             "relation_type": "KNOWS",
             "model": None,
         },
@@ -544,7 +544,7 @@ def test_q_filters():
     robusta = Species(name="Robusta").save()
     c4.species.connect(robusta)
     latte_or_robusta_coffee = (
-        Coffee.nodes.fetch_relations(Optional("species"))
+        Coffee.nodes.traverse(Path(value="species", optional=True))
         .filter(Q(name="Latte") | Q(species__name="Robusta"))
         .all()
     )
@@ -553,7 +553,7 @@ def test_q_filters():
     arabica = Species(name="Arabica").save()
     c1.species.connect(arabica)
     robusta_coffee = (
-        Coffee.nodes.fetch_relations(Optional("species"))
+        Coffee.nodes.traverse(Path(value="species", optional=True))
         .filter(species__name="Robusta")
         .all()
     )
@@ -675,70 +675,15 @@ def test_relation_prop_ordering():
     nescafe.suppliers.connect(supplier2, {"since": datetime(2010, 4, 1, 0, 0)})
     nescafe.species.connect(arabica)
 
-    results = Supplier.nodes.fetch_relations("coffees").order_by("-coffees|since").all()
+    results = Supplier.nodes.traverse("coffees").order_by("-coffees|since").all()
     assert len(results) == 2
     assert results[0][0] == supplier1
     assert results[1][0] == supplier2
 
-    results = Supplier.nodes.fetch_relations("coffees").order_by("coffees|since").all()
+    results = Supplier.nodes.traverse("coffees").order_by("coffees|since").all()
     assert len(results) == 2
     assert results[0][0] == supplier2
     assert results[1][0] == supplier1
-
-
-@mark_sync_test
-def test_fetch_relations():
-    arabica = Species(name="Arabica").save()
-    robusta = Species(name="Robusta").save()
-    nescafe = Coffee(name="Nescafe", price=99).save()
-    nescafe_gold = Coffee(name="Nescafe Gold", price=11).save()
-
-    tesco = Supplier(name="Tesco", delivery_cost=3).save()
-    nescafe.suppliers.connect(tesco)
-    nescafe_gold.suppliers.connect(tesco)
-    nescafe.species.connect(arabica)
-
-    result = (
-        Supplier.nodes.filter(name="Tesco").fetch_relations("coffees__species").all()
-    )
-    assert len(result[0]) == 5
-    assert arabica in result[0]
-    assert robusta not in result[0]
-    assert tesco in result[0]
-    assert nescafe in result[0]
-    assert nescafe_gold not in result[0]
-
-    result = (
-        Species.nodes.filter(name="Robusta")
-        .fetch_relations(Optional("coffees__suppliers"))
-        .all()
-    )
-    assert len(result) == 1
-
-    if Util.is_async_code:
-        count = (
-            Supplier.nodes.filter(name="Tesco")
-            .fetch_relations("coffees__species")
-            .__len__()
-        )
-        assert count == 1
-
-        assert (
-            Supplier.nodes.fetch_relations("coffees__species")
-            .filter(name="Tesco")
-            .__contains__(tesco)
-        )
-    else:
-        count = len(
-            Supplier.nodes.filter(name="Tesco")
-            .fetch_relations("coffees__species")
-            .all()
-        )
-        assert count == 1
-
-        assert tesco in Supplier.nodes.fetch_relations("coffees__species").filter(
-            name="Tesco"
-        )
 
 
 @mark_sync_test
@@ -804,7 +749,7 @@ def test_traverse_and_order_by():
     nescafe.species.connect(arabica)
     nescafe_gold.species.connect(robusta)
 
-    results = Species.nodes.fetch_relations("coffees").order_by("-coffees__price").all()
+    results = Species.nodes.traverse("coffees").order_by("-coffees__price").all()
     assert len(results) == 2
     assert len(results[0]) == 3  # 2 nodes and 1 relation
     assert results[0][0] == robusta
@@ -826,7 +771,13 @@ def test_annotate_and_collect():
     nescafe_gold.species.connect(arabica)
 
     result = (
-        Supplier.nodes.traverse_relations(species="coffees__species")
+        Supplier.nodes.traverse(
+            species=Path(
+                value="coffees__species",
+                include_rels_in_return=False,
+                include_nodes_in_return=False,
+            )
+        )
         .annotate(Collect("species"))
         .all()
     )
@@ -834,28 +785,52 @@ def test_annotate_and_collect():
     assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
 
     result = (
-        Supplier.nodes.traverse_relations(species="coffees__species")
+        Supplier.nodes.traverse(
+            species=Path(
+                value="coffees__species",
+                include_rels_in_return=False,
+                include_nodes_in_return=False,
+            )
+        )
         .annotate(Collect("species", distinct=True))
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
 
     result = (
-        Supplier.nodes.traverse_relations(species="coffees__species")
+        Supplier.nodes.traverse(
+            species=Path(
+                value="coffees__species",
+                include_rels_in_return=False,
+                include_nodes_in_return=False,
+            )
+        )
         .annotate(Size(Collect("species", distinct=True)))
         .all()
     )
     assert result[0][1] == 2  # 2 species
 
     result = (
-        Supplier.nodes.traverse_relations(species="coffees__species")
+        Supplier.nodes.traverse(
+            species=Path(
+                value="coffees__species",
+                include_rels_in_return=False,
+                include_nodes_in_return=False,
+            )
+        )
         .annotate(all_species=Collect("species", distinct=True))
         .all()
     )
     assert len(result[0][1][0]) == 2  # 2 species must be there
 
     result = (
-        Supplier.nodes.traverse_relations("coffees__species")
+        Supplier.nodes.traverse(
+            species=Path(
+                value="coffees__species",
+                include_rels_in_return=False,
+                include_nodes_in_return=False,
+            )
+        )
         .annotate(
             all_species=Collect(NodeNameResolver("coffees__species"), distinct=True),
             all_species_rels=Collect(
@@ -884,22 +859,12 @@ def test_resolve_subgraph():
     with raises(
         RuntimeError,
         match=re.escape(
-            "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+            "Nothing to resolve. Make sure to include relations in the result using traverse() or filter()."
         ),
     ):
         result = Supplier.nodes.resolve_subgraph()
 
-    with raises(
-        NotImplementedError,
-        match=re.escape(
-            "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
-        ),
-    ):
-        result = Supplier.nodes.traverse_relations(
-            "coffees__species"
-        ).resolve_subgraph()
-
-    result = Supplier.nodes.fetch_relations("coffees__species").resolve_subgraph()
+    result = Supplier.nodes.traverse("coffees__species").resolve_subgraph()
     assert len(result) == 2
 
     assert hasattr(result[0], "_relations")
@@ -926,8 +891,8 @@ def test_resolve_subgraph_optional():
     nescafe_gold.suppliers.connect(tesco)
     nescafe.species.connect(arabica)
 
-    result = Supplier.nodes.fetch_relations(
-        Optional("coffees__species")
+    result = Supplier.nodes.traverse(
+        Path(value="coffees__species", optional=True)
     ).resolve_subgraph()
     assert len(result) == 1
 
@@ -951,7 +916,7 @@ def test_subquery():
     nescafe.species.connect(arabica)
 
     subquery = Coffee.nodes.subquery(
-        Coffee.nodes.traverse_relations(suppliers="suppliers")
+        Coffee.nodes.traverse(suppliers="suppliers")
         .intermediate_transform(
             {"suppliers": {"source": "suppliers"}}, ordering=["suppliers.delivery_cost"]
         )
@@ -969,16 +934,14 @@ def test_subquery():
         match=re.escape("Variable 'unknown' is not returned by subquery."),
     ):
         result = Coffee.nodes.subquery(
-            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+            Coffee.nodes.traverse(suppliers="suppliers").annotate(
                 supps=Collect("suppliers")
             ),
             ["unknown"],
         )
 
     result_string_context = subquery.subquery(
-        Coffee.nodes.traverse_relations(supps2="suppliers").annotate(
-            supps2=Collect("supps")
-        ),
+        Coffee.nodes.traverse(supps2="suppliers").annotate(supps2=Collect("supps")),
         ["supps2"],
         ["supps"],
     )
@@ -992,7 +955,7 @@ def test_subquery():
 
     with raises(ValueError, match=r"Wrong variable specified in initial context"):
         result = Coffee.nodes.subquery(
-            Coffee.nodes.traverse_relations(suppliers="suppliers").annotate(
+            Coffee.nodes.traverse(suppliers="suppliers").annotate(
                 supps=Collect("suppliers")
             ),
             ["supps"],
@@ -1040,7 +1003,7 @@ def test_intermediate_transform():
     nescafe.species.connect(arabica)
 
     result = (
-        Coffee.nodes.fetch_relations("suppliers")
+        Coffee.nodes.traverse("suppliers")
         .intermediate_transform(
             {
                 "coffee": {"source": "coffee", "include_in_return": True},
@@ -1068,7 +1031,7 @@ def test_intermediate_transform():
             r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
         ),
     ):
-        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
+        Coffee.nodes.traverse(suppliers="suppliers").intermediate_transform(
             {
                 "test": {"source": Collect("suppliers")},
             }
@@ -1079,9 +1042,7 @@ def test_intermediate_transform():
             r"You must provide one variable at least when calling intermediate_transform()"
         ),
     ):
-        Coffee.nodes.traverse_relations(suppliers="suppliers").intermediate_transform(
-            {}
-        )
+        Coffee.nodes.traverse(suppliers="suppliers").intermediate_transform({})
 
 
 @mark_sync_test
@@ -1134,12 +1095,12 @@ def test_mix_functions():
     full_nodeset = (
         Student.nodes.filter(name__istartswith="m", lives_in__name="Eiffel Tower")
         .order_by("name")
-        .fetch_relations(
+        .traverse(
             "parents",
-            Optional("children__preferred_course"),
+            Path(value="children__preferred_course", optional=True),
         )
         .subquery(
-            Student.nodes.fetch_relations("courses")
+            Student.nodes.traverse("courses")
             .intermediate_transform(
                 {"rel": {"source": RelationNameResolver("courses")}},
                 ordering=[
@@ -1187,9 +1148,9 @@ def test_issue_795():
 
     with raises(
         RelationshipClassNotDefined,
-        match=r"[\s\S]*Note that when using the fetch_relations method, the relationship type must be defined in the model.*",
+        match=r"[\s\S]*Note that when using the traverse method, the relationship type must be defined in the model.*",
     ):
-        _ = PersonX.nodes.fetch_relations("country").all()
+        _ = PersonX.nodes.traverse("country").all()
 
 
 @mark_sync_test
@@ -1227,7 +1188,7 @@ def test_unique_variables():
     gold3000.suppliers.connect(supplier1, {"since": datetime(2020, 4, 1, 0, 0)})
     gold3000.species.connect(arabica)
 
-    nodeset = Supplier.nodes.fetch_relations("coffees", "coffees__species").filter(
+    nodeset = Supplier.nodes.traverse("coffees", "coffees__species").filter(
         coffees__name="Nescafe"
     )
     ast = nodeset.query_cls(nodeset).build_ast()
@@ -1240,7 +1201,7 @@ def test_unique_variables():
     assert len(results) == 3
 
     nodeset = (
-        Supplier.nodes.fetch_relations("coffees", "coffees__species")
+        Supplier.nodes.traverse("coffees", "coffees__species")
         .filter(coffees__name="Nescafe")
         .unique_variables("coffees")
     )

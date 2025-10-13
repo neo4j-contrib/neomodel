@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, Optional
 
+from neomodel.config import get_config
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-import
     RelationshipManager,
@@ -15,14 +16,12 @@ class ZeroOrOne(RelationshipManager):
 
     description = "zero or one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
             detailed_description = str(self)
-            if soft_check:
+            if get_config().soft_cardinality_check:
                 print(
-                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created."
                 )
             else:
                 raise AttemptedCardinalityViolation(
@@ -47,7 +46,7 @@ class ZeroOrOne(RelationshipManager):
         return [node] if node else []
 
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> "StructuredRel":
         """
         Connect to a node.
@@ -98,6 +97,11 @@ class OneOrMore(RelationshipManager):
             raise AttemptedCardinalityViolation("One or more expected")
         return super().disconnect(node)
 
+    def disconnect_all(self) -> None:
+        raise AttemptedCardinalityViolation(
+            "Cardinality one or more, cannot disconnect_all use reconnect."
+        )
+
 
 class One(RelationshipManager):
     """
@@ -106,14 +110,12 @@ class One(RelationshipManager):
 
     description = "one relationship"
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         if self.__len__():
             detailed_description = str(self)
-            if soft_check:
+            if get_config().soft_cardinality_check:
                 print(
-                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created."
                 )
             else:
                 raise AttemptedCardinalityViolation(
@@ -152,7 +154,7 @@ class One(RelationshipManager):
         )
 
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> "StructuredRel":
         """
         Connect a node

@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "neo4j~=5.28.2",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 
 [project.urls]

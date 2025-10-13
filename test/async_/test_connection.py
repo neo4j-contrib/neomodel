@@ -6,17 +6,26 @@ import pytest
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.debug import watch
 
-from neomodel import AsyncStructuredNode, StringProperty, adb, config
+from neomodel import AsyncStructuredNode, StringProperty, adb, get_config
 
 
 @mark_async_test
 @pytest.fixture(autouse=True)
-async def setup_teardown():
+async def setup_teardown(request):
     yield
     # Teardown actions after tests have run
     # Reconnect to initial URL for potential subsequent tests
-    await adb.close_connection()
-    await adb.set_connection(url=config.DATABASE_URL)
+    # Skip reconnection for Aura tests except bolt+ssc parameter
+    should_reconnect = True
+    if (
+        "test_connect_to_aura" in request.node.name
+        and "bolt+ssc" not in request.node.name
+    ):
+        should_reconnect = False
+
+    if should_reconnect:
+        await adb.close_connection()
+        await adb.set_connection(url=get_config().database_url)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -69,12 +78,13 @@ async def test_config_driver_works():
         NEO4J_URL, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
     )
 
-    config.DRIVER = driver
+    config = get_config()
+    config.driver = driver
     assert await Pastry(name="Grignette").save()
 
     # Clear config
     # No need to close connection - pytest teardown will do it
-    config.DRIVER = None
+    config.driver = None
 
 
 @mark_async_test
@@ -85,17 +95,18 @@ async def test_connect_to_non_default_database():
     await adb.cypher_query(f"CREATE DATABASE {database_name} IF NOT EXISTS")
     await adb.close_connection()
 
+    config = get_config()
     # Set database name in url - for url init only
-    await adb.set_connection(url=f"{config.DATABASE_URL}/{database_name}")
+    await adb.set_connection(url=f"{config.database_url}/{database_name}")
     assert await get_current_database_name() == "pastries"
 
     await adb.close_connection()
 
     # Set database name in config - for both url and driver init
-    config.DATABASE_NAME = database_name
+    config.database_name = database_name
 
     # url init
-    await adb.set_connection(url=config.DATABASE_URL)
+    await adb.set_connection(url=config.database_url)
     assert await get_current_database_name() == "pastries"
 
     await adb.close_connection()
@@ -110,7 +121,7 @@ async def test_connect_to_non_default_database():
 
     # Clear config
     # No need to close connection - pytest teardown will do it
-    config.DATABASE_NAME = None
+    config.database_name = None
 
 
 @mark_async_test
@@ -156,9 +167,9 @@ async def test_connect_to_aura(protocol):
 
 
 async def _set_connection(protocol):
-    AURA_TEST_DB_USER = os.environ["AURA_TEST_DB_USER"]
-    AURA_TEST_DB_PASSWORD = os.environ["AURA_TEST_DB_PASSWORD"]
-    AURA_TEST_DB_HOSTNAME = os.environ["AURA_TEST_DB_HOSTNAME"]
+    aura_test_db_user = os.environ["AURA_TEST_DB_USER"]
+    aura_test_db_password = os.environ["AURA_TEST_DB_PASSWORD"]
+    aura_test_db_hostname = os.environ["AURA_TEST_DB_HOSTNAME"]
 
-    database_url = f"{protocol}://{AURA_TEST_DB_USER}:{AURA_TEST_DB_PASSWORD}@{AURA_TEST_DB_HOSTNAME}"
+    database_url = f"{protocol}://{aura_test_db_user}:{aura_test_db_password}@{aura_test_db_hostname}"
     await adb.set_connection(url=database_url)

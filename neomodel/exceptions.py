@@ -1,4 +1,4 @@
-from typing import Any, Optional, Type, Union
+from typing import Any, Type
 
 
 class NeomodelException(Exception):
@@ -26,7 +26,7 @@ class CardinalityViolation(NeomodelException):
     For example a relationship type `OneOrMore` returns no nodes.
     """
 
-    def __init__(self, rel_manager: Any, actual: Union[int, str]):
+    def __init__(self, rel_manager: Any, actual: int | str):
         self.rel_manager = str(rel_manager)
         self.actual = str(actual)
 
@@ -116,7 +116,7 @@ class RelationshipClassNotDefined(ModelDefinitionException):
         return f"""
             Relationship of type {relationship_type} does not resolve to any of the known objects
             {self._get_node_class_registry_formatted()}
-            Note that when using the fetch_relations method, the relationship type must be defined in the model, even if only defined to StructuredRel.
+            Note that when using the traverse method, the relationship type must be defined in the model, even if only defined to StructuredRel.
             Otherwise, neomodel will not be able to determine which relationship model to resolve into.
         """
 
@@ -185,7 +185,7 @@ class DeflateError(ValueError, NeomodelException):
 
 
 class DoesNotExist(NeomodelException):
-    _model_class: Optional[Type] = None
+    _model_class: Type | None = None
     """
     This class property refers the model class that a subclass of this class
     belongs to. It is set by :class:`~neomodel.core.NodeMeta`.
@@ -217,7 +217,7 @@ class InflateConflict(NeomodelException):
 
 
 class InflateError(ValueError, NeomodelException):
-    def __init__(self, key: str, cls: Any, msg: str, obj: Optional[Any] = None):
+    def __init__(self, key: str, cls: Any, msg: str, obj: Any | None = None):
         self.property_name = key
         self.node_class = cls
         self.msg = msg

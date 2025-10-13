@@ -1,6 +1,3 @@
-from typing import List
-
-
 class VectorFilter(object):
     """
     Represents a CALL db.index.vector.query* neo functions call within the OGM
@@ -15,7 +12,7 @@ class VectorFilter(object):
     """
 
     def __init__(
-        self, topk: int, vector_attribute_name: str, candidate_vector: List[float]
+        self, topk: int, vector_attribute_name: str, candidate_vector: list[float]
     ):
         self.topk = topk
         self.vector_attribute_name = vector_attribute_name
