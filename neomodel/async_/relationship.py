@@ -2,7 +2,7 @@ from typing import Any
 
 from neo4j.graph import Relationship
 
-from neomodel.async_.core import adb
+from neomodel.async_.database import adb
 from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.hooks import hooks
 from neomodel.properties import Property

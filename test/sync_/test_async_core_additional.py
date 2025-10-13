@@ -2,16 +2,14 @@
 Additional tests for neomodel.sync_.core module to improve coverage.
 """
 
-import os
-import sys
 from test._async_compat import mark_sync_test
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
-from neo4j.exceptions import ClientError, SessionExpired
+from neo4j.exceptions import ClientError
 
-from neomodel.exceptions import ConstraintValidationFailed, UniqueProperty
-from neomodel.sync_.core import Database, TransactionProxy, ensure_connection
+from neomodel.sync_.database import Database, ensure_connection
+from neomodel.sync_.transaction import TransactionProxy
 
 
 @mark_sync_test
@@ -30,7 +28,7 @@ def test_ensure_connection_decorator_no_driver():
         def test_method(self):
             return "success"
 
-    with patch("neomodel.sync_.core.get_config") as mock_config:
+    with patch("neomodel.config.get_config") as mock_config:
         mock_config.return_value.database_url = "bolt://localhost:7687"
 
         test_db = MockDB()
@@ -155,7 +153,7 @@ def test_async_database_install_all_labels():
         def install_labels(cls, quiet=True, stdout=None):
             pass
 
-    with patch("neomodel.sync_.core.StructuredNode", MockNode):
+    with patch("neomodel.sync_.node.StructuredNode", MockNode):
         with patch("sys.stdout"):
             test_db.install_all_labels()
 

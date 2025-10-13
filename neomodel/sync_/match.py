@@ -11,7 +11,8 @@ from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.sync_ import relationship_manager
-from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.database import db
+from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import RelationshipDirection

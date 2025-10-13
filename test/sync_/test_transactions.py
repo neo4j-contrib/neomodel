@@ -134,7 +134,7 @@ def test_bookmark_transaction_as_a_context():
     with raises(UniqueProperty):
         with db.transaction as transaction:
             APerson(name="Tanya").save()
-    assert not hasattr(transaction, "last_bookmark")
+    assert transaction.last_bookmark is None
 
 
 @pytest.fixture

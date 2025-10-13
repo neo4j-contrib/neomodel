@@ -4,7 +4,7 @@ from neo4j.graph import Relationship
 
 from neomodel.hooks import hooks
 from neomodel.properties import Property
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 from neomodel.sync_.property_manager import PropertyManager
 
 ELEMENT_ID_MIGRATION_NOTICE = "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."

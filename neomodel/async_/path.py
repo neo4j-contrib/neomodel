@@ -2,7 +2,8 @@ from collections.abc import Iterator
 
 from neo4j.graph import Path
 
-from neomodel.async_.core import AsyncStructuredNode, adb
+from neomodel.async_.database import adb
+from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.relationship import AsyncStructuredRel
 
 

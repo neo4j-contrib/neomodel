@@ -2,16 +2,14 @@
 Additional tests for neomodel.async_.core module to improve coverage.
 """
 
-import os
-import sys
 from test._async_compat import mark_async_test
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from neo4j.exceptions import ClientError, SessionExpired
+from neo4j.exceptions import ClientError
 
-from neomodel.async_.core import AsyncDatabase, AsyncTransactionProxy, ensure_connection
-from neomodel.exceptions import ConstraintValidationFailed, UniqueProperty
+from neomodel.async_.database import AsyncDatabase, ensure_connection
+from neomodel.async_.transaction import AsyncTransactionProxy
 
 
 @mark_async_test
@@ -30,7 +28,7 @@ async def test_ensure_connection_decorator_no_driver():
         async def test_method(self):
             return "success"
 
-    with patch("neomodel.async_.core.get_config") as mock_config:
+    with patch("neomodel.config.get_config") as mock_config:
         mock_config.return_value.database_url = "bolt://localhost:7687"
 
         test_db = MockDB()
@@ -161,7 +159,7 @@ async def test_async_database_install_all_labels():
         async def install_labels(cls, quiet=True, stdout=None):
             pass
 
-    with patch("neomodel.async_.core.AsyncStructuredNode", MockNode):
+    with patch("neomodel.async_.node.AsyncStructuredNode", MockNode):
         with patch("sys.stdout"):
             await test_db.install_all_labels()
 

@@ -5,8 +5,9 @@ from neomodel.async_.cardinality import (
     AsyncZeroOrMore,
     AsyncZeroOrOne,
 )
-from neomodel.async_.core import AsyncStructuredNode, adb
+from neomodel.async_.database import adb
 from neomodel.async_.match import AsyncNodeSet, AsyncTraversal
+from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.path import AsyncNeomodelPath
 from neomodel.async_.property_manager import AsyncPropertyManager
 from neomodel.async_.relationship import AsyncStructuredRel

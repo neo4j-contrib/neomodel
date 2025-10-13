@@ -4,7 +4,7 @@ import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
-from neomodel.async_.core import adb
+from neomodel.async_.database import adb
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncTraversal,
