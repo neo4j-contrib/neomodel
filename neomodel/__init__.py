@@ -41,8 +41,9 @@ from neomodel.properties import (
     VectorIndex,
 )
 from neomodel.sync_.cardinality import One, OneOrMore, ZeroOrMore, ZeroOrOne
-from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.database import db
 from neomodel.sync_.match import NodeSet, Traversal
+from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.path import NeomodelPath
 from neomodel.sync_.property_manager import PropertyManager
 from neomodel.sync_.relationship import StructuredRel
