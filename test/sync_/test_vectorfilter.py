@@ -184,7 +184,7 @@ def test_vectorfilter_with_relationshipfilter():
         description_embedding = ArrayProperty(
             FloatProperty(), vector_index=VectorIndex(dimensions=2)
         )
-        suppliers = RelationshipFrom(SupplierV, "SUPPLIES", model=SuppliesVRel)
+        suppliers = RelationshipFrom(SupplierV, "SUPPLIESV", model=SuppliesVRel)
 
     db.install_labels(SupplierV)
     db.install_labels(SuppliesVRel)

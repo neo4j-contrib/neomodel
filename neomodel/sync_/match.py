@@ -9,7 +9,7 @@ from typing import Union
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import VectorFilter
+from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.core import StructuredNode, db
 from neomodel.sync_.relationship import StructuredRel
@@ -401,6 +401,7 @@ class QueryAST:
     additional_return: list[str] | None
     is_count: bool | None
     vector_index_query: type | None
+    fulltext_index_query: type | None
 
     def __init__(
         self,
@@ -418,6 +419,7 @@ class QueryAST:
         additional_return: list[str] | None = None,
         is_count: bool | None = False,
         vector_index_query: type | None = None,
+        fulltext_index_query: type | None = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -435,6 +437,7 @@ class QueryAST:
         )
         self.is_count = is_count
         self.vector_index_query = vector_index_query
+        self.fulltext_index_query = fulltext_index_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
@@ -464,6 +467,15 @@ class QueryBuilder:
             and self.node_set.vector_query
         ):
             self.build_vector_query(self.node_set.vector_query, self.node_set.source)
+
+        if (
+            isinstance(self.node_set, NodeSet)
+            and hasattr(self.node_set, "fulltext_query")
+            and self.node_set.fulltext_query
+        ):
+            self.build_fulltext_query(
+                self.node_set.fulltext_query, self.node_set.source
+            )
 
         self.build_source(self.node_set)
 
@@ -569,6 +581,31 @@ class QueryBuilder:
 
         self._ast.vector_index_query = vectorfilter
         self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
+        self._ast.result_class = source.__class__
+
+    def build_fulltext_query(self, fulltextquery: "FulltextFilter", source: "NodeSet"):
+        """
+        Query a free text indexed property on the node.
+        """
+        try:
+            attribute = getattr(source, fulltextquery.fulltext_attribute_name)
+        except AttributeError as e:
+            raise AttributeError(
+                f"Atribute '{fulltextquery.fulltext_attribute_name}' not found on '{type(source).__name__}'."
+            ) from e
+
+        if not attribute.fulltext_index:
+            raise AttributeError(
+                f"Attribute {fulltextquery.fulltext_attribute_name} is not declared with a full text index."
+            )
+
+        fulltextquery.index_name = (
+            f"fulltext_index_{source.__label__}_{fulltextquery.fulltext_attribute_name}"
+        )
+        fulltextquery.node_set_label = source.__label__.lower()
+
+        self._ast.fulltext_index_query = fulltextquery
+        self._ast.return_clause = f"{fulltextquery.node_set_label}, score"
         self._ast.result_class = source.__class__
 
     def build_traversal(self, traversal: "Traversal") -> str:
@@ -971,6 +1008,16 @@ class QueryBuilder:
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
+
+        if self._ast.fulltext_index_query:
+            query += f"""CALL () {{
+                CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
+                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score
+                RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
+                }}
+                """
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1442,6 +1489,7 @@ class NodeSet(BaseSet):
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
         self.vector_query: str | None = None
+        self.fulltext_query: str | None = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
@@ -1551,6 +1599,10 @@ class NodeSet(BaseSet):
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
+
+                if isinstance(arg, FulltextFilter) and (not self.fulltext_query):
+                    self.fulltext_query = arg
+
                 new_args.append(arg)
 
             new_args = tuple(new_args)
@@ -1561,6 +1613,13 @@ class NodeSet(BaseSet):
                 and not self.vector_query
             ):
                 self.vector_query = kwargs.pop("vector_filter")
+
+            if (
+                kwargs.get("fulltext_filter")
+                and isinstance(kwargs["fulltext_filter"], FulltextFilter)
+                and not self.fulltext_query
+            ):
+                self.fulltext_query = kwargs.pop("fulltext_filter")
 
             self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
 
