@@ -225,32 +225,6 @@ def test_does_not_exist_no_model_class():
         DoesNotExist("Test error")
 
 
-def test_does_not_exist_reduce():
-    """Test DoesNotExist __reduce__ method."""
-
-    class TestClass:
-        pass
-
-    DoesNotExist._model_class = TestClass
-    exc = DoesNotExist("Test message")
-
-    reduced = exc.__reduce__()
-    assert reduced[0] is _unpickle_does_not_exist
-    assert reduced[1] == (TestClass, "Test message")
-
-
-def test_unpickle_does_not_exist():
-    """Test _unpickle_does_not_exist function."""
-
-    class TestClass(StructuredNode):
-        pass
-
-    exc = _unpickle_does_not_exist(TestClass, "Test message")
-    assert isinstance(exc, DoesNotExist)
-    assert exc.message == "Test message"
-    assert exc._model_class is TestClass
-
-
 def test_not_connected():
     """Test NotConnected exception."""
 

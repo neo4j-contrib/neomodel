@@ -148,6 +148,8 @@ class Property(metaclass=ABCMeta):
                 "The arguments `unique_index` and `index` are mutually exclusive."
             )
 
+        self.name = name
+        self.owner = owner
         self.required = required
         self.unique_index = unique_index
         self.index = index
@@ -158,6 +160,9 @@ class Property(metaclass=ABCMeta):
         self.db_property = db_property
         self.label = label
         self.help_text = help_text
+        # Set any extra kwargs as attributes on the property
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def default_value(self) -> Any:
         """
