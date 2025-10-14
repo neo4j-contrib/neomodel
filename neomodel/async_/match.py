@@ -403,8 +403,8 @@ class QueryAST:
     lookup: str | None
     additional_return: list[str] | None
     is_count: bool | None
-    vector_index_query: type | None
-    fulltext_index_query: type | None
+    vector_index_query: VectorFilter | None
+    fulltext_index_query: FulltextFilter | None
 
     def __init__(
         self,
@@ -421,8 +421,8 @@ class QueryAST:
         lookup: str | None = None,
         additional_return: list[str] | None = None,
         is_count: bool | None = False,
-        vector_index_query: type | None = None,
-        fulltext_index_query: type | None = None,
+        vector_index_query: VectorFilter | None = None,
+        fulltext_index_query: FulltextFilter | None = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -586,7 +586,9 @@ class AsyncQueryBuilder:
         self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
         self._ast.result_class = source.__class__
 
-    def build_fulltext_query(self, fulltextquery: "FulltextFilter", source: "NodeSet"):
+    def build_fulltext_query(
+        self, fulltextquery: "FulltextFilter", source: "AsyncNodeSet"
+    ):
         """
         Query a free text indexed property on the node.
         """
@@ -1299,8 +1301,6 @@ class AsyncBaseSet:
             _first_item = [node async for node in ast._execute()][0]
             return _first_item
 
-        return None
-
 
 @dataclass
 class Optional:  # type: ignore[no-redef]
@@ -1493,8 +1493,8 @@ class AsyncNodeSet(AsyncBaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self.vector_query: str | None = None
-        self.fulltext_query: str | None = None
+        self.vector_query: VectorFilter | None = None
+        self.fulltext_query: FulltextFilter | None = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]

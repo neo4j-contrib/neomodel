@@ -200,7 +200,7 @@ class NeomodelConfig:
     @classmethod
     def from_env(cls) -> "NeomodelConfig":
         """Create configuration from environment variables."""
-        config_data = {}
+        config_data: dict[str, Any] = {}
 
         # Get all fields with their metadata
         for field_info in fields(cls):
@@ -228,7 +228,7 @@ class NeomodelConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary."""
-        result = {}
+        result: dict[str, Any] = {}
         for field_info in fields(self):
             value = getattr(self, field_info.name)
             # Skip non-serializable values

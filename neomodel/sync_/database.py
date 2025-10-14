@@ -136,7 +136,7 @@ class Database:
         return self.__active_transaction.get()
 
     @_active_transaction.setter
-    def _active_transaction(self, value: Transaction) -> None:
+    def _active_transaction(self, value: Transaction | None) -> None:
         self.__active_transaction.set(value)
 
     @property
@@ -144,7 +144,7 @@ class Database:
         return self.__url.get()
 
     @url.setter
-    def url(self, value: str) -> None:
+    def url(self, value: str | None) -> None:
         self.__url.set(value)
 
     @property
@@ -152,7 +152,7 @@ class Database:
         return self.__driver.get()
 
     @driver.setter
-    def driver(self, value: Driver) -> None:
+    def driver(self, value: Driver | None) -> None:
         self.__driver.set(value)
 
     @property
@@ -160,7 +160,7 @@ class Database:
         return self.__session.get()
 
     @_session.setter
-    def _session(self, value: Session) -> None:
+    def _session(self, value: Session | None) -> None:
         self.__session.set(value)
 
     @property
@@ -168,7 +168,7 @@ class Database:
         return self.__pid.get()
 
     @_pid.setter
-    def _pid(self, value: int) -> None:
+    def _pid(self, value: int | None) -> None:
         self.__pid.set(value)
 
     @property
@@ -176,7 +176,7 @@ class Database:
         return self.__database_name.get()
 
     @_database_name.setter
-    def _database_name(self, value: str) -> None:
+    def _database_name(self, value: str | None) -> None:
         self.__database_name.set(value)
 
     @property
@@ -184,7 +184,7 @@ class Database:
         return self.__database_version.get()
 
     @_database_version.setter
-    def _database_version(self, value: str) -> None:
+    def _database_version(self, value: str | None) -> None:
         self.__database_version.set(value)
 
     @property
@@ -192,7 +192,7 @@ class Database:
         return self.__database_edition.get()
 
     @_database_edition.setter
-    def _database_edition(self, value: str) -> None:
+    def _database_edition(self, value: str | None) -> None:
         self.__database_edition.set(value)
 
     @property
@@ -200,7 +200,7 @@ class Database:
         return self.__impersonated_user.get()
 
     @impersonated_user.setter
-    def impersonated_user(self, value: str) -> None:
+    def impersonated_user(self, value: str | None) -> None:
         self.__impersonated_user.set(value)
 
     @property
@@ -208,7 +208,7 @@ class Database:
         return self.__parallel_runtime.get()
 
     @_parallel_runtime.setter
-    def _parallel_runtime(self, value: bool) -> None:
+    def _parallel_runtime(self, value: bool | None) -> None:
         self.__parallel_runtime.set(value)
 
     def set_connection(
