@@ -134,7 +134,7 @@ async def test_bookmark_transaction_as_a_context():
     with raises(UniqueProperty):
         async with adb.transaction as transaction:
             await APerson(name="Tanya").save()
-    assert not hasattr(transaction, "last_bookmark")
+    assert transaction.last_bookmark is None
 
 
 @pytest.fixture

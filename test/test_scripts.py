@@ -10,7 +10,7 @@ from neomodel import (
     StructuredRel,
     get_config,
 )
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 
 
 class ScriptsTestRel(StructuredRel):

@@ -8,7 +8,7 @@ import pytest
 
 import neomodel
 from neomodel._async_compat.util import AsyncUtil
-from neomodel.async_.core import AsyncDatabase
+from neomodel.async_.database import AsyncDatabase
 
 
 def test_neomodel_adb_properties():

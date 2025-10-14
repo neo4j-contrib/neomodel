@@ -5,7 +5,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 from neomodel.sync_.match import (
     NodeSet,
     Traversal,

@@ -7,7 +7,8 @@ from typing import Optional as TOptional
 from typing import Union
 
 from neomodel.async_ import relationship_manager
-from neomodel.async_.core import AsyncStructuredNode, adb
+from neomodel.async_.database import adb
+from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
