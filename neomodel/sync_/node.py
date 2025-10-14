@@ -2,9 +2,14 @@
 Node classes and metadata for the neomodel module.
 """
 
+from __future__ import annotations
+
 import warnings
 from itertools import combinations
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from neomodel.sync_.match import NodeSet
 
 from neomodel.constants import STREAMING_WARNING
 from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
@@ -170,7 +175,7 @@ class StructuredNode(NodeBase):
     # dynamic properties
 
     @classproperty
-    def nodes(self) -> Any:
+    def nodes(self) -> "NodeSet":
         """
         Returns a NodeSet object representing all nodes of the classes label
         :return: NodeSet

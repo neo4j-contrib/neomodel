@@ -2,9 +2,14 @@
 Node classes and metadata for the async neomodel module.
 """
 
+from __future__ import annotations
+
 import warnings
 from itertools import combinations
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from neomodel.async_.match import AsyncNodeSet
 
 from neomodel.async_.database import adb
 from neomodel.async_.property_manager import AsyncPropertyManager
@@ -172,7 +177,7 @@ class AsyncStructuredNode(NodeBase):
     # dynamic properties
 
     @classproperty
-    def nodes(self) -> Any:
+    def nodes(self) -> "AsyncNodeSet":
         """
         Returns a NodeSet object representing all nodes of the classes label
         :return: NodeSet
