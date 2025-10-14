@@ -127,14 +127,14 @@ def test_bookmark_transaction_decorator():
 def test_bookmark_transaction_as_a_context():
     with db.transaction as transaction:
         APerson(name="Tanya").save()
-    assert isinstance(transaction.last_bookmark, Bookmarks)
+    assert isinstance(transaction.last_bookmarks, Bookmarks)
 
     assert APerson.nodes.filter(name="Tanya")
 
     with raises(UniqueProperty):
         with db.transaction as transaction:
             APerson(name="Tanya").save()
-    assert transaction.last_bookmark is None
+    assert transaction.last_bookmarks is None
 
 
 @pytest.fixture
@@ -157,14 +157,14 @@ def test_bookmark_passed_in_to_context(spy_on_db_begin):
         pass
 
     assert (spy_on_db_begin)[-1] == ((), {"access_mode": None, "bookmarks": None})
-    last_bookmark = transaction.last_bookmark
+    last_bookmarks = transaction.last_bookmarks
 
-    transaction.bookmarks = last_bookmark
+    transaction.bookmarks = last_bookmarks
     with transaction:
         pass
     assert spy_on_db_begin[-1] == (
         (),
-        {"access_mode": None, "bookmarks": last_bookmark},
+        {"access_mode": None, "bookmarks": last_bookmarks},
     )
 
 
@@ -176,4 +176,4 @@ def test_query_inside_bookmark_transaction():
 
         assert len([p.name for p in APerson.nodes]) == 2
 
-    assert isinstance(transaction.last_bookmark, Bookmarks)
+    assert isinstance(transaction.last_bookmarks, Bookmarks)

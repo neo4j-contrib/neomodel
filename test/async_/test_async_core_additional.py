@@ -207,12 +207,12 @@ async def test_async_transaction_proxy_aexit_success():
 
     with patch.object(test_db, "rollback", new_callable=AsyncMock) as mock_rollback:
         with patch.object(test_db, "commit", new_callable=AsyncMock) as mock_commit:
-            mock_commit.return_value = "bookmark"
+            mock_commit.return_value = "bookmarks"
 
             await proxy.__aexit__(None, None, None)
             mock_rollback.assert_not_called()
             mock_commit.assert_called_once()
-            assert proxy.last_bookmark == "bookmark"
+            assert proxy.last_bookmarks == "bookmarks"
 
 
 @mark_async_test

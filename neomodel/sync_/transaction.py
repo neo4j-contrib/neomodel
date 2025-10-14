@@ -27,7 +27,7 @@ class TransactionProxy:
         self.access_mode: str | None = access_mode
         self.parallel_runtime: bool | None = parallel_runtime
         self.bookmarks: Bookmarks | None = None
-        self.last_bookmark: Bookmarks | None = None
+        self.last_bookmarks: Bookmarks | None = None
 
     def __enter__(self) -> "TransactionProxy":
         if self.parallel_runtime and not self.db.parallel_runtime_available():
@@ -54,7 +54,7 @@ class TransactionProxy:
             raise UniqueProperty(exc_value.message)
 
         if not exc_value:
-            self.last_bookmark = self.db.commit()
+            self.last_bookmarks = self.db.commit()
 
     def __call__(self, func: Callable) -> Callable:
         if Util.is_async_code and not iscoroutinefunction(func):
@@ -82,9 +82,9 @@ class BookmarkingAsyncTransactionProxy(TransactionProxy):
 
             with self:
                 result = func(*args, **kwargs)
-                self.last_bookmark = None
+                self.last_bookmarks = None
 
-            return result, self.last_bookmark
+            return result, self.last_bookmarks
 
         return wrapper
 

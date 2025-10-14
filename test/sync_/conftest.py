@@ -51,5 +51,8 @@ def setup_neo4j_session(request):
 
 @mark_async_function_auto_fixture
 def setUp():
+    db.set_connection(url=get_config().database_url)
     db.cypher_query("MATCH (n) DETACH DELETE n")
     yield
+
+    db.close_connection()
