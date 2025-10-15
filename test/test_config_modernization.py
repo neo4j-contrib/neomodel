@@ -6,11 +6,13 @@ and environment variable support.
 """
 
 import os
+import warnings
 from unittest.mock import patch
 
 import pytest
 
 from neomodel import NeomodelConfig, config, get_config, reset_config, set_config
+from neomodel.config import clear_deprecation_warnings
 
 # Type ignore for dynamic module attributes created by config module replacement
 # pylint: disable=no-member
@@ -565,3 +567,104 @@ class TestIntegration:
 
         # Restore original value
         config.SOFT_CARDINALITY_CHECK = original_value
+
+
+class TestDeprecationWarnings:
+    """Test deprecation warnings for legacy configuration access."""
+
+    def setup_method(self):
+        """Clear deprecation warnings before each test."""
+        clear_deprecation_warnings()
+
+    def test_deprecation_warning_on_get(self):
+        """Test that deprecation warnings are issued when accessing legacy attributes."""
+        with pytest.warns(
+            DeprecationWarning, match="Accessing config.DATABASE_URL is deprecated"
+        ):
+            _ = config.DATABASE_URL
+
+        with pytest.warns(
+            DeprecationWarning, match="Accessing config.FORCE_TIMEZONE is deprecated"
+        ):
+            _ = config.FORCE_TIMEZONE
+
+        with pytest.warns(
+            DeprecationWarning, match="Accessing config.CYPHER_DEBUG is deprecated"
+        ):
+            _ = config.CYPHER_DEBUG
+
+    def test_deprecation_warning_on_set(self):
+        """Test that deprecation warnings are issued when setting legacy attributes."""
+        with pytest.warns(
+            DeprecationWarning, match="Setting config.DATABASE_URL is deprecated"
+        ):
+            config.DATABASE_URL = "bolt://test:test@localhost:7687"
+
+        with pytest.warns(
+            DeprecationWarning, match="Setting config.FORCE_TIMEZONE is deprecated"
+        ):
+            config.FORCE_TIMEZONE = True
+
+        with pytest.warns(
+            DeprecationWarning, match="Setting config.SLOW_QUERIES is deprecated"
+        ):
+            config.SLOW_QUERIES = 1.0
+
+    def test_deprecation_warning_only_once_per_attribute(self):
+        """Test that deprecation warnings are only shown once per attribute."""
+        # First access should show warning
+        with pytest.warns(DeprecationWarning):
+            _ = config.DATABASE_URL
+
+        # Second access should not show warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # Turn warnings into errors
+            _ = config.DATABASE_URL  # Should not raise
+
+    def test_deprecation_warning_message_content(self):
+        """Test that deprecation warning messages contain helpful migration information."""
+        with pytest.warns(DeprecationWarning) as warning_info:
+            _ = config.DATABASE_URL
+
+        warning = warning_info[0]
+        assert "Accessing config.DATABASE_URL is deprecated" in str(warning.message)
+        assert "from neomodel import get_config" in str(warning.message)
+        assert "config.database_url" in str(warning.message)
+
+    def test_deprecation_warning_message_for_setting(self):
+        """Test that deprecation warning messages for setting contain helpful migration information."""
+        with pytest.warns(DeprecationWarning) as warning_info:
+            config.FORCE_TIMEZONE = True
+
+        warning = warning_info[0]
+        assert "Setting config.FORCE_TIMEZONE is deprecated" in str(warning.message)
+        assert "from neomodel import get_config" in str(warning.message)
+        assert "config.force_timezone = value" in str(warning.message)
+
+    def test_clear_deprecation_warnings_resets_state(self):
+        """Test that clear_deprecation_warnings resets the warning state."""
+        # First access should show warning
+        with pytest.warns(DeprecationWarning):
+            _ = config.DATABASE_URL
+
+        # Clear warnings
+        clear_deprecation_warnings()
+
+        # Next access should show warning again
+        with pytest.warns(DeprecationWarning):
+            _ = config.DATABASE_URL
+
+    def test_modern_api_no_deprecation_warnings(self):
+        """Test that the modern API does not trigger deprecation warnings."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # Turn warnings into errors
+
+            # Modern API should not trigger warnings
+            config_obj = get_config()
+            _ = config_obj.database_url
+            _ = config_obj.force_timezone
+            _ = config_obj.cypher_debug
+
+            config_obj.database_url = "bolt://test:test@localhost:7687"
+            config_obj.force_timezone = True
+            config_obj.slow_queries = 1.0

@@ -272,15 +272,47 @@ def reset_config() -> None:
     _config = None
 
 
+def clear_deprecation_warnings() -> None:
+    """Clear the set of deprecation warnings that have been shown.
+
+    This is primarily useful for testing purposes to reset the warning state.
+    """
+    global _legacy_attr_warnings
+    _legacy_attr_warnings.clear()
+
+
 # Backward compatibility: Create module-level attributes that delegate to the config instance
+_legacy_attr_warnings: set[str] = set()
+
+
 def _get_attr(name: str) -> Any:
     """Get attribute from the global config instance."""
+    # Issue deprecation warning for legacy attribute access
+    if name not in _legacy_attr_warnings:
+        _legacy_attr_warnings.add(name)
+        warnings.warn(
+            f"Accessing config.{name.upper()} is deprecated and will be removed in a future version. Use the modern configuration API instead: "
+            f"from neomodel import get_config; config = get_config(); config.{name}",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
     config = get_config()
     return getattr(config, name)
 
 
 def _set_attr(name: str, value: Any) -> None:
     """Set attribute on the global config instance."""
+    # Issue deprecation warning for legacy attribute setting
+    if name not in _legacy_attr_warnings:
+        _legacy_attr_warnings.add(name)
+        warnings.warn(
+            f"Setting config.{name.upper()} is deprecated and will be removed in a future version. Use the modern configuration API instead: "
+            f"from neomodel import get_config; config = get_config(); config.{name} = value",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
     config = get_config()
     original_value = getattr(config, name)
     setattr(config, name, value)

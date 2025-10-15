@@ -165,6 +165,10 @@ The configuration system validates values when they are set::
 Legacy Configuration (Backward Compatibility)
 ---------------------------------------------
 
+.. warning::
+    The legacy configuration approach described below is **deprecated** and will be removed in a future version.
+    Deprecation warnings are shown when using the legacy API to encourage migration to the modern configuration system.
+
 .. note::
     The following section describes the legacy configuration approach, available in neomodel 5.5.3 and earlier.
     While still supported for backward compatibility, we recommend using the modern configuration system described above.
@@ -173,7 +177,7 @@ For existing code, the traditional uppercase configuration attributes are still 
 
     from neomodel import config
     
-    # Legacy approach (still works)
+    # Legacy approach (still works but shows deprecation warnings)
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'
     config.MAX_CONNECTION_POOL_SIZE = 100
     config.CONNECTION_ACQUISITION_TIMEOUT = 60.0
@@ -203,6 +207,51 @@ Legacy self-managed driver setup::
 
 .. note::
     Only the synchronous driver works with the legacy self-managed approach. For async drivers, use the modern configuration system.
+
+Deprecation Warnings
+~~~~~~~~~~~~~~~~~~~~
+
+When using the legacy configuration API, deprecation warnings are shown to encourage migration::
+
+    import warnings
+    from neomodel import config
+    
+    # This will show a deprecation warning
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    # DeprecationWarning: Setting config.DATABASE_URL is deprecated and will be removed in a future version. 
+    # Use the modern configuration API instead: 
+    # from neomodel import get_config; config = get_config(); config.database_url = value
+
+To suppress deprecation warnings temporarily (not recommended for production)::
+
+    import warnings
+    warnings.filterwarnings('ignore', category=DeprecationWarning, module='neomodel.config')
+    
+    # Now legacy config access won't show warnings
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+
+Migration Guide
+~~~~~~~~~~~~~~~
+
+To migrate from legacy to modern configuration:
+
+**Before (Legacy):**
+::
+
+    from neomodel import config
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    config.FORCE_TIMEZONE = True
+    config.MAX_CONNECTION_POOL_SIZE = 50
+
+**After (Modern):**
+::
+
+    from neomodel import get_config
+    config = get_config()
+    config.database_url = 'bolt://neo4j:password@localhost:7687'
+    config.force_timezone = True
+    config.max_connection_pool_size = 50
+
 
 Managing Connections
 --------------------
