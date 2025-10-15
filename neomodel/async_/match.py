@@ -469,16 +469,14 @@ class AsyncQueryBuilder:
             and hasattr(self.node_set, "vector_query")
             and self.node_set.vector_query
         ):
-            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
+            self.build_vector_query()
 
         if (
             isinstance(self.node_set, AsyncNodeSet)
             and hasattr(self.node_set, "fulltext_query")
             and self.node_set.fulltext_query
         ):
-            self.build_fulltext_query(
-                self.node_set.fulltext_query, self.node_set.source
-            )
+            self.build_fulltext_query()
 
         await self.build_source(self.node_set)
 
@@ -561,57 +559,59 @@ class AsyncQueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "AsyncNodeSet"):
+    def build_vector_query(self):
         """
         Query a vector indexed property on the node.
         """
+        vector_filter = self.node_set.vector_query
+        source_class = self.node_set.source_class
         try:
-            attribute = getattr(source, vectorfilter.vector_attribute_name)
+            attribute = getattr(
+                self.node_set.source, vector_filter.vector_attribute_name
+            )
         except AttributeError as e:
             raise AttributeError(
-                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
+                f"Attribute '{vector_filter.vector_attribute_name}' not found on '{source_class.__name__}'."
             ) from e
 
         if not attribute.vector_index:
             raise AttributeError(
-                f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
+                f"Attribute {vector_filter.vector_attribute_name} is not declared with a vector index."
             )
 
-        vectorfilter.index_name = (
-            f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
-        )
-        vectorfilter.node_set_label = source.__label__.lower()
+        vector_filter.index_name = f"vector_index_{source_class.__label__}_{vector_filter.vector_attribute_name}"
+        vector_filter.node_set_label = source_class.__label__.lower()
 
-        self._ast.vector_index_query = vectorfilter
-        self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
-        self._ast.result_class = source.__class__
+        self._ast.vector_index_query = vector_filter
+        self._ast.return_clause = f"{vector_filter.node_set_label}, score"
+        self._ast.result_class = source_class.__class__
 
-    def build_fulltext_query(
-        self, fulltextquery: "FulltextFilter", source: "AsyncNodeSet"
-    ):
+    def build_fulltext_query(self):
         """
         Query a free text indexed property on the node.
         """
+        full_text_filter = self.node_set.fulltext_query
+        source_class = self.node_set.source_class
         try:
-            attribute = getattr(source, fulltextquery.fulltext_attribute_name)
+            attribute = getattr(
+                self.node_set.source, full_text_filter.fulltext_attribute_name
+            )
         except AttributeError as e:
             raise AttributeError(
-                f"Atribute '{fulltextquery.fulltext_attribute_name}' not found on '{type(source).__name__}'."
+                f"Atribute '{full_text_filter.fulltext_attribute_name}' not found on '{source_class.__name__}'."
             ) from e
 
         if not attribute.fulltext_index:
             raise AttributeError(
-                f"Attribute {fulltextquery.fulltext_attribute_name} is not declared with a full text index."
+                f"Attribute {full_text_filter.fulltext_attribute_name} is not declared with a full text index."
             )
 
-        fulltextquery.index_name = (
-            f"fulltext_index_{source.__label__}_{fulltextquery.fulltext_attribute_name}"
-        )
-        fulltextquery.node_set_label = source.__label__.lower()
+        full_text_filter.index_name = f"fulltext_index_{source_class.__label__}_{full_text_filter.fulltext_attribute_name}"
+        full_text_filter.node_set_label = source_class.__label__.lower()
 
-        self._ast.fulltext_index_query = fulltextquery
-        self._ast.return_clause = f"{fulltextquery.node_set_label}, score"
-        self._ast.result_class = source.__class__
+        self._ast.fulltext_index_query = full_text_filter
+        self._ast.return_clause = f"{full_text_filter.node_set_label}, score"
+        self._ast.result_class = source_class.__class__
 
     async def build_traversal(self, traversal: "AsyncTraversal") -> str:
         """
@@ -1598,9 +1598,8 @@ class AsyncNodeSet(AsyncBaseSet):
         """
         if args or kwargs:
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = (
-                []
-            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            new_args = []
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
@@ -1609,8 +1608,6 @@ class AsyncNodeSet(AsyncBaseSet):
                     self.fulltext_query = arg
 
                 new_args.append(arg)
-
-            new_args = tuple(new_args)
 
             if (
                 kwargs.get("vector_filter")
@@ -1626,7 +1623,7 @@ class AsyncNodeSet(AsyncBaseSet):
             ):
                 self.fulltext_query = kwargs.pop("fulltext_filter")
 
-            self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
+            self.q_filters = Q(self.q_filters & Q(*tuple(new_args), **kwargs))
 
         return self
 
@@ -1693,9 +1690,9 @@ class AsyncNodeSet(AsyncBaseSet):
             item.alias = alias
         return item
 
-    def unique_variables(self, *paths: tuple[str, ...]) -> "AsyncNodeSet":
+    def unique_variables(self, *paths: str) -> "AsyncNodeSet":
         """Generate unique variable names for the given paths."""
-        self._unique_variables = paths
+        self._unique_variables = list(paths)
         return self
 
     def traverse(

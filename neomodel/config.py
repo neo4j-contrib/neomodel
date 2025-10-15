@@ -6,6 +6,7 @@ and environment variable support, while maintaining backward compatibility.
 """
 
 import os
+import sys
 import warnings
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, Optional
@@ -500,13 +501,11 @@ class _ConfigModule:
 
 
 # Create the module instance for backward compatibility
-import sys
-
 _current_module = sys.modules[__name__]
 _config_module = _ConfigModule()
 
 # Replace the module with the config module instance
-sys.modules[__name__] = _config_module
+sys.modules[__name__] = _config_module  # type: ignore[assignment]
 
 # Copy all attributes from the original module to maintain backward compatibility
 for attr_name in dir(_current_module):

@@ -4,7 +4,7 @@ import re
 import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
-from typing import Any, Callable
+from typing import Any, Callable, Union, overload
 from zoneinfo import ZoneInfo
 
 import neo4j.time
@@ -603,7 +603,17 @@ class AliasProperty(property, Property):
     def aliased_to(self) -> str:
         return self.target
 
+    @overload
+    def __get__(self, obj: None, _type: Any | None = None) -> "AliasProperty":
+        ...
+
+    @overload
     def __get__(self, obj: Any, _type: Any | None = None) -> Property:
+        ...
+
+    def __get__(
+        self, obj: Any | None, _type: Any | None = None
+    ) -> Union[Property, "AliasProperty"]:
         return getattr(obj, self.aliased_to()) if obj else self
 
     def __set__(self, obj: Any, value: Property) -> None:

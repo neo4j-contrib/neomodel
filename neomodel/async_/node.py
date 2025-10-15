@@ -8,8 +8,7 @@ import warnings
 from itertools import combinations
 from typing import TYPE_CHECKING, Any, Callable
 
-if TYPE_CHECKING:
-    from neomodel.async_.match import AsyncNodeSet
+from neo4j.graph import Node
 
 from neomodel.async_.database import adb
 from neomodel.async_.property_manager import AsyncPropertyManager
@@ -18,6 +17,9 @@ from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property
 from neomodel.util import _UnsavedNode, classproperty
+
+if TYPE_CHECKING:
+    from neomodel.async_.match import AsyncNodeSet
 
 
 class NodeMeta(type):
@@ -451,19 +453,19 @@ class AsyncStructuredNode(NodeBase):
         return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
-    def inflate(cls: Any, node: Any) -> Any:
+    def inflate(cls: Any, graph_entity: Node) -> Any:  # type: ignore[override]
         """
         Inflate a raw neo4j_driver node to a neomodel node
-        :param node:
+        :param graph_entity: node
         :return: node object
         """
         # support lazy loading
-        if isinstance(node, str) or isinstance(node, int):
+        if isinstance(graph_entity, str) or isinstance(graph_entity, int):
             snode = cls()
-            snode.element_id_property = node
+            snode.element_id_property = graph_entity
         else:
-            snode = super().inflate(node)
-            snode.element_id_property = node.element_id
+            snode = super().inflate(graph_entity)
+            snode.element_id_property = graph_entity.element_id
 
         return snode
 

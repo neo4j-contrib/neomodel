@@ -1,7 +1,7 @@
 import types
 from typing import Any
 
-from neo4j.graph import Entity
+from neo4j.graph import Node, Relationship
 
 from neomodel.exceptions import RequiredProperty
 from neomodel.properties import AliasProperty, Property
@@ -101,9 +101,9 @@ class PropertyManager:
         return deflated
 
     @classmethod
-    def inflate(cls: Any, graph_entity: Entity) -> Any:
+    def inflate(cls: Any, graph_entity: Node | Relationship) -> Any:
         """
-        Inflate the properties of a neo4j.graph.Entity (a neo4j.graph.Node or neo4j.graph.Relationship) into an instance
+        Inflate the properties of a graph entity (a neo4j.graph.Node or neo4j.graph.Relationship) into an instance
         of cls.
         Includes mapping from database property name (see Property.db_property) -> python class attribute name.
         Ignores any properties that are not defined as python attributes in the class definition.
