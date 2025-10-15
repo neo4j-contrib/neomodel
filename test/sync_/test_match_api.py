@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from test._async_compat import mark_sync_test
+from unittest.mock import MagicMock, Mock
 
 from pytest import raises, skip, warns
 
@@ -1250,6 +1251,20 @@ def assert_last_query_startswith(mock_func, query) -> bool:
     return mock_func.call_args_list[-1].kwargs["query"].startswith(query)
 
 
+def create_mock_async_result():
+    """Create a mock Result that behaves like neo4j.Result"""
+    mock_result = MagicMock()
+    mock_result.keys.return_value = ()
+
+    # Create an async iterator that yields empty records
+    def iter(self):
+        return
+        yield  # This makes it an async generator
+
+    mock_result.__iter__ = iter
+    return mock_result
+
+
 @mark_sync_test
 def test_parallel_runtime(mocker):
     if not db.version_is_higher_than("5.13") or not db.edition_is_enterprise():
@@ -1262,7 +1277,11 @@ def test_parallel_runtime(mocker):
         # Mock transaction.run to access executed query
         # Assert query starts with CYPHER runtime=parallel
         assert db._parallel_runtime == True
-        mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+        mock_transaction_run = mocker.patch(
+            "neo4j.Transaction.run",
+            new_callable=Mock,
+            return_value=create_mock_async_result(),
+        )
         db.cypher_query("MATCH (n:Coffee) RETURN n")
         assert assert_last_query_startswith(
             mock_transaction_run, "CYPHER runtime=parallel"
@@ -1272,7 +1291,11 @@ def test_parallel_runtime(mocker):
 
     # Parallel should be applied to neomodel queries
     with db.parallel_read_transaction:
-        mock_transaction_run_2 = mocker.patch("neo4j.Transaction.run")
+        mock_transaction_run_2 = mocker.patch(
+            "neo4j.Transaction.run",
+            new_callable=Mock,
+            return_value=create_mock_async_result(),
+        )
         Coffee.nodes.all()
         assert assert_last_query_startswith(
             mock_transaction_run_2, "CYPHER runtime=parallel"
@@ -1285,7 +1308,11 @@ def test_parallel_runtime_conflict(mocker):
         skip("Test for unavailable parallel runtime.")
 
     assert not db.parallel_runtime_available()
-    mock_transaction_run = mocker.patch("neo4j.Transaction.run")
+    mock_transaction_run = mocker.patch(
+        "neo4j.Transaction.run",
+        new_callable=Mock,
+        return_value=create_mock_async_result(),
+    )
     with warns(
         UserWarning,
         match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",

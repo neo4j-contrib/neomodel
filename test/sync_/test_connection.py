@@ -1,5 +1,9 @@
 import os
-from test._async_compat import mark_sync_test
+from test._async_compat import (
+    mark_async_function_auto_fixture,
+    mark_sync_session_auto_fixture,
+    mark_sync_test,
+)
 from test.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
 
 import pytest
@@ -9,8 +13,7 @@ from neo4j.debug import watch
 from neomodel import StringProperty, StructuredNode, db, get_config
 
 
-@mark_sync_test
-@pytest.fixture(autouse=True)
+@mark_async_function_auto_fixture
 def setup_teardown(request):
     yield
     # Teardown actions after tests have run
@@ -28,7 +31,7 @@ def setup_teardown(request):
         db.set_connection(url=get_config().database_url)
 
 
-@pytest.fixture(autouse=True, scope="session")
+@mark_sync_session_auto_fixture
 def neo4j_logging():
     with watch("neo4j"):
         yield

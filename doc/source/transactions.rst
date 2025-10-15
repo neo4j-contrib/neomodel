@@ -124,7 +124,7 @@ the resulting bookmark may be extracted only after the context manager has exite
         # All database access happens after completion of the transactions
         # listed in bookmark1 and bookmark2
 
-    bookmark = transaction.last_bookmark
+    bookmark = transaction.last_bookmarks
 
 Bookmarks are strings and may be passed between processes. ``transaction.bookmarks`` may be set to a single bookmark,
 a sequence of bookmarks, or None.
@@ -146,20 +146,20 @@ the second element::
         return Person.nodes.all()
 
 
-    result, bookmark = update_user_name(uid, name)
+    result, bookmarks = update_user_name(uid, name)
 
-    users, last_bookmark = get_all_users(bookmarks=[bookmark])
+    users, last_bookmarks = get_all_users(bookmarks=bookmarks)
     for user in users:
         ...
 
 
 or manually::
 
-    db.begin(bookmarks=[bookmark])
+    db.begin(bookmarks=bookmarks)
     try:
         new_user = Person(name=username, email=email).save()
         send_email(new_user)
-        bookmark = db.commit()
+        bookmarks = db.commit()
     except Exception as e:
         db.rollback()
 

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from test._async_compat import mark_sync_test
 from zoneinfo import ZoneInfo
 
@@ -137,7 +137,7 @@ def test_datetimes_timezones():
     prop = DateTimeProperty()
     prop.name = "foo"
     prop.owner = FooBar
-    t = datetime.utcnow()
+    t = datetime.now(timezone.utc)
     gr = ZoneInfo("Europe/Athens")
     gb = ZoneInfo("Europe/London")
     dt1 = t.replace(tzinfo=gr)
@@ -380,26 +380,26 @@ def test_default_value_callable_type():
     assert x.uid == "123"
 
 
-class TestDBNamePropertyRel(StructuredRel):
+class DBNamePropertyRel(StructuredRel):
     known_for = StringProperty(db_property="knownFor")
 
 
 # This must be defined outside of the test, otherwise the `Relationship` definition cannot look up
-# `TestDBNamePropertyNode`
-class TestDBNamePropertyNode(StructuredNode):
+# `DBNamePropertyNode`
+class DBNamePropertyNode(StructuredNode):
     name_ = StringProperty(db_property="name")
-    knows = Relationship("TestDBNamePropertyNode", "KNOWS", model=TestDBNamePropertyRel)
+    knows = Relationship("DBNamePropertyNode", "KNOWS", model=DBNamePropertyRel)
 
 
 @mark_sync_test
 def test_independent_property_name():
     # -- test node --
-    x = TestDBNamePropertyNode()
+    x = DBNamePropertyNode()
     x.name_ = "jim"
     x.save()
 
     # check database property name on low level
-    results, meta = db.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
+    results, meta = db.cypher_query("MATCH (n:DBNamePropertyNode) RETURN n")
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
@@ -407,8 +407,8 @@ def test_independent_property_name():
     # check python class property name at a high level
     assert not hasattr(x, "name")
     assert hasattr(x, "name_")
-    assert (TestDBNamePropertyNode.nodes.filter(name_="jim").all())[0].name_ == x.name_
-    assert (TestDBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
+    assert (DBNamePropertyNode.nodes.filter(name_="jim").all())[0].name_ == x.name_
+    assert (DBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
 
     # -- test relationship --
 
@@ -418,7 +418,7 @@ def test_independent_property_name():
 
     # check database property name on low level
     results, meta = db.cypher_query(
-        "MATCH (:TestDBNamePropertyNode)-[r:KNOWS]->(:TestDBNamePropertyNode) RETURN r"
+        "MATCH (:DBNamePropertyNode)-[r:KNOWS]->(:DBNamePropertyNode) RETURN r"
     )
     rel_properties = get_graph_entity_properties(results[0][0])
     assert rel_properties["knownFor"] == "10 years"
@@ -433,15 +433,15 @@ def test_independent_property_name():
 
 @mark_sync_test
 def test_independent_property_name_for_semi_structured():
-    class TestDBNamePropertySemiStructuredNode(SemiStructuredNode):
+    class DBNamePropertySemiStructuredNode(SemiStructuredNode):
         title_ = StringProperty(db_property="title")
 
-    semi = TestDBNamePropertySemiStructuredNode(title_="sir", extra="data")
+    semi = DBNamePropertySemiStructuredNode(title_="sir", extra="data")
     semi.save()
 
     # check database property name on low level
     results, meta = db.cypher_query(
-        "MATCH (n:TestDBNamePropertySemiStructuredNode) RETURN n"
+        "MATCH (n:DBNamePropertySemiStructuredNode) RETURN n"
     )
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["title"] == "sir"
@@ -452,13 +452,11 @@ def test_independent_property_name_for_semi_structured():
     assert hasattr(semi, "title_")
     assert not hasattr(semi, "title")
     assert hasattr(semi, "extra")
-    from_filter = (
-        TestDBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all()
-    )[0]
+    from_filter = (DBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all())[0]
     assert from_filter.title_ == "sir"
     # assert not hasattr(from_filter, "title")
     assert from_filter.extra == "data"
-    from_get = TestDBNamePropertySemiStructuredNode.nodes.get(title_="sir")
+    from_get = DBNamePropertySemiStructuredNode.nodes.get(title_="sir")
     assert from_get.title_ == "sir"
     # assert not hasattr(from_get, "title")
     assert from_get.extra == "data"

@@ -51,5 +51,8 @@ async def setup_neo4j_session(request):
 
 @mark_async_function_auto_fixture
 async def setUp():
+    await adb.set_connection(url=get_config().database_url)
     await adb.cypher_query("MATCH (n) DETACH DELETE n")
     yield
+
+    await adb.close_connection()
