@@ -668,3 +668,10 @@ class TestDeprecationWarnings:
             config_obj.database_url = "bolt://test:test@localhost:7687"
             config_obj.force_timezone = True
             config_obj.slow_queries = 1.0
+
+    # Pytest fixture to run after the last test in this file and reset config to default
+    # This prevents interference for subsequent tests in other files.
+    @pytest.fixture(autouse=True)
+    def teardown(self):
+        yield
+        reset_config()
