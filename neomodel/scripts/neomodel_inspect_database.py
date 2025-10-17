@@ -7,11 +7,11 @@
 ::
 
     usage: neomodel_inspect_database [-h] [--db bolt://neo4j:neo4j@localhost:7687] [--write-to <someapp/models.py> ...]
-    
+
     Connects to a Neo4j database and inspects existing nodes and relationships.
     Infers the schema of the database and generates Python class definitions.
 
-    If a connection URL is not specified, the tool will look up the environment 
+    If a connection URL is not specified, the tool will look up the environment
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
 
@@ -19,7 +19,7 @@
     If no file is specified, the tool will print the class definitions to stdout.
 
     Note : this script only has a synchronous mode.
-    
+
     options:
         -h, --help            show this help message and exit
         --db bolt://neo4j:neo4j@localhost:7687
@@ -36,7 +36,7 @@ import textwrap
 from os import environ
 from typing import Any
 
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 
 IMPORTS = []
 

@@ -41,18 +41,19 @@ To install from github::
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
-.. note::
+.. attention::
 
-    **Breaking changes in 5.3**
+    **New in 6.0**
 
-    Introducing support for asynchronous programming to neomodel required to introduce some breaking changes:
+    From now on, neomodel will use SemVer (major.minor.patch) for versioning.
 
-    - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` (:ref:`neomodel_install_labels`) command instead.
-    - The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
+    This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
+    See the :ref:`configuration_options_doc` section for more details.
 
-    **Deprecations in 5.3**
+    **Breaking changes in 6.0**
 
-    - Some standalone methods are moved into the Database() class and will be removed in a future release :
+    - The soft cardinality check is now available for all cardinalities, and strict check is enabled by default.
+    - Standalone methods moved into the Database() class have been removed outside of the Database() class :
         - change_neo4j_password
         - clear_neo4j_database
         - drop_constraints
@@ -60,7 +61,7 @@ To install from github::
         - remove_all_labels
         - install_labels
         - install_all_labels
-    - Additionally, to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
+    - Note : to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
 
 
 Contents

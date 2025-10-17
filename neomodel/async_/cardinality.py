@@ -4,6 +4,7 @@ from neomodel.async_.relationship_manager import (  # pylint:disable=unused-impo
     AsyncRelationshipManager,
     AsyncZeroOrMore,
 )
+from neomodel.config import get_config
 from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolation
 
 if TYPE_CHECKING:
@@ -15,17 +16,16 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
 
     description = "zero or one relationship"
 
-    async def _check_cardinality(
-        self, node: "AsyncStructuredNode", soft_check: bool = False
-    ) -> None:
+    async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         if await self.get_len():
-            if soft_check:
+            detailed_description = str(self)
+            if get_config().soft_cardinality_check:
                 print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created."
                 )
             else:
                 raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                    f"Node already has {detailed_description}. Use reconnect() to replace the existing relationship."
                 )
 
     async def single(self) -> Optional["AsyncStructuredNode"]:
@@ -46,7 +46,7 @@ class AsyncZeroOrOne(AsyncRelationshipManager):
         return [node] if node else []
 
     async def connect(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
     ) -> "AsyncStructuredRel":
         """
         Connect to a node.
@@ -97,6 +97,11 @@ class AsyncOneOrMore(AsyncRelationshipManager):
             raise AttemptedCardinalityViolation("One or more expected")
         return await super().disconnect(node)
 
+    async def disconnect_all(self) -> None:
+        raise AttemptedCardinalityViolation(
+            "Cardinality one or more, cannot disconnect_all use reconnect."
+        )
+
 
 class AsyncOne(AsyncRelationshipManager):
     """
@@ -105,17 +110,16 @@ class AsyncOne(AsyncRelationshipManager):
 
     description = "one relationship"
 
-    async def _check_cardinality(
-        self, node: "AsyncStructuredNode", soft_check: bool = False
-    ) -> None:
+    async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         if await self.get_len():
-            if soft_check:
+            detailed_description = str(self)
+            if get_config().soft_cardinality_check:
                 print(
-                    f"Cardinality violation detected : Node already has one relationship of type {self.definition['relation_type']}, should not connect more. Soft check is enabled so the relationship will be created. Note that strict check will be enabled by default in version 6.0"
+                    f"Cardinality violation detected : Node already has {detailed_description}, should not connect more. Soft check is enabled so the relationship will be created."
                 )
             else:
                 raise AttemptedCardinalityViolation(
-                    f"Node already has one relationship of type {self.definition['relation_type']}. Use reconnect() to replace the existing relationship."
+                    f"Node already has {detailed_description}. Use reconnect() to replace the existing relationship."
                 )
 
     async def single(self) -> "AsyncStructuredNode":
@@ -150,7 +154,7 @@ class AsyncOne(AsyncRelationshipManager):
         )
 
     async def connect(
-        self, node: "AsyncStructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
     ) -> "AsyncStructuredRel":
         """
         Connect a node

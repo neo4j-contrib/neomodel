@@ -17,7 +17,7 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     adb,
-    config,
+    get_config,
 )
 
 
@@ -67,6 +67,11 @@ class Company(AsyncStructuredNode):
 class Employee(AsyncStructuredNode):
     name = StringProperty(required=True)
     employer = AsyncRelationshipFrom("Company", "EMPLOYS", cardinality=AsyncZeroOrOne)
+    offices = AsyncRelationshipFrom("Office", "HOSTS", cardinality=AsyncOneOrMore)
+
+
+class Office(AsyncStructuredNode):
+    name = StringProperty(required=True)
 
 
 class Manager(AsyncStructuredNode):
@@ -120,8 +125,14 @@ async def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = await ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.driver.connect(j)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     await m.driver.reconnect(h, j)
     single_driver = await m.driver.single()
@@ -161,8 +172,11 @@ async def test_cardinality_one_or_more():
     cars = await m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.car.disconnect(c)
+
+    error_message = str(exc_info.value)
+    assert "One or more expected" == error_message
 
     d = await Car(version=3).save()
     await m.car.connect(d)
@@ -172,6 +186,11 @@ async def test_cardinality_one_or_more():
     await m.car.disconnect(d)
     cars = await m.car.all()
     assert len(cars) == 1
+
+    with raises(AttemptedCardinalityViolation):
+        await m.car.disconnect_all()
+
+    assert await m.car.single() is not None
 
 
 @mark_async_test
@@ -192,8 +211,14 @@ async def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = await ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         await m.toothbrush.connect(x)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     with raises(AttemptedCardinalityViolation):
         await m.toothbrush.disconnect(b)
@@ -230,7 +255,8 @@ async def test_relationship_from_one_cardinality_enforced():
     were not being enforced.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     owner1 = await Owner(name="Alice").save()
     owner2 = await Owner(name="Bob").save()
     pet = await Pet(name="Fluffy").save()
@@ -248,14 +274,15 @@ async def test_relationship_from_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         await owner2.pets.connect(pet)
         assert pet in await owner2.pets.all()
 
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
+
+    config.soft_cardinality_check = False
 
 
 @mark_async_test
@@ -264,7 +291,8 @@ async def test_relationship_from_zero_or_one_cardinality_enforced():
     Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     company1 = await Company(name="TechCorp").save()
     company2 = await Company(name="StartupInc").save()
     employee = await Employee(name="John").save()
@@ -282,14 +310,38 @@ async def test_relationship_from_zero_or_one_cardinality_enforced():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         await company2.employees.connect(employee)
         assert employee in await company2.employees.all()
 
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
+
+    config.soft_cardinality_check = False
+
+
+@mark_async_test
+async def test_relationship_from_one_or_more_cardinality_enforced():
+    """
+    Test that RelationshipFrom with cardinality=OneOrMore prevents disconnecting all nodes.
+    """
+    # Setup
+    config = get_config()
+    config.soft_cardinality_check = False
+    office = await Office(name="Headquarters").save()
+    employee = await Employee(name="John").save()
+    await employee.offices.connect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        await employee.offices.disconnect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        await employee.offices.disconnect_all()
+
+    assert await employee.offices.single() is not None
+
+    config.soft_cardinality_check = False
 
 
 @mark_async_test
@@ -298,7 +350,8 @@ async def test_bidirectional_cardinality_validation():
     Test that cardinality is validated on both ends when both sides have constraints.
     """
     # Setup
-    config.SOFT_INVERSE_CARDINALITY_CHECK = False
+    config = get_config()
+    config.soft_cardinality_check = False
     manager1 = await Manager(name="Sarah").save()
     manager2 = await Manager(name="David").save()
     assistant = await Assistant(name="Alex").save()
@@ -316,11 +369,12 @@ async def test_bidirectional_cardinality_validation():
 
     stream = io.StringIO()
     with patch("sys.stdout", new=stream):
-        config.SOFT_INVERSE_CARDINALITY_CHECK = True
+        config.soft_cardinality_check = True
         await manager2.assistant.connect(assistant)
         assert assistant in await manager2.assistant.all()
 
     console_output = stream.getvalue()
     assert "Cardinality violation detected" in console_output
     assert "Soft check is enabled so the relationship will be created" in console_output
-    assert "strict check will be enabled by default in version 6.0" in console_output
+
+    config.soft_cardinality_check = False
