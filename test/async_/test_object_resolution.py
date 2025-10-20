@@ -71,7 +71,7 @@ async def test_basic_object_resolution():
 
     # Test basic node resolution
     results, _ = await adb.cypher_query(
-        "MATCH (n:TestNode) WHERE n.name = $name RETURN n",
+        "MATCH (n:ResolutionNode) WHERE n.name = $name RETURN n",
         {"name": "Node1"},
         resolve_objects=True,
     )
@@ -96,7 +96,7 @@ async def test_relationship_resolution():
 
     # Test relationship resolution
     results, _ = await adb.cypher_query(
-        "MATCH (a:TestNode)-[r:RELATED_TO]->(b:TestNode) RETURN a, r, b",
+        "MATCH (a:ResolutionNode)-[r:RELATED_TO]->(b:ResolutionNode) RETURN a, r, b",
         resolve_objects=True,
     )
 
@@ -127,7 +127,7 @@ async def test_path_resolution():
 
     # Test path resolution
     results, _ = await adb.cypher_query(
-        "MATCH p=(a:TestNode)-[:RELATED_TO*2]->(c:TestNode) RETURN p",
+        "MATCH p=(a:ResolutionNode)-[:RELATED_TO*2]->(c:ResolutionNode) RETURN p",
         resolve_objects=True,
     )
 
@@ -153,7 +153,7 @@ async def test_nested_lists_basic():
 
     # Test nested list resolution
     results, _ = await adb.cypher_query(
-        "MATCH (n:TestNode) RETURN collect(n) as nodes", resolve_objects=True
+        "MATCH (n:ResolutionNode) RETURN collect(n) as nodes", resolve_objects=True
     )
 
     assert len(results) == 1
@@ -182,7 +182,7 @@ async def test_nested_lists_complex():
     # Test complex nested list with collect
     results, _ = await adb.cypher_query(
         """
-        MATCH (c:ContainerNode)-[r:CONTAINS]->(i:TestNode)
+        MATCH (c:ResolutionContainerNode)-[r:CONTAINS]->(i:ResolutionNode)
         WITH c, collect({item: i, rel: r}) as items
         RETURN c, items
         """,
@@ -222,7 +222,7 @@ async def test_nodes_nested_in_maps():
     # Test nodes nested in maps
     results, _ = await adb.cypher_query(
         """
-        MATCH (n1:TestNode), (n2:TestNode)
+        MATCH (n1:ResolutionNode), (n2:ResolutionNode)
         WHERE n1.name = 'Node1' AND n2.name = 'Node2'
         RETURN {
             first: n1,
@@ -274,7 +274,7 @@ async def test_mixed_nested_structures():
     # Test complex mixed structure
     results, _ = await adb.cypher_query(
         """
-        MATCH (s:SpecialNode)-[r:RELATED_TO]->(t:TestNode)
+        MATCH (s:ResolutionSpecialNode)-[r:RELATED_TO]->(t:ResolutionNode)
         WITH s, collect({node: t, rel: r}) as related_items
         RETURN {
             special_node: s,
@@ -340,7 +340,7 @@ async def test_deeply_nested_structures():
     # Test deeply nested structure
     results, _ = await adb.cypher_query(
         """
-        MATCH (n:TestNode)
+        MATCH (n:ResolutionNode)
         WITH collect(n) as level1
         RETURN {
             level1: level1,
@@ -416,8 +416,9 @@ async def test_collect_with_aggregation():
     # Test collect with aggregation
     results, _ = await adb.cypher_query(
         """
-        MATCH (n:TestNode)
+        MATCH (n:ResolutionNode)
         WHERE n.name STARTS WITH 'Agg'
+        WITH n ORDER BY n.name
         WITH collect(n) as all_nodes
         RETURN {
             nodes: all_nodes,
@@ -467,14 +468,14 @@ async def test_resolve_objects_false_comparison():
 
     # Test with resolve_objects=False
     results_false, _ = await adb.cypher_query(
-        "MATCH (n:TestNode) WHERE n.name = $name RETURN n",
+        "MATCH (n:ResolutionNode) WHERE n.name = $name RETURN n",
         {"name": "RawNode"},
         resolve_objects=False,
     )
 
     # Test with resolve_objects=True
     results_true, _ = await adb.cypher_query(
-        "MATCH (n:TestNode) WHERE n.name = $name RETURN n",
+        "MATCH (n:ResolutionNode) WHERE n.name = $name RETURN n",
         {"name": "RawNode"},
         resolve_objects=True,
     )
@@ -490,7 +491,7 @@ async def test_resolve_objects_false_comparison():
     assert raw_node["name"] == "RawNode"
     assert raw_node["value"] == 123
 
-    # Resolved node should be a TestNode instance
+    # Resolved node should be a ResolutionNode instance
     assert isinstance(resolved_node, ResolutionNode)
     assert resolved_node.name == "RawNode"
     assert resolved_node.value == 123
@@ -501,7 +502,8 @@ async def test_empty_results():
     """Test object resolution with empty results."""
     # Test empty results
     results, _ = await adb.cypher_query(
-        "MATCH (n:TestNode) WHERE n.name = 'NonExistent' RETURN n", resolve_objects=True
+        "MATCH (n:ResolutionNode) WHERE n.name = 'NonExistent' RETURN n",
+        resolve_objects=True,
     )
 
     assert len(results) == 0
@@ -516,7 +518,7 @@ async def test_primitive_types_preserved():
     # Test with mixed primitive and node types
     results, _ = await adb.cypher_query(
         """
-        MATCH (n:TestNode) WHERE n.name = $name
+        MATCH (n:ResolutionNode) WHERE n.name = $name
         RETURN n, n.value as int_val, n.name as str_val, true as bool_val, 3.14 as float_val
         """,
         {"name": "PrimitiveTest"},
