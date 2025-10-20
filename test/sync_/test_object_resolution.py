@@ -26,42 +26,44 @@ from neomodel import (
 )
 
 
-class TestRelationship(StructuredRel):
+class ResolutionRelationship(StructuredRel):
     """Test relationship with properties."""
 
     weight = IntegerProperty(default=1)
     description = StringProperty(default="test")
 
 
-class TestNode(StructuredNode):
+class ResolutionNode(StructuredNode):
     """Base test node class."""
 
     name = StringProperty(required=True)
     value = IntegerProperty(default=0)
-    related = RelationshipTo("TestNode", "RELATED_TO", model=TestRelationship)
+    related = RelationshipTo(
+        "ResolutionNode", "RELATED_TO", model=ResolutionRelationship
+    )
 
 
-class SpecialNode(StructuredNode):
+class ResolutionSpecialNode(StructuredNode):
     """Specialized test node class."""
 
     name = StringProperty(required=True)
     special_value = IntegerProperty(default=42)
-    related = RelationshipTo(TestNode, "RELATED_TO", model=TestRelationship)
+    related = RelationshipTo(ResolutionNode, "RELATED_TO", model=ResolutionRelationship)
 
 
-class ContainerNode(StructuredNode):
+class ResolutionContainerNode(StructuredNode):
     """Container node for testing nested structures."""
 
     name = StringProperty(required=True)
-    items = RelationshipTo(TestNode, "CONTAINS", model=TestRelationship)
+    items = RelationshipTo(ResolutionNode, "CONTAINS", model=ResolutionRelationship)
 
 
 @mark_sync_test
 def test_basic_object_resolution():
     """Test basic object resolution for nodes and relationships."""
     # Create test data
-    TestNode(name="Node1", value=10).save()
-    TestNode(name="Node2", value=20).save()
+    ResolutionNode(name="Node1", value=10).save()
+    ResolutionNode(name="Node2", value=20).save()
 
     # Test basic node resolution
     results, _ = db.cypher_query(
@@ -73,7 +75,7 @@ def test_basic_object_resolution():
     assert len(results) == 1
     assert len(results[0]) == 1
     resolved_node = results[0][0]
-    assert isinstance(resolved_node, TestNode)
+    assert isinstance(resolved_node, ResolutionNode)
     assert resolved_node.name == "Node1"
     assert resolved_node.value == 10
 
@@ -82,8 +84,8 @@ def test_basic_object_resolution():
 def test_relationship_resolution():
     """Test relationship resolution in queries."""
     # Create test data with relationships
-    node1 = TestNode(name="Source", value=100).save()
-    node2 = TestNode(name="Target", value=200).save()
+    node1 = ResolutionNode(name="Source", value=100).save()
+    node2 = ResolutionNode(name="Target", value=200).save()
 
     # Create relationship
     node1.related.connect(node2, {"weight": 5, "description": "test_rel"})
@@ -97,9 +99,9 @@ def test_relationship_resolution():
     assert len(results) == 1
     source, rel, target = results[0]
 
-    assert isinstance(source, TestNode)
-    assert isinstance(rel, TestRelationship)
-    assert isinstance(target, TestNode)
+    assert isinstance(source, ResolutionNode)
+    assert isinstance(rel, ResolutionRelationship)
+    assert isinstance(target, ResolutionNode)
 
     assert source.name == "Source"
     assert target.name == "Target"
@@ -111,9 +113,9 @@ def test_relationship_resolution():
 def test_path_resolution():
     """Test path resolution in queries."""
     # Create test data
-    node1 = TestNode(name="Start", value=1).save()
-    node2 = TestNode(name="Middle", value=2).save()
-    node3 = TestNode(name="End", value=3).save()
+    node1 = ResolutionNode(name="Start", value=1).save()
+    node2 = ResolutionNode(name="Middle", value=2).save()
+    node3 = ResolutionNode(name="End", value=3).save()
 
     # Create path
     node1.related.connect(node2, {"weight": 1})
@@ -142,7 +144,7 @@ def test_nested_lists_basic():
     # Create test data
     nodes = []
     for i in range(3):
-        node = TestNode(name=f"Node{i}", value=i * 10).save()
+        node = ResolutionNode(name=f"Node{i}", value=i * 10).save()
         nodes.append(node)
 
     # Test nested list resolution
@@ -157,7 +159,7 @@ def test_nested_lists_basic():
     assert len(collected_nodes) == 3
 
     for i, node in enumerate(collected_nodes):
-        assert isinstance(node, TestNode)
+        assert isinstance(node, ResolutionNode)
         assert node.name == f"Node{i}"
         assert node.value == i * 10
 
@@ -166,10 +168,10 @@ def test_nested_lists_basic():
 def test_nested_lists_complex():
     """Test complex nested list resolution with collect() (Issue #905 - complex case)."""
     # Create test data with relationships
-    container = ContainerNode(name="Container").save()
+    container = ResolutionContainerNode(name="Container").save()
     items = []
     for i in range(2):
-        item = TestNode(name=f"Item{i}", value=i * 5).save()
+        item = ResolutionNode(name=f"Item{i}", value=i * 5).save()
         items.append(item)
         container.items.connect(item, {"weight": i + 1})
 
@@ -186,7 +188,7 @@ def test_nested_lists_complex():
     assert len(results) == 1
     container_result, items_result = results[0]
 
-    assert isinstance(container_result, ContainerNode)
+    assert isinstance(container_result, ResolutionContainerNode)
     assert container_result.name == "Container"
 
     assert isinstance(items_result, list)
@@ -200,8 +202,8 @@ def test_nested_lists_complex():
         item = item_data["item"]
         rel = item_data["rel"]
 
-        assert isinstance(item, TestNode)
-        assert isinstance(rel, TestRelationship)
+        assert isinstance(item, ResolutionNode)
+        assert isinstance(rel, ResolutionRelationship)
         assert item.name == f"Item{i}"
         assert rel.weight == i + 1
 
@@ -210,8 +212,8 @@ def test_nested_lists_complex():
 def test_nodes_nested_in_maps():
     """Test nodes nested in maps (Issue #906)."""
     # Create test data
-    TestNode(name="Node1", value=100).save()
-    TestNode(name="Node2", value=200).save()
+    ResolutionNode(name="Node1", value=100).save()
+    ResolutionNode(name="Node2", value=200).save()
 
     # Test nodes nested in maps
     results, _ = db.cypher_query(
@@ -242,8 +244,8 @@ def test_nodes_nested_in_maps():
     first_node = result_map["first"]
     second_node = result_map["second"]
 
-    assert isinstance(first_node, TestNode)
-    assert isinstance(second_node, TestNode)
+    assert isinstance(first_node, ResolutionNode)
+    assert isinstance(second_node, ResolutionNode)
     assert first_node.name == "Node1"
     assert second_node.name == "Node2"
 
@@ -258,10 +260,10 @@ def test_nodes_nested_in_maps():
 def test_mixed_nested_structures():
     """Test mixed nested structures with lists, maps, and nodes."""
     # Create test data
-    special = SpecialNode(name="Special", special_value=999).save()
+    special = ResolutionSpecialNode(name="Special", special_value=999).save()
     test_nodes = []
     for i in range(2):
-        node = TestNode(name=f"Test{i}", value=i * 100).save()
+        node = ResolutionNode(name=f"Test{i}", value=i * 100).save()
         test_nodes.append(node)
         special.related.connect(node, {"weight": i + 10})
 
@@ -292,7 +294,7 @@ def test_mixed_nested_structures():
 
     # Check special node resolution
     special_node = complex_result["special_node"]
-    assert isinstance(special_node, SpecialNode)
+    assert isinstance(special_node, ResolutionSpecialNode)
     assert special_node.name == "Special"
     assert special_node.special_value == 999
 
@@ -309,8 +311,8 @@ def test_mixed_nested_structures():
         node = item["node"]
         rel = item["rel"]
 
-        assert isinstance(node, TestNode)
-        assert isinstance(rel, TestRelationship)
+        assert isinstance(node, ResolutionNode)
+        assert isinstance(rel, ResolutionRelationship)
         assert node.name == f"Test{i}"
         assert rel.weight == i + 10
 
@@ -328,7 +330,7 @@ def test_deeply_nested_structures():
     # Create test data
     nodes = []
     for i in range(3):
-        node = TestNode(name=f"Deep{i}", value=i * 50).save()
+        node = ResolutionNode(name=f"Deep{i}", value=i * 50).save()
         nodes.append(node)
 
     # Test deeply nested structure
@@ -364,7 +366,7 @@ def test_deeply_nested_structures():
     assert isinstance(level1, list)
     assert len(level1) == 3
     for i, node in enumerate(level1):
-        assert isinstance(node, TestNode)
+        assert isinstance(node, ResolutionNode)
         assert node.name == f"Deep{i}"
 
     # Check level2 (nested structure)
@@ -378,7 +380,7 @@ def test_deeply_nested_structures():
     assert isinstance(level2_nodes, list)
     assert len(level2_nodes) == 3
     for i, node in enumerate(level2_nodes):
-        assert isinstance(node, TestNode)
+        assert isinstance(node, ResolutionNode)
         assert node.name == f"Deep{i}"
 
     # Check metadata in level2
@@ -396,7 +398,7 @@ def test_deeply_nested_structures():
     assert isinstance(level3_items, list)
     assert len(level3_items) == 3
     for i, node in enumerate(level3_items):
-        assert isinstance(node, TestNode)
+        assert isinstance(node, ResolutionNode)
         assert node.name == f"Deep{i}"
 
 
@@ -405,7 +407,7 @@ def test_collect_with_aggregation():
     """Test collect() with aggregation functions."""
     # Create test data
     for i in range(5):
-        node = TestNode(name=f"AggNode{i}", value=i * 10).save()
+        node = ResolutionNode(name=f"AggNode{i}", value=i * 10).save()
 
     # Test collect with aggregation
     results, _ = db.cypher_query(
@@ -437,7 +439,7 @@ def test_collect_with_aggregation():
     assert isinstance(nodes, list)
     assert len(nodes) == 5
     for i, node in enumerate(nodes):
-        assert isinstance(node, TestNode)
+        assert isinstance(node, ResolutionNode)
         assert node.name == f"AggNode{i}"
         assert node.value == i * 10
 
@@ -457,7 +459,7 @@ def test_collect_with_aggregation():
 def test_resolve_objects_false_comparison():
     """Test that resolve_objects=False returns raw Neo4j objects."""
     # Create test data
-    TestNode(name="RawNode", value=123).save()
+    ResolutionNode(name="RawNode", value=123).save()
 
     # Test with resolve_objects=False
     results_false, _ = db.cypher_query(
@@ -485,7 +487,7 @@ def test_resolve_objects_false_comparison():
     assert raw_node["value"] == 123
 
     # Resolved node should be a TestNode instance
-    assert isinstance(resolved_node, TestNode)
+    assert isinstance(resolved_node, ResolutionNode)
     assert resolved_node.name == "RawNode"
     assert resolved_node.value == 123
 
@@ -505,7 +507,7 @@ def test_empty_results():
 def test_primitive_types_preserved():
     """Test that primitive types are preserved during object resolution."""
     # Create test data
-    TestNode(name="PrimitiveTest", value=456).save()
+    ResolutionNode(name="PrimitiveTest", value=456).save()
 
     # Test with mixed primitive and node types
     results, _ = db.cypher_query(
@@ -521,7 +523,7 @@ def test_primitive_types_preserved():
     node_result, int_val, str_val, bool_val, float_val = results[0]
 
     # Node should be resolved
-    assert isinstance(node_result, TestNode)
+    assert isinstance(node_result, ResolutionNode)
     assert node_result.name == "PrimitiveTest"
 
     # Primitives should remain primitive
