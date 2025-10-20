@@ -153,7 +153,12 @@ async def test_nested_lists_basic():
 
     # Test nested list resolution
     results, _ = await adb.cypher_query(
-        "MATCH (n:ResolutionNode) RETURN collect(n) as nodes", resolve_objects=True
+        """
+        MATCH (n:ResolutionNode)
+        WITH n ORDER BY n.name
+        RETURN collect(n) as nodes
+        """,
+        resolve_objects=True,
     )
 
     assert len(results) == 1
@@ -183,6 +188,7 @@ async def test_nested_lists_complex():
     results, _ = await adb.cypher_query(
         """
         MATCH (c:ResolutionContainerNode)-[r:CONTAINS]->(i:ResolutionNode)
+        WITH c, r, i ORDER BY i.name
         WITH c, collect({item: i, rel: r}) as items
         RETURN c, items
         """,
@@ -342,6 +348,7 @@ async def test_deeply_nested_structures():
     results, _ = await adb.cypher_query(
         """
         MATCH (n:ResolutionNode)
+        WITH n ORDER BY n.name
         WITH collect(n) as level1
         RETURN {
             level1: level1,
