@@ -539,7 +539,13 @@ class Database:
             return NeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
-            return self._result_resolution([object_to_resolve])
+            return [self._object_resolution(item) for item in object_to_resolve]
+
+        if isinstance(object_to_resolve, dict):
+            return {
+                key: self._object_resolution(value)
+                for key, value in object_to_resolve.items()
+            }
 
         return object_to_resolve
 
