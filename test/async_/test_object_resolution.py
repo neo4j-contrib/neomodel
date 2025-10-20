@@ -275,6 +275,7 @@ async def test_mixed_nested_structures():
     results, _ = await adb.cypher_query(
         """
         MATCH (s:ResolutionSpecialNode)-[r:RELATED_TO]->(t:ResolutionNode)
+        WITH s, r, t ORDER BY t.name
         WITH s, collect({node: t, rel: r}) as related_items
         RETURN {
             special_node: s,
