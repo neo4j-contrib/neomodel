@@ -52,6 +52,11 @@ See the [documentation](https://neomodel.readthedocs.io/en/latest/configuration.
 
 [Semantic Indexes](https://neomodel.readthedocs.io/en/latest/semantic_indexes.html#) (Vector and Full-text) are now natively supported so you do not have to use a custom Cypher query. Special thanks to @greengori11a for this.
 
+### Breaking changes
+
+* List object resolution from Cypher was creating "2-depth" lists for no apparent reason. This release fixes this so that, for example "RETURN collect(node)" will return the nodes directly as a list in the result. In other words, you can extract this list at `results[0][0]` instead of `results[0][0][0]`
+* See more breaking changes in the [documentation](http://neomodel.readthedocs.org)
+
 # Installation
 
 Install from pypi (recommended):

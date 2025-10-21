@@ -3,6 +3,7 @@ Version 6.0.0 2025-xx
 * Fix async support of parallel transactions, using ContextVar
 * Enforce strict cardinality check by default
 * Refactor internal code: core.py file is now split into smaller files for database, node, transaction
+* Fix object resolution for maps and lists Cypher objects, even when nested. This changes the way you can access lists in your Cypher results, see documentation for more info
 * Removed deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
 * Housekeeping and bug fixes
   
