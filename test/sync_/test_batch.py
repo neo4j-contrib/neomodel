@@ -129,3 +129,51 @@ def test_get_or_create_with_rel():
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]
+
+
+class NodeWithDefaultProp(StructuredNode):
+    name = StringProperty(required=True)
+    age = IntegerProperty(default=30)
+    other_prop = StringProperty()
+
+
+@mark_sync_test
+def test_get_or_create_with_ignored_properties():
+    node = NodeWithDefaultProp.get_or_create({"name": "Tania", "age": 20})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20
+
+    node = NodeWithDefaultProp.get_or_create({"name": "Tania"})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20  # Tania was fetched and not created
+
+    node = NodeWithDefaultProp.get_or_create({"name": "Tania", "age": 30})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20  # Tania was fetched and not created
+
+
+@mark_sync_test
+def test_create_or_update_with_ignored_properties():
+    node = NodeWithDefaultProp.create_or_update({"name": "Tania", "age": 20})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20
+
+    node = NodeWithDefaultProp.create_or_update(
+        {"name": "Tania", "other_prop": "other"}
+    )
+    assert node[0].name == "Tania"
+    assert (
+        node[0].age == 20
+    )  # Tania is still 20 even though default says she should be 30
+    assert (
+        node[0].other_prop == "other"
+    )  # She does have a brand new other_prop, lucky her !
+
+    node = NodeWithDefaultProp.create_or_update(
+        {"name": "Tania", "age": 30, "other_prop": "other2"}
+    )
+    assert node[0].name == "Tania"
+    assert node[0].age == 30  # Tania is now 30, congrats Tania !
+    assert (
+        node[0].other_prop == "other2"
+    )  # Plus she has a new other_prop - as a birthday gift ?

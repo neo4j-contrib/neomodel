@@ -22,48 +22,104 @@ Create multiple nodes at once in a single transaction::
 
 create_or_update()
 ------------------
-Atomically create or update nodes in a single operation::
+Atomically create or update nodes in a single operation.
+The **required** and **unique** properties are used as keys to match nodes,
+all other properties being used only on the resulting write operation.
+For example::
+
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+        age = IntegerProperty()
 
     people = Person.create_or_update(
-        {'name': 'Tim', 'age': 83},
-        {'name': 'Bob', 'age': 23},
-        {'name': 'Jill', 'age': 34},
+        {'name': 'Tim', 'age': 83}, # created
+        {'name': 'Bob', 'age': 23}, # created
+        {'name': 'Jill', 'age': 34}, # created
     )
 
     more_people = Person.create_or_update(
-        {'name': 'Tim', 'age': 73},
-        {'name': 'Bob', 'age': 35},
-        {'name': 'Jane', 'age': 24},
+        {'name': 'Tim', 'age': 73}, # updated
+        {'name': 'Bob', 'age': 35}, # updated
+        {'name': 'Jane', 'age': 24}, # created
     )
 
-This is useful for ensuring data is up to date, each node is matched by its required and/or unique properties. Any
-additional properties will be set on a newly created or an existing node.
 
-It is important to provide unique identifiers where known, any fields with default values that are omitted will be generated.
+Only explicitly provided properties will be updated on the node in all other cases::
+    class NodeWithDefaultProp(AsyncStructuredNode):
+        name = StringProperty(required=True)
+        age = IntegerProperty(default=30)
+        other_prop = StringProperty()
+
+    node = await NodeWithDefaultProp.create_or_update({"name": "Tania", "age": 20})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20
+
+    node = await MultiRequiredPropNode.create_or_update(
+        {"name": "Tania", "other_prop": "other"}
+    )
+    assert node[0].name == "Tania"
+    assert (
+        node[0].age == 20
+    )  # Tania is still 20 even though default says she should be 30
+    assert (
+        node[0].other_prop == "other"
+    )  # She does have a brand new other_prop, lucky her !
+
+
+However, if fields used as keys have default values, those default values will be used if the property is omitted in your call.
+This means that when using `UniqueIdProperty`, which is both unique and has a default value, if you do not pass it explicitly,
+it will generate a new (random) value for it, and thus create a new node instead of updating an existing one::
+
+    class UniquePerson(StructuredNode):
+        uid = UniqueIdProperty()
+        name = StringProperty(required=True)
+
+    unique_person = UniquePerson.create_or_update({"name": "Tim"}) # created
+    unique_person = UniquePerson.create_or_update({"name": "Tim"}) # created again with a new uid
+
+.. attention::
+    This has been raised as an [issue in GitHub](https://github.com/neo4j-contrib/neomodel/issues/807).
+    While it is not a bug in itself, it is a deviation from the expected behavior of the function, and thus may be unexpected.
+    Therefore, an idea would be to refactor the batch mechanism to allow users to specify which properties are used as keys to match nodes.
+
 
 get_or_create()
 ---------------
-Atomically get or create nodes in a single operation::
+Atomically get or create nodes in a single operation.
+For example::
 
     people = Person.get_or_create(
-        {'name': 'Tim'},
-        {'name': 'Bob'},
+        {'name': 'Tim'}, # created
+        {'name': 'Bob'}, # created
     )
 
     people_with_jill = Person.get_or_create(
-        {'name': 'Tim'},
-        {'name': 'Bob'},
-        {'name': 'Jill'},
+        {'name': 'Tim'}, # fetched
+        {'name': 'Bob'}, # fetched
+        {'name': 'Jill'}, # created
     )
     # are same nodes
     assert people[0] == people_with_jill[0]
     assert people[1] == people_with_jill[1]
 
-This is useful for ensuring specific nodes exist only and all required properties must be specified to ensure
-uniqueness. In this example 'Tim' and 'Bob' are created on the first call, and are retrieved in the second call.
+The **required** and **unique** properties are used as keys to match nodes,
+all other properties being used only when a new node is created.
+For example::
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+        age = IntegerProperty()
+
+    node = await Person.get_or_create({"name": "Tania", "age": 20})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20
+
+    node = await MultiRequiredPropNode.get_or_create({"name": "Tania", "age": 30})
+    assert node[0].name == "Tania"
+    assert node[0].age == 20  # Tania was fetched and not created, age is still 20
+
 
 Additionally, get_or_create() allows the "relationship" parameter to be passed. When a relationship is specified, the
-matching is done based on that relationship and not globally::
+matching is done based on that relationship and not globally. The relationship becomes one of the keys to match nodes::
 
     class Dog(StructuredNode):
         name = StringProperty(required=True)
@@ -81,6 +137,3 @@ matching is done based on that relationship and not globally::
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]
-
-In case when the only required property is unique, the operation is redundant. However with simple required properties,
-the relationship becomes a part of the unique identifier.

@@ -57,7 +57,7 @@ def test_ensure_connection_decorator_with_driver():
 
 
 @mark_sync_test
-def test_async_database_clear_neo4j_database():
+def test_clear_neo4j_database():
     """Test clear_neo4j_database method."""
     test_db = Database()
 
@@ -76,7 +76,7 @@ def test_async_database_clear_neo4j_database():
 
 
 @mark_sync_test
-def test_async_database_drop_constraints():
+def test_drop_constraints():
     """Test drop_constraints method."""
     test_db = Database()
 
@@ -98,7 +98,7 @@ def test_async_database_drop_constraints():
 
 
 @mark_sync_test
-def test_async_database_drop_indexes():
+def test_drop_indexes():
     """Test drop_indexes method."""
     test_db = Database()
 
@@ -118,7 +118,7 @@ def test_async_database_drop_indexes():
 
 
 @mark_sync_test
-def test_async_database_remove_all_labels():
+def test_remove_all_labels():
     """Test remove_all_labels method."""
     test_db = Database()
 
@@ -140,7 +140,7 @@ def test_async_database_remove_all_labels():
 
 
 @mark_sync_test
-def test_async_database_install_all_labels():
+def test_install_all_labels():
     """Test install_all_labels method."""
     test_db = Database()
 
@@ -161,7 +161,7 @@ def test_async_database_install_all_labels():
 
 
 @mark_sync_test
-def test_async_transaction_proxy_aenter_parallel_runtime_warning():
+def test_proxy_aenter_parallel_runtime_warning():
     """Test TransactionProxy __enter__ with parallel runtime warning."""
     test_db = Database()
     proxy = TransactionProxy(test_db, parallel_runtime=True)
@@ -180,7 +180,7 @@ def test_async_transaction_proxy_aenter_parallel_runtime_warning():
 
 
 @mark_sync_test
-def test_async_transaction_proxy_aexit_with_exception():
+def test_proxy_aexit_with_exception():
     """Test TransactionProxy __exit__ with exception."""
     test_db = Database()
     proxy = TransactionProxy(test_db)
@@ -194,7 +194,7 @@ def test_async_transaction_proxy_aexit_with_exception():
 
 
 @mark_sync_test
-def test_async_transaction_proxy_aexit_success():
+def test_proxy_aexit_success():
     """Test TransactionProxy __exit__ with success."""
     test_db = Database()
     proxy = TransactionProxy(test_db)
@@ -210,7 +210,7 @@ def test_async_transaction_proxy_aexit_success():
 
 
 @mark_sync_test
-def test_async_transaction_proxy_call_decorator():
+def test_proxy_call_decorator():
     """Test TransactionProxy __call__ decorator."""
     test_db = Database()
     proxy = TransactionProxy(test_db)
@@ -230,7 +230,7 @@ def test_async_transaction_proxy_call_decorator():
 
 
 @mark_sync_test
-def test_async_database_cypher_query_client_error_generic():
+def test_cypher_query_client_error_generic():
     """Test cypher_query with generic ClientError."""
     test_db = Database()
 

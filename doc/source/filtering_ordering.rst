@@ -162,7 +162,7 @@ Sometimes you need to order results based on properties situated on different no
 
     # Find the most expensive coffee to deliver
     # Then order by the date the supplier started supplying
-    Coffee.nodes.order_by(
+    Coffee.nodes.traverse("suppliers").order_by(
         '-suppliers__delivery_cost',
         'suppliers|since',
     )
@@ -172,6 +172,7 @@ In the example above, note the following syntax elements:
 - The name of relationships as defined in the `StructuredNode` class is used to traverse relationships. `suppliers` in this example.
 - Double underscore `__` is used to target a property of a node. `delivery_cost` in this example.
 - A pipe `|` is used to separate the relationship traversal from the property filter. This is a special syntax to indicate that the filter is on the relationship itself, not on the node at the end of the relationship.
+- The traversal is done explicitly before the ordering, so that the traversed relationship's properties are available for ordering.
 
 Traversals can be of any length, with each relationships separated by a double underscore `__`, for example::
 
