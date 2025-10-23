@@ -53,6 +53,7 @@ To install from github::
     **Breaking changes in 6.0**
 
     - The soft cardinality check is now available for all cardinalities, and strict check is enabled by default.
+    - AsyncDatabase / Database are now true singletons for clarity
     - Standalone methods moved into the Database() class have been removed outside of the Database() class :
         - change_neo4j_password
         - clear_neo4j_database

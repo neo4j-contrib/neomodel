@@ -3,7 +3,8 @@ Version 6.0.0 2025-xx
 * Fix async support of parallel transactions, using ContextVar
 * Enforce strict cardinality check by default
 * Refactor internal code: core.py file is now split into smaller files for database, node, transaction
-* Removed deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
+* Make AsyncDatabase / Database a true singleton for clarity
+* Remove deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
 * Housekeeping and bug fixes
   
 Version 5.5.3 2025-09
