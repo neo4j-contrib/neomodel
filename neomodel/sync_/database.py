@@ -98,13 +98,37 @@ def ensure_connection(func: Callable) -> Callable:
 class Database:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
+
+    This class enforces singleton behavior - only one instance can exist at a time.
+    The singleton instance is accessible via the module-level 'db' variable.
     """
 
     # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
+    # Singleton instance tracking
+    _instance: "Database | None" = None
+    _initialized: bool = False
+
+    def __new__(cls) -> "Database":
+        """
+        Enforce singleton pattern - only one instance can exist.
+
+        Returns:
+            Database: The singleton instance
+
+        Raises:
+            RuntimeError: If attempting to create a second instance
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self) -> None:
+        # Prevent re-initialization of the singleton instance
+        if Database._initialized:
+            return
         # Private to instances and contexts
         self.__active_transaction: ContextVar[Transaction | None] = ContextVar(
             "_active_transaction", default=None
@@ -130,6 +154,35 @@ class Database:
         self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
             "_parallel_runtime", default=False
         )
+
+        # Mark the singleton as initialized
+        Database._initialized = True
+
+    @classmethod
+    def get_instance(cls) -> "Database":
+        """
+        Get the singleton instance of Database.
+
+        Returns:
+            Database: The singleton instance
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """
+        Reset the singleton instance. This should only be used for testing purposes.
+
+        Warning: This will close any existing connections and reset all state.
+        """
+        if cls._instance is not None:
+            # Close any existing connections
+            cls._instance.close_connection()
+
+        cls._instance = None
+        cls._initialized = False
 
     @property
     def _active_transaction(self) -> Transaction | None:
@@ -1274,4 +1327,4 @@ class Database:
 
 
 # Create a singleton instance of the database object
-db = Database()
+db = Database.get_instance()
