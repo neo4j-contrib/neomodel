@@ -1,6 +1,7 @@
 Version 6.0.0 2025-xx
 * Modernize config object, using a dataclass with typing, runtime and update validation rules, and environment variables support
 * Fix async support of parallel transactions, using ContextVar
+* Introduces merge_by parameter for batch operations to customize merge behaviour (label and property keys)
 * Enforce strict cardinality check by default
 * Refactor internal code: core.py file is now split into smaller files for database, node, transaction
 * Make AsyncDatabase / Database a true singleton for clarity

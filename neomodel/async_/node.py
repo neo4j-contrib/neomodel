@@ -221,6 +221,7 @@ class AsyncStructuredNode(NodeBase):
         update_existing: bool = False,
         lazy: bool = False,
         relationship: Any | None = None,
+        merge_by: dict[str, str | list[str]] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
@@ -229,17 +230,38 @@ class AsyncStructuredNode(NodeBase):
         :type merge_params: list of dict
         :param update_existing: True to update properties of existing nodes, default False to keep existing values.
         :type update_existing: bool
-        :rtype: tuple
+        :param lazy: False by default, specify True to get nodes with id only without the properties.
+        :type lazy: bool
+        :param relationship: Optional relationship to create when merging nodes.
+        :type relationship: Any | None
+        :param merge_by: Optional dict with 'label' and 'keys' to specify custom merge criteria.
+                        'label' is optional and should be a string, 'keys' is a list of strings.
+                        If 'label' is not provided, uses the node's inherited labels.
+                        If 'keys' is not provided, uses the node's required properties as merge keys.
+        :type merge_by: dict[str, str | list[str]] | None
+        :return: tuple of query and params
+        :rtype: tuple[str, dict[str, Any]]
         """
         query_params: dict[str, Any] = {"merge_params": merge_params}
-        n_merge_labels = ":".join(cls.inherited_labels())
-        n_merge_prm = ", ".join(
-            (
-                f"{getattr(cls, p).get_db_property_name(p)}: params.create.{getattr(cls, p).get_db_property_name(p)}"
-                for p in cls.__required_properties__
+
+        # Determine merge key and labels
+        if merge_by:
+            # Use custom merge keys
+            merge_keys = merge_by["keys"]
+            merge_labels = merge_by.get("label", ":".join(cls.inherited_labels()))
+
+            n_merge_prm = ", ".join(f"{key}: params.create.{key}" for key in merge_keys)
+        else:
+            # Use default required properties
+            merge_labels = ":".join(cls.inherited_labels())
+            n_merge_prm = ", ".join(
+                (
+                    f"{getattr(cls, p).get_db_property_name(p)}: params.create.{getattr(cls, p).get_db_property_name(p)}"
+                    for p in cls.__required_properties__
+                )
             )
-        )
-        n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
+
+        n_merge = f"n:{merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
@@ -343,11 +365,20 @@ class AsyncStructuredNode(NodeBase):
         :param props: List of dict arguments to get or create the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :type relationship: Any | None
+        :param lazy: False by default, specify True to get nodes with id only without the properties.
+        :type lazy: bool
+        :param merge_by: Optional dict with 'label' and 'keys' to specify custom merge criteria.
+                        'label' is optional and should be a string, 'keys' is a list of strings.
+                        If 'label' is not provided, uses the node's inherited labels.
+                        If 'keys' is not provided, uses the node's required properties as merge keys.
+        :type merge_by: dict[str, str | list[str]] | None
+        :return: list of nodes
         :rtype: list
         """
         lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
+        merge_by = kwargs.get("merge_by")
 
         # build merge query, make sure to update only explicitly specified properties
         create_or_update_params = []
@@ -365,6 +396,7 @@ class AsyncStructuredNode(NodeBase):
             update_existing=True,
             relationship=relationship,
             lazy=lazy,
+            merge_by=merge_by,
         )
 
         if "streaming" in kwargs:
@@ -376,7 +408,10 @@ class AsyncStructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        if lazy:
+            return [r[0] for r in results[0]]
+        else:
+            return [cls.inflate(r[0]) for r in results[0]]
 
     async def cypher(
         self, query: str, params: dict[str, Any] | None = None
@@ -427,18 +462,30 @@ class AsyncStructuredNode(NodeBase):
                       the entities with.
         :type props: tuple
         :param relationship: Optional, relationship to get/create on when new entity is created.
+        :type relationship: Any | None
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
+        :type lazy: bool
+        :param merge_by: Optional dict with 'label' and 'keys' to specify custom merge criteria.
+                        'label' is optional and should be a string, 'keys' is a list of strings.
+                        If 'label' is not provided, uses the node's inherited labels.
+                        If 'keys' is not provided, uses the node's required properties as merge keys.
+        :type merge_by: dict[str, str | list[str]] | None
+        :return: list of nodes
         :rtype: list
         """
         lazy = kwargs.get("lazy", False)
         relationship = kwargs.get("relationship")
+        merge_by = kwargs.get("merge_by")
 
         # build merge query
         get_or_create_params = [
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
         query, params = await cls._build_merge_query(
-            tuple(get_or_create_params), relationship=relationship, lazy=lazy
+            tuple(get_or_create_params),
+            relationship=relationship,
+            lazy=lazy,
+            merge_by=merge_by,
         )
 
         if "streaming" in kwargs:
@@ -450,7 +497,10 @@ class AsyncStructuredNode(NodeBase):
 
         # fetch and build instance for each result
         results = await adb.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
+        if lazy:
+            return [r[0] for r in results[0]]
+        else:
+            return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
     def inflate(cls: Any, graph_entity: Node) -> Any:  # type: ignore[override]

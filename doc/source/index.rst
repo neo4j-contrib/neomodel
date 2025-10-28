@@ -50,6 +50,9 @@ To install from github::
     This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
     See the :ref:`configuration_options_doc` section for more details.
 
+    This version introduces the merge_by parameter for batch operations to customize merge behaviour (label and property keys).
+    See the :ref:`batch` section for more details.
+
     **Breaking changes in 6.0**
 
     - The soft cardinality check is now available for all cardinalities, and strict check is enabled by default.
