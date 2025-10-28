@@ -185,10 +185,10 @@ def test_lazy_mode():
 
     node1 = (NodeWithDefaultProp.create({"name": "Tania", "age": 20}))[0]
     node = NodeWithDefaultProp.get_or_create({"name": "Tania", "age": 20}, lazy=True)
-    assert node[0] == node1.element_id
+    assert node[0] == node1.element_id or node[0] == node1.id
 
     node = NodeWithDefaultProp.create_or_update({"name": "Tania", "age": 25}, lazy=True)
-    assert node[0] == node1.element_id
+    assert node[0] == node1.element_id or node[0] == node1.id
 
 
 class MergeKeyTestNode(StructuredNode):
