@@ -9,6 +9,7 @@ from neomodel import (
     IntegerProperty,
     StringProperty,
     UniqueIdProperty,
+    adb,
 )
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.exceptions import DeflateError, UniqueProperty
@@ -191,12 +192,18 @@ async def test_lazy_mode():
     node = await NodeWithDefaultProp.get_or_create(
         {"name": "Tania", "age": 20}, lazy=True
     )
-    assert node[0] == node1.element_id or node[0] == node1.id
+    if await adb.version_is_higher_than("5.0.0"):
+        assert node[0] == node1.element_id
+    else:
+        assert node[0] == node1.id
 
     node = await NodeWithDefaultProp.create_or_update(
         {"name": "Tania", "age": 25}, lazy=True
     )
-    assert node[0] == node1.element_id or node[0] == node1.id
+    if await adb.version_is_higher_than("5.0.0"):
+        assert node[0] == node1.element_id
+    else:
+        assert node[0] == node1.id
 
 
 class MergeKeyTestNode(AsyncStructuredNode):
