@@ -453,7 +453,10 @@ async def test_merge_key_lazy_mode():
 
     assert len(nodes) == 1
     # In lazy mode, we should get the element_id back
-    assert nodes[0] == node1.element_id
+    if await adb.version_is_higher_than("5.0.0"):
+        assert nodes[0] == node1.element_id
+    else:
+        assert nodes[0] == node1.id
 
 
 @mark_async_test
