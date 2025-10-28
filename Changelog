@@ -1,10 +1,12 @@
 Version 6.0.0 2025-xx
 * Modernize config object, using a dataclass with typing, runtime and update validation rules, and environment variables support
 * Fix async support of parallel transactions, using ContextVar
+* Introduces merge_by parameter for batch operations to customize merge behaviour (label and property keys)
 * Enforce strict cardinality check by default
 * Refactor internal code: core.py file is now split into smaller files for database, node, transaction
 * Fix object resolution for maps and lists Cypher objects, even when nested. This changes the way you can access lists in your Cypher results, see documentation for more info
-* Removed deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
+* Make AsyncDatabase / Database a true singleton for clarity
+* Remove deprecated methods (including fetch_relations & traverse_relations, replaced with traverse ; database operations like clear_neo4j_database or change_neo4j_password have been moved to db/adb singleton internal methods)
 * Housekeeping and bug fixes
   
 Version 5.5.3 2025-09
