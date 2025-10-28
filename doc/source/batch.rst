@@ -43,6 +43,69 @@ For example::
         {'name': 'Jane', 'age': 24}, # created
     )
 
+Custom Merge Keys
+~~~~~~~~~~~~~~~~~
+By default, neomodel uses all required properties as merge keys.
+However, you can specify custom merge criteria using the ``merge_by`` parameter::
+
+    class User(StructuredNode):
+        username = StringProperty(required=True)
+        email = StringProperty(required=True)
+        full_name = StringProperty()
+        age = IntegerProperty()
+
+    # Default behavior (merge by username + email)
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 30
+    })
+
+    # Custom merge by email only
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 31
+    }, merge_by={'keys': ['email']})
+
+    # Custom merge by username only
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john.doe@newcompany.com',
+        'age': 32
+    }, merge_by={'label': 'User', 'keys': ['username']})
+
+The ``merge_by`` parameter accepts a dictionary with:
+- ``label``: The Neo4j label to match against (optional, defaults to the node's inherited labels)
+- ``keys``: The property name(s) to use as the merge key(s).
+
+This is particularly useful when you want to merge nodes based on specific properties
+rather than all required properties, or when you need to merge based on properties
+that are not required.
+
+Examples of different merge key configurations::
+
+    # Single key (string)
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 30
+    }, merge_by={'keys': ['email']})
+
+    # Multiple keys (list)
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 30
+    }, merge_by={'label': 'User', 'keys': ['username', 'email']})
+
+    # Multiple keys with different label
+    users = User.create_or_update({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 30
+    }, merge_by={'label': 'Person', 'keys': ['email', 'age']}) # For when your node has multiple labels
+
 
 Only explicitly provided properties will be updated on the node in all other cases::
     class NodeWithDefaultProp(AsyncStructuredNode):
@@ -116,6 +179,39 @@ For example::
     node = await MultiRequiredPropNode.get_or_create({"name": "Tania", "age": 30})
     assert node[0].name == "Tania"
     assert node[0].age == 20  # Tania was fetched and not created, age is still 20
+
+Custom Merge Keys
+~~~~~~~~~~~~~~~~~
+The ``get_or_create()`` method also supports the ``merge_by`` parameter for custom merge criteria::
+
+    class User(StructuredNode):
+        username = StringProperty(required=True, unique_index=True)
+        email = StringProperty(required=True, unique_index=True)
+        full_name = StringProperty()
+        age = IntegerProperty()
+
+    # Default behavior (merge by username + email)
+    users = User.get_or_create({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 30
+    })
+
+    # Custom merge by email only
+    users = User.get_or_create({
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'age': 31
+    }, merge_by={'keys': ['email']})
+
+    # Custom merge by username only
+    users = User.get_or_create({
+        'username': 'johndoe',
+        'email': 'john.doe@newcompany.com',
+        'age': 32
+    }, merge_by={'label': 'User', 'keys': ['username']})
+
+The same ``merge_by`` parameter format applies to both ``create_or_update()`` and ``get_or_create()`` methods.
 
 
 Additionally, get_or_create() allows the "relationship" parameter to be passed. When a relationship is specified, the
