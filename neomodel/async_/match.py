@@ -1787,9 +1787,6 @@ class AsyncNodeSet(AsyncBaseSet):
                 if node.__class__ is self.source and "_" not in name:
                     root_node = node
                     continue
-                if isinstance(node, list) and isinstance(node[0], list):
-                    other_nodes[name] = node[0]
-                    continue
                 other_nodes[name] = node
             results.append(
                 self._to_subgraph(root_node, other_nodes, qbuilder._ast.subgraph)
