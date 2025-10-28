@@ -1,6 +1,5 @@
 from neomodel.exceptions import DeflateConflict, InflateConflict
-from neomodel.sync_.core import StructuredNode
-from neomodel.util import get_graph_entity_properties
+from neomodel.sync_.node import StructuredNode
 
 
 class SemiStructuredNode(StructuredNode):

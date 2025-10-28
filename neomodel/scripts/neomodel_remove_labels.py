@@ -8,15 +8,15 @@
 ::
 
     usage: neomodel_remove_labels [-h] [--db bolt://neo4j:neo4j@localhost:7687]
-    
+
     Drop all indexes and constraints on labels from schema in Neo4j database.
-    
-    If a connection URL is not specified, the tool will look up the environment 
+
+    If a connection URL is not specified, the tool will look up the environment
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
 
     Note : this script only has a synchronous mode.
-    
+
     options:
       -h, --help            show this help message and exit
       --db bolt://neo4j:neo4j@localhost:7687
@@ -28,7 +28,7 @@ import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ
 
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 
 
 def main():

@@ -5,7 +5,7 @@ from test._async_compat import (
     mark_sync_session_auto_fixture,
 )
 
-from neomodel import config, db
+from neomodel import db, get_config
 
 
 @mark_sync_session_auto_fixture
@@ -19,7 +19,7 @@ def setup_neo4j_session(request):
 
     warnings.simplefilter("default")
 
-    config.DATABASE_URL = os.environ.get(
+    get_config().database_url = os.environ.get(
         "NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"
     )
 
@@ -51,5 +51,8 @@ def setup_neo4j_session(request):
 
 @mark_async_function_auto_fixture
 def setUp():
+    db.set_connection(url=get_config().database_url)
     db.cypher_query("MATCH (n) DETACH DELETE n")
     yield
+
+    db.close_connection()

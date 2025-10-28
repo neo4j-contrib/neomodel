@@ -1,133 +1,354 @@
 Configuration
 =============
 
-This section is covering the Neomodel 'config' module and its variables.
+Neomodel provides a modern, type-safe configuration system for connecting to your Neo4j database. This guide covers the recommended approach using the new dataclass-based configuration system (available from version 6.0), with backward compatibility information for existing code.
 
-.. _connection_options_doc:
+.. _configuration_options_doc:
 
-Connection
-----------
+Database Connection Setup
+-------------------------
 
-There are two ways to define your connection to the database :
+The primary way to configure neomodel is to set up your database connection. There are two approaches:
 
-1. Provide a Neo4j URL and some options - Driver will be managed by neomodel
-2. Create your own Neo4j driver and pass it to neomodel
+1. **Neomodel-managed connection** (recommended) - Let neomodel handle the driver lifecycle
+2. **Self-managed connection** - Provide your own Neo4j driver instance
 
-neomodel-managed (default)
---------------------------
+Neomodel-managed Connection (Recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Set the connection URL::
+This is the simplest and most common approach. Neomodel will create and manage the Neo4j driver for you.
 
-    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
+Basic connection setup::
 
-Adjust driver configuration - these options are only available for this connection method::
+    from neomodel import get_config
+    
+    config = get_config()
+    config.database_url = 'bolt://neo4j:password@localhost:7687'
 
-    config.MAX_CONNECTION_POOL_SIZE = 100  # default
-    config.CONNECTION_ACQUISITION_TIMEOUT = 60.0  # default
-    config.CONNECTION_TIMEOUT = 30.0  # default
-    config.ENCRYPTED = False  # default
-    config.KEEP_ALIVE = True  # default
-    config.MAX_CONNECTION_LIFETIME = 3600  # default
-    config.MAX_CONNECTION_POOL_SIZE = 100  # default
-    config.MAX_TRANSACTION_RETRY_TIME = 30.0  # default
-    config.RESOLVER = None  # default
-    config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES  # default
-    config.USER_AGENT = neomodel/v5.5.1  # default
+You can also set the database name separately::
 
-Setting the database name, if different from the default one::
+    config.database_url = 'bolt://neo4j:password@localhost:7687'
+    config.database_name = 'mydatabase'
+
+Advanced driver configuration, for example::
+
+    config.connection_timeout = 60.0
+    config.max_connection_pool_size = 50
+    config.encrypted = True
+    config.keep_alive = True
+
+Self-managed Connection
+~~~~~~~~~~~~~~~~~~~~~~~
+
+If you need more control over the driver configuration, you can provide your own Neo4j driver::
+
+    from neo4j import GraphDatabase
+    from neomodel import get_config
+    
+    # Create your own driver
+    driver = GraphDatabase.driver(
+        'bolt://localhost:7687',
+        auth=('neo4j', 'password'),
+        encrypted=True,
+        max_connection_lifetime=3600
+    )
+    
+    # Pass it to neomodel
+    config = get_config()
+    config.driver = driver
+
+.. note::
+    When using a self-managed driver, you are responsible for closing it when your application shuts down.
+
+Modern Configuration System (Version 6.0+)
+------------------------------------------
+
+Neomodel 6.0 introduces a modern dataclass-based configuration system with the following benefits:
+
+* **Type Safety**: All configuration values are properly typed
+* **Validation**: Configuration values are validated at startup and when changed
+* **Environment Variables**: Automatic loading from environment variables
+* **IDE Support**: Better autocomplete and type checking
+
+Using the Modern Configuration API
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Access and modify configuration::
+
+    from neomodel import get_config, set_config, reset_config
+    
+    # Get the current configuration
+    config = get_config()
+    print(config.database_url)
+    print(config.force_timezone)
+    
+    # Update configuration
+    config.update(database_url='bolt://new:url@localhost:7687')
+    
+    # Set a custom configuration
+    from neomodel import NeomodelConfig
+    custom_config = NeomodelConfig(
+        database_url='bolt://custom:url@localhost:7687',
+        force_timezone=True
+    )
+    set_config(custom_config)
+    
+    # Reset to defaults (loads from environment variables or defaults)
+    reset_config()
+
+Environment Variable Support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Configuration is automatically loaded from environment variables using the ``NEOMODEL_`` prefix:
+
+* ``NEOMODEL_DATABASE_URL`` - Database connection URL
+* ``NEOMODEL_DATABASE_NAME`` - Database name for custom driver
+* ``NEOMODEL_CONNECTION_ACQUISITION_TIMEOUT`` - Connection acquisition timeout
+* ``NEOMODEL_CONNECTION_TIMEOUT`` - Connection timeout
+* ``NEOMODEL_ENCRYPTED`` - Enable encrypted connections
+* ``NEOMODEL_KEEP_ALIVE`` - Enable keep-alive connections
+* ``NEOMODEL_MAX_CONNECTION_LIFETIME`` - Maximum connection lifetime
+* ``NEOMODEL_MAX_CONNECTION_POOL_SIZE`` - Maximum connection pool size
+* ``NEOMODEL_MAX_TRANSACTION_RETRY_TIME`` - Maximum transaction retry time
+* ``NEOMODEL_USER_AGENT`` - User agent string
+* ``NEOMODEL_FORCE_TIMEZONE`` - Force timezone-aware datetime objects
+* ``NEOMODEL_SOFT_CARDINALITY_CHECK`` - Enable soft cardinality checking
+* ``NEOMODEL_CYPHER_DEBUG`` - Enable Cypher debug logging
+* ``NEOMODEL_SLOW_QUERIES`` - Threshold in seconds for slow query logging (0 = disabled)
+
+.. note::
+    For boolean values, the following strings are supported: ``true``, ``1``, ``yes``, ``on``, ``false``, ``0``, ``no``, ``off``.
+
+Example::
+
+    # Set environment variables
+    export NEOMODEL_DATABASE_URL='bolt://neo4j:password@localhost:7687'
+    export NEOMODEL_FORCE_TIMEZONE='true'
+    export NEOMODEL_CONNECTION_TIMEOUT='60.0'
+    
+    # Configuration will be automatically loaded from environment
+    from neomodel import config
+    print(config.DATABASE_URL)  # 'bolt://neo4j:password@localhost:7687'
+    print(config.FORCE_TIMEZONE)  # True
+    print(config.CONNECTION_TIMEOUT)  # 60.0
+
+.. autofunction:: neomodel.config.get_config
+
+See also the :class:`~neomodel.config.NeomodelConfig` dataclass for a full list of fields, typing and options:
+
+.. autoclass:: neomodel.config.NeomodelConfig
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+Configuration Validation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The configuration system validates values when they are set::
+
+    from neomodel import get_config
+    
+    config = get_config()
+    
+    # This will raise a ValueError
+    try:
+        config.connection_timeout = -1
+    except ValueError as e:
+        print(f"Validation error: {e}")
+    
+    # Invalid database URLs are also caught
+    try:
+        config.database_url = "invalid-url"
+    except ValueError as e:
+        print(f"Validation error: {e}")
+
+Legacy Configuration (Backward Compatibility)
+---------------------------------------------
+
+.. warning::
+    The legacy configuration approach described below is **deprecated** and will be removed in a future version.
+    Deprecation warnings are shown when using the legacy API to encourage migration to the modern configuration system.
+
+.. note::
+    The following section describes the legacy configuration approach, available in neomodel 5.5.3 and earlier.
+    While still supported for backward compatibility, we recommend using the modern configuration system described above.
+
+For existing code, the traditional uppercase configuration attributes are still available::
+
+    from neomodel import config
+    
+    # Legacy approach (still works but shows deprecation warnings)
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'
+    config.MAX_CONNECTION_POOL_SIZE = 100
+    config.CONNECTION_ACQUISITION_TIMEOUT = 60.0
+    config.CONNECTION_TIMEOUT = 30.0
+    config.ENCRYPTED = False
+    config.KEEP_ALIVE = True
+    config.MAX_CONNECTION_LIFETIME = 3600
+    config.MAX_TRANSACTION_RETRY_TIME = 30.0
+    config.RESOLVER = None
+    config.TRUST = neo4j.TRUST_SYSTEM_CA_SIGNED_CERTIFICATES
+    config.USER_AGENT = 'neomodel/v5.5.1'
+
+Setting the database name with legacy approach::
 
     # Using the URL only
-    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687/mydb`
-
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687/mydb'
+    
     # Using config option
-    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687`
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'
     config.DATABASE_NAME = 'mydb'
 
-self-managed
-------------
-
-Create a Neo4j driver::
+Legacy self-managed driver setup::
     
     from neo4j import GraphDatabase
     my_driver = GraphDatabase().driver('bolt://localhost:7687', auth=('neo4j', 'password'))
     config.DRIVER = my_driver
 
-See the `driver documentation <https://neo4j.com/docs/api/python-driver/current/api.html#graphdatabase>` here.
+.. note::
+    Only the synchronous driver works with the legacy self-managed approach. For async drivers, use the modern configuration system.
 
-This mode allows you to use all the available driver options that neomodel doesn't implement, for example auth tokens for SSO.
-Note that you have to manage the driver's lifecycle yourself.
+Deprecation Warnings
+~~~~~~~~~~~~~~~~~~~~
 
-However, everything else is still handled by neomodel : sessions, transactions, etc...
+When using the legacy configuration API, deprecation warnings are shown to encourage migration::
 
-NB : Only the synchronous driver will work in this way. See the next section for the preferred method, and how to pass an async driver instance.
+    import warnings
+    from neomodel import config
+    
+    # This will show a deprecation warning
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    # DeprecationWarning: Setting config.DATABASE_URL is deprecated and will be removed in a future version. 
+    # Use the modern configuration API instead: 
+    # from neomodel import get_config; config = get_config(); config.database_url = value
 
-Change/Close the connection
----------------------------
+To suppress deprecation warnings temporarily (not recommended for production)::
 
-Optionally, you can change the connection at any time by calling ``set_connection``::
+    import warnings
+    warnings.filterwarnings('ignore', category=DeprecationWarning, module='neomodel.config')
+    
+    # Now legacy config access won't show warnings
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+
+Migration Guide
+~~~~~~~~~~~~~~~
+
+To migrate from legacy to modern configuration:
+
+**Before (Legacy):**
+::
+
+    from neomodel import config
+    config.DATABASE_URL = 'bolt://neo4j:password@localhost:7687'
+    config.FORCE_TIMEZONE = True
+    config.MAX_CONNECTION_POOL_SIZE = 50
+
+**After (Modern):**
+::
+
+    from neomodel import get_config
+    config = get_config()
+    config.database_url = 'bolt://neo4j:password@localhost:7687'
+    config.force_timezone = True
+    config.max_connection_pool_size = 50
+
+
+Managing Connections
+--------------------
+
+Changing Connections
+~~~~~~~~~~~~~~~~~~~~
+
+You can change the connection at any time using the modern configuration API::
+
+    from neomodel import get_config
+    
+    config = get_config()
+    config.database_url = 'bolt://new:url@localhost:7687'
+
+    # Using self-managed driver
+    db.set_connection(driver=my_driver)
+
+Or using the legacy approach::
 
     from neomodel import db
     # Using URL - auto-managed
     db.set_connection(url='bolt://neo4j:neo4j@localhost:7687')
 
-    # Using self-managed driver
-    db.set_connection(driver=my_driver)
+Closing Connections
+~~~~~~~~~~~~~~~~~~~
 
-The new connection url will be applied to the current thread or process.
-
-Since Neo4j version 5, driver auto-close is deprecated. Make sure to close the connection anytime you want to replace it,
-as well as at the end of your application's lifecycle by calling ``close_connection``::
+Since Neo4j version 5, driver auto-close is deprecated. Make sure to close the connection when your application shuts down::
 
     from neomodel import db
     db.close_connection()
 
-    # If you then want a new connection
-    db.set_connection(url=url)
+This will close the Neo4j driver and clean up neomodel's internal resources.
 
-This will close the Neo4j driver, and clean up everything that neomodel creates for its internal workings.
+Security Best Practices
+-----------------------
 
-Protect your credentials
-------------------------
+Protect Your Credentials
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 You should `avoid setting database access credentials in plain sight <https://
-www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04B-3_Meli_paper.pdf>`_. Neo4J defines a number of
-`environment variables <https://neo4j.com/developer/kb/how-do-i-authenticate-with-cypher-shell-without-specifying-the-
-username-and-password-on-the-command-line/>`_ that are used in its tools and these can be re-used for other applications
-too.
+www.ndss-symposium.org/wp-content/uploads/2019/02/ndss2019_04B-3_Meli_paper.pdf>`_. 
 
-These are:
+**Recommended approach using environment variables**::
 
-* ``NEO4J_USERNAME``
-* ``NEO4J_PASSWORD``
-* ``NEO4J_BOLT_URL``
-
-By setting these with (for example): ::
-
-    $ export NEO4J_USERNAME=neo4j
-    $ export NEO4J_PASSWORD=neo4j
-    $ export NEO4J_BOLT_URL="bolt://$NEO4J_USERNAME:$NEO4J_PASSWORD@localhost:7687"
-
-They can be accessed from a Python script via the ``environ`` dict of module ``os`` and be used to set the connection
-with something like: ::
-
-    import os
-    from neomodel import config
-
-    config.DATABASE_URL = os.environ["NEO4J_BOLT_URL"]
+    # Set environment variables
+    export NEOMODEL_DATABASE_URL='bolt://neo4j:password@localhost:7687'
+    
+    # Configuration automatically loads from environment
+    from neomodel import get_config
+    config = get_config()
 
 
-Enable automatic index and constraint creation
-----------------------------------------------
+Additional Configuration Options
+--------------------------------
 
-Neomodel provides the :ref:`neomodel_install_labels` script for this task,
-however if you want to handle this manually see below.
+Force Timezone on DateTime Properties
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Ensure all DateTimes are provided with a timezone before being serialized to UTC epoch::
+
+    from neomodel import get_config
+    
+    config = get_config()
+    config.force_timezone = True  # default False
+
+Enable Soft Cardinality Checking
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Enable warnings instead of errors for relationship cardinality violations::
+
+    config.soft_cardinality_check = True  # default False
+
+Enable Cypher Debug Logging
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Log all Cypher queries for debugging::
+
+    config.cypher_debug = True  # default False
+
+Enable Slow Query Logging
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Log queries that take longer than the specified threshold::
+
+    config.slow_queries = 1.0  # Log queries taking more than 1 second
+
+Index and Constraint Management
+-------------------------------
+
+Neomodel provides the :ref:`neomodel_install_labels` script for automatic index and constraint creation.
 
 Install indexes and constraints for a single class::
 
     from neomodel import install_labels
     install_labels(YourClass)
 
-Or for an entire 'schema' ::
+Or for an entire schema::
 
     import yourapp  # make sure your app is loaded
     from neomodel import install_all_labels
@@ -140,11 +361,4 @@ Or for an entire 'schema' ::
     # ...
 
 .. note::
-    config.AUTO_INSTALL_LABELS has been removed from neomodel in version 5.3
-
-Require timezones on DateTimeProperty
--------------------------------------
-
-Ensure all DateTimes are provided with a timezone before being serialised to UTC epoch::
-
-    config.FORCE_TIMEZONE = True  # default False
+    ``config.AUTO_INSTALL_LABELS`` has been removed from neomodel in version 5.3

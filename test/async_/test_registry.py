@@ -2,21 +2,8 @@ from test._async_compat import mark_async_test
 
 from pytest import raises, skip
 
-from neomodel import (
-    AsyncRelationshipTo,
-    AsyncStructuredNode,
-    AsyncStructuredRel,
-    DateProperty,
-    IntegerProperty,
-    StringProperty,
-    adb,
-    config,
-)
-from neomodel.exceptions import (
-    NodeClassAlreadyDefined,
-    NodeClassNotDefined,
-    RelationshipClassRedefined,
-)
+from neomodel import AsyncStructuredNode, StringProperty, adb, get_config
+from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 
 @mark_async_test
@@ -63,9 +50,10 @@ async def test_db_specific_node_labels():
 
         await PatientOneBis(name="patient1.2").save()
 
+    config = get_config()
     # Now, we will test object resolution
     await adb.close_connection()
-    await adb.set_connection(url=f"{config.DATABASE_URL}/{db_one}")
+    await adb.set_connection(url=f"{config.database_url}/{db_one}")
     await adb.clear_neo4j_database()
     patient1 = await PatientOne(name="patient1").save()
     patients, _ = await adb.cypher_query(
@@ -75,7 +63,7 @@ async def test_db_specific_node_labels():
     assert patients[0][0] == patient1
 
     await adb.close_connection()
-    await adb.set_connection(url=f"{config.DATABASE_URL}/{db_two}")
+    await adb.set_connection(url=f"{config.database_url}/{db_two}")
     await adb.clear_neo4j_database()
     patient2 = await PatientTwo(identifier="patient2").save()
     patients, _ = await adb.cypher_query(
@@ -84,7 +72,7 @@ async def test_db_specific_node_labels():
     assert patients[0][0] == patient2
 
     await adb.close_connection()
-    await adb.set_connection(url=config.DATABASE_URL)
+    await adb.set_connection(url=config.database_url)
 
 
 @mark_async_test

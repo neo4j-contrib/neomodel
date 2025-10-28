@@ -1,10 +1,17 @@
 import warnings
+from enum import IntEnum
 from types import FrameType
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from neo4j.graph import Entity
 
-OUTGOING, INCOMING, EITHER = 1, -1, 0
+
+class RelationshipDirection(IntEnum):
+    """Enum representing the direction of relationships in Neo4j."""
+
+    OUTGOING = 1
+    INCOMING = -1
+    EITHER = 0
 
 
 def deprecated(message: str) -> Callable:
@@ -27,7 +34,7 @@ def classproperty(f: Callable) -> Any:
         def __init__(self, getter: Callable) -> None:
             self.getter = getter
 
-        def __get__(self, obj: Any, type: Optional[Any] = None) -> Any:
+        def __get__(self, obj: Any, type: Any | None = None) -> Any:
             return self.getter(type)
 
     return cpf(f)
@@ -49,7 +56,7 @@ def get_graph_entity_properties(entity: Entity) -> dict:
     return entity._properties
 
 
-def enumerate_traceback(initial_frame: Optional[FrameType] = None) -> Any:
+def enumerate_traceback(initial_frame: FrameType | None = None) -> Any:
     depth, frame = 0, initial_frame
     while frame is not None:
         yield depth, frame
