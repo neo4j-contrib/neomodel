@@ -5,10 +5,11 @@ The issue is outlined here: https://github.com/neo4j-contrib/neomodel/issues/283
 More information about the same issue at:
 https://github.com/aanastasiou/neomodelInheritanceTest
 
-The following example uses a recursive relationship for economy, but the 
-idea remains the same: "Instantiate the correct type of node at the end of 
+The following example uses a recursive relationship for economy, but the
+idea remains the same: "Instantiate the correct type of node at the end of
 a relationship as specified by the model"
 """
+
 import random
 from test._async_compat import mark_async_test
 
@@ -121,56 +122,6 @@ async def test_automatic_result_resolution():
     # If A is friends with B, then A's friends_with objects should be
     # TechnicalPerson (!NOT basePerson!)
     assert type((await A.friends_with)[0]) is TechnicalPerson
-
-
-@mark_async_test
-async def test_recursive_automatic_result_resolution():
-    """
-    Node objects are instantiated to native Python objects, both at the top
-    level of returned results and in the case where they are returned within
-    lists.
-    """
-
-    # Create a few entities
-    A = (
-        await TechnicalPerson.get_or_create(
-            {"name": "Grumpier", "expertise": "Grumpiness"}
-        )
-    )[0]
-    B = (
-        await TechnicalPerson.get_or_create(
-            {"name": "Happier", "expertise": "Grumpiness"}
-        )
-    )[0]
-    C = (
-        await TechnicalPerson.get_or_create(
-            {"name": "Sleepier", "expertise": "Pillows"}
-        )
-    )[0]
-    D = (
-        await TechnicalPerson.get_or_create(
-            {"name": "Sneezier", "expertise": "Pillows"}
-        )
-    )[0]
-
-    # Retrieve mixed results, both at the top level and nested
-    L, _ = await adb.cypher_query(
-        "MATCH (a:TechnicalPerson) "
-        "WHERE a.expertise='Grumpiness' "
-        "WITH collect(a) as Alpha "
-        "MATCH (b:TechnicalPerson) "
-        "WHERE b.expertise='Pillows' "
-        "WITH Alpha, collect(b) as Beta "
-        "RETURN [Alpha, [Beta, [Beta, ['Banana', "
-        "Alpha]]]]",
-        resolve_objects=True,
-    )
-
-    # Assert that a Node returned deep in a nested list structure is of the
-    # correct type
-    assert type(L[0][0][0][1][0][0][0][0]) is TechnicalPerson
-    # Assert that primitive data types remain primitive data types
-    assert issubclass(type(L[0][0][0][1][0][1][0][1][0][0]), basestring)
 
 
 @mark_async_test

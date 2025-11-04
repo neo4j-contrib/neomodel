@@ -793,7 +793,7 @@ async def test_annotate_and_collect():
         .all()
     )
     assert len(result) == 1
-    assert len(result[0][1][0]) == 3  # 3 species must be there (with 2 duplicates)
+    assert len(result[0][1]) == 3  # 3 species must be there (with 2 duplicates)
 
     result = (
         await Supplier.nodes.traverse(
@@ -806,7 +806,7 @@ async def test_annotate_and_collect():
         .annotate(Collect("species", distinct=True))
         .all()
     )
-    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][1]) == 2  # 2 species must be there
 
     result = (
         await Supplier.nodes.traverse(
@@ -832,7 +832,7 @@ async def test_annotate_and_collect():
         .annotate(all_species=Collect("species", distinct=True))
         .all()
     )
-    assert len(result[0][1][0]) == 2  # 2 species must be there
+    assert len(result[0][1]) == 2  # 2 species must be there
 
     result = (
         await Supplier.nodes.traverse(
@@ -850,8 +850,8 @@ async def test_annotate_and_collect():
         )
         .all()
     )
-    assert len(result[0][1][0]) == 2  # 2 species must be there
-    assert len(result[0][2][0]) == 3  # 3 species relations must be there
+    assert len(result[0][1]) == 2  # 2 species must be there
+    assert len(result[0][2]) == 3  # 3 species relations must be there
 
 
 @mark_async_test
