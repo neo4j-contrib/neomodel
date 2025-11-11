@@ -1,18 +1,21 @@
-from test._async_compat import mark_sync_test
+from datetime import UTC, datetime
 
 from pytest import raises
 
 from neomodel import (
+    DateTimeProperty,
     IntegerProperty,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
     StructuredNode,
+    StructuredRel,
     UniqueIdProperty,
     config,
 )
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import DeflateError, UniqueProperty
+from test._async_compat import mark_sync_test
 
 config.AUTO_INSTALL_LABELS = True
 
@@ -132,3 +135,130 @@ def test_get_or_create_with_rel():
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]
+
+
+class PetsRel(StructuredRel):
+    since = DateTimeProperty()
+    notes = StringProperty()
+
+
+class DogWithRel(StructuredNode):
+    name = StringProperty(required=True)
+    owner = RelationshipTo("PersonWithRel", "OWNS", model=PetsRel)
+
+
+class PersonWithRel(StructuredNode):
+    name = StringProperty(unique_index=True)
+    pets = RelationshipFrom("DogWithRel", "OWNS", model=PetsRel)
+
+
+@mark_sync_test
+def test_get_or_create_with_rel_props():
+    """Test get_or_create with relationship properties"""
+    create_bob = PersonWithRel.get_or_create({"name": "Bob"})
+    bob = create_bob[0]
+
+    since_date = datetime(2020, 1, 15, tzinfo=UTC)
+
+    dogs = DogWithRel.get_or_create(
+        {"name": "Gizmo"},
+        relationship=bob.pets,
+        rel_props={"since": since_date, "notes": "Good boy!"},
+    )
+    assert len(dogs) == 1
+    dog = dogs[0]
+    assert dog.name == "Gizmo"
+
+    owner_rels = dog.owner.all_relationships(bob)
+    assert len(owner_rels) == 1
+    rel = owner_rels[0]
+    assert rel.since == since_date
+    assert rel.notes == "Good boy!"
+
+
+@mark_sync_test
+def test_get_or_create_batch_with_rel_props():
+    """Test get_or_create with multiple nodes, same relationship and rel_props"""
+    alice = (PersonWithRel.get_or_create({"name": "Alice"}))[0]
+
+    since_date = datetime(2021, 5, 20, tzinfo=UTC)
+    dogs = DogWithRel.get_or_create(
+        {"name": "Rex"},
+        {"name": "Max"},
+        {"name": "Luna"},
+        relationship=alice.pets,
+        rel_props={"since": since_date, "notes": "Adopted together"},
+    )
+
+    assert len(dogs) == 3
+    assert dogs[0].name == "Rex"
+    assert dogs[1].name == "Max"
+    assert dogs[2].name == "Luna"
+
+    for dog in dogs:
+        owner_rels = dog.owner.all_relationships(alice)
+        assert len(owner_rels) == 1
+        rel = owner_rels[0]
+        assert rel.since == since_date
+        assert rel.notes == "Adopted together"
+
+
+@mark_sync_test
+def test_create_or_update_with_rel_props():
+    """Test create_or_update with relationship properties"""
+    charlie = (PersonWithRel.get_or_create({"name": "Charlie"}))[0]
+
+    since_date = datetime(2019, 3, 10, tzinfo=UTC)
+
+    dogs = DogWithRel.create_or_update(
+        {"name": "Spot"},
+        relationship=charlie.pets,
+        rel_props={"since": since_date, "notes": "First adoption"},
+    )
+
+    assert len(dogs) == 1
+    dog = dogs[0]
+    assert dog.name == "Spot"
+
+    owner_rels = dog.owner.all_relationships(charlie)
+    assert len(owner_rels) == 1
+    rel = owner_rels[0]
+    assert rel.since == since_date
+    assert rel.notes == "First adoption"
+
+    dogs2 = DogWithRel.create_or_update(
+        {"name": "Spot"},
+        relationship=charlie.pets,
+        rel_props={"since": since_date, "notes": "Updated note"},
+    )
+
+    assert len(dogs2) == 1
+    assert dogs2[0].element_id != dog.element_id
+
+
+@mark_sync_test
+def test_create_or_update_batch_with_rel_props():
+    """Test create_or_update with multiple nodes and relationship properties"""
+    diana = (PersonWithRel.get_or_create({"name": "Diana"}))[0]
+
+    since_date = datetime(2022, 6, 15, tzinfo=UTC)
+
+    dogs = DogWithRel.create_or_update(
+        {"name": "Bella"},
+        {"name": "Charlie"},
+        {"name": "Daisy"},
+        relationship=diana.pets,
+        rel_props={"since": since_date, "notes": "Rescue dogs"},
+    )
+
+    assert len(dogs) == 3
+    assert dogs[0].name == "Bella"
+    assert dogs[1].name == "Charlie"
+    assert dogs[2].name == "Daisy"
+
+    for dog in dogs:
+        owner_rels = dog.owner.all_relationships(diana)
+        assert len(owner_rels) == 1
+        rel = owner_rels[0]
+        assert rel.since == since_date
+        assert rel.notes == "Rescue dogs"
