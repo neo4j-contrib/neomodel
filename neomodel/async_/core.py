@@ -1743,6 +1743,7 @@ class AsyncStructuredNode(NodeBase):
         """
         lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
 
         # build merge query, make sure to update only explicitly specified properties
         create_or_update_params = []
@@ -1762,6 +1763,7 @@ class AsyncStructuredNode(NodeBase):
             update_existing=True,
             relationship=relationship,
             lazy=lazy,
+            rel_props=rel_props,
         )
 
         if "streaming" in kwargs:

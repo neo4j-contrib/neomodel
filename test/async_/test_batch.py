@@ -206,3 +206,64 @@ async def test_get_or_create_batch_with_rel_props():
         rel = owner_rels[0]
         assert rel.since == since_date
         assert rel.notes == "Adopted together"
+
+
+@mark_async_test
+async def test_create_or_update_with_rel_props():
+    """Test create_or_update with relationship properties"""
+    charlie = (await PersonWithRel.get_or_create({"name": "Charlie"}))[0]
+
+    since_date = datetime(2019, 3, 10, tzinfo=UTC)
+
+    dogs = await DogWithRel.create_or_update(
+        {"name": "Spot"},
+        relationship=charlie.pets,
+        rel_props={"since": since_date, "notes": "First adoption"},
+    )
+
+    assert len(dogs) == 1
+    dog = dogs[0]
+    assert dog.name == "Spot"
+
+    owner_rels = await dog.owner.all_relationships(charlie)
+    assert len(owner_rels) == 1
+    rel = owner_rels[0]
+    assert rel.since == since_date
+    assert rel.notes == "First adoption"
+
+    dogs2 = await DogWithRel.create_or_update(
+        {"name": "Spot"},
+        relationship=charlie.pets,
+        rel_props={"since": since_date, "notes": "Updated note"},
+    )
+
+    assert len(dogs2) == 1
+    assert dogs2[0].element_id != dog.element_id
+
+
+@mark_async_test
+async def test_create_or_update_batch_with_rel_props():
+    """Test create_or_update with multiple nodes and relationship properties"""
+    diana = (await PersonWithRel.get_or_create({"name": "Diana"}))[0]
+
+    since_date = datetime(2022, 6, 15, tzinfo=UTC)
+
+    dogs = await DogWithRel.create_or_update(
+        {"name": "Bella"},
+        {"name": "Charlie"},
+        {"name": "Daisy"},
+        relationship=diana.pets,
+        rel_props={"since": since_date, "notes": "Rescue dogs"},
+    )
+
+    assert len(dogs) == 3
+    assert dogs[0].name == "Bella"
+    assert dogs[1].name == "Charlie"
+    assert dogs[2].name == "Daisy"
+
+    for dog in dogs:
+        owner_rels = await dog.owner.all_relationships(diana)
+        assert len(owner_rels) == 1
+        rel = owner_rels[0]
+        assert rel.since == since_date
+        assert rel.notes == "Rescue dogs"
