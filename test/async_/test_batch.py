@@ -1,4 +1,4 @@
-from test._async_compat import mark_async_test
+from datetime import UTC, datetime
 
 from pytest import raises
 
@@ -6,13 +6,17 @@ from neomodel import (
     AsyncRelationshipFrom,
     AsyncRelationshipTo,
     AsyncStructuredNode,
+    AsyncStructuredRel,
+    DateTimeProperty,
     IntegerProperty,
     StringProperty,
     UniqueIdProperty,
     config,
 )
 from neomodel._async_compat.util import AsyncUtil
+from neomodel.async_.relationship_manager import AsyncRelationship
 from neomodel.exceptions import DeflateError, UniqueProperty
+from test._async_compat import mark_async_test
 
 config.AUTO_INSTALL_LABELS = True
 
@@ -136,3 +140,69 @@ async def test_get_or_create_with_rel():
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]
+
+
+class PetsRel(AsyncStructuredRel):
+    since = DateTimeProperty()
+    notes = StringProperty()
+
+
+class DogWithRel(AsyncStructuredNode):
+    name = StringProperty(required=True)
+    owner = AsyncRelationship("PersonWithRel", "OWNS", model=PetsRel)
+
+
+class PersonWithRel(AsyncStructuredNode):
+    name = StringProperty(unique_index=True)
+    pets = AsyncRelationshipFrom("DogWithRel", "OWNS", model=PetsRel)
+
+
+@mark_async_test
+async def test_get_or_create_with_rel_props():
+    """Test get_or_create with relationship properties"""
+    create_bob = await PersonWithRel.get_or_create({"name": "Bob"})
+    bob = create_bob[0]
+
+    since_date = datetime(2020, 1, 15, tzinfo=UTC)
+
+    dogs = await DogWithRel.get_or_create(
+        {"name": "Gizmo"},
+        relationship=bob.pets,
+        rel_props={"since": since_date, "notes": "Good boy!"},
+    )
+    assert len(dogs) == 1
+    dog = dogs[0]
+    assert dog.name == "Gizmo"
+
+    owner_rels = await dog.owner.all_relationships(bob)
+    assert len(owner_rels) == 1
+    rel = owner_rels[0]
+    assert rel.since == since_date
+    assert rel.notes == "Good boy!"
+
+
+@mark_async_test
+async def test_get_or_create_batch_with_rel_props():
+    """Test get_or_create with multiple nodes, same relationship and rel_props"""
+    alice = (await PersonWithRel.get_or_create({"name": "Alice"}))[0]
+
+    since_date = datetime(2021, 5, 20, tzinfo=UTC)
+    dogs = await DogWithRel.get_or_create(
+        {"name": "Rex"},
+        {"name": "Max"},
+        {"name": "Luna"},
+        relationship=alice.pets,
+        rel_props={"since": since_date, "notes": "Adopted together"},
+    )
+
+    assert len(dogs) == 3
+    assert dogs[0].name == "Rex"
+    assert dogs[1].name == "Max"
+    assert dogs[2].name == "Luna"
+
+    for dog in dogs:
+        owner_rels = await dog.owner.all_relationships(alice)
+        assert len(owner_rels) == 1
+        rel = owner_rels[0]
+        assert rel.since == since_date
+        assert rel.notes == "Adopted together"

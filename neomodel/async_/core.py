@@ -83,7 +83,7 @@ LOOKUP_INDEX_TYPE = "LOOKUP"
 NO_TRANSACTION_IN_PROGRESS = "No transaction in progress"
 NO_SESSION_OPEN = "No session open"
 UNKNOWN_SERVER_VERSION = """
-    Unable to perform this operation because the database server version is not known. 
+    Unable to perform this operation because the database server version is not known.
     This might mean that the database server is offline.
 """
 
@@ -225,7 +225,8 @@ class AsyncDatabase(local):
 
         # Ignore the type error because the workaround would be duplicating code
         self.driver = AsyncGraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options  # type: ignore[arg-type]
+            parsed_url.scheme + "://" + hostname,
+            **options,  # type: ignore[arg-type]
         )
         self.url = url
         # The database name can be provided through the url or the config
@@ -761,7 +762,7 @@ class AsyncDatabase(local):
             await self.cypher_query(DROP_INDEX_COMMAND + index["name"])
             if not quiet:
                 stdout.write(
-                    f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
+                    f" - Dropping index on labels {','.join(index['labelsOrTypes'])} with properties {','.join(index['properties'])}.\n"
                 )
         if not quiet:
             stdout.write("\n")
@@ -1093,7 +1094,7 @@ class AsyncDatabase(local):
                 )
             try:
                 await self.cypher_query(
-                    f"""CREATE CONSTRAINT {constraint_name} 
+                    f"""CREATE CONSTRAINT {constraint_name}
                                 FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
                 )
             except ClientError as e:
@@ -1581,6 +1582,7 @@ class AsyncStructuredNode(NodeBase):
         update_existing: bool = False,
         lazy: bool = False,
         relationship: Optional[Any] = None,
+        rel_props: Optional[dict[str, Any]] = None,
     ) -> tuple[str, dict[str, Any]]:
         """
         Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
@@ -1605,6 +1607,14 @@ class AsyncStructuredNode(NodeBase):
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
+
+            from neomodel.async_.relationship_manager import AsyncRelationshipManager
+
+            if not isinstance(relationship, AsyncRelationshipManager):
+                raise TypeError(
+                    f"relationship must be a AsyncRelationshipManager instance, "
+                    f"not {type(relationship).__name__}. "
+                )
             if not isinstance(relationship.source, AsyncStructuredNode):
                 raise ValueError(
                     f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
@@ -1615,7 +1625,7 @@ class AsyncStructuredNode(NodeBase):
                     "No relation_type is specified on provided relationship"
                 )
 
-            from neomodel.async_.match import _rel_helper
+            from neomodel.async_.match import _rel_helper, _rel_merge_helper
 
             if relationship.source.element_id is None:
                 raise RuntimeError(
@@ -1627,13 +1637,38 @@ class AsyncStructuredNode(NodeBase):
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
-            query += _rel_helper(
-                lhs="source",
-                rhs=n_merge,
-                ident=None,
-                relation_type=relation_type,
-                direction=relationship.definition["direction"],
-            )
+            if rel_props:
+                rel_model = relationship.definition.get("model")
+                if not rel_model:
+                    raise ValueError(
+                        "Relationship properties require a relationship model. "
+                        "Define a AsyncStructuredRel model for this relationship"
+                    )
+                rel_prop = {}
+                tmp = rel_model(**rel_props) if rel_props else rel_model()
+
+                for prop, val in rel_model.deflate(tmp.__properties__).items():
+                    if val is not None:
+                        rel_prop[prop] = "$" + prop
+                    else:
+                        rel_prop[prop] = None
+                    query_params[prop] = val
+                query += _rel_merge_helper(
+                    lhs="source",
+                    rhs=n_merge,
+                    ident="r",
+                    relation_type=relation_type,
+                    direction=relationship.definition["direction"],
+                    relation_properties=rel_prop,
+                )
+            else:
+                query += _rel_helper(
+                    lhs="source",
+                    rhs=n_merge,
+                    ident=None,
+                    relation_type=relation_type,
+                    direction=relationship.definition["direction"],
+                )
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
@@ -1794,13 +1829,17 @@ class AsyncStructuredNode(NodeBase):
         """
         lazy = kwargs.get("lazy", False)
         relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
 
         # build merge query
         get_or_create_params = [
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
         query, params = await cls._build_merge_query(
-            tuple(get_or_create_params), relationship=relationship, lazy=lazy
+            tuple(get_or_create_params),
+            relationship=relationship,
+            lazy=lazy,
+            rel_props=rel_props,
         )
 
         if "streaming" in kwargs:
@@ -1868,7 +1907,7 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("labels")
         result = await self.cypher(
-            f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self " "RETURN labels(n)"
+            f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self RETURN labels(n)"
         )
         if result is None or result[0] is None:
             raise ValueError("Could not get labels, node may not exist")
