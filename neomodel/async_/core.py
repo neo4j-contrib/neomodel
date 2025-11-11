@@ -1576,6 +1576,74 @@ class AsyncStructuredNode(NodeBase):
     # methods
 
     @classmethod
+    def _validate_relationship(cls, relationship: Any, rel_props: Any) -> None:
+        """
+        Validate relationship manager.
+
+        :param relationship: The relationship manager to validate
+        :raises TypeError: If relationship is not an AsyncRelationshipManager
+        :raises ValueError: If relationship source is invalid or relation_type is missing
+        :raises RuntimeError: If relationship source element_id is None
+        """
+        from neomodel.async_.relationship_manager import AsyncRelationshipManager
+
+        if not isinstance(relationship, AsyncRelationshipManager):
+            raise TypeError(
+                f"relationship must be a AsyncRelationshipManager instance, "
+                f"not {type(relationship).__name__}."
+            )
+
+        if not isinstance(relationship.source, AsyncStructuredNode):
+            raise ValueError(
+                f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
+            )
+
+        relation_type = relationship.definition.get("relation_type")
+        if not relation_type:
+            raise ValueError("No relation_type is specified on provided relationship")
+
+        if relationship.source.element_id is None:
+            raise RuntimeError(
+                "Could not identify the relationship source, its element id was None."
+            )
+
+        if rel_props:
+            rel_model = relationship.definition.get("model")
+            if not rel_model:
+                raise ValueError(
+                    "Relationship properties require a relationship model. "
+                    "Define a AsyncStructuredRel model for this relationship"
+                )
+
+    @classmethod
+    def _deflate_relationship_properties(
+        cls,
+        relationship: Any,
+        rel_props: dict[str, Any],
+        query_params: dict[str, Any],
+    ) -> dict[str, str]:
+        """
+        Deflate relationship properties and prepare them for Cypher query.
+
+        :param relationship: The relationship manager containing the model
+        :param rel_props: Dictionary of relationship properties to deflate
+        :param query_params: Query parameters dict to add deflated values to
+        :return: Dictionary mapping property names to parameter placeholders (e.g. {'since': '$since'})
+        """
+        rel_model = relationship.definition.get("model")
+        tmp = rel_model(**rel_props)
+
+        rel_prop = {}
+        for prop, val in rel_model.deflate(tmp.__properties__).items():
+            if val is not None:
+                rel_prop[prop] = "$" + prop
+            else:
+                rel_prop[prop] = None
+            query_params[prop] = val
+
+        return rel_prop
+
+    @classmethod
     async def _build_merge_query(
         cls,
         merge_params: tuple[dict[str, Any], ...],
@@ -1607,30 +1675,11 @@ class AsyncStructuredNode(NodeBase):
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
-
-            from neomodel.async_.relationship_manager import AsyncRelationshipManager
-
-            if not isinstance(relationship, AsyncRelationshipManager):
-                raise TypeError(
-                    f"relationship must be a AsyncRelationshipManager instance, "
-                    f"not {type(relationship).__name__}. "
-                )
-            if not isinstance(relationship.source, AsyncStructuredNode):
-                raise ValueError(
-                    f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
-                )
+            cls._validate_relationship(relationship=relationship, rel_props=rel_props)
             relation_type = relationship.definition.get("relation_type")
-            if not relation_type:
-                raise ValueError(
-                    "No relation_type is specified on provided relationship"
-                )
 
             from neomodel.async_.match import _rel_helper, _rel_merge_helper
 
-            if relationship.source.element_id is None:
-                raise RuntimeError(
-                    "Could not identify the relationship source, its element id was None."
-                )
             query_params["source_id"] = await adb.parse_element_id(
                 relationship.source.element_id
             )
@@ -1638,21 +1687,11 @@ class AsyncStructuredNode(NodeBase):
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
             if rel_props:
-                rel_model = relationship.definition.get("model")
-                if not rel_model:
-                    raise ValueError(
-                        "Relationship properties require a relationship model. "
-                        "Define a AsyncStructuredRel model for this relationship"
-                    )
-                rel_prop = {}
-                tmp = rel_model(**rel_props) if rel_props else rel_model()
-
-                for prop, val in rel_model.deflate(tmp.__properties__).items():
-                    if val is not None:
-                        rel_prop[prop] = "$" + prop
-                    else:
-                        rel_prop[prop] = None
-                    query_params[prop] = val
+                rel_prop = cls._deflate_relationship_properties(
+                    relationship=relationship,
+                    rel_props=rel_props,
+                    query_params=query_params,
+                )
 
                 query += _rel_merge_helper(
                     lhs="source",
