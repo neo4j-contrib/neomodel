@@ -14,7 +14,6 @@ from neomodel import (
     config,
 )
 from neomodel._async_compat.util import AsyncUtil
-from neomodel.async_.relationship_manager import AsyncRelationship
 from neomodel.exceptions import DeflateError, UniqueProperty
 from test._async_compat import mark_async_test
 
@@ -149,7 +148,7 @@ class PetsRel(AsyncStructuredRel):
 
 class DogWithRel(AsyncStructuredNode):
     name = StringProperty(required=True)
-    owner = AsyncRelationship("PersonWithRel", "OWNS", model=PetsRel)
+    owner = AsyncRelationshipTo("PersonWithRel", "OWNS", model=PetsRel)
 
 
 class PersonWithRel(AsyncStructuredNode):

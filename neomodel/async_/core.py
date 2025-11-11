@@ -1653,6 +1653,7 @@ class AsyncStructuredNode(NodeBase):
                     else:
                         rel_prop[prop] = None
                     query_params[prop] = val
+
                 query += _rel_merge_helper(
                     lhs="source",
                     rhs=n_merge,
