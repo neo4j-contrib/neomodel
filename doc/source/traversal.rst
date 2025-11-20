@@ -121,7 +121,7 @@ The syntax for `fetch_relations` is similar to `traverse_relations`, except that
 Optional match (deprecated)
 ---------------------------
 
-.. deprecated:: 5.5.50
+.. deprecated:: 5.5.0
 
     This method is set to disappear in version 6, use `traverse` instead.
 
