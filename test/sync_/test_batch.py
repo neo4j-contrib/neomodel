@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from test._async_compat import mark_sync_test
+from zoneinfo import ZoneInfo
 
 from pytest import raises
 
@@ -156,7 +157,7 @@ def test_get_or_create_with_rel_props():
     create_bob = PersonWithRel.get_or_create({"name": "Bob"})
     bob = create_bob[0]
 
-    since_date = datetime(2020, 1, 15, tzinfo=UTC)
+    since_date = datetime(2020, 1, 15, tzinfo=ZoneInfo("UTC"))
 
     dogs = DogWithRel.get_or_create(
         {"name": "Gizmo"},
@@ -179,7 +180,7 @@ def test_get_or_create_batch_with_rel_props():
     """Test get_or_create with multiple nodes, same relationship and rel_props"""
     alice = (PersonWithRel.get_or_create({"name": "Alice"}))[0]
 
-    since_date = datetime(2021, 5, 20, tzinfo=UTC)
+    since_date = datetime(2021, 5, 20, tzinfo=ZoneInfo("UTC"))
     dogs = DogWithRel.get_or_create(
         {"name": "Rex"},
         {"name": "Max"},
@@ -206,7 +207,7 @@ def test_create_or_update_with_rel_props():
     """Test create_or_update with relationship properties"""
     charlie = (PersonWithRel.get_or_create({"name": "Charlie"}))[0]
 
-    since_date = datetime(2019, 3, 10, tzinfo=UTC)
+    since_date = datetime(2019, 3, 10, tzinfo=ZoneInfo("UTC"))
 
     dogs = DogWithRel.create_or_update(
         {"name": "Spot"},
@@ -239,7 +240,7 @@ def test_create_or_update_batch_with_rel_props():
     """Test create_or_update with multiple nodes and relationship properties"""
     diana = (PersonWithRel.get_or_create({"name": "Diana"}))[0]
 
-    since_date = datetime(2022, 6, 15, tzinfo=UTC)
+    since_date = datetime(2022, 6, 15, tzinfo=ZoneInfo("UTC"))
 
     dogs = DogWithRel.create_or_update(
         {"name": "Bella"},
