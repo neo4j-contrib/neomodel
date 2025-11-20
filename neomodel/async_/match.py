@@ -2,9 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, AsyncIterator
-from typing import Optional as TOptional
-from typing import Union
+from typing import Any, AsyncIterator, Optional, Union
 
 from neomodel.async_ import relationship_manager
 from neomodel.async_.database import adb
@@ -1281,7 +1279,7 @@ class AsyncBaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    async def get_item(self, key: int | slice) -> TOptional["AsyncBaseSet"]:
+    async def get_item(self, key: int | slice) -> Optional["AsyncBaseSet"]:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1300,13 +1298,6 @@ class AsyncBaseSet:
             ast = await self.query_cls(self).build_ast()
             _first_item = [node async for node in ast._execute()][0]
             return _first_item
-
-
-@dataclass
-class Optional:  # type: ignore[no-redef]
-    """Simple relation qualifier."""
-
-    relation: str
 
 
 @dataclass

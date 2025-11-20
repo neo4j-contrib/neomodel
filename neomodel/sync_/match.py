@@ -2,9 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, Iterator
-from typing import Optional as TOptional
-from typing import Union
+from typing import Any, Iterator, Optional, Union
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -1277,7 +1275,7 @@ class BaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    def __getitem__(self, key: int | slice) -> TOptional["BaseSet"]:
+    def __getitem__(self, key: int | slice) -> Optional["BaseSet"]:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1296,13 +1294,6 @@ class BaseSet:
             ast = self.query_cls(self).build_ast()
             _first_item = [node for node in ast._execute()][0]
             return _first_item
-
-
-@dataclass
-class Optional:  # type: ignore[no-redef]
-    """Simple relation qualifier."""
-
-    relation: str
 
 
 @dataclass
