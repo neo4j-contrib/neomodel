@@ -13,8 +13,8 @@ for dir in neomodel test; do
     rm -f ${dir}/**/*.pyc
     find ${dir} -name __pycache__ -exec rm -Rf {} \;
 done
-: "${NEO4J_VERSIONS:=5.4 4.4}"
-: "${PYTHON_VERSIONS:=3.11 3.10 3.9 3.8 3.7}"
+: "${NEO4J_VERSIONS:=enterprise community 5.5-enterprise 4.4-enterprise 4.4-community}"
+: "${PYTHON_VERSIONS:=3.13 3.12 3.11 3.10}"
 for NEO4J_VERSION in ${NEO4J_VERSIONS}; do
     for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
         export NEO4J_VERSION

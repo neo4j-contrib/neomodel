@@ -1,10 +1,10 @@
-from typing import Any, Optional
+from typing import Any
 
 from neo4j.graph import Relationship
 
 from neomodel.hooks import hooks
 from neomodel.properties import Property
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 from neomodel.sync_.property_manager import PropertyManager
 
 ELEMENT_ID_MIGRATION_NOTICE = "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
@@ -53,23 +53,27 @@ class StructuredRel(StructuredRelBase):
     Base class for relationship objects
     """
 
-    def __init__(self, *args: Any, **kwargs: dict) -> None:
-        super().__init__(*args, **kwargs)
+    element_id_property: str
+    _start_node_element_id_property: str
+    _end_node_element_id_property: str
+
+    _start_node_class: Any
+    _end_node_class: Any
 
     @property
-    def element_id(self) -> Optional[Any]:
+    def element_id(self) -> str | None:
         if hasattr(self, "element_id_property"):
             return self.element_id_property
         return None
 
     @property
-    def _start_node_element_id(self) -> Optional[Any]:
+    def _start_node_element_id(self) -> str | None:
         if hasattr(self, "_start_node_element_id_property"):
             return self._start_node_element_id_property
         return None
 
     @property
-    def _end_node_element_id(self) -> Optional[Any]:
+    def _end_node_element_id(self) -> str | None:
         if hasattr(self, "_end_node_element_id_property"):
             return self._end_node_element_id_property
         return None
@@ -157,16 +161,16 @@ class StructuredRel(StructuredRelBase):
         return results[0][0][0]
 
     @classmethod
-    def inflate(cls: Any, rel: Relationship) -> "StructuredRel":
+    def inflate(cls: Any, graph_entity: Relationship) -> "StructuredRel":  # type: ignore[override]
         """
         Inflate a neo4j_driver relationship object to a neomodel object
-        :param rel:
+        :param graph_entity: Relationship
         :return: StructuredRel
         """
-        srel = super().inflate(rel)
-        if rel.start_node is not None:
-            srel._start_node_element_id_property = rel.start_node.element_id
-        if rel.end_node is not None:
-            srel._end_node_element_id_property = rel.end_node.element_id
-        srel.element_id_property = rel.element_id
+        srel = super().inflate(graph_entity)
+        if graph_entity.start_node is not None:
+            srel._start_node_element_id_property = graph_entity.start_node.element_id
+        if graph_entity.end_node is not None:
+            srel._end_node_element_id_property = graph_entity.end_node.element_id
+        srel.element_id_property = graph_entity.element_id
         return srel

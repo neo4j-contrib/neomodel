@@ -2,28 +2,25 @@ import functools
 import inspect
 import sys
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
-from neomodel import config
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 from neomodel.sync_.match import (
     NodeSet,
     Traversal,
     _rel_helper,
     _rel_merge_helper,
 )
+from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
-    EITHER,
-    INCOMING,
-    OUTGOING,
+    RelationshipDirection,
     enumerate_traceback,
     get_graph_entity_properties,
 )
 
 if TYPE_CHECKING:
-    from neomodel import StructuredNode
     from neomodel.sync_.match import BaseSet
 
 
@@ -68,9 +65,9 @@ class RelationshipManager(object):
 
     def __str__(self) -> str:
         direction = "either"
-        if self.definition["direction"] == OUTGOING:
+        if self.definition["direction"] == RelationshipDirection.OUTGOING:
             direction = "a outgoing"
-        elif self.definition["direction"] == INCOMING:
+        elif self.definition["direction"] == RelationshipDirection.INCOMING:
             direction = "a incoming"
 
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
@@ -78,9 +75,7 @@ class RelationshipManager(object):
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
-    def _check_cardinality(
-        self, node: "StructuredNode", soft_check: bool = False
-    ) -> None:
+    def check_cardinality(self, node: "StructuredNode") -> None:
         """
         Check whether a new connection to a node would violate the cardinality
         of the relationship.
@@ -101,8 +96,8 @@ class RelationshipManager(object):
 
     @check_source
     def connect(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
-    ) -> Optional[StructuredRel]:
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
+    ) -> StructuredRel | None:
         """
         Connect a node
 
@@ -112,7 +107,7 @@ class RelationshipManager(object):
         :return:
         """
         self._check_node(node)
-        self._check_cardinality(node)
+        self.check_cardinality(node)
 
         # Check for cardinality on the remote end.
         for rel_name, rel_def in node.defined_properties(
@@ -129,9 +124,7 @@ class RelationshipManager(object):
                 # If we have found the inverse relationship, we need to check
                 # its cardinality.
                 inverse_rel = getattr(node, rel_name)
-                inverse_rel._check_cardinality(
-                    self.source, soft_check=config.SOFT_INVERSE_CARDINALITY_CHECK
-                )
+                inverse_rel.check_cardinality(self.source)
                 break
 
         if not self.definition["model"] and properties:
@@ -188,7 +181,7 @@ class RelationshipManager(object):
 
     @check_source
     def replace(
-        self, node: "StructuredNode", properties: Optional[dict[str, Any]] = None
+        self, node: "StructuredNode", properties: dict[str, Any] | None = None
     ) -> None:
         """
         Disconnect all existing nodes and connect the supplied node
@@ -202,7 +195,7 @@ class RelationshipManager(object):
         self.connect(node, properties)
 
     @check_source
-    def relationship(self, node: "StructuredNode") -> Optional[StructuredRel]:
+    def relationship(self, node: "StructuredNode") -> StructuredRel | None:
         """
         Retrieve the relationship object for this first relationship between self and node.
 
@@ -250,7 +243,7 @@ class RelationshipManager(object):
     def _set_start_end_cls(
         self, rel_instance: StructuredRel, obj: "StructuredNode"
     ) -> StructuredRel:
-        if self.definition["direction"] == INCOMING:
+        if self.definition["direction"] == RelationshipDirection.INCOMING:
             rel_instance._start_node_class = obj.__class__
             rel_instance._end_node_class = self.source_class
         else:
@@ -438,7 +431,7 @@ class RelationshipManager(object):
     def __contains__(self, obj: Any) -> bool:
         return self._new_traversal().__contains__(obj)
 
-    def __getitem__(self, key: Union[int, slice]) -> Any:
+    def __getitem__(self, key: int | slice) -> Any:
         return self._new_traversal().__getitem__(key)
 
 
@@ -449,7 +442,7 @@ class RelationshipDefinition:
         cls_name: str,
         direction: int,
         manager: type[RelationshipManager] = RelationshipManager,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -502,7 +495,7 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: Optional[type[StructuredRel]] = None
+        self, cls_name: str, model: type[StructuredRel] | None = None
     ) -> None:
         if not isinstance(cls_name, (str, object)):
             raise ValueError("Expected class name or class got " + repr(cls_name))
@@ -552,6 +545,71 @@ class RelationshipDefinition:
         return self.manager(source, name, self.definition)
 
 
+def validate_relationship(relationship: Any, rel_props: Any) -> None:
+    """
+    Validate relationship manager.
+
+    :param relationship: The relationship manager to validate
+    :raises TypeError: If relationship is not an RelationshipManager
+    :raises ValueError: If relationship source is invalid or relation_type is missing
+    :raises RuntimeError: If relationship source element_id is None
+    """
+    if not isinstance(relationship, RelationshipManager):
+        raise TypeError(
+            f"relationship must be a RelationshipManager instance, "
+            f"not {type(relationship).__name__}."
+        )
+
+    if not isinstance(relationship.source, StructuredNode):
+        raise ValueError(
+            f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
+        )
+
+    relation_type = relationship.definition.get("relation_type")
+    if not relation_type:
+        raise ValueError("No relation_type is specified on provided relationship")
+
+    if relationship.source.element_id is None:
+        raise RuntimeError(
+            "Could not identify the relationship source, its element id was None."
+        )
+
+    if rel_props:
+        rel_model = relationship.definition.get("model")
+        if not rel_model:
+            raise ValueError(
+                "Relationship properties require a relationship model. "
+                "Define a StructuredRel model for this relationship"
+            )
+
+
+def deflate_relationship_properties(
+    relationship: RelationshipManager,
+    rel_props: dict[str, Any],
+    query_params: dict[str, Any],
+) -> dict[str, str]:
+    """
+    Deflate relationship properties and prepare them for Cypher query.
+
+    :param relationship: The relationship manager containing the model
+    :param rel_props: Dictionary of relationship properties to deflate
+    :param query_params: Query parameters dict to add deflated values to
+    :return: Dictionary mapping property names to parameter placeholders (e.g. {'since': '$since'})
+    """
+    rel_model = relationship.definition.get("model")
+    tmp = rel_model(**rel_props)
+
+    rel_prop = {}
+    for prop, val in rel_model.deflate(tmp.__properties__).items():
+        if val is not None:
+            rel_prop[prop] = "$" + prop
+        else:
+            rel_prop[prop] = None
+        query_params[prop] = val
+
+    return rel_prop
+
+
 class ZeroOrMore(RelationshipManager):
     """
     A relationship of zero or more nodes (the default)
@@ -566,10 +624,14 @@ class RelationshipTo(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, OUTGOING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            RelationshipDirection.OUTGOING,
+            manager=cardinality,
+            model=model,
         )
 
 
@@ -579,10 +641,14 @@ class RelationshipFrom(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, INCOMING, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            RelationshipDirection.INCOMING,
+            manager=cardinality,
+            model=model,
         )
 
 
@@ -592,8 +658,12 @@ class Relationship(RelationshipDefinition):
         cls_name: str,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
-        model: Optional[type[StructuredRel]] = None,
+        model: type[StructuredRel] | None = None,
     ) -> None:
         super().__init__(
-            relation_type, cls_name, EITHER, manager=cardinality, model=model
+            relation_type,
+            cls_name,
+            RelationshipDirection.EITHER,
+            manager=cardinality,
+            model=model,
         )

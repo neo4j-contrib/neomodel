@@ -8,19 +8,19 @@
 ::
 
     usage: neomodel_install_labels [-h] [--db bolt://neo4j:neo4j@localhost:7687] <someapp.models/app.py> [<someapp.models/app.py> ...]
-    
+
     Setup indexes and constraints on labels in Neo4j for your neomodel schema.
-    
-    If a connection URL is not specified, the tool will look up the environment 
+
+    If a connection URL is not specified, the tool will look up the environment
     variable NEO4J_BOLT_URL. If that environment variable is not set, the tool
     will attempt to connect to the default URL bolt://neo4j:neo4j@localhost:7687
 
     Note : this script only has a synchronous mode.
-    
+
     positional arguments:
       <someapp.models/app.py>
                             python modules or files with neomodel schema declarations.
-    
+
     options:
       -h, --help            show this help message and exit
       --db bolt://neo4j:neo4j@localhost:7687
@@ -32,7 +32,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from os import environ
 
 from neomodel.scripts.utils import load_python_module_or_file
-from neomodel.sync_.core import db
+from neomodel.sync_.database import db
 
 
 def main():

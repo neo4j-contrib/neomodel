@@ -2,7 +2,8 @@ from collections.abc import Iterator
 
 from neo4j.graph import Path
 
-from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.database import db
+from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 
 

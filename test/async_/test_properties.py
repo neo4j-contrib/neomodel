@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from test._async_compat import mark_async_test
 from zoneinfo import ZoneInfo
 
@@ -10,7 +10,7 @@ from neomodel import (
     AsyncStructuredNode,
     AsyncStructuredRel,
     adb,
-    config,
+    get_config,
 )
 from neomodel.contrib import AsyncSemiStructuredNode
 from neomodel.exceptions import (
@@ -137,7 +137,7 @@ def test_datetimes_timezones():
     prop = DateTimeProperty()
     prop.name = "foo"
     prop.owner = FooBar
-    t = datetime.utcnow()
+    t = datetime.now(timezone.utc)
     gr = ZoneInfo("Europe/Athens")
     gb = ZoneInfo("Europe/London")
     dt1 = t.replace(tzinfo=gr)
@@ -153,12 +153,13 @@ def test_datetimes_timezones():
             default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
         )
 
-    prev_force_timezone = config.FORCE_TIMEZONE
-    config.FORCE_TIMEZONE = True
+    config = get_config()
+    prev_force_timezone = config.force_timezone
+    config.force_timezone = True
     with raises(ValueError, match=r".*No timezone provided."):
         prop.deflate(datetime.now())
 
-    config.FORCE_TIMEZONE = prev_force_timezone
+    config.force_timezone = prev_force_timezone
 
 
 def test_date():
@@ -379,28 +380,26 @@ async def test_default_value_callable_type():
     assert x.uid == "123"
 
 
-class TestDBNamePropertyRel(AsyncStructuredRel):
+class DBNamePropertyRel(AsyncStructuredRel):
     known_for = StringProperty(db_property="knownFor")
 
 
 # This must be defined outside of the test, otherwise the `Relationship` definition cannot look up
-# `TestDBNamePropertyNode`
-class TestDBNamePropertyNode(AsyncStructuredNode):
+# `DBNamePropertyNode`
+class DBNamePropertyNode(AsyncStructuredNode):
     name_ = StringProperty(db_property="name")
-    knows = AsyncRelationship(
-        "TestDBNamePropertyNode", "KNOWS", model=TestDBNamePropertyRel
-    )
+    knows = AsyncRelationship("DBNamePropertyNode", "KNOWS", model=DBNamePropertyRel)
 
 
 @mark_async_test
 async def test_independent_property_name():
     # -- test node --
-    x = TestDBNamePropertyNode()
+    x = DBNamePropertyNode()
     x.name_ = "jim"
     await x.save()
 
     # check database property name on low level
-    results, meta = await adb.cypher_query("MATCH (n:TestDBNamePropertyNode) RETURN n")
+    results, meta = await adb.cypher_query("MATCH (n:DBNamePropertyNode) RETURN n")
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["name"] == "jim"
     assert "name_" not in node_properties
@@ -408,10 +407,10 @@ async def test_independent_property_name():
     # check python class property name at a high level
     assert not hasattr(x, "name")
     assert hasattr(x, "name_")
-    assert (await TestDBNamePropertyNode.nodes.filter(name_="jim").all())[
+    assert (await DBNamePropertyNode.nodes.filter(name_="jim").all())[
         0
     ].name_ == x.name_
-    assert (await TestDBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
+    assert (await DBNamePropertyNode.nodes.get(name_="jim")).name_ == x.name_
 
     # -- test relationship --
 
@@ -421,7 +420,7 @@ async def test_independent_property_name():
 
     # check database property name on low level
     results, meta = await adb.cypher_query(
-        "MATCH (:TestDBNamePropertyNode)-[r:KNOWS]->(:TestDBNamePropertyNode) RETURN r"
+        "MATCH (:DBNamePropertyNode)-[r:KNOWS]->(:DBNamePropertyNode) RETURN r"
     )
     rel_properties = get_graph_entity_properties(results[0][0])
     assert rel_properties["knownFor"] == "10 years"
@@ -436,15 +435,15 @@ async def test_independent_property_name():
 
 @mark_async_test
 async def test_independent_property_name_for_semi_structured():
-    class TestDBNamePropertySemiStructuredNode(AsyncSemiStructuredNode):
+    class DBNamePropertySemiStructuredNode(AsyncSemiStructuredNode):
         title_ = StringProperty(db_property="title")
 
-    semi = TestDBNamePropertySemiStructuredNode(title_="sir", extra="data")
+    semi = DBNamePropertySemiStructuredNode(title_="sir", extra="data")
     await semi.save()
 
     # check database property name on low level
     results, meta = await adb.cypher_query(
-        "MATCH (n:TestDBNamePropertySemiStructuredNode) RETURN n"
+        "MATCH (n:DBNamePropertySemiStructuredNode) RETURN n"
     )
     node_properties = get_graph_entity_properties(results[0][0])
     assert node_properties["title"] == "sir"
@@ -456,12 +455,12 @@ async def test_independent_property_name_for_semi_structured():
     assert not hasattr(semi, "title")
     assert hasattr(semi, "extra")
     from_filter = (
-        await TestDBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all()
+        await DBNamePropertySemiStructuredNode.nodes.filter(title_="sir").all()
     )[0]
     assert from_filter.title_ == "sir"
     # assert not hasattr(from_filter, "title")
     assert from_filter.extra == "data"
-    from_get = await TestDBNamePropertySemiStructuredNode.nodes.get(title_="sir")
+    from_get = await DBNamePropertySemiStructuredNode.nodes.get(title_="sir")
     assert from_get.title_ == "sir"
     # assert not hasattr(from_get, "title")
     assert from_get.extra == "data"

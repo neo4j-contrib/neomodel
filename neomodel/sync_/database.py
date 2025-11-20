@@ -1,13 +1,13 @@
+"""
+Database connection and management for the neomodel module.
+"""
+
 import logging
 import os
 import sys
 import time
-import warnings
-from asyncio import iscoroutinefunction
-from functools import wraps
-from itertools import combinations
-from threading import local
-from typing import Any, Callable, Optional, TextIO, Union
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, Callable, TextIO
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -23,72 +23,49 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
-from neomodel import config
-from neomodel._async_compat.util import Util
+from neomodel.config import get_config
+from neomodel.constants import (
+    ACCESS_MODE_READ,
+    ACCESS_MODE_WRITE,
+    CONSTRAINT_ALREADY_EXISTS,
+    DROP_CONSTRAINT_COMMAND,
+    DROP_INDEX_COMMAND,
+    ELEMENT_ID_METHOD,
+    ENTERPRISE_EDITION_TAG,
+    INDEX_ALREADY_EXISTS,
+    LEGACY_ID_METHOD,
+    LIST_CONSTRAINTS_COMMAND,
+    LOOKUP_INDEX_TYPE,
+    NO_SESSION_OPEN,
+    NO_TRANSACTION_IN_PROGRESS,
+    RULE_ALREADY_EXISTS,
+    UNKNOWN_SERVER_VERSION,
+    VERSION_FULLTEXT_INDEXES_SUPPORT,
+    VERSION_LEGACY_ID,
+    VERSION_PARALLEL_RUNTIME_SUPPORT,
+    VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT,
+    VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT,
+    VERSION_VECTOR_INDEXES_SUPPORT,
+)
 from neomodel.exceptions import (
     ConstraintValidationFailed,
-    DoesNotExist,
     FeatureNotSupported,
-    NodeClassAlreadyDefined,
     NodeClassNotDefined,
     RelationshipClassNotDefined,
     UniqueProperty,
 )
-from neomodel.hooks import hooks
 from neomodel.properties import FulltextIndex, Property, VectorIndex
-from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import (
-    _UnsavedNode,
-    classproperty,
-    deprecated,
-    version_tag_to_integer,
-)
+from neomodel.util import version_tag_to_integer
+
+# The imports inside this block are only for type checking tools (like mypy or IDEs) to help with code hints and error checking.
+# These imports are ignored when the code actually runs, so they don't affect runtime performance or cause circular import problems.
+if TYPE_CHECKING:
+    from neomodel.sync_.node import StructuredNode  # type: ignore
+    from neomodel.sync_.transaction import ImpersonationHandler, TransactionProxy
 
 logger = logging.getLogger(__name__)
 
-RULE_ALREADY_EXISTS = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
-INDEX_ALREADY_EXISTS = "Neo.ClientError.Schema.IndexAlreadyExists"
-CONSTRAINT_ALREADY_EXISTS = "Neo.ClientError.Schema.ConstraintAlreadyExists"
-STREAMING_WARNING = "streaming is not supported by bolt, please remove the kwarg"
-NOT_COROUTINE_ERROR = "The decorated function must be a coroutine"
 
-# Access mode constants
-ACCESS_MODE_WRITE = "WRITE"
-ACCESS_MODE_READ = "READ"
-
-# Database edition constants
-ENTERPRISE_EDITION_TAG = "enterprise"
-
-# Neo4j version constants
-VERSION_LEGACY_ID = "4"
-VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT = "5.7"
-VERSION_PARALLEL_RUNTIME_SUPPORT = "5.13"
-VERSION_VECTOR_INDEXES_SUPPORT = "5.15"
-VERSION_FULLTEXT_INDEXES_SUPPORT = "5.16"
-VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT = "5.18"
-
-# ID method constants
-LEGACY_ID_METHOD = "id"
-ELEMENT_ID_METHOD = "elementId"
-
-# Cypher query constants
-LIST_CONSTRAINTS_COMMAND = "SHOW CONSTRAINTS"
-DROP_CONSTRAINT_COMMAND = "DROP CONSTRAINT "
-DROP_INDEX_COMMAND = "DROP INDEX "
-
-# Index type constants
-LOOKUP_INDEX_TYPE = "LOOKUP"
-
-# Info messages constants
-NO_TRANSACTION_IN_PROGRESS = "No transaction in progress"
-NO_SESSION_OPEN = "No session open"
-UNKNOWN_SERVER_VERSION = """
-    Unable to perform this operation because the database server version is not known.
-    This might mean that the database server is offline.
-"""
-
-
-# make sure the connection url has been set prior to executing the wrapped function
 def ensure_connection(func: Callable) -> Callable:
     """Decorator that ensures a connection is established before executing the decorated function.
 
@@ -97,7 +74,6 @@ def ensure_connection(func: Callable) -> Callable:
 
     Returns:
         callable: The decorated function.
-
     """
 
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Callable:
@@ -108,38 +84,188 @@ def ensure_connection(func: Callable) -> Callable:
             _db = self
 
         if not _db.driver:
-            if hasattr(config, "DATABASE_URL") and config.DATABASE_URL:
-                _db.set_connection(url=config.DATABASE_URL)
-            elif hasattr(config, "DRIVER") and config.DRIVER:
-                _db.set_connection(driver=config.DRIVER)
+            config = get_config()
+            if hasattr(config, "database_url") and config.database_url:
+                _db.set_connection(url=config.database_url)
+            elif hasattr(config, "driver") and config.driver:
+                _db.set_connection(driver=config.driver)
 
         return func(self, *args, **kwargs)
 
     return wrapper
 
 
-class Database(local):
+class Database:
     """
     A singleton object via which all operations from neomodel to the Neo4j backend are handled with.
+
+    This class enforces singleton behavior - only one instance can exist at a time.
+    The singleton instance is accessible via the module-level 'db' variable.
     """
 
+    # Shared global registries
     _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
     _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
 
+    # Singleton instance tracking
+    _instance: "Database | None" = None
+    _initialized: bool = False
+
+    def __new__(cls) -> "Database":
+        """
+        Enforce singleton pattern - only one instance can exist.
+
+        Returns:
+            Database: The singleton instance
+
+        Raises:
+            RuntimeError: If attempting to create a second instance
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self) -> None:
-        self._active_transaction: Optional[Transaction] = None
-        self.url: Optional[str] = None
-        self.driver: Optional[Driver] = None
-        self._session: Optional[Session] = None
-        self._pid: Optional[int] = None
-        self._database_name: Optional[str] = DEFAULT_DATABASE
-        self._database_version: Optional[str] = None
-        self._database_edition: Optional[str] = None
-        self.impersonated_user: Optional[str] = None
-        self._parallel_runtime: Optional[bool] = False
+        # Prevent re-initialization of the singleton instance
+        if Database._initialized:
+            return
+        # Private to instances and contexts
+        self.__active_transaction: ContextVar[Transaction | None] = ContextVar(
+            "_active_transaction", default=None
+        )
+        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
+        self.__driver: ContextVar[Driver | None] = ContextVar("driver", default=None)
+        self.__session: ContextVar[Session | None] = ContextVar(
+            "_session", default=None
+        )
+        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
+        self.__database_name: ContextVar[str | None] = ContextVar(
+            "_database_name", default=DEFAULT_DATABASE
+        )
+        self.__database_version: ContextVar[str | None] = ContextVar(
+            "_database_version", default=None
+        )
+        self.__database_edition: ContextVar[str | None] = ContextVar(
+            "_database_edition", default=None
+        )
+        self.__impersonated_user: ContextVar[str | None] = ContextVar(
+            "impersonated_user", default=None
+        )
+        self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
+            "_parallel_runtime", default=False
+        )
+
+        # Mark the singleton as initialized
+        Database._initialized = True
+
+    @classmethod
+    def get_instance(cls) -> "Database":
+        """
+        Get the singleton instance of Database.
+
+        Returns:
+            Database: The singleton instance
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """
+        Reset the singleton instance. This should only be used for testing purposes.
+
+        Warning: This will close any existing connections and reset all state.
+        """
+        if cls._instance is not None:
+            # Close any existing connections
+            cls._instance.close_connection()
+
+        cls._instance = None
+        cls._initialized = False
+
+    @property
+    def _active_transaction(self) -> Transaction | None:
+        return self.__active_transaction.get()
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: Transaction | None) -> None:
+        self.__active_transaction.set(value)
+
+    @property
+    def url(self) -> str | None:
+        return self.__url.get()
+
+    @url.setter
+    def url(self, value: str | None) -> None:
+        self.__url.set(value)
+
+    @property
+    def driver(self) -> Driver | None:
+        return self.__driver.get()
+
+    @driver.setter
+    def driver(self, value: Driver | None) -> None:
+        self.__driver.set(value)
+
+    @property
+    def _session(self) -> Session | None:
+        return self.__session.get()
+
+    @_session.setter
+    def _session(self, value: Session | None) -> None:
+        self.__session.set(value)
+
+    @property
+    def _pid(self) -> int | None:
+        return self.__pid.get()
+
+    @_pid.setter
+    def _pid(self, value: int | None) -> None:
+        self.__pid.set(value)
+
+    @property
+    def _database_name(self) -> str | None:
+        return self.__database_name.get()
+
+    @_database_name.setter
+    def _database_name(self, value: str | None) -> None:
+        self.__database_name.set(value)
+
+    @property
+    def _database_version(self) -> str | None:
+        return self.__database_version.get()
+
+    @_database_version.setter
+    def _database_version(self, value: str | None) -> None:
+        self.__database_version.set(value)
+
+    @property
+    def _database_edition(self) -> str | None:
+        return self.__database_edition.get()
+
+    @_database_edition.setter
+    def _database_edition(self, value: str | None) -> None:
+        self.__database_edition.set(value)
+
+    @property
+    def impersonated_user(self) -> str | None:
+        return self.__impersonated_user.get()
+
+    @impersonated_user.setter
+    def impersonated_user(self, value: str | None) -> None:
+        self.__impersonated_user.set(value)
+
+    @property
+    def _parallel_runtime(self) -> bool | None:
+        return self.__parallel_runtime.get()
+
+    @_parallel_runtime.setter
+    def _parallel_runtime(self, value: bool | None) -> None:
+        self.__parallel_runtime.set(value)
 
     def set_connection(
-        self, url: Optional[str] = None, driver: Optional[Driver] = None
+        self, url: str | None = None, driver: Driver | None = None
     ) -> None:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
@@ -153,8 +279,9 @@ class Database(local):
         """
         if driver:
             self.driver = driver
-            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
-                self._database_name = config.DATABASE_NAME
+            config = get_config()
+            if hasattr(config, "database_name") and config.database_name:
+                self._database_name = config.database_name
         elif url:
             self._parse_driver_from_url(url=url)
 
@@ -207,21 +334,22 @@ class Database(local):
                 f"Expecting url format: bolt://user:password@localhost:7687 got {url}"
             )
 
+        config = get_config()
         options = {
             "auth": basic_auth(username, password),
-            "connection_acquisition_timeout": config.CONNECTION_ACQUISITION_TIMEOUT,
-            "connection_timeout": config.CONNECTION_TIMEOUT,
-            "keep_alive": config.KEEP_ALIVE,
-            "max_connection_lifetime": config.MAX_CONNECTION_LIFETIME,
-            "max_connection_pool_size": config.MAX_CONNECTION_POOL_SIZE,
-            "max_transaction_retry_time": config.MAX_TRANSACTION_RETRY_TIME,
-            "resolver": config.RESOLVER,
-            "user_agent": config.USER_AGENT,
+            "connection_acquisition_timeout": config.connection_acquisition_timeout,
+            "connection_timeout": config.connection_timeout,
+            "keep_alive": config.keep_alive,
+            "max_connection_lifetime": config.max_connection_lifetime,
+            "max_connection_pool_size": config.max_connection_pool_size,
+            "max_transaction_retry_time": config.max_transaction_retry_time,
+            "resolver": config.resolver,
+            "user_agent": config.user_agent,
         }
 
         if "+s" not in parsed_url.scheme:
-            options["encrypted"] = config.ENCRYPTED
-            options["trusted_certificates"] = config.TRUSTED_CERTIFICATES
+            options["encrypted"] = config.encrypted
+            options["trusted_certificates"] = config.trusted_certificates
 
         # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
@@ -231,8 +359,8 @@ class Database(local):
         self.url = url
         # The database name can be provided through the url or the config
         if database_name == "":
-            if hasattr(config, "DATABASE_NAME") and config.DATABASE_NAME:
-                self._database_name = config.DATABASE_NAME
+            if hasattr(config, "database_name") and config.database_name:
+                self._database_name = config.database_name
         else:
             self._database_name = database_name
 
@@ -249,14 +377,14 @@ class Database(local):
             self.driver = None
 
     @property
-    def database_version(self) -> Optional[str]:
+    def database_version(self) -> str | None:
         if self._database_version is None:
             self._update_database_version()
 
         return self._database_version
 
     @property
-    def database_edition(self) -> Optional[str]:
+    def database_edition(self) -> str | None:
         if self._database_edition is None:
             self._update_database_version()
 
@@ -267,18 +395,26 @@ class Database(local):
         """
         Returns the current transaction object
         """
+        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+
         return TransactionProxy(self)
 
     @property
     def write_transaction(self) -> "TransactionProxy":
+        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+
         return TransactionProxy(self, access_mode=ACCESS_MODE_WRITE)
 
     @property
     def read_transaction(self) -> "TransactionProxy":
+        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+
         return TransactionProxy(self, access_mode=ACCESS_MODE_READ)
 
     @property
     def parallel_read_transaction(self) -> "TransactionProxy":
+        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+
         return TransactionProxy(
             self, access_mode=ACCESS_MODE_READ, parallel_runtime=True
         )
@@ -292,6 +428,8 @@ class Database(local):
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
+        from neomodel.sync_.transaction import ImpersonationHandler  # type: ignore
+
         db_edition = self.database_edition
         if db_edition != ENTERPRISE_EDITION_TAG:
             raise FeatureNotSupported(
@@ -450,12 +588,18 @@ class Database(local):
                 )
 
         if isinstance(object_to_resolve, Path):
-            from neomodel.sync_.path import NeomodelPath
+            from neomodel.sync_.path import NeomodelPath  # type: ignore
 
             return NeomodelPath(object_to_resolve)
 
         if isinstance(object_to_resolve, list):
-            return self._result_resolution([object_to_resolve])
+            return [self._object_resolution(item) for item in object_to_resolve]
+
+        if isinstance(object_to_resolve, dict):
+            return {
+                key: self._object_resolution(value)
+                for key, value in object_to_resolve.items()
+            }
 
         return object_to_resolve
 
@@ -491,11 +635,11 @@ class Database(local):
     def cypher_query(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -547,13 +691,13 @@ class Database(local):
 
     def _run_cypher_query(
         self,
-        session: Union[Session, Transaction],
+        session: Session | Transaction,
         query: str,
         params: dict[str, Any],
         handle_unique: bool,
         retry_on_session_expire: bool,
         resolve_objects: bool,
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
+    ) -> tuple[list | None, tuple[str, ...] | None]:
         try:
             # Retrieve the data
             start = time.time()
@@ -614,7 +758,7 @@ class Database(local):
         else:
             return ELEMENT_ID_METHOD
 
-    def parse_element_id(self, element_id: Optional[str]) -> Union[str, int]:
+    def parse_element_id(self, element_id: str | None) -> str | int:
         if element_id is None:
             raise ValueError(
                 "Unable to parse element id, are you sure this element has been saved ?"
@@ -709,12 +853,12 @@ class Database(local):
         """
         )
         if clear_constraints:
-            drop_constraints()
+            self.drop_constraints()
         if clear_indexes:
-            drop_indexes()
+            self.drop_indexes()
 
     def drop_constraints(
-        self, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Discover and drop all constraints.
@@ -741,7 +885,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def drop_indexes(self, quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
+    def drop_indexes(self, quiet: bool = True, stdout: TextIO | None = None) -> None:
         """
         Discover and drop all indexes, except the automatically created token lookup indexes.
 
@@ -761,7 +905,7 @@ class Database(local):
         if not quiet:
             stdout.write("\n")
 
-    def remove_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    def remove_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Calls functions for dropping constraints and indexes.
 
@@ -778,7 +922,7 @@ class Database(local):
         stdout.write("Dropping indexes...\n")
         self.drop_indexes(quiet=False, stdout=stdout)
 
-    def install_all_labels(self, stdout: Optional[TextIO] = None) -> None:
+    def install_all_labels(self, stdout: TextIO | None = None) -> None:
         """
         Discover all subclasses of StructuredNode in your application and execute install_labels on each.
         Note: code must be loaded (imported) in order for a class to be discovered.
@@ -799,9 +943,11 @@ class Database(local):
         stdout.write("Setting up indexes and constraints...\n\n")
 
         i = 0
+        from .node import StructuredNode
+
         for cls in subsub(StructuredNode):
             stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            install_labels(cls, quiet=False, stdout=stdout)
+            self.install_labels(cls, quiet=False, stdout=stdout)
             i += 1
 
         if i:
@@ -810,7 +956,7 @@ class Database(local):
         stdout.write(f"Finished {i} classes.\n")
 
     def install_labels(
-        self, cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
+        self, cls: Any, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
         """
         Setup labels with indexes and constraints for a given class
@@ -1188,818 +1334,4 @@ class Database(local):
 
 
 # Create a singleton instance of the database object
-db = Database()
-
-
-# Deprecated methods
-def change_neo4j_password(db: Database, user: str, new_password: str) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.change_neo4j_password(user, new_password) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.change_neo4j_password(user, new_password)
-
-
-def clear_neo4j_database(
-    db: Database, clear_constraints: bool = False, clear_indexes: bool = False
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.clear_neo4j_database(clear_constraints, clear_indexes) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.clear_neo4j_database(clear_constraints, clear_indexes)
-
-
-def drop_constraints(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_constraints(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_constraints(quiet, stdout)
-
-
-def drop_indexes(quiet: bool = True, stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.drop_indexes(quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.drop_indexes(quiet, stdout)
-
-
-def remove_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.remove_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.remove_all_labels(stdout)
-
-
-def install_labels(
-    cls: Any, quiet: bool = True, stdout: Optional[TextIO] = None
-) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_labels(cls, quiet, stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_labels(cls, quiet, stdout)
-
-
-def install_all_labels(stdout: Optional[TextIO] = None) -> None:
-    deprecated(
-        """
-        This method has been moved to the Database singleton (db for sync, db for async).
-        Please use db.install_all_labels(stdout) instead.
-        This direct call will be removed in an upcoming version.
-        """
-    )
-    db.install_all_labels(stdout)
-
-
-class TransactionProxy:
-    bookmarks: Optional[Bookmarks] = None
-
-    def __init__(
-        self,
-        db: Database,
-        access_mode: Optional[str] = None,
-        parallel_runtime: Optional[bool] = False,
-    ):
-        self.db: Database = db
-        self.access_mode: Optional[str] = access_mode
-        self.parallel_runtime: Optional[bool] = parallel_runtime
-
-    @ensure_connection
-    def __enter__(self) -> "TransactionProxy":
-        if self.parallel_runtime and not self.db.parallel_runtime_available():
-            warnings.warn(
-                "Parallel runtime is only available in Neo4j Enterprise Edition 5.13 and above. "
-                "Reverting to default runtime.",
-                UserWarning,
-            )
-            self.parallel_runtime = False
-        self.db._parallel_runtime = self.parallel_runtime
-        self.db.begin(access_mode=self.access_mode, bookmarks=self.bookmarks)
-        self.bookmarks = None
-        return self
-
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        self.db._parallel_runtime = False
-        if exc_value:
-            self.db.rollback()
-
-        if (
-            exc_type is ClientError
-            and exc_value.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
-        ):
-            raise UniqueProperty(exc_value.message)
-
-        if not exc_value:
-            self.last_bookmark = self.db.commit()
-
-    def __call__(self, func: Callable) -> Callable:
-        if Util.is_async_code and not iscoroutinefunction(func):
-            raise TypeError(NOT_COROUTINE_ERROR)
-
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Callable:
-            with self:
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    @property
-    def with_bookmark(self) -> "BookmarkingAsyncTransactionProxy":
-        return BookmarkingAsyncTransactionProxy(self.db, self.access_mode)
-
-
-class BookmarkingAsyncTransactionProxy(TransactionProxy):
-    def __call__(self, func: Callable) -> Callable:
-        if Util.is_async_code and not iscoroutinefunction(func):
-            raise TypeError(NOT_COROUTINE_ERROR)
-
-        def wrapper(*args: Any, **kwargs: Any) -> tuple[Any, None]:
-            self.bookmarks = kwargs.pop("bookmarks", None)
-
-            with self:
-                result = func(*args, **kwargs)
-                self.last_bookmark = None
-
-            return result, self.last_bookmark
-
-        return wrapper
-
-
-class ImpersonationHandler:
-    def __init__(self, db: Database, impersonated_user: str):
-        self.db = db
-        self.impersonated_user = impersonated_user
-
-    def __enter__(self) -> "ImpersonationHandler":
-        self.db.impersonated_user = self.impersonated_user
-        return self
-
-    def __exit__(
-        self, exception_type: Any, exception_value: Any, exception_traceback: Any
-    ) -> None:
-        self.db.impersonated_user = None
-
-        print("\nException type:", exception_type)
-        print("\nException value:", exception_value)
-        print("\nTraceback:", exception_traceback)
-
-    def __call__(self, func: Callable) -> Callable:
-        def wrapper(*args: Any, **kwargs: Any) -> Callable:
-            with self:
-                return func(*args, **kwargs)
-
-        return wrapper
-
-
-class NodeMeta(type):
-    DoesNotExist: type[DoesNotExist]
-    __required_properties__: tuple[str, ...]
-    __all_properties__: tuple[tuple[str, Any], ...]
-    __all_aliases__: tuple[tuple[str, Any], ...]
-    __all_relationships__: tuple[tuple[str, Any], ...]
-    __label__: str
-    __optional_labels__: list[str]
-
-    defined_properties: Callable[..., dict[str, Any]]
-
-    def __new__(
-        mcs: type, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
-    ) -> Any:
-        namespace["DoesNotExist"] = type(name + "DoesNotExist", (DoesNotExist,), {})
-        cls: NodeMeta = type.__new__(mcs, name, bases, namespace)
-        cls.DoesNotExist._model_class = cls
-
-        if hasattr(cls, "__abstract_node__"):
-            delattr(cls, "__abstract_node__")
-        else:
-            if "deleted" in namespace:
-                raise ValueError(
-                    "Property name 'deleted' is not allowed as it conflicts with neomodel internals."
-                )
-            elif "id" in namespace:
-                raise ValueError(
-                    """
-                        Property name 'id' is not allowed as it conflicts with neomodel internals.
-                        Consider using 'uid' or 'identifier' as id is also a Neo4j internal.
-                    """
-                )
-            elif "element_id" in namespace:
-                raise ValueError(
-                    """
-                        Property name 'element_id' is not allowed as it conflicts with neomodel internals.
-                        Consider using 'uid' or 'identifier' as element_id is also a Neo4j internal.
-                    """
-                )
-            for key, value in (
-                (x, y) for x, y in namespace.items() if isinstance(y, Property)
-            ):
-                value.name, value.owner = key, cls
-                if hasattr(value, "setup") and callable(value.setup):
-                    value.setup()
-
-            # cache various groups of properies
-            cls.__required_properties__ = tuple(
-                name
-                for name, property in cls.defined_properties(
-                    aliases=False, rels=False
-                ).items()
-                if property.required or property.unique_index
-            )
-            cls.__all_properties__ = tuple(
-                cls.defined_properties(aliases=False, rels=False).items()
-            )
-            cls.__all_aliases__ = tuple(
-                cls.defined_properties(properties=False, rels=False).items()
-            )
-            cls.__all_relationships__ = tuple(
-                cls.defined_properties(aliases=False, properties=False).items()
-            )
-
-            cls.__label__ = namespace.get("__label__", name)
-            cls.__optional_labels__ = namespace.get("__optional_labels__", [])
-
-            build_class_registry(cls)
-
-        return cls
-
-
-def build_class_registry(cls: Any) -> None:
-    base_label_set = frozenset(cls.inherited_labels())
-    optional_label_set = set(cls.inherited_optional_labels())
-
-    # Construct all possible combinations of labels + optional labels
-    possible_label_combinations = [
-        frozenset(set(x).union(base_label_set))
-        for i in range(1, len(optional_label_set) + 1)
-        for x in combinations(optional_label_set, i)
-    ]
-    possible_label_combinations.append(base_label_set)
-
-    for label_set in possible_label_combinations:
-        if not hasattr(cls, "__target_databases__"):
-            if label_set not in db._NODE_CLASS_REGISTRY:
-                db._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                raise NodeClassAlreadyDefined(
-                    cls, db._NODE_CLASS_REGISTRY, db._DB_SPECIFIC_CLASS_REGISTRY
-                )
-        else:
-            for database in cls.__target_databases__:
-                if database not in db._DB_SPECIFIC_CLASS_REGISTRY:
-                    db._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
-                if label_set not in db._DB_SPECIFIC_CLASS_REGISTRY[database]:
-                    db._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                else:
-                    raise NodeClassAlreadyDefined(
-                        cls, db._NODE_CLASS_REGISTRY, db._DB_SPECIFIC_CLASS_REGISTRY
-                    )
-
-
-NodeBase: type = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
-
-
-class StructuredNode(NodeBase):
-    """
-    Base class for all node definitions to inherit from.
-
-    If you want to create your own abstract classes set:
-        __abstract_node__ = True
-    """
-
-    # static properties
-
-    __abstract_node__ = True
-
-    # magic methods
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        if "deleted" in kwargs:
-            raise ValueError("deleted property is reserved for neomodel")
-
-        for key, val in self.__all_relationships__:
-            self.__dict__[key] = val.build_manager(self, key)
-
-        super().__init__(*args, **kwargs)
-
-    def __eq__(self, other: Any) -> bool:
-        """
-        Compare two node objects.
-        If both nodes were saved to the database, compare them by their element_id.
-        Otherwise, compare them using object id in memory.
-        If `other` is not a node, always return False.
-        """
-        if not isinstance(other, (StructuredNode,)):
-            return False
-        if self.was_saved and other.was_saved:
-            return self.element_id == other.element_id
-        return id(self) == id(other)
-
-    def __ne__(self, other: Any) -> bool:
-        return not self.__eq__(other)
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}: {self}>"
-
-    def __str__(self) -> str:
-        return repr(self.__properties__)
-
-    # dynamic properties
-
-    @classproperty
-    def nodes(self) -> Any:
-        """
-        Returns a NodeSet object representing all nodes of the classes label
-        :return: NodeSet
-        :rtype: NodeSet
-        """
-        from neomodel.sync_.match import NodeSet
-
-        return NodeSet(self)
-
-    @property
-    def element_id(self) -> Optional[Any]:
-        if hasattr(self, "element_id_property"):
-            return self.element_id_property
-        return None
-
-    # Version 4.4 support - id is deprecated in version 5.x
-    @property
-    def id(self) -> int:
-        try:
-            return int(self.element_id_property)
-        except (TypeError, ValueError):
-            raise ValueError(
-                "id is deprecated in Neo4j version 5, please migrate to element_id. If you use the id in a Cypher query, replace id() by elementId()."
-            )
-
-    @property
-    def was_saved(self) -> bool:
-        """
-        Shows status of node in the database. False, if node hasn't been saved yet, True otherwise.
-        """
-        return self.element_id is not None
-
-    # methods
-
-    @classmethod
-    def _validate_relationship(cls, relationship: Any, rel_props: Any) -> None:
-        """
-        Validate relationship manager.
-
-        :param relationship: The relationship manager to validate
-        :raises TypeError: If relationship is not an AsyncRelationshipManager
-        :raises ValueError: If relationship source is invalid or relation_type is missing
-        :raises RuntimeError: If relationship source element_id is None
-        """
-        from neomodel.sync_.relationship_manager import RelationshipManager
-
-        if not isinstance(relationship, RelationshipManager):
-            raise TypeError(
-                f"relationship must be a AsyncRelationshipManager instance, "
-                f"not {type(relationship).__name__}."
-            )
-
-        if not isinstance(relationship.source, StructuredNode):
-            raise ValueError(
-                f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
-            )
-
-        relation_type = relationship.definition.get("relation_type")
-        if not relation_type:
-            raise ValueError("No relation_type is specified on provided relationship")
-
-        if relationship.source.element_id is None:
-            raise RuntimeError(
-                "Could not identify the relationship source, its element id was None."
-            )
-
-        if rel_props:
-            rel_model = relationship.definition.get("model")
-            if not rel_model:
-                raise ValueError(
-                    "Relationship properties require a relationship model. "
-                    "Define a AsyncStructuredRel model for this relationship"
-                )
-
-    @classmethod
-    def _deflate_relationship_properties(
-        cls,
-        relationship: Any,
-        rel_props: dict[str, Any],
-        query_params: dict[str, Any],
-    ) -> dict[str, str]:
-        """
-        Deflate relationship properties and prepare them for Cypher query.
-
-        :param relationship: The relationship manager containing the model
-        :param rel_props: Dictionary of relationship properties to deflate
-        :param query_params: Query parameters dict to add deflated values to
-        :return: Dictionary mapping property names to parameter placeholders (e.g. {'since': '$since'})
-        """
-        rel_model = relationship.definition.get("model")
-        tmp = rel_model(**rel_props)
-
-        rel_prop = {}
-        for prop, val in rel_model.deflate(tmp.__properties__).items():
-            if val is not None:
-                rel_prop[prop] = "$" + prop
-            else:
-                rel_prop[prop] = None
-            query_params[prop] = val
-
-        return rel_prop
-
-    @classmethod
-    def _build_merge_query(
-        cls,
-        merge_params: tuple[dict[str, Any], ...],
-        update_existing: bool = False,
-        lazy: bool = False,
-        relationship: Optional[Any] = None,
-        rel_props: Optional[dict[str, Any]] = None,
-    ) -> tuple[str, dict[str, Any]]:
-        """
-        Get a tuple of a CYPHER query and a params dict for the specified MERGE query.
-
-        :param merge_params: The target node match parameters, each node must have a "create" key and optional "update".
-        :type merge_params: list of dict
-        :param update_existing: True to update properties of existing nodes, default False to keep existing values.
-        :type update_existing: bool
-        :rtype: tuple
-        """
-        query_params: dict[str, Any] = {"merge_params": merge_params}
-        n_merge_labels = ":".join(cls.inherited_labels())
-        n_merge_prm = ", ".join(
-            (
-                f"{getattr(cls, p).get_db_property_name(p)}: params.create.{getattr(cls, p).get_db_property_name(p)}"
-                for p in cls.__required_properties__
-            )
-        )
-        n_merge = f"n:{n_merge_labels} {{{n_merge_prm}}}"
-        if relationship is None:
-            # create "simple" unwind query
-            query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
-        else:
-            # validate relationship
-            cls._validate_relationship(relationship=relationship, rel_props=rel_props)
-            relation_type = relationship.definition.get("relation_type")
-
-            from neomodel.sync_.match import _rel_helper, _rel_merge_helper
-
-            query_params["source_id"] = db.parse_element_id(
-                relationship.source.element_id
-            )
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
-            query += "WITH source\n UNWIND $merge_params as params \n "
-            query += "MERGE "
-            if rel_props:
-                rel_prop = cls._deflate_relationship_properties(
-                    relationship=relationship,
-                    rel_props=rel_props,
-                    query_params=query_params,
-                )
-
-                query += _rel_merge_helper(
-                    lhs="source",
-                    rhs=n_merge,
-                    ident="r",
-                    relation_type=relation_type,
-                    direction=relationship.definition["direction"],
-                    relation_properties=rel_prop,
-                )
-            else:
-                query += _rel_helper(
-                    lhs="source",
-                    rhs=n_merge,
-                    ident=None,
-                    relation_type=relation_type,
-                    direction=relationship.definition["direction"],
-                )
-
-        query += "ON CREATE SET n = params.create\n "
-        # if update_existing, write properties on match as well
-        if update_existing is True:
-            query += "ON MATCH SET n += params.update\n"
-
-        # close query
-        if lazy:
-            query += f"RETURN {db.get_id_method()}(n)"
-        else:
-            query += "RETURN n"
-
-        return query, query_params
-
-    @classmethod
-    def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
-        """
-        Call to CREATE with parameters map. A new instance will be created and saved.
-
-        :param props: dict of properties to create the nodes.
-        :type props: tuple
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :type: bool
-        :rtype: list
-        """
-
-        if "streaming" in kwargs:
-            warnings.warn(
-                STREAMING_WARNING,
-                category=DeprecationWarning,
-                stacklevel=1,
-            )
-
-        lazy = kwargs.get("lazy", False)
-        # create mapped query
-        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
-
-        # close query
-        if lazy:
-            query += f" RETURN {db.get_id_method()}(n)"
-        else:
-            query += " RETURN n"
-
-        results = []
-        for item in [
-            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
-        ]:
-            node, _ = db.cypher_query(query, {"create_params": item})
-            results.extend(node[0])
-
-        nodes = [cls.inflate(node) for node in results]
-
-        if not lazy and hasattr(cls, "post_create"):
-            for node in nodes:
-                node.post_create()
-
-        return nodes
-
-    @classmethod
-    def create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
-        """
-        Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
-        this is an atomic operation. If an instance already exists all optional properties specified will be updated.
-
-        Note that the post_create hook isn't called after create_or_update
-
-        :param props: List of dict arguments to get or create the entities with.
-        :type props: tuple
-        :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :rtype: list
-        """
-        lazy: bool = bool(kwargs.get("lazy", False))
-        relationship = kwargs.get("relationship")
-        rel_props = kwargs.get("rel_props")
-
-        # build merge query, make sure to update only explicitly specified properties
-        create_or_update_params = []
-        for specified, deflated in [
-            (p, cls.deflate(p, skip_empty=True)) for p in props
-        ]:
-            create_or_update_params.append(
-                {
-                    "create": deflated,
-                    "update": dict(
-                        (k, v) for k, v in deflated.items() if k in specified
-                    ),
-                }
-            )
-        query, params = cls._build_merge_query(
-            tuple(create_or_update_params),
-            update_existing=True,
-            relationship=relationship,
-            lazy=lazy,
-            rel_props=rel_props,
-        )
-
-        if "streaming" in kwargs:
-            warnings.warn(
-                STREAMING_WARNING,
-                category=DeprecationWarning,
-                stacklevel=1,
-            )
-
-        # fetch and build instance for each result
-        results = db.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
-
-    def cypher(
-        self, query: str, params: Optional[dict[str, Any]] = None
-    ) -> tuple[Optional[list], Optional[tuple[str, ...]]]:
-        """
-        Execute a cypher query with the param 'self' pre-populated with the nodes neo4j id.
-
-        :param query: cypher query string
-        :type: string
-        :param params: query parameters
-        :type: dict
-        :return: tuple containing a list of query results, and the meta information as a tuple
-        :rtype: tuple
-        """
-        self._pre_action_check("cypher")
-        _params = params or {}
-        if self.element_id is None:
-            raise ValueError("Can't run cypher operation on unsaved node")
-        element_id = db.parse_element_id(self.element_id)
-        _params.update({"self": element_id})
-        return db.cypher_query(query, _params)
-
-    @hooks
-    def delete(self) -> bool:
-        """
-        Delete a node and its relationships
-
-        :return: True
-        """
-        self._pre_action_check("delete")
-        self.cypher(
-            f"MATCH (self) WHERE {db.get_id_method()}(self)=$self DETACH DELETE self"
-        )
-        delattr(self, "element_id_property")
-        self.deleted = True
-        return True
-
-    @classmethod
-    def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
-        """
-        Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
-        this is an atomic operation.
-        Parameters must contain all required properties, any non required properties with defaults will be generated.
-
-        Note that the post_create hook isn't called after get_or_create
-
-        :param props: Arguments to get_or_create as tuple of dict with property names and values to get or create
-                      the entities with.
-        :type props: tuple
-        :param relationship: Optional, relationship to get/create on when new entity is created.
-        :param lazy: False by default, specify True to get nodes with id only without the parameters.
-        :rtype: list
-        """
-        lazy = kwargs.get("lazy", False)
-        relationship = kwargs.get("relationship")
-        rel_props = kwargs.get("rel_props")
-
-        # build merge query
-        get_or_create_params = [
-            {"create": cls.deflate(p, skip_empty=True)} for p in props
-        ]
-        query, params = cls._build_merge_query(
-            tuple(get_or_create_params),
-            relationship=relationship,
-            lazy=lazy,
-            rel_props=rel_props,
-        )
-
-        if "streaming" in kwargs:
-            warnings.warn(
-                STREAMING_WARNING,
-                category=DeprecationWarning,
-                stacklevel=1,
-            )
-
-        # fetch and build instance for each result
-        results = db.cypher_query(query, params)
-        return [cls.inflate(r[0]) for r in results[0]]
-
-    @classmethod
-    def inflate(cls: Any, node: Any) -> Any:
-        """
-        Inflate a raw neo4j_driver node to a neomodel node
-        :param node:
-        :return: node object
-        """
-        # support lazy loading
-        if isinstance(node, str) or isinstance(node, int):
-            snode = cls()
-            snode.element_id_property = node
-        else:
-            snode = super().inflate(node)
-            snode.element_id_property = node.element_id
-
-        return snode
-
-    @classmethod
-    def inherited_labels(cls: Any) -> list[str]:
-        """
-        Return list of labels from nodes class hierarchy.
-
-        :return: list
-        """
-        return [
-            scls.__label__
-            for scls in cls.mro()
-            if hasattr(scls, "__label__") and not hasattr(scls, "__abstract_node__")
-        ]
-
-    @classmethod
-    def inherited_optional_labels(cls: Any) -> list[str]:
-        """
-        Return list of optional labels from nodes class hierarchy.
-
-        :return: list
-        :rtype: list
-        """
-        return [
-            label
-            for scls in cls.mro()
-            for label in getattr(scls, "__optional_labels__", [])
-            if not hasattr(scls, "__abstract_node__")
-        ]
-
-    def labels(self) -> list[str]:
-        """
-        Returns list of labels tied to the node from neo4j.
-
-        :return: list of labels
-        :rtype: list
-        """
-        self._pre_action_check("labels")
-        result = self.cypher(
-            f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN labels(n)"
-        )
-        if result is None or result[0] is None:
-            raise ValueError("Could not get labels, node may not exist")
-        return result[0][0][0]
-
-    def _pre_action_check(self, action: str) -> None:
-        if hasattr(self, "deleted") and self.deleted:
-            raise ValueError(
-                f"{self.__class__.__name__}.{action}() attempted on deleted node"
-            )
-        if not hasattr(self, "element_id"):
-            raise ValueError(
-                f"{self.__class__.__name__}.{action}() attempted on unsaved node"
-            )
-
-    def refresh(self) -> None:
-        """
-        Reload the node from neo4j
-        """
-        self._pre_action_check("refresh")
-        if hasattr(self, "element_id"):
-            results = self.cypher(
-                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
-            )
-            request = results[0]
-            if not request or not request[0]:
-                raise self.__class__.DoesNotExist("Can't refresh non existent node")
-            node = self.inflate(request[0][0])
-            for key, val in node.__properties__.items():
-                setattr(self, key, val)
-        else:
-            raise ValueError("Can't refresh unsaved node")
-
-    @hooks
-    def save(self) -> "StructuredNode":
-        """
-        Save the node to neo4j or raise an exception
-
-        :return: the node instance
-        """
-
-        # create or update instance node
-        if hasattr(self, "element_id_property"):
-            # update
-            params = self.deflate(self.__properties__, self)
-            query = f"MATCH (n) WHERE {db.get_id_method()}(n)=$self\n"
-
-            if params:
-                query += "SET "
-                query += ",\n".join([f"n.{key} = ${key}" for key in params])
-                query += "\n"
-            if self.inherited_labels():
-                query += "\n".join(
-                    [f"SET n:`{label}`" for label in self.inherited_labels()]
-                )
-            self.cypher(query, params)
-        elif hasattr(self, "deleted") and self.deleted:
-            raise ValueError(
-                f"{self.__class__.__name__}.save() attempted on deleted node"
-            )
-        else:  # create
-            result = self.create(self.__properties__)
-            created_node = result[0]
-            self.element_id_property = created_node.element_id
-        return self
+db = Database.get_instance()

@@ -184,7 +184,7 @@ async def test_vectorfilter_with_relationshipfilter():
         description_embedding = ArrayProperty(
             FloatProperty(), vector_index=VectorIndex(dimensions=2)
         )
-        suppliers = AsyncRelationshipFrom(SupplierV, "SUPPLIES", model=SuppliesVRel)
+        suppliers = AsyncRelationshipFrom(SupplierV, "SUPPLIESV", model=SuppliesVRel)
 
     await adb.install_labels(SupplierV)
     await adb.install_labels(SuppliesVRel)
