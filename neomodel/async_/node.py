@@ -221,6 +221,7 @@ class AsyncStructuredNode(NodeBase):
         update_existing: bool = False,
         lazy: bool = False,
         relationship: Any | None = None,
+        rel_props: dict[str, Any] | None = None,
         merge_by: dict[str, str | list[str]] | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """
@@ -234,6 +235,8 @@ class AsyncStructuredNode(NodeBase):
         :type lazy: bool
         :param relationship: Optional relationship to create when merging nodes.
         :type relationship: Any | None
+        :param rel_props: Optional dictionary of relationship properties to deflate.
+        :type rel_props: dict[str, Any] | None
         :param merge_by: Optional dict with 'label' and 'keys' to specify custom merge criteria.
                         'label' is optional and should be a string, 'keys' is a list of strings.
                         If 'label' is not provided, uses the node's inherited labels.
@@ -267,35 +270,45 @@ class AsyncStructuredNode(NodeBase):
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
             # validate relationship
-            if not isinstance(relationship.source, AsyncStructuredNode):
-                raise ValueError(
-                    f"relationship source [{repr(relationship.source)}] is not a StructuredNode"
-                )
+            from neomodel.async_.relationship_manager import (
+                deflate_relationship_properties,
+                validate_relationship,
+            )
+
+            validate_relationship(relationship, rel_props)
             relation_type = relationship.definition.get("relation_type")
-            if not relation_type:
-                raise ValueError(
-                    "No relation_type is specified on provided relationship"
-                )
 
-            from neomodel.async_.match import _rel_helper
+            from neomodel.async_.match import _rel_helper, _rel_merge_helper
 
-            if relationship.source.element_id is None:
-                raise RuntimeError(
-                    "Could not identify the relationship source, its element id was None."
-                )
             query_params["source_id"] = await adb.parse_element_id(
                 relationship.source.element_id
             )
             query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
             query += "WITH source\n UNWIND $merge_params as params \n "
             query += "MERGE "
-            query += _rel_helper(
-                lhs="source",
-                rhs=n_merge,
-                ident=None,
-                relation_type=relation_type,
-                direction=relationship.definition["direction"],
-            )
+            if rel_props:
+                rel_prop = deflate_relationship_properties(
+                    relationship=relationship,
+                    rel_props=rel_props,
+                    query_params=query_params,
+                )
+
+                query += _rel_merge_helper(
+                    lhs="source",
+                    rhs=n_merge,
+                    ident="r",
+                    relation_type=relation_type,
+                    direction=relationship.definition["direction"],
+                    relation_properties=rel_prop,
+                )
+            else:
+                query += _rel_helper(
+                    lhs="source",
+                    rhs=n_merge,
+                    ident=None,
+                    relation_type=relation_type,
+                    direction=relationship.definition["direction"],
+                )
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
@@ -378,6 +391,7 @@ class AsyncStructuredNode(NodeBase):
         """
         lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
         merge_by = kwargs.get("merge_by")
 
         # build merge query, make sure to update only explicitly specified properties
@@ -396,6 +410,7 @@ class AsyncStructuredNode(NodeBase):
             update_existing=True,
             relationship=relationship,
             lazy=lazy,
+            rel_props=rel_props,
             merge_by=merge_by,
         )
 
@@ -475,6 +490,7 @@ class AsyncStructuredNode(NodeBase):
         """
         lazy = kwargs.get("lazy", False)
         relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
         merge_by = kwargs.get("merge_by")
 
         # build merge query
@@ -485,6 +501,7 @@ class AsyncStructuredNode(NodeBase):
             tuple(get_or_create_params),
             relationship=relationship,
             lazy=lazy,
+            rel_props=rel_props,
             merge_by=merge_by,
         )
 
@@ -556,7 +573,7 @@ class AsyncStructuredNode(NodeBase):
         """
         self._pre_action_check("labels")
         result = await self.cypher(
-            f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self " "RETURN labels(n)"
+            f"MATCH (n) WHERE {await adb.get_id_method()}(n)=$self RETURN labels(n)"
         )
         if result is None or result[0] is None:
             raise ValueError("Could not get labels, node may not exist")

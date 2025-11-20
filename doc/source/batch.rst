@@ -106,7 +106,6 @@ Examples of different merge key configurations::
         'age': 30
     }, merge_by={'label': 'Person', 'keys': ['email', 'age']}) # For when your node has multiple labels
 
-
 Only explicitly provided properties will be updated on the node in all other cases::
     class NodeWithDefaultProp(AsyncStructuredNode):
         name = StringProperty(required=True)
@@ -144,6 +143,53 @@ it will generate a new (random) value for it, and thus create a new node instead
     This has been raised as an [issue in GitHub](https://github.com/neo4j-contrib/neomodel/issues/807).
     While it is not a bug in itself, it is a deviation from the expected behavior of the function, and thus may be unexpected.
     Therefore, an idea would be to refactor the batch mechanism to allow users to specify which properties are used as keys to match nodes.
+
+
+Relationships and Relationship Properties
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``create_or_update()`` method also supports the ``relationship`` parameter to match nodes within a specific relationship context,
+and the ``rel_props`` parameter to set properties on the relationship::
+
+    from datetime import datetime, UTC
+
+    class PetsRel(StructuredRel):
+        since = DateTimeProperty()
+        notes = StringProperty()
+
+    class Dog(StructuredNode):
+        name = StringProperty(required=True)
+        owner = RelationshipTo('Person', 'OWNS', model=PetsRel)
+
+    class Person(StructuredNode):
+        name = StringProperty(unique_index=True)
+        pets = RelationshipFrom('Dog', 'OWNS', model=PetsRel)
+
+    charlie = Person.get_or_create({"name": "Charlie"})[0]
+    since_date = datetime(2019, 3, 10, tzinfo=UTC)
+
+    dogs = Dog.create_or_update(
+        {"name": "Spot"},
+        relationship=charlie.pets,
+        rel_props={"since": since_date, "notes": "First adoption"},
+    )
+
+You can also create or update multiple nodes in a batch with the same relationship and relationship properties::
+
+    diana = Person.get_or_create({"name": "Diana"})[0]
+    since_date = datetime(2022, 6, 15, tzinfo=UTC)
+
+    dogs = Dog.create_or_update(
+        {"name": "Bella"},
+        {"name": "Charlie"},
+        {"name": "Daisy"},
+        relationship=diana.pets,
+        rel_props={"since": since_date, "notes": "Rescue dogs"},
+    )
+
+.. note::
+    When using ``create_or_update()`` with a relationship, if a node is matched and updated, a new relationship
+    will be created with the provided ``rel_props``. The old relationship (if it existed) will remain, and you may
+    end up with multiple relationships between the same nodes.
 
 
 get_or_create()
@@ -233,3 +279,44 @@ matching is done based on that relationship and not globally. The relationship b
 
     # not the same gizmo
     assert bobs_gizmo[0] != tims_gizmo[0]
+
+Relationship Properties
+~~~~~~~~~~~~~~~~~~~~~~~
+When using ``get_or_create()`` with a relationship, you can also set properties on the relationship using the ``rel_props`` parameter.
+This is particularly useful when your relationship has a model with properties::
+
+    from datetime import datetime, UTC
+
+    class PetsRel(StructuredRel):
+        since = DateTimeProperty()
+        notes = StringProperty()
+
+    class Dog(StructuredNode):
+        name = StringProperty(required=True)
+        owner = RelationshipTo('Person', 'OWNS', model=PetsRel)
+
+    class Person(StructuredNode):
+        name = StringProperty(unique_index=True)
+        pets = RelationshipFrom('Dog', 'OWNS', model=PetsRel)
+
+    bob = Person.get_or_create({"name": "Bob"})[0]
+    since_date = datetime(2020, 1, 15, tzinfo=UTC)
+
+    dogs = Dog.get_or_create(
+        {"name": "Gizmo"},
+        relationship=bob.pets,
+        rel_props={"since": since_date, "notes": "Good boy!"},
+    )
+
+You can also create multiple nodes in a batch with the same relationship and relationship properties::
+
+    alice = Person.get_or_create({"name": "Alice"})[0]
+    since_date = datetime(2021, 5, 20, tzinfo=UTC)
+
+    dogs = Dog.get_or_create(
+        {"name": "Rex"},
+        {"name": "Max"},
+        {"name": "Luna"},
+        relationship=alice.pets,
+        rel_props={"since": since_date, "notes": "Adopted together"},
+    )

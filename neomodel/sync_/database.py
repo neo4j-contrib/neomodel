@@ -353,7 +353,8 @@ class Database:
 
         # Ignore the type error because the workaround would be duplicating code
         self.driver = GraphDatabase.driver(
-            parsed_url.scheme + "://" + hostname, **options  # type: ignore[arg-type]
+            parsed_url.scheme + "://" + hostname,
+            **options,  # type: ignore[arg-type]
         )
         self.url = url
         # The database name can be provided through the url or the config
@@ -899,7 +900,7 @@ class Database:
             self.cypher_query(DROP_INDEX_COMMAND + index["name"])
             if not quiet:
                 stdout.write(
-                    f' - Dropping index on labels {",".join(index["labelsOrTypes"])} with properties {",".join(index["properties"])}.\n'
+                    f" - Dropping index on labels {','.join(index['labelsOrTypes'])} with properties {','.join(index['properties'])}.\n"
                 )
         if not quiet:
             stdout.write("\n")
@@ -1231,7 +1232,7 @@ class Database:
                 )
             try:
                 self.cypher_query(
-                    f"""CREATE CONSTRAINT {constraint_name} 
+                    f"""CREATE CONSTRAINT {constraint_name}
                                 FOR ()-[r:{relationship_type}]-() REQUIRE r.{property_name} IS UNIQUE"""
                 )
             except ClientError as e:

@@ -2,6 +2,7 @@ Version 6.0.0 2025-xx
 * Modernize config object, using a dataclass with typing, runtime and update validation rules, and environment variables support
 * Fix async support of parallel transactions, using ContextVar
 * Introduces merge_by parameter for batch operations to customize merge behaviour (label and property keys)
+* Adds rel_props to batch methods, to create relationship with properties during batch operations. Thanks to @ADernild
 * Enforce strict cardinality check by default
 * Refactor internal code: core.py file is now split into smaller files for database, node, transaction
 * Fix object resolution for maps and lists Cypher objects, even when nested. This changes the way you can access lists in your Cypher results, see documentation for more info
