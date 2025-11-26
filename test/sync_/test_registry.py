@@ -2,21 +2,8 @@ from test._async_compat import mark_sync_test
 
 from pytest import raises, skip
 
-from neomodel import (
-    DateProperty,
-    IntegerProperty,
-    RelationshipTo,
-    StringProperty,
-    StructuredNode,
-    StructuredRel,
-    config,
-    db,
-)
-from neomodel.exceptions import (
-    NodeClassAlreadyDefined,
-    NodeClassNotDefined,
-    RelationshipClassRedefined,
-)
+from neomodel import StringProperty, StructuredNode, db, get_config
+from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 
 @mark_sync_test
@@ -63,9 +50,10 @@ def test_db_specific_node_labels():
 
         PatientOneBis(name="patient1.2").save()
 
+    config = get_config()
     # Now, we will test object resolution
     db.close_connection()
-    db.set_connection(url=f"{config.DATABASE_URL}/{db_one}")
+    db.set_connection(url=f"{config.database_url}/{db_one}")
     db.clear_neo4j_database()
     patient1 = PatientOne(name="patient1").save()
     patients, _ = db.cypher_query("MATCH (n:Patient) RETURN n", resolve_objects=True)
@@ -73,14 +61,14 @@ def test_db_specific_node_labels():
     assert patients[0][0] == patient1
 
     db.close_connection()
-    db.set_connection(url=f"{config.DATABASE_URL}/{db_two}")
+    db.set_connection(url=f"{config.database_url}/{db_two}")
     db.clear_neo4j_database()
     patient2 = PatientTwo(identifier="patient2").save()
     patients, _ = db.cypher_query("MATCH (n:Patient) RETURN n", resolve_objects=True)
     assert patients[0][0] == patient2
 
     db.close_connection()
-    db.set_connection(url=config.DATABASE_URL)
+    db.set_connection(url=config.database_url)
 
 
 @mark_sync_test

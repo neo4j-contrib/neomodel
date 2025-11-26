@@ -41,18 +41,24 @@ To install from github::
 
     $ pip install git+git://github.com/neo4j-contrib/neomodel.git@HEAD#egg=neomodel-dev
 
-.. note::
+.. attention::
 
-    **Breaking changes in 5.3**
+    **New in 6.0**
 
-    Introducing support for asynchronous programming to neomodel required to introduce some breaking changes:
+    From now on, neomodel will use SemVer (major.minor.patch) for versioning.
 
-    - config.AUTO_INSTALL_LABELS has been removed. Please use the `neomodel_install_labels` (:ref:`neomodel_install_labels`) command instead.
-    - The Database class has been moved into neomodel.sync_.core - and a new AsyncDatabase introduced into neomodel.async_.core
+    This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
+    See the :ref:`configuration_options_doc` section for more details.
 
-    **Deprecations in 5.3**
+    This version introduces the merge_by parameter for batch operations to customize merge behaviour (label and property keys).
+    See the :ref:`batch` section for more details.
 
-    - Some standalone methods are moved into the Database() class and will be removed in a future release :
+    **Breaking changes in 6.0**
+
+    - The soft cardinality check is now available for all cardinalities, and strict check is enabled by default.
+    - List object resolution from Cypher was creating "2-depth" lists for no apparent reason. This release fixes this so that, for example "RETURN collect(node)" will return the nodes directly as a list in the result. In other words, you can extract this list at `results[0][0]` instead of `results[0][0][0]`
+    - AsyncDatabase / Database are now true singletons for clarity
+    - Standalone methods moved into the Database() class have been removed outside of the Database() class :
         - change_neo4j_password
         - clear_neo4j_database
         - drop_constraints
@@ -60,7 +66,7 @@ To install from github::
         - remove_all_labels
         - install_labels
         - install_all_labels
-    - Additionally, to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
+    - Note : to call these methods with async, use the ones in the AsyncDatabase() _adb_ singleton.
 
 
 Contents

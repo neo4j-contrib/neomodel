@@ -1,21 +1,19 @@
 import inspect
 import re
 import string
-import warnings
 from dataclasses import dataclass
-from typing import Any, Iterator
-from typing import Optional as TOptional
-from typing import Tuple, Union
+from typing import Any, Iterator, Optional, Union
 
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import VectorFilter
+from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.sync_ import relationship_manager
-from neomodel.sync_.core import StructuredNode, db
+from neomodel.sync_.database import db
+from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import INCOMING, OUTGOING
+from neomodel.util import RelationshipDirection
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -23,10 +21,10 @@ CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETA
 def _rel_helper(
     lhs: str,
     rhs: str,
-    ident: TOptional[str] = None,
-    relation_type: TOptional[str] = None,
-    direction: TOptional[int] = None,
-    relation_properties: TOptional[dict] = None,
+    ident: str | None = None,
+    relation_type: str | None = None,
+    direction: int | None = None,
+    relation_properties: dict | None = None,
     **kwargs: dict[str, Any],  # NOSONAR
 ) -> str:
     """
@@ -57,20 +55,19 @@ def _rel_helper(
         rel_props = f" {{{rel_props_str}}}"
 
     rel_def = ""
-    # relation_type is unspecified
-    if relation_type is None:
-        rel_def = ""
-    # all("*" wildcard) relation_type
-    elif relation_type == "*":
-        rel_def = "[*]"
-    else:
-        # explicit relation_type
-        rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
+    match relation_type:
+        case None:  # relation_type is unspecified
+            rel_def = ""
+        case "*":  # all("*" wildcard) relation_type
+            rel_def = "[*]"
+        case _:  # explicit relation_type
+            rel_def = f"[{ident if ident else ''}:`{relation_type}`{rel_props}]"
 
     stmt = ""
-    if direction == OUTGOING:
+
+    if direction == RelationshipDirection.OUTGOING:
         stmt = f"-{rel_def}->"
-    elif direction == INCOMING:
+    elif direction == RelationshipDirection.INCOMING:
         stmt = f"<-{rel_def}-"
     else:
         stmt = f"-{rel_def}-"
@@ -88,9 +85,9 @@ def _rel_merge_helper(
     lhs: str,
     rhs: str,
     ident: str = "neomodelident",
-    relation_type: TOptional[str] = None,
-    direction: TOptional[int] = None,
-    relation_properties: TOptional[dict] = None,
+    relation_type: str | None = None,
+    direction: int | None = None,
+    relation_properties: dict | None = None,
     **kwargs: dict[str, Any],  # NOSONAR
 ) -> str:
     """
@@ -113,9 +110,9 @@ def _rel_merge_helper(
     :returns: string
     """
 
-    if direction == OUTGOING:
+    if direction == RelationshipDirection.OUTGOING:
         stmt = "-{0}->"
-    elif direction == INCOMING:
+    elif direction == RelationshipDirection.INCOMING:
         stmt = "<-{0}-"
     else:
         stmt = "-{0}-"
@@ -143,15 +140,14 @@ def _rel_merge_helper(
             rel_none_props = (
                 f" ON CREATE SET {rel_prop_val_str} ON MATCH SET {rel_prop_val_str}"
             )
-    # relation_type is unspecified
-    if relation_type is None:
-        stmt = stmt.format("")
-    # all("*" wildcard) relation_type
-    elif relation_type == "*":
-        stmt = stmt.format("[*]")
-    else:
-        # explicit relation_type
-        stmt = stmt.format(f"[{ident}:`{relation_type}`{rel_props}]")
+
+    match relation_type:
+        case None:  # relation_type is unspecified
+            stmt = stmt.format("")
+        case "*":  # all("*" wildcard) relation_type
+            stmt = stmt.format("[*]")
+        case _:  # explicit relation_type
+            stmt = stmt.format(f"[{ident}:`{relation_type}`{rel_props}]")
 
     return f"({lhs}){stmt}({rhs}){rel_none_props}"
 
@@ -226,7 +222,7 @@ def install_traversals(cls: type[StructuredNode], node_set: "NodeSet") -> None:
 
 def _handle_special_operators(
     property_obj: Property, key: str, value: str, operator: str, prop: str
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     if operator == _SPECIAL_OPERATOR_IN:
         if not isinstance(value, (list, tuple)):
             raise ValueError(
@@ -263,7 +259,7 @@ def _deflate_value(
     value: str,
     operator: str,
     prop: str,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     if isinstance(property_obj, AliasProperty):
         prop = property_obj.aliased_to()
         deflated_value = getattr(cls, prop).deflate(value)
@@ -278,7 +274,7 @@ def _deflate_value(
 
 def _initialize_filter_args_variables(
     cls: type[StructuredNode], key: str
-) -> Tuple[type[StructuredNode], None, None, str, bool, str]:
+) -> tuple[type[StructuredNode], None, None, str, bool, str]:
     current_class = cls
     current_rel_model = None
     leaf_prop = None
@@ -298,7 +294,7 @@ def _initialize_filter_args_variables(
 
 def _process_filter_key(
     cls: type[StructuredNode], key: str
-) -> Tuple[Property, str, str]:
+) -> tuple[Property, str, str]:
     (
         current_class,
         current_rel_model,
@@ -394,33 +390,35 @@ class QueryAST:
     match: list[str]
     optional_match: list[str]
     where: list[str]
-    with_clause: TOptional[str]
-    return_clause: TOptional[str]
-    order_by: TOptional[list[str]]
-    skip: TOptional[int]
-    limit: TOptional[int]
-    result_class: TOptional[type]
-    lookup: TOptional[str]
-    additional_return: TOptional[list[str]]
-    is_count: TOptional[bool]
-    vector_index_query: TOptional[type]
+    with_clause: str | None
+    return_clause: str | None
+    order_by: list[str] | None
+    skip: int | None
+    limit: int | None
+    result_class: type | None
+    lookup: str | None
+    additional_return: list[str] | None
+    is_count: bool | None
+    vector_index_query: VectorFilter | None
+    fulltext_index_query: FulltextFilter | None
 
     def __init__(
         self,
-        match: TOptional[list[str]] = None,
-        optional_match: TOptional[list[str]] = None,
-        where: TOptional[list[str]] = None,
-        optional_where: TOptional[list[str]] = None,
-        with_clause: TOptional[str] = None,
-        return_clause: TOptional[str] = None,
-        order_by: TOptional[list[str]] = None,
-        skip: TOptional[int] = None,
-        limit: TOptional[int] = None,
-        result_class: TOptional[type] = None,
-        lookup: TOptional[str] = None,
-        additional_return: TOptional[list[str]] = None,
-        is_count: TOptional[bool] = False,
-        vector_index_query: TOptional[type] = None,
+        match: list[str] | None = None,
+        optional_match: list[str] | None = None,
+        where: list[str] | None = None,
+        optional_where: list[str] | None = None,
+        with_clause: str | None = None,
+        return_clause: str | None = None,
+        order_by: list[str] | None = None,
+        skip: int | None = None,
+        limit: int | None = None,
+        result_class: type | None = None,
+        lookup: str | None = None,
+        additional_return: list[str] | None = None,
+        is_count: bool | None = False,
+        vector_index_query: VectorFilter | None = None,
+        fulltext_index_query: FulltextFilter | None = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -438,13 +436,14 @@ class QueryAST:
         )
         self.is_count = is_count
         self.vector_index_query = vector_index_query
+        self.fulltext_index_query = fulltext_index_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
 
 class QueryBuilder:
     def __init__(
-        self, node_set: "BaseSet", subquery_namespace: TOptional[str] = None
+        self, node_set: "BaseSet", subquery_namespace: str | None = None
     ) -> None:
         self.node_set = node_set
         self._ast = QueryAST()
@@ -452,7 +451,7 @@ class QueryBuilder:
         self._place_holder_registry: dict = {}
         self._relation_identifier_count: int = 0
         self._node_identifier_count: int = 0
-        self._subquery_namespace: TOptional[str] = subquery_namespace
+        self._subquery_namespace: str | None = subquery_namespace
 
     def build_ast(self) -> "QueryBuilder":
         if isinstance(self.node_set, NodeSet) and hasattr(
@@ -466,7 +465,14 @@ class QueryBuilder:
             and hasattr(self.node_set, "vector_query")
             and self.node_set.vector_query
         ):
-            self.build_vector_query(self.node_set.vector_query, self.node_set.source)
+            self.build_vector_query()
+
+        if (
+            isinstance(self.node_set, NodeSet)
+            and hasattr(self.node_set, "fulltext_query")
+            and self.node_set.fulltext_query
+        ):
+            self.build_fulltext_query()
 
         self.build_source(self.node_set)
 
@@ -549,30 +555,59 @@ class QueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self, vectorfilter: "VectorFilter", source: "NodeSet"):
+    def build_vector_query(self):
         """
         Query a vector indexed property on the node.
         """
+        vector_filter = self.node_set.vector_query
+        source_class = self.node_set.source_class
         try:
-            attribute = getattr(source, vectorfilter.vector_attribute_name)
+            attribute = getattr(
+                self.node_set.source, vector_filter.vector_attribute_name
+            )
         except AttributeError as e:
             raise AttributeError(
-                f"Attribute '{vectorfilter.vector_attribute_name}' not found on '{type(source).__name__}'."
+                f"Attribute '{vector_filter.vector_attribute_name}' not found on '{source_class.__name__}'."
             ) from e
 
         if not attribute.vector_index:
             raise AttributeError(
-                f"Attribute {vectorfilter.vector_attribute_name} is not declared with a vector index."
+                f"Attribute {vector_filter.vector_attribute_name} is not declared with a vector index."
             )
 
-        vectorfilter.index_name = (
-            f"vector_index_{source.__label__}_{vectorfilter.vector_attribute_name}"
-        )
-        vectorfilter.node_set_label = source.__label__.lower()
+        vector_filter.index_name = f"vector_index_{source_class.__label__}_{vector_filter.vector_attribute_name}"
+        vector_filter.node_set_label = source_class.__label__.lower()
 
-        self._ast.vector_index_query = vectorfilter
-        self._ast.return_clause = f"{vectorfilter.node_set_label}, score"
-        self._ast.result_class = source.__class__
+        self._ast.vector_index_query = vector_filter
+        self._ast.return_clause = f"{vector_filter.node_set_label}, score"
+        self._ast.result_class = source_class.__class__
+
+    def build_fulltext_query(self):
+        """
+        Query a free text indexed property on the node.
+        """
+        full_text_filter = self.node_set.fulltext_query
+        source_class = self.node_set.source_class
+        try:
+            attribute = getattr(
+                self.node_set.source, full_text_filter.fulltext_attribute_name
+            )
+        except AttributeError as e:
+            raise AttributeError(
+                f"Atribute '{full_text_filter.fulltext_attribute_name}' not found on '{source_class.__name__}'."
+            ) from e
+
+        if not attribute.fulltext_index:
+            raise AttributeError(
+                f"Attribute {full_text_filter.fulltext_attribute_name} is not declared with a full text index."
+            )
+
+        full_text_filter.index_name = f"fulltext_index_{source_class.__label__}_{full_text_filter.fulltext_attribute_name}"
+        full_text_filter.node_set_label = source_class.__label__.lower()
+
+        self._ast.fulltext_index_query = full_text_filter
+        self._ast.return_clause = f"{full_text_filter.node_set_label}, score"
+        self._ast.result_class = source_class.__class__
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -612,7 +647,7 @@ class QueryBuilder:
 
     def build_traversal_from_path(
         self, relation: "Path", source_class: Any
-    ) -> Tuple[str, Any]:
+    ) -> tuple[str, Any]:
         path: str = relation.value
         stmt: str = ""
         source_class_iterator = source_class
@@ -770,7 +805,7 @@ class QueryBuilder:
 
     def _parse_path(
         self, source_class: type[StructuredNode], prop: str
-    ) -> Tuple[str, str, Any, bool]:
+    ) -> tuple[str, str, Any, bool]:
         is_rel_filter = "|" in prop
         if is_rel_filter:
             path, prop = prop.rsplit("|", 1)
@@ -837,7 +872,7 @@ class QueryBuilder:
             target.append((statement, is_optional_relation))
 
     def _parse_q_filters(
-        self, ident: str, q: Union[QBase, Any], source_class: type[StructuredNode]
+        self, ident: str, q: QBase | Any, source_class: type[StructuredNode]
     ) -> tuple[str, str]:
         target: list[tuple[str, bool]] = []
 
@@ -881,7 +916,7 @@ class QueryBuilder:
         ident: str,
         filters: list,
         source_class: type[StructuredNode],
-        q_filters: Union[QBase, Any, None] = None,
+        q_filters: QBase | Any | None = None,
     ) -> None:
         """
         Construct a where statement from some filters.
@@ -923,7 +958,7 @@ class QueryBuilder:
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
-    ) -> TOptional[Tuple[str, Any, bool]]:
+    ) -> tuple[str, Any, bool] | None:
         """Retrieve the variable name generated internally for the given traversal path."""
         subgraph = self._ast.subgraph
         if not subgraph:
@@ -935,7 +970,7 @@ class QueryBuilder:
             return None
 
         # Check if relation is coming from an optional MATCH
-        # (declared using fetch|traverse_relations)
+        # (declared using traverse)
         is_optional_relation = False
         for relation in self.node_set.relations_to_fetch:
             if relation.value == path:
@@ -974,6 +1009,16 @@ class QueryBuilder:
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
+
+        if self._ast.fulltext_index_query:
+            query += f"""CALL () {{
+                CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
+                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score
+                RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
+                }}
+                """
+            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
+            query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1123,7 +1168,7 @@ class QueryBuilder:
         results, _ = db.cypher_query(query, self._query_params)
         return int(results[0][0])
 
-    def _contains(self, node_element_id: TOptional[Union[str, int]]) -> bool:
+    def _contains(self, node_element_id: str | int | None) -> bool:
         # inject id = into ast
         if not self._ast.return_clause and self._ast.additional_return:
             self._ast.return_clause = self._ast.additional_return[0]
@@ -1220,7 +1265,7 @@ class BaseSet:
         """
         return self.__bool__()
 
-    def __contains__(self, obj: Union[StructuredNode, Any]) -> bool:
+    def __contains__(self, obj: StructuredNode | Any) -> bool:
         if isinstance(obj, StructuredNode):
             if hasattr(obj, "element_id") and obj.element_id is not None:
                 ast = self.query_cls(self).build_ast()
@@ -1230,7 +1275,7 @@ class BaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    def __getitem__(self, key: Union[int, slice]) -> TOptional["BaseSet"]:
+    def __getitem__(self, key: int | slice) -> Optional["BaseSet"]:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1250,15 +1295,6 @@ class BaseSet:
             _first_item = [node for node in ast._execute()][0]
             return _first_item
 
-        return None
-
-
-@dataclass
-class Optional:  # type: ignore[no-redef]
-    """Simple relation qualifier."""
-
-    relation: str
-
 
 @dataclass
 class Path:
@@ -1269,7 +1305,7 @@ class Path:
     include_nodes_in_return: bool = True
     include_rels_in_return: bool = True
     relation_filtering: bool = False
-    alias: TOptional[str] = None
+    alias: str | None = None
 
 
 @dataclass
@@ -1277,7 +1313,7 @@ class RelationNameResolver:
     """Helper to refer to a relation variable name.
 
     Since variable names are generated automatically within MATCH statements (for
-    anything injected using fetch_relations or traverse_relations), we need a way to
+    anything injected using traverse), we need a way to
     retrieve them.
 
     """
@@ -1298,7 +1334,7 @@ class NodeNameResolver:
     """Helper to refer to a node variable name.
 
     Since variable names are generated automatically within MATCH statements (for
-    anything injected using fetch_relations or traverse_relations), we need a way to
+    anything injected using traverse), we need a way to
     retrieve them.
 
     """
@@ -1444,13 +1480,14 @@ class NodeSet(BaseSet):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self.vector_query: Optional[str] = None
+        self.vector_query: VectorFilter | None = None
+        self.fulltext_query: FulltextFilter | None = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined]
 
     def _get(
-        self, limit: TOptional[int] = None, lazy: bool = False, **kwargs: dict[str, Any]
+        self, limit: int | None = None, lazy: bool = False, **kwargs: dict[str, Any]
     ) -> list:
         self.filter(**kwargs)
         if limit:
@@ -1548,15 +1585,16 @@ class NodeSet(BaseSet):
         """
         if args or kwargs:
             # Need to grab and remove the VectorFilter from both args and kwargs
-            new_args = (
-                []
-            )  # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            new_args = []
             for arg in args:
                 if isinstance(arg, VectorFilter) and (not self.vector_query):
                     self.vector_query = arg
-                new_args.append(arg)
 
-            new_args = tuple(new_args)
+                if isinstance(arg, FulltextFilter) and (not self.fulltext_query):
+                    self.fulltext_query = arg
+
+                new_args.append(arg)
 
             if (
                 kwargs.get("vector_filter")
@@ -1565,7 +1603,14 @@ class NodeSet(BaseSet):
             ):
                 self.vector_query = kwargs.pop("vector_filter")
 
-            self.q_filters = Q(self.q_filters & Q(*new_args, **kwargs))
+            if (
+                kwargs.get("fulltext_filter")
+                and isinstance(kwargs["fulltext_filter"], FulltextFilter)
+                and not self.fulltext_query
+            ):
+                self.fulltext_query = kwargs.pop("fulltext_filter")
+
+            self.q_filters = Q(self.q_filters & Q(*tuple(new_args), **kwargs))
 
         return self
 
@@ -1620,7 +1665,7 @@ class NodeSet(BaseSet):
         return self
 
     def _register_relation_to_fetch(
-        self, relation_def: Any, alias: TOptional[str] = None
+        self, relation_def: Any, alias: str | None = None
     ) -> "Path":
         if isinstance(relation_def, Path):
             item = relation_def
@@ -1632,9 +1677,9 @@ class NodeSet(BaseSet):
             item.alias = alias
         return item
 
-    def unique_variables(self, *paths: tuple[str, ...]) -> "NodeSet":
+    def unique_variables(self, *paths: str) -> "NodeSet":
         """Generate unique variable names for the given paths."""
-        self._unique_variables = paths
+        self._unique_variables = list(paths)
         return self
 
     def traverse(self, *paths: tuple[str, ...], **aliased_paths: dict) -> "NodeSet":
@@ -1649,60 +1694,12 @@ class NodeSet(BaseSet):
         self.relations_to_fetch = relations
         return self
 
-    def fetch_relations(self, *relation_names: tuple[str, ...]) -> "NodeSet":
-        """Specify a set of relations to traverse and return."""
-        warnings.warn(
-            "fetch_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-        relations = []
-        for relation_name in relation_names:
-            if isinstance(relation_name, Optional):
-                relation_name = Path(value=relation_name.relation, optional=True)
-            relations.append(self._register_relation_to_fetch(relation_name))
-        self.relations_to_fetch = relations
-        return self
-
-    def traverse_relations(
-        self, *relation_names: tuple[str, ...], **aliased_relation_names: dict
-    ) -> "NodeSet":
-        """Specify a set of relations to traverse only."""
-
-        warnings.warn(
-            "traverse_relations() will be deprecated in version 6, use traverse() instead.",
-            DeprecationWarning,
-        )
-
-        def convert_to_path(input: Union[str, Optional]) -> Path:
-            if isinstance(input, Optional):
-                path = Path(value=input.relation, optional=True)
-            else:
-                path = Path(value=input)
-            path.include_nodes_in_return = False
-            path.include_rels_in_return = False
-            return path
-
-        relations = []
-        for relation_name in relation_names:
-            relations.append(
-                self._register_relation_to_fetch(convert_to_path(relation_name))
-            )
-        for alias, relation_def in aliased_relation_names.items():
-            relations.append(
-                self._register_relation_to_fetch(
-                    convert_to_path(relation_def), alias=alias
-                )
-            )
-
-        self.relations_to_fetch = relations
-        return self
-
     def annotate(self, *vars: tuple, **aliased_vars: tuple) -> "NodeSet":
         """Annotate node set results with extra variables."""
 
         def register_extra_var(
-            vardef: Union[AggregatingFunction, ScalarFunction, Any],
-            varname: Union[str, None] = None,
+            vardef: AggregatingFunction | ScalarFunction | Any,
+            varname: str | None = None,
         ) -> None:
             if isinstance(vardef, (AggregatingFunction, ScalarFunction)):
                 self._extra_results.append(
@@ -1761,20 +1758,12 @@ class NodeSet(BaseSet):
         we use a dedicated property to store node's relations.
 
         """
-        if (
-            self.relations_to_fetch
-            and not self.relations_to_fetch[0].include_nodes_in_return
-            and not self.relations_to_fetch[0].include_rels_in_return
-        ):
-            raise NotImplementedError(
-                "You cannot use traverse_relations() with resolve_subgraph(), use fetch_relations() instead."
-            )
         results: list = []
         qbuilder = self.query_cls(self)
         qbuilder.build_ast()
         if not qbuilder._ast.subgraph:
             raise RuntimeError(
-                "Nothing to resolve. Make sure to include relations in the result using fetch_relations() or filter()."
+                "Nothing to resolve. Make sure to include relations in the result using traverse() or filter()."
             )
         other_nodes = {}
         root_node = None
@@ -1782,9 +1771,6 @@ class NodeSet(BaseSet):
             for name, node in row.items():
                 if node.__class__ is self.source and "_" not in name:
                     root_node = node
-                    continue
-                if isinstance(node, list) and isinstance(node[0], list):
-                    other_nodes[name] = node[0]
                     continue
                 other_nodes[name] = node
             results.append(
@@ -1796,7 +1782,7 @@ class NodeSet(BaseSet):
         self,
         nodeset: "NodeSet",
         return_set: list[str],
-        initial_context: TOptional[list[str]] = None,
+        initial_context: list[str] | None = None,
     ) -> "NodeSet":
         """Add a subquery to this node set.
 
@@ -1827,7 +1813,7 @@ class NodeSet(BaseSet):
                 raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
         if initial_context:
             for var in initial_context:
-                if type(var) is not str and not isinstance(
+                if not isinstance(var, str) and not isinstance(
                     var, (NodeNameResolver, RelationNameResolver, RawCypher)
                 ):
                     raise ValueError(
@@ -1847,7 +1833,7 @@ class NodeSet(BaseSet):
         self,
         vars: dict[str, Transformation],
         distinct: bool = False,
-        ordering: TOptional[list] = None,
+        ordering: list | None = None,
     ) -> "NodeSet":
         if not vars:
             raise ValueError(

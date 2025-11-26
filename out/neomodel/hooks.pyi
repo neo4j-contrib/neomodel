@@ -1,0 +1,3 @@
+from typing import Callable
+
+def hooks(fn: Callable) -> Callable: ...

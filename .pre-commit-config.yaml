@@ -4,10 +4,12 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
+        files: ^(neomodel|test)
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
       - id: black
+        files: ^(neomodel|test)
   - repo: local
     hooks:
       - id: unasync
