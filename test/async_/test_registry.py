@@ -91,3 +91,82 @@ async def test_resolution_not_defined_class():
         match=r"Node with labels Gabagool does not resolve to any of the known objects[\s\S]*Database-specific: db_x.*",
     ):
         _ = await adb.cypher_query("MATCH (n:Gabagool) RETURN n", resolve_objects=True)
+
+
+@mark_async_test
+async def test_allow_reload_flag():
+    """Test that __allow_reload__ flag allows redefining classes without raising an exception."""
+    import warnings
+
+    # First, define a class with allow_reload enabled
+    class ReloadableNode(AsyncStructuredNode):
+        __label__ = "ReloadableNode"
+        __allow_reload__ = True
+        name = StringProperty()
+
+    # Now redefine the same class - this should issue a warning but not raise an exception
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        class ReloadableNode(AsyncStructuredNode):  # noqa: F811
+            __label__ = "ReloadableNode"
+            __allow_reload__ = True
+            name = StringProperty()
+            email = StringProperty()  # Add a new property
+
+        # Verify a warning was issued
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "is being reloaded" in str(w[0].message)
+        assert "ReloadableNode" in str(w[0].message)
+
+
+@mark_async_test
+async def test_allow_reload_without_flag():
+    """Test that without __allow_reload__, redefining raises NodeClassAlreadyDefined."""
+
+    class NonReloadableNode(AsyncStructuredNode):
+        __label__ = "NonReloadableNode"
+        name = StringProperty()
+
+    # Attempting to redefine should raise an exception
+    with raises(NodeClassAlreadyDefined):
+
+        class NonReloadableNode(AsyncStructuredNode):  # noqa: F811
+            __label__ = "NonReloadableNode"
+            email = StringProperty()
+
+
+@mark_async_test
+async def test_allow_reload_with_target_databases():
+    """Test that __allow_reload__ works with database-specific classes."""
+    if not await adb.edition_is_enterprise():
+        skip("Skipping test for community edition")
+
+    import warnings
+
+    db_test = "testreloaddb"
+    await adb.cypher_query(f"CREATE DATABASE {db_test} IF NOT EXISTS")
+
+    # Define a class for a specific database with allow_reload
+    class ReloadablePatient(AsyncStructuredNode):
+        __label__ = "ReloadablePatient"
+        __target_databases__ = [db_test]
+        __allow_reload__ = True
+        name = StringProperty()
+
+    # Redefine the same class - should warn but not raise
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        class ReloadablePatient(AsyncStructuredNode):  # noqa: F811
+            __label__ = "ReloadablePatient"
+            __target_databases__ = [db_test]
+            __allow_reload__ = True
+            identifier = StringProperty()
+
+        # Verify a warning was issued
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "is being reloaded for database" in str(w[0].message)
+        assert db_test in str(w[0].message)

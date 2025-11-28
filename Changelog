@@ -1,4 +1,7 @@
-Version 6.0.0 2025-xx
+Version 6.1.0 2026-01
+* Node class definitions now accept a __allow_reload__ flag ; if set to True, then trying to redefine the class will only raise a warning, not an error
+
+Version 6.0.0 2025-11
 * Modernize config object, using a dataclass with typing, runtime and update validation rules, and environment variables support
 * Fix async support of parallel transactions, using ContextVar
 * Introduces merge_by parameter for batch operations to customize merge behaviour (label and property keys)

@@ -51,6 +51,47 @@ labels, the `__optional_labels__` property must be defined as a list of strings:
 
 .. note:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
 
+.. _allowing_class_reloading:
+
+Allowing Class Reloading
+-------------------------
+By default, neomodel prevents class redefinition to ensure the integrity of the node-class registry.
+However, in development environments with hot-reloading (like Streamlit or Django's development server),
+this behavior can be problematic as classes get redefined on every code change.
+
+To support hot-reload workflows, you can set the ``__allow_reload__`` property to ``True``:
+
+.. code-block:: python
+
+    class Component(StructuredNode):
+        __allow_reload__ = True
+        uid = UniqueIdProperty()
+        name = StringProperty(unique_index=True)
+
+When ``__allow_reload__`` is enabled:
+
+* Class redefinitions will issue a ``UserWarning`` instead of raising ``NodeClassAlreadyDefined``
+* The class registry will be updated with the new definition
+* This works for both standard classes and database-specific classes (with ``__target_databases__``)
+
+.. warning:: Only use ``__allow_reload__ = True`` in development environments. In production, the default behavior of raising ``NodeClassAlreadyDefined`` helps catch unintentional class redefinitions that could lead to subtle bugs.
+
+Example with Streamlit:
+
+.. code-block:: python
+
+    import streamlit as st
+    from neomodel import StructuredNode, StringProperty, config
+
+    config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'
+
+    class User(StructuredNode):
+        __allow_reload__ = True  # Allows Streamlit page reloads
+        name = StringProperty(unique_index=True)
+        email = StringProperty()
+
+    st.write("User model loaded successfully")
+
 
 Mixins
 ------
@@ -173,7 +214,9 @@ This automatic class resolution however, requires a bit of caution:
 
 2. Since the only way to resolve objects at runtime is this mapping of a set of labels to a class, then
    this mapping **must** be guaranteed to be unique. Therefore, if for any reason a class gets **redefined**, then
-   exception ``neomodel.exceptions.ClassAlreadyDefined`` will be raised.
+   exception ``neomodel.exceptions.NodeClassAlreadyDefined`` will be raised.
+        * This behavior can be overridden in development environments by setting ``__allow_reload__ = True`` on the class,
+          which will issue a warning instead of raising an exception. See the section on :ref:`allowing_class_reloading` for more details.
         * Given the above class hierarchy, suppose that an attempt was made to redefine one of the existing classes in
           the local scope of some function ::
 
@@ -199,10 +242,10 @@ This automatic class resolution however, requires a bit of caution:
           ``{"BasePerson", "PilotPerson"}`` to ``PilotPerson`` **in the global scope** with a mapping of the same
           set of labels but towards the class defined within the **local scope** of ``some_function``.
 
-3. Two classes with different names but the same __label__ override will also result in a ``ClassAlreadyDefined`` exception.
-   This can be avoided under certain circumstances, as explained in the next section on 'Database specific labels'. 
+3. Two classes with different names but the same __label__ override will also result in a ``NodeClassAlreadyDefined`` exception.
+   This can be avoided under certain circumstances, as explained in the next section on 'Database specific labels'.
 
-Both ``ModelDefinitionMismatch`` and ``ClassAlreadyDefined`` produce an error message that returns the labels of the
+Both ``ModelDefinitionMismatch`` and ``NodeClassAlreadyDefined`` produce an error message that returns the labels of the
 node that created the problem (either the `Node` returned from the database or the class that was attempted to be
 redefined) as well as the state of the current *node-class registry*. These two pieces of information can be used to
 debug the model mismatch further.
@@ -231,7 +274,7 @@ based on the database it was fetched from ::
     db.set_connection("bolt://neo4j:password@localhost:7687/db_one")
     patients = db.cypher_query("MATCH (n:Patient) RETURN n", resolve_objects=True) --> instance of PatientOne
 
-The following will result in a ``ClassAlreadyDefined`` exception, because when retrieving from ``db_one``,
+The following will result in a ``NodeClassAlreadyDefined`` exception, because when retrieving from ``db_one``,
 neomodel would not be able to decide which model to parse into ::
     class GeneralPatient(AsyncStructuredNode):
         __label__ = "Patient"
