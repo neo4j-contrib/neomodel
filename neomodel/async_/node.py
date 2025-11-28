@@ -106,14 +106,27 @@ def build_class_registry(cls: Any) -> None:
     ]
     possible_label_combinations.append(base_label_set)
 
+    # Check if class allows reloading
+    allow_reload = getattr(cls, "__allow_reload__", False)
+
     for label_set in possible_label_combinations:
         if not hasattr(cls, "__target_databases__"):
             if label_set not in adb._NODE_CLASS_REGISTRY:
                 adb._NODE_CLASS_REGISTRY[label_set] = cls
             else:
-                raise NodeClassAlreadyDefined(
-                    cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
-                )
+                if allow_reload:
+                    node_class_labels = ",".join(cls.inherited_labels())
+                    warnings.warn(
+                        f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
+                        f"is being reloaded. Updating class registry.",
+                        UserWarning,
+                        stacklevel=4,
+                    )
+                    adb._NODE_CLASS_REGISTRY[label_set] = cls
+                else:
+                    raise NodeClassAlreadyDefined(
+                        cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
+                    )
         else:
             for database in cls.__target_databases__:
                 if database not in adb._DB_SPECIFIC_CLASS_REGISTRY:
@@ -121,9 +134,21 @@ def build_class_registry(cls: Any) -> None:
                 if label_set not in adb._DB_SPECIFIC_CLASS_REGISTRY[database]:
                     adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
                 else:
-                    raise NodeClassAlreadyDefined(
-                        cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
-                    )
+                    if allow_reload:
+                        node_class_labels = ",".join(cls.inherited_labels())
+                        warnings.warn(
+                            f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
+                            f"is being reloaded for database {database}. Updating class registry.",
+                            UserWarning,
+                            stacklevel=4,
+                        )
+                        adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
+                    else:
+                        raise NodeClassAlreadyDefined(
+                            cls,
+                            adb._NODE_CLASS_REGISTRY,
+                            adb._DB_SPECIFIC_CLASS_REGISTRY,
+                        )
 
 
 NodeBase: type = NodeMeta(
