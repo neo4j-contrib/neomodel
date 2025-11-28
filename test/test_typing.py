@@ -18,6 +18,7 @@ from neomodel import (
     FloatProperty,
     IntegerProperty,
     JSONProperty,
+    NodeSet,
     RelationshipFrom,
     RelationshipTo,
     StringProperty,
@@ -149,12 +150,30 @@ def test_numeric_operations() -> None:
 # Test 7: NodeSet operations
 def test_nodeset_operations() -> None:
     """Verify NodeSet operations type-check correctly."""
-    # Should type-check
-    all_people: list = Person.nodes.all()
-    adults = Person.nodes.filter(age__gte=18)
-    first_person = Person.nodes.first()
+    # Should type-check: NodeSet[Person] is correctly inferred
+    all_people: list[Person] = Person.nodes.all()
+    adults: "NodeSet[Person]" = Person.nodes.filter(age__gte=18)
+    first_person: Person | None = Person.nodes.first()
 
-    assert all_people or adults or first_person
+    # Chained operations maintain the generic type
+    filtered_people: "NodeSet[Person]" = Person.nodes.filter(age__gte=18).exclude(
+        active=False
+    )
+    ordered_people: "NodeSet[Person]" = Person.nodes.order_by("name")
+
+    # get() returns Person, not Any
+    specific_person: Person = Person.nodes.get(uid="123")
+    maybe_person: Person | None = Person.nodes.get_or_none(uid="456")
+
+    assert (
+        all_people
+        or adults
+        or first_person
+        or filtered_people
+        or ordered_people
+        or specific_person
+        or maybe_person
+    )
 
 
 # Test 8: Relationship operations - commented out as these need RelationshipManager stubs
