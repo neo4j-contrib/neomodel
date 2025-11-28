@@ -9,6 +9,7 @@ from neomodel.sync_.match import NodeSet as NodeSet
 from neomodel.sync_.property_manager import PropertyManager as PropertyManager
 from neomodel.util import classproperty as classproperty
 from typing import Any, Callable
+from typing_extensions import Self
 
 class NodeMeta(type):
     DoesNotExist: type[DoesNotExist]
@@ -31,7 +32,7 @@ class StructuredNode(NodeBase):
     def __eq__(self, other: Any) -> bool: ...
     def __ne__(self, other: Any) -> bool: ...
     @classproperty
-    def nodes(self) -> NodeSet: ...
+    def nodes(cls) -> NodeSet[Self]: ...
     @property
     def element_id(self) -> Any | None: ...
     @property
