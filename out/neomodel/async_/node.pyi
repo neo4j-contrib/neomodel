@@ -9,6 +9,7 @@ from neomodel.hooks import hooks as hooks
 from neomodel.properties import Property as Property
 from neomodel.util import classproperty as classproperty
 from typing import Any, Callable
+from typing_extensions import Self
 
 class NodeMeta(type):
     DoesNotExist: type[DoesNotExist]
@@ -31,7 +32,7 @@ class AsyncStructuredNode(NodeBase):
     def __eq__(self, other: Any) -> bool: ...
     def __ne__(self, other: Any) -> bool: ...
     @classproperty
-    def nodes(self) -> AsyncNodeSet: ...
+    def nodes(cls) -> AsyncNodeSet[Self]: ...
     @property
     def element_id(self) -> Any | None: ...
     @property

@@ -50,9 +50,15 @@ class Person(StructuredNode):
     metadata = JSONProperty()
 
     # Relationships
-    company = RelationshipTo("Company", "WORKS_FOR", cardinality=ZeroOrMore)
-    friends = RelationshipTo("Person", "FRIEND_OF", cardinality=ZeroOrMore)
-    managed_by = RelationshipFrom("Person", "MANAGES", cardinality=ZeroOrMore)
+    company: RelationshipTo = RelationshipTo(
+        "Company", "WORKS_FOR", cardinality=ZeroOrMore
+    )
+    friends: RelationshipTo = RelationshipTo(
+        "Person", "FRIEND_OF", cardinality=ZeroOrMore
+    )
+    managed_by: RelationshipFrom = RelationshipFrom(
+        "Person", "MANAGES", cardinality=ZeroOrMore
+    )
 
 
 # Test 1: Property type inference
@@ -176,12 +182,44 @@ def test_nodeset_operations() -> None:
     )
 
 
-# Test 8: Relationship operations - commented out as these need RelationshipManager stubs
-# def test_relationship_operations() -> None:
-#     """Verify relationship operations type-check correctly."""
-#     person = Person()
-#     company = Company()
-#
-#     # Should type-check
-#     person.company.connect(company)
-#     is_connected: bool = person.company.is_connected(company)
+# Test 8: Relationship operations
+def test_relationship_operations() -> None:
+    """Verify relationship operations type-check correctly."""
+    person = Person()
+    company = Company()
+
+    # Class-level access returns RelationshipDefinition
+    company_def = Person.company
+    friends_def = Person.friends
+
+    # Instance-level access returns RelationshipManager with correct generic type
+    # person.company is RelationshipManager[Company]
+    # person.friends is RelationshipManager[Person]
+
+    # Connect should accept the correct node type
+    person.company.connect(company)
+    person.friends.connect(person)
+
+    # Type-safe relationship querying
+    all_companies: list[Company] = person.company.all()
+    single_company: Company | None = person.company.single()
+    filtered_companies = person.company.filter(founded_year__gte=2000)
+
+    all_friends: list[Person] = person.friends.all()
+    single_friend: Person | None = person.friends.single()
+
+    # is_connected returns bool
+    is_connected: bool = person.company.is_connected(company)
+    are_friends: bool = person.friends.is_connected(person)
+
+    assert (
+        company_def
+        or friends_def
+        or all_companies
+        or single_company
+        or filtered_companies
+        or all_friends
+        or single_friend
+        or is_connected
+        or are_friends
+    )

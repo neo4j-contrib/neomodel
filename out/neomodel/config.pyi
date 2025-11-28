@@ -18,7 +18,7 @@ class NeomodelConfig:
     max_transaction_retry_time: float = field(default=30.0, metadata={'env_var': 'NEOMODEL_MAX_TRANSACTION_RETRY_TIME', 'description': 'Maximum transaction retry time in seconds'})
     resolver: Any | None = field(default=None, metadata={'env_var': None, 'description': 'Custom resolver for connection routing'})
     trusted_certificates: Any = field(default_factory=neo4j.TrustSystemCAs, metadata={'env_var': None, 'description': 'Trusted certificates for encrypted connections'})
-    user_agent: str = field(default=..., metadata={'env_var': 'NEOMODEL_USER_AGENT', 'description': 'User agent string for connections'})
+    user_agent: str = field(default_factory=str, metadata={'env_var': 'NEOMODEL_USER_AGENT', 'description': 'User agent string for connections'})
     force_timezone: bool = field(default=False, metadata={'env_var': 'NEOMODEL_FORCE_TIMEZONE', 'description': 'Force timezone-aware datetime objects'})
     soft_cardinality_check: bool = field(default=False, metadata={'env_var': 'NEOMODEL_SOFT_CARDINALITY_CHECK', 'description': 'Enable soft cardinality checking (warnings only)'})
     cypher_debug: bool = field(default=False, metadata={'env_var': 'NEOMODEL_CYPHER_DEBUG', 'description': 'Enable Cypher debug logging'})
