@@ -1,5 +1,5 @@
-from _typeshed import Incomplete
 from dataclasses import dataclass
+from re import Pattern
 from neomodel.async_ import relationship_manager as relationship_manager
 from neomodel.async_.database import adb as adb
 from neomodel.async_.node import AsyncStructuredNode as AsyncStructuredNode
@@ -12,9 +12,9 @@ from neomodel.typing import Subquery as Subquery, Transformation as Transformati
 from neomodel.util import RelationshipDirection as RelationshipDirection
 from typing import Any, AsyncIterator
 
-CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR: Incomplete
-OPERATOR_TABLE: Incomplete
-path_split_regex: Incomplete
+CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR: Pattern
+OPERATOR_TABLE: dict[str, str]
+path_split_regex: Pattern
 
 def install_traversals(cls, node_set: AsyncNodeSet) -> None: ...
 def process_filter_args(cls, kwargs: dict[str, Any]) -> dict: ...
@@ -35,13 +35,13 @@ class QueryAST:
     is_count: bool | None
     vector_index_query: VectorFilter | None
     fulltext_index_query: FulltextFilter | None
-    optional_where: Incomplete
+    optional_where: list[str] | None
     subgraph: dict
     mixed_filters: bool
     def __init__(self, match: list[str] | None = None, optional_match: list[str] | None = None, where: list[str] | None = None, optional_where: list[str] | None = None, with_clause: str | None = None, return_clause: str | None = None, order_by: list[str] | None = None, skip: int | None = None, limit: int | None = None, result_class: type | None = None, lookup: str | None = None, additional_return: list[str] | None = None, is_count: bool | None = False, vector_index_query: VectorFilter | None = None, fulltext_index_query: FulltextFilter | None = None) -> None: ...
 
 class AsyncQueryBuilder:
-    node_set: Incomplete
+    node_set: AsyncBaseSet
     def __init__(self, node_set: AsyncBaseSet, subquery_namespace: str | None = None) -> None: ...
     async def build_ast(self) -> AsyncQueryBuilder: ...
     async def build_source(self, source: AsyncTraversal | AsyncNodeSet | AsyncStructuredNode | Any) -> str: ...
@@ -68,8 +68,8 @@ class AsyncBaseSet:
     async def check_bool(self) -> bool: ...
     async def check_nonzero(self) -> bool: ...
     async def check_contains(self, obj: AsyncStructuredNode | Any) -> bool: ...
-    limit: Incomplete
-    skip: Incomplete
+    limit: int | None
+    skip: int | None
     async def get_item(self, key: int | slice) -> AsyncBaseSet | None: ...
 
 @dataclass
@@ -134,10 +134,10 @@ class RawCypher:
     def render(self, context: dict) -> str: ...
 
 class AsyncNodeSet(AsyncBaseSet):
-    source: Incomplete
-    source_class: Incomplete
+    source: Any
+    source_class: Any
     filters: list
-    q_filters: Incomplete
+    q_filters: Q
     order_by_elements: list
     must_match: dict
     dont_match: dict

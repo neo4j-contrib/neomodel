@@ -90,9 +90,28 @@ max-attributes = 10
 max-args = 8
 
 [tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+mypy_path = "out"
+exclude = [
+    "build/",
+    "dist/",
+    "venv/",
+    "out/",
+]
+
 [[tool.mypy.overrides]]
 module = ["neomodel.scripts.*", "neomodel.contrib.spatial_properties"]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["test.test_typing"]
+# Stricter checks for typing tests
+disallow_untyped_defs = true
+warn_return_any = true
+strict_optional = true
 
 [project.scripts]
 neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"
