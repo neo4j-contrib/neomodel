@@ -28,14 +28,14 @@ from neomodel import (
 )
 
 
-class Company(StructuredNode):
+class MypyCompany(StructuredNode):
     """Test company node."""
 
     name = StringProperty(required=True)
     founded_year = IntegerProperty()
 
 
-class Person(StructuredNode):
+class MypyPerson(StructuredNode):
     """Test person node with various property types."""
 
     uid = UniqueIdProperty()
@@ -51,20 +51,20 @@ class Person(StructuredNode):
 
     # Relationships
     company: RelationshipTo = RelationshipTo(
-        "Company", "WORKS_FOR", cardinality=ZeroOrMore
+        "MypyCompany", "WORKS_FOR", cardinality=ZeroOrMore
     )
     friends: RelationshipTo = RelationshipTo(
-        "Person", "FRIEND_OF", cardinality=ZeroOrMore
+        "MypyPerson", "FRIEND_OF", cardinality=ZeroOrMore
     )
     managed_by: RelationshipFrom = RelationshipFrom(
-        "Person", "MANAGES", cardinality=ZeroOrMore
+        "MypyPerson", "MANAGES", cardinality=ZeroOrMore
     )
 
 
 # Test 1: Property type inference
 def test_property_types() -> None:
     """Verify that property access returns correct types."""
-    person = Person()
+    person = MypyPerson()
 
     # These should all type-check correctly
     name_str: str = person.name
@@ -81,7 +81,7 @@ def test_property_types() -> None:
 # Test 2: Property assignments
 def test_property_assignments() -> None:
     """Verify that property assignments accept correct types."""
-    person = Person()
+    person = MypyPerson()
 
     # These should all type-check correctly
     person.name = "Alice"
@@ -98,16 +98,16 @@ def test_property_assignments() -> None:
 def test_class_level_access() -> None:
     """Verify that class-level access returns the property descriptor."""
     # These should return the property classes themselves
-    name_prop: StringProperty = Person.name
-    age_prop: IntegerProperty = Person.age
-    height_prop: FloatProperty = Person.height
-    active_prop: BooleanProperty = Person.active
+    name_prop: StringProperty = MypyPerson.name
+    age_prop: IntegerProperty = MypyPerson.age
+    height_prop: FloatProperty = MypyPerson.height
+    active_prop: BooleanProperty = MypyPerson.active
 
 
 # Test 4: Type errors should be caught
 def test_type_errors() -> None:
     """These should produce type errors when checked with mypy."""
-    person = Person()
+    person = MypyPerson()
 
     # Type error: str incompatible with int
     wrong_type_1: int = person.name  # type: ignore[assignment]
@@ -125,7 +125,7 @@ def test_type_errors() -> None:
 # Test 5: String operations on string properties
 def test_string_operations() -> None:
     """Verify that string methods work on string properties."""
-    person = Person()
+    person = MypyPerson()
     person.name = "alice"
 
     # Should type-check: name is str, has .upper() method
@@ -141,7 +141,7 @@ def test_string_operations() -> None:
 # Test 6: Numeric operations
 def test_numeric_operations() -> None:
     """Verify that numeric operations work on numeric properties."""
-    person = Person()
+    person = MypyPerson()
     person.age = 30
     person.height = 1.75
 
@@ -156,20 +156,20 @@ def test_numeric_operations() -> None:
 # Test 7: NodeSet operations
 def test_nodeset_operations() -> None:
     """Verify NodeSet operations type-check correctly."""
-    # Should type-check: NodeSet[Person] is correctly inferred
-    all_people: list[Person] = Person.nodes.all()
-    adults: "NodeSet[Person]" = Person.nodes.filter(age__gte=18)
-    first_person: Person | None = Person.nodes.first()
+    # Should type-check: NodeSet[MypyPerson] is correctly inferred
+    all_people: list[MypyPerson] = MypyPerson.nodes.all()
+    adults: "NodeSet[MypyPerson]" = MypyPerson.nodes.filter(age__gte=18)
+    first_person: MypyPerson | None = MypyPerson.nodes.first()
 
     # Chained operations maintain the generic type
-    filtered_people: "NodeSet[Person]" = Person.nodes.filter(age__gte=18).exclude(
-        active=False
-    )
-    ordered_people: "NodeSet[Person]" = Person.nodes.order_by("name")
+    filtered_people: "NodeSet[MypyPerson]" = MypyPerson.nodes.filter(
+        age__gte=18
+    ).exclude(active=False)
+    ordered_people: "NodeSet[MypyPerson]" = MypyPerson.nodes.order_by("name")
 
-    # get() returns Person, not Any
-    specific_person: Person = Person.nodes.get(uid="123")
-    maybe_person: Person | None = Person.nodes.get_or_none(uid="456")
+    # get() returns MypyPerson, not Any
+    specific_person: MypyPerson = MypyPerson.nodes.get(uid="123")
+    maybe_person: MypyPerson | None = MypyPerson.nodes.get_or_none(uid="456")
 
     assert (
         all_people
@@ -185,28 +185,28 @@ def test_nodeset_operations() -> None:
 # Test 8: Relationship operations
 def test_relationship_operations() -> None:
     """Verify relationship operations type-check correctly."""
-    person = Person()
-    company = Company()
+    person = MypyPerson()
+    company = MypyCompany()
 
     # Class-level access returns RelationshipDefinition
-    company_def = Person.company
-    friends_def = Person.friends
+    company_def = MypyPerson.company
+    friends_def = MypyPerson.friends
 
     # Instance-level access returns RelationshipManager with correct generic type
-    # person.company is RelationshipManager[Company]
-    # person.friends is RelationshipManager[Person]
+    # person.company is RelationshipManager[MypyCompany]
+    # person.friends is RelationshipManager[MypyPerson]
 
     # Connect should accept the correct node type
     person.company.connect(company)
     person.friends.connect(person)
 
     # Type-safe relationship querying
-    all_companies: list[Company] = person.company.all()
-    single_company: Company | None = person.company.single()
+    all_companies: list[MypyCompany] = person.company.all()
+    single_company: MypyCompany | None = person.company.single()
     filtered_companies = person.company.filter(founded_year__gte=2000)
 
-    all_friends: list[Person] = person.friends.all()
-    single_friend: Person | None = person.friends.single()
+    all_friends: list[MypyPerson] = person.friends.all()
+    single_friend: MypyPerson | None = person.friends.single()
 
     # is_connected returns bool
     is_connected: bool = person.company.is_connected(company)

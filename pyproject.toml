@@ -71,7 +71,7 @@ version = {attr = "neomodel._version.__version__"}
 where = ["./"]
 
 [tool.pytest.ini_options]
-addopts = "--resetdb"
+addopts = "--resetdb --ignore=test/test_typing.py"
 testpaths = "test"
 asyncio_default_fixture_loop_scope = "session"
 
