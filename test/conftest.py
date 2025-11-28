@@ -43,6 +43,8 @@ def pytest_collection_modifyitems(items):
                 async_connect_to_aura_items.append(item)
             elif directory == "sync_":
                 sync_connect_to_aura_items.append(item)
+        elif "test_typing" in item.name:
+            continue
         else:
             if directory == "async_":
                 async_items.append(item)
