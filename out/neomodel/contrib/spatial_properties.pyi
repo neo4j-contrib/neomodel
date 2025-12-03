@@ -2,6 +2,7 @@ from _typeshed import Incomplete
 from neomodel.properties import Property as Property, validator as validator
 from shapely.coords import CoordinateSequence as CoordinateSequence
 from shapely.geometry import Point as ShapelyPoint
+from typing import Any, overload
 
 ACCEPTABLE_CRS: Incomplete
 SRID_TO_CRS: Incomplete
@@ -53,3 +54,8 @@ class PointProperty(Property):
     def inflate(self, value): ...
     @validator
     def deflate(self, value): ...
+    @overload
+    def __get__(self, obj: None, owner: type | None = None) -> PointProperty: ...
+    @overload
+    def __get__(self, obj: Any, owner: type | None = None) -> NeomodelPoint: ...
+    def __set__(self, obj: Any, value: NeomodelPoint) -> None: ...
