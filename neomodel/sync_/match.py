@@ -1215,6 +1215,18 @@ class QueryBuilder:
                 yield result
 
 
+@dataclass
+class Path:
+    """Path traversal definition."""
+
+    value: str
+    optional: bool = False
+    include_nodes_in_return: bool = True
+    include_rels_in_return: bool = True
+    relation_filtering: bool = False
+    alias: str | None = None
+
+
 class BaseSet:
     """
     Base class for all node sets.
@@ -1298,18 +1310,6 @@ class BaseSet:
             ast = self.query_cls(self).build_ast()
             _first_item = [node for node in ast._execute()][0]
             return _first_item
-
-
-@dataclass
-class Path:
-    """Path traversal definition."""
-
-    value: str
-    optional: bool = False
-    include_nodes_in_return: bool = True
-    include_rels_in_return: bool = True
-    relation_filtering: bool = False
-    alias: str | None = None
 
 
 @dataclass
