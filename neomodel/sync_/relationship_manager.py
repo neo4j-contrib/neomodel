@@ -597,6 +597,7 @@ def deflate_relationship_properties(
     :return: Dictionary mapping property names to parameter placeholders (e.g. {'since': '$since'})
     """
     rel_model = relationship.definition.get("model")
+    assert rel_model is not None, "Relationship model is required"
     tmp = rel_model(**rel_props)
 
     rel_prop = {}

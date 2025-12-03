@@ -1229,6 +1229,10 @@ class AsyncBaseSet:
     query_cls = AsyncQueryBuilder
     source_class: type[AsyncStructuredNode]
 
+    # Attributes defined in subclasses (AsyncNodeSet)
+    _unique_variables: list[str]
+    relations_to_fetch: list[Path]
+
     async def all(self, lazy: bool = False) -> list:
         """
         Return all nodes belonging to the set

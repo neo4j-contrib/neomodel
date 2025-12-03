@@ -16,11 +16,13 @@ Example:
 """
 
 
+from typing import Any, Literal
 from warnings import warn
 
 try:
     # noinspection PyPackageRequirements
     from numpy import array as nparray
+    from numpy import ndarray
 except ImportError:
     warn(
         "The neomodel.integration.numpy module expects numpy to be installed "
@@ -29,7 +31,11 @@ except ImportError:
     raise
 
 
-def to_ndarray(query_results: tuple, dtype=None, order="K"):
+def to_ndarray(
+    query_results: tuple[list[list[Any]], list[str]],
+    dtype: Any | None = None,
+    order: Literal["K", "A", "C", "F"] = "K",
+) -> ndarray:
     """Convert the results of a db.cypher_query call into a numpy array.
     Optionally, specify a datatype and/or an order for the columns.
     """
