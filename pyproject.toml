@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j~=5.28.2",
+    "neo4j~=6.0.3",
 ]
 requires-python = ">=3.10"
 dynamic = ["version"]
