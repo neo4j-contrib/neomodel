@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Database",
 ]
 dependencies = [
-    "neo4j~=5.28.2",
+    "neo4j~=6.0.3",
 ]
 requires-python = ">=3.10"
 dynamic = ["version"]
@@ -55,7 +55,7 @@ dev = [
 shapely = ["Shapely>=2.0.0"]
 pandas = ["pandas"]
 numpy = ["numpy"]
-rust-driver-ext = ["neo4j-rust-ext~=5.28.2.1"]
+rust-driver-ext = ["neo4j-rust-ext~=6.0.3.0"]
 
 [build-system]
 requires = ["setuptools>=69"]
@@ -90,7 +90,7 @@ max-attributes = 10
 max-args = 8
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

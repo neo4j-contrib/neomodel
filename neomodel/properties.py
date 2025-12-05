@@ -16,7 +16,7 @@ TOO_MANY_DEFAULTS = "too many defaults"
 
 
 def validator(fn: Callable) -> Callable:
-    fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
+    fn_name = fn.__name__
     if fn_name not in ["inflate", "deflate"]:
         raise ValueError("Unknown Property method " + fn_name)
 
