@@ -43,6 +43,8 @@ GitHub repo found at <https://github.com/neo4j-contrib/neomodel/>.
 Available on
 [readthedocs](http://neomodel.readthedocs.org).
 
+Also check out DeepWiki : [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/neo4j-contrib/neomodel)
+
 # New in 6.0.0
 
 From now on, neomodel will use **SemVer (major.minor.patch)** for versioning.
