@@ -577,12 +577,16 @@ class AsyncQueryBuilder:
                 f"Attribute {vector_filter.vector_attribute_name} is not declared with a vector index."
             )
 
+        if type(vector_filter.threshold) not in [float, type(None)]:
+            raise ValueError(f"Vector Filter Threshold must be a float or None.")
+
         vector_filter.index_name = f"vector_index_{source_class.__label__}_{vector_filter.vector_attribute_name}"
         vector_filter.node_set_label = source_class.__label__.lower()
 
         self._ast.vector_index_query = vector_filter
         self._ast.return_clause = f"{vector_filter.node_set_label}, score"
         self._ast.result_class = source_class.__class__
+
 
     def build_fulltext_query(self):
         """
@@ -603,6 +607,9 @@ class AsyncQueryBuilder:
             raise AttributeError(
                 f"Attribute {full_text_filter.fulltext_attribute_name} is not declared with a full text index."
             )
+
+        if type(full_text_filter.threshold) not in [float, type(None)]:
+            raise ValueError(f"Full Text Filter Threshold must be a float or None.")
 
         full_text_filter.index_name = f"fulltext_index_{source_class.__label__}_{full_text_filter.fulltext_attribute_name}"
         full_text_filter.node_set_label = source_class.__label__.lower()
@@ -1005,9 +1012,16 @@ class AsyncQueryBuilder:
         if self._ast.vector_index_query:
             query += f"""CALL () {{ 
                 CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
-                YIELD node AS {self._ast.vector_index_query.node_set_label}, score 
+                YIELD node AS {self._ast.vector_index_query.node_set_label}, score """
+
+            if self._ast.vector_index_query.threshold:
+                query += f"""
+                WHERE score >= {self._ast.vector_index_query.threshold}
+                """
+
+            query += f"""
                 RETURN {self._ast.vector_index_query.node_set_label}, score 
-                }}"""
+            }}"""
 
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
@@ -1015,9 +1029,16 @@ class AsyncQueryBuilder:
         if self._ast.fulltext_index_query:
             query += f"""CALL () {{
                 CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
-                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score
+                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score"""
+
+            if self._ast.fulltext_index_query.threshold:
+                query += f"""
+                WHERE score >= {self._ast.fulltext_index_query.threshold}
+                """
+
+            query += f"""
                 RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
-                }}
+            }}
                 """
             # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
             query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""

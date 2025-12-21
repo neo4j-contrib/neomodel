@@ -47,6 +47,38 @@ async def test_base_vectorfilter_async():
     assert all(isinstance(x[0], someNode) for x in result)
     assert all(isinstance(x[1], float) for x in result)
 
+@mark_async_test
+async def test_vectorfilter_thresholding():
+    """
+    Tests that the vector query is run, and only node above threshold returns.
+    """
+    # Vector Indexes only exist from 5.13 onwards
+    if not await adb.version_is_higher_than("5.13"):
+        pytest.skip("Vector Index not Generally Available in Neo4j.")
+
+    class someNodeThresh(AsyncStructuredNode):
+        name = StringProperty()
+        vector = ArrayProperty(
+            base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine")
+        )
+
+    await adb.install_labels(someNodeThresh)
+
+    john = await someNodeThresh(name="John", vector=[float(0.5), float(0.5)]).save()
+    fred = await someNodeThresh(name="Fred", vector=[float(1.0), float(0.0)]).save()
+
+    vectorsearchFilterThreshold = someNodeThresh.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0], threshold=0.8
+        ),
+        name="John",
+    )
+    result = await vectorsearchFilterThreshold.all()
+
+    assert len(result) == 1
+    assert all(isinstance(x[0], someNodeThresh) for x in result)
+    assert result[0][0].name == "John"
+    assert all(x[1] >= 0.8 for x in result)
 
 @mark_async_test
 async def test_vectorfilter_with_node_propertyfilter():

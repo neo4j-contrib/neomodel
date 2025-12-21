@@ -123,6 +123,50 @@ def test_fulltextfilter_with_node_propertyfilter():
 
 
 @mark_sync_test
+def test_fulltextfilter_threshold():
+    """
+    Tests that the fulltext query is run, and only nodes above threshold returns.
+    """
+
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class fulltextNodeThresh(StructuredNode):
+        description = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+        other = StringProperty()
+
+    db.install_labels(fulltextNodeThresh)
+
+    node1 = fulltextNodeThresh(other="thing", description="Another thing").save()
+
+    node2 = fulltextNodeThresh(
+        other="other thing", description="Another other thing"
+    ).save()
+
+    fulltextFilterThresh = fulltextNodeThresh.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=3,
+            fulltext_attribute_name="description",
+            query_string="thing",
+            threshold=0.09,
+        ),
+        other="thing",
+    )
+
+    result = fulltextFilterThresh.all()
+
+    print(result)
+    assert len(result) == 1
+    assert all(isinstance(x[0], fulltextNodeThresh) for x in result)
+    assert result[0][0].other == "thing"
+    assert all(x[1] >= 0.09 for x in result)
+
+
+@mark_sync_test
 def test_dont_duplicate_fulltext_filter_node():
     """
     Tests the situation that another node has the same filter value.
