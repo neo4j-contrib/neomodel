@@ -324,19 +324,19 @@ def test_vectorfilter_invalid_threshold_type():
     if not db.version_is_higher_than("5.13"):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
-    class TestNodeWithVector(StructuredNode):
+    class TestNodeWithVectorInvalidType(StructuredNode):
         name = StringProperty()
         vector = ArrayProperty(
             base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine")
         )
 
-    db.install_labels(TestNodeWithVector)
+    db.install_labels(TestNodeWithVectorInvalidType)
 
     # Test with string threshold (invalid type)
     with pytest.raises(
         ValueError, match="Vector Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVector.nodes.filter(
+        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
                 vector_attribute_name="vector",
@@ -350,7 +350,7 @@ def test_vectorfilter_invalid_threshold_type():
     with pytest.raises(
         ValueError, match="Vector Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVector.nodes.filter(
+        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
                 vector_attribute_name="vector",

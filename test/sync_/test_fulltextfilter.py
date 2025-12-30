@@ -378,7 +378,7 @@ def test_fulltextfilter_invalid_threshold_type():
     if not db.version_is_higher_than("5.16"):
         pytest.skip("Not supported before 5.16")
 
-    class TestNodeWithFT(StructuredNode):
+    class TestNodeWithFTInvalidType(StructuredNode):
         name = StringProperty()
         fulltext = StringProperty(
             fulltext_index=FulltextIndex(
@@ -386,13 +386,13 @@ def test_fulltextfilter_invalid_threshold_type():
             )
         )
 
-    db.install_labels(TestNodeWithFT)
+    db.install_labels(TestNodeWithFTInvalidType)
 
     # Test with string threshold (invalid type)
     with pytest.raises(
         ValueError, match="Full Text Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithFT.nodes.filter(
+        nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1,
                 fulltext_attribute_name="fulltext",
@@ -406,7 +406,7 @@ def test_fulltextfilter_invalid_threshold_type():
     with pytest.raises(
         ValueError, match="Full Text Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithFT.nodes.filter(
+        nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1,
                 fulltext_attribute_name="fulltext",

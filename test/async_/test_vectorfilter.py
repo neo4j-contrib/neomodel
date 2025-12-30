@@ -324,19 +324,19 @@ async def test_vectorfilter_invalid_threshold_type():
     if not await adb.version_is_higher_than("5.13"):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
-    class TestNodeWithVector(AsyncStructuredNode):
+    class TestNodeWithVectorInvalidType(AsyncStructuredNode):
         name = StringProperty()
         vector = ArrayProperty(
             base_property=FloatProperty(), vector_index=VectorIndex(2, "cosine")
         )
 
-    await adb.install_labels(TestNodeWithVector)
+    await adb.install_labels(TestNodeWithVectorInvalidType)
 
     # Test with string threshold (invalid type)
     with pytest.raises(
         ValueError, match="Vector Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVector.nodes.filter(
+        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
                 vector_attribute_name="vector",
@@ -350,7 +350,7 @@ async def test_vectorfilter_invalid_threshold_type():
     with pytest.raises(
         ValueError, match="Vector Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVector.nodes.filter(
+        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
                 vector_attribute_name="vector",
