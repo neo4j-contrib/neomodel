@@ -50,6 +50,18 @@ Can be queried using :class:`~neomodel.semantic_filters.FulltextFilter`. Such as
 
 Where the result will be a list of length topk of nodes with the form (ProductNode, score).
 
+If you would like to filter the nodes based on a threshold (ie. nodes similarity >= threshold), you can use the following::
+
+    from neomodel.semantic_filters import FulltextFilter
+    result = Product.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=10,
+            fulltext_attribute_name="description",
+            query_string="product",
+            threshold=0.08)).all()
+
+Only nodes above threshold = 0.08 will be returned.
+
 The :class:`~neomodel.semantic_filters.FulltextFilter` can be used in conjunction with the normal filter types.
 
 .. attention:: 
@@ -103,9 +115,25 @@ The following node vector index property::
 Can be queried using :class:`~neomodel.semantic_filters.VectorFilter`. Such as::
 
     from neomodel.semantic_filters import VectorFilter
-    result = someNode.nodes.filter(vector_filter=VectorFilter(topk=3, vector_attribute_name="vector")).all()
+    result = someNode.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3, 
+            vector_attribute_name="vector", 
+            candidate_vector=[0.25, 0.25])).all()
 
 Where the result will be a list of length topk of tuples having the form (someNode, score). 
+
+If you would like to filter the nodes based on a threshold (ie. nodes similarity >= threshold), you can use the following::
+
+    from neomodel.semantic_filters import VectorFilter
+    result = someNode.nodes.filter(
+    vector_filter=VectorFilter(
+        topk=3, 
+        vector_attribute_name="vector", 
+        candidate_vector=[0.25, 0.25], 
+        threshold=0.85)).all()
+
+Only nodes above threshold = 0.85 will be returned.
 
 The :class:`~neomodel.semantic_filters.VectorFilter` can be used in conjunction with the normal filter types.
 
