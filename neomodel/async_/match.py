@@ -1251,7 +1251,6 @@ class AsyncQueryBuilder:
                 )
                 async for item in process_stream(stream):
                     yield item
-                return
             else:
                 # Create a session for streaming
                 # Note: We need to keep the session open during iteration
@@ -1268,7 +1267,6 @@ class AsyncQueryBuilder:
                     )
                     async for item in process_stream(stream):
                         yield item
-                return
         else:
             # Sync code path: use traditional approach (fetch all results)
             results, prop_names = await adb.cypher_query(
