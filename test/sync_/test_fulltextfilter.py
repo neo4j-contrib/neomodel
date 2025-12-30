@@ -367,3 +367,51 @@ def test_fulltextfiler_no_fulltext_index():
             )
         )
         nodeset.all()
+
+
+@mark_sync_test
+def test_fulltextfilter_invalid_threshold_type():
+    """
+    Tests that ValueError is raised when threshold is not a float or None.
+    """
+
+    if not db.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class TestNodeWithFT(StructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+
+    db.install_labels(TestNodeWithFT)
+
+    # Test with string threshold (invalid type)
+    with pytest.raises(
+        ValueError, match="Full Text Filter Threshold must be a float or None."
+    ):
+        nodeset = TestNodeWithFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="fulltext",
+                query_string="something",
+                threshold="0.5",  # Invalid: string instead of float
+            )
+        )
+        nodeset.all()
+
+    # Test with integer threshold (invalid type)
+    with pytest.raises(
+        ValueError, match="Full Text Filter Threshold must be a float or None."
+    ):
+        nodeset = TestNodeWithFT.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="fulltext",
+                query_string="something",
+                threshold=1,  # Invalid: int instead of float
+            )
+        )
+        nodeset.all()
