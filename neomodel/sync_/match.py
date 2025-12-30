@@ -576,7 +576,7 @@ class QueryBuilder:
             )
 
         if type(vector_filter.threshold) not in [float, type(None)]:
-            raise ValueError(f"Vector Filter Threshold must be a float or None.")
+            raise ValueError("Vector Filter Threshold must be a float or None.")
 
         vector_filter.index_name = f"vector_index_{source_class.__label__}_{vector_filter.vector_attribute_name}"
         vector_filter.node_set_label = source_class.__label__.lower()
@@ -606,7 +606,7 @@ class QueryBuilder:
             )
 
         if type(full_text_filter.threshold) not in [float, type(None)]:
-            raise ValueError(f"Full Text Filter Threshold must be a float or None.")
+            raise ValueError("Full Text Filter Threshold must be a float or None.")
 
         full_text_filter.index_name = f"fulltext_index_{source_class.__label__}_{full_text_filter.fulltext_attribute_name}"
         full_text_filter.node_set_label = source_class.__label__.lower()
