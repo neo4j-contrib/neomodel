@@ -7,7 +7,7 @@ import os
 import sys
 import time
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, TextIO
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, TextIO
 from urllib.parse import quote, unquote, urlparse
 
 from neo4j import (
@@ -752,6 +752,73 @@ class AsyncDatabase:
             )
 
         return results, meta
+
+    async def _stream_cypher_query(
+        self,
+        session: AsyncSession | AsyncTransaction,
+        query: str,
+        params: dict[str, Any],
+        handle_unique: bool,
+        resolve_objects: bool,
+    ) -> AsyncIterator[tuple[list, tuple[str, ...]]]:
+        """
+        Stream query results one record at a time without loading all into memory.
+
+        This is an internal method used for async iteration. It yields results
+        as they arrive from the database instead of collecting them all first.
+
+        :param session: Neo4j session or transaction
+        :param query: Cypher query string
+        :param params: Query parameters
+        :param handle_unique: Whether to raise UniqueProperty on constraint violations
+        :param resolve_objects: Whether to resolve nodes to neomodel objects
+        :yields: Tuple of (values_list, keys_tuple) for each record
+        """
+        try:
+            start = time.time()
+            if self._parallel_runtime:
+                query = "CYPHER runtime=parallel " + query
+
+            response: AsyncResult = await session.run(query=query, parameters=params)
+            keys = response.keys()
+
+            # Stream results one record at a time
+            async for record in response:
+                values = list(record.values())
+
+                if resolve_objects:
+                    # Resolve objects for this single record
+                    for idx, value in enumerate(values):
+                        values[idx] = self._object_resolution(value)
+
+                yield values, keys
+
+            end = time.time()
+            tte = end - start
+            if os.environ.get("NEOMODEL_CYPHER_DEBUG", False) and tte > float(
+                os.environ.get("NEOMODEL_SLOW_QUERIES", 0)
+            ):
+                logger.debug(
+                    "query: "
+                    + query
+                    + "\nparams: "
+                    + repr(params)
+                    + f"\ntook: {tte:.2g}s\n"
+                )
+
+        except ClientError as e:
+            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
+                if hasattr(e, "message") and e.message is not None:
+                    if "already exists with label" in e.message and handle_unique:
+                        raise UniqueProperty(e.message) from e
+                    raise ConstraintValidationFailed(e.message) from e
+                raise ConstraintValidationFailed(
+                    "A constraint validation failed"
+                ) from e
+
+            exc_info = sys.exc_info()
+            if exc_info[1] is not None and exc_info[2] is not None:
+                raise exc_info[1].with_traceback(exc_info[2])
 
     async def get_id_method(self) -> str:
         db_version = await self.database_version

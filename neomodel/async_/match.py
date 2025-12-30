@@ -4,6 +4,7 @@ import string
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Union
 
+from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_ import relationship_manager
 from neomodel.async_.database import adb
 from neomodel.async_.node import AsyncStructuredNode
@@ -1198,25 +1199,77 @@ class AsyncQueryBuilder:
                         for item in self._ast.additional_return
                     ]
         query = self.build_query()
-        results, prop_names = await adb.cypher_query(
-            query,
-            self._query_params,
-            resolve_objects=True,
-        )
-        if dict_output:
-            for item in results:
-                yield dict(zip(prop_names, item))
-            return
-        # The following is not as elegant as it could be but had to be copied from the
-        # version prior to cypher_query with the resolve_objects capability.
-        # It seems that certain calls are only supposed to be focusing to the first
-        # result item returned (?)
-        if results and len(results[0]) == 1:
-            for n in results:
-                yield n[0]
+
+        # Use streaming for async code to avoid loading all results into memory
+        if AsyncUtil.is_async_code:
+            # Helper to process streaming results
+            async def process_stream(stream_iterator):
+                first_result = True
+                result_has_single_column = False
+                async for values, prop_names in stream_iterator:
+                    if first_result:
+                        # Determine format on first result
+                        result_has_single_column = len(values) == 1
+                        first_result = False
+
+                    if dict_output:
+                        yield dict(zip(prop_names, values))
+                    elif result_has_single_column:
+                        yield values[0]
+                    else:
+                        yield values
+
+            # Stream results one by one from the database
+            if adb._active_transaction:
+                # Use current transaction if active
+                stream = adb._stream_cypher_query(
+                    adb._active_transaction,
+                    query,
+                    self._query_params,
+                    handle_unique=True,
+                    resolve_objects=True,
+                )
+                async for item in process_stream(stream):
+                    yield item
+                return
+            else:
+                # Create a session for streaming
+                # Note: We need to keep the session open during iteration
+                async with adb.driver.session(
+                    database=adb._database_name,
+                    impersonated_user=adb.impersonated_user,
+                ) as session:
+                    stream = adb._stream_cypher_query(
+                        session,
+                        query,
+                        self._query_params,
+                        handle_unique=True,
+                        resolve_objects=True,
+                    )
+                    async for item in process_stream(stream):
+                        yield item
+                return
         else:
-            for result in results:
-                yield result
+            # Sync code path: use traditional approach (fetch all results)
+            results, prop_names = await adb.cypher_query(
+                query,
+                self._query_params,
+                resolve_objects=True,
+            )
+            if dict_output:
+                for item in results:
+                    yield dict(zip(prop_names, item))
+                return
+            # The following is not as elegant as it could be but had to be copied from the
+            # version prior to cypher_query with the resolve_objects capability.
+            # It seems that certain calls are only supposed to be focusing to the first
+            # result item returned (?)
+            if results and len(results[0]) == 1:
+                for n in results:
+                    yield n[0]
+            else:
+                for result in results:
+                    yield result
 
 
 @dataclass
@@ -1259,6 +1312,16 @@ class AsyncBaseSet:
         return results
 
     async def __aiter__(self) -> AsyncIterator:
+        """
+        Async iterator that streams results from the database one at a time.
+
+        This provides true async iteration without loading all results into memory first.
+        For large result sets, this is much more memory efficient than using all().
+
+        Example:
+            async for node in Coffee.nodes:
+                print(node.name)  # Process each node as it arrives
+        """
         ast = await self.query_cls(self).build_ast()
         async for item in ast._execute():
             yield item
