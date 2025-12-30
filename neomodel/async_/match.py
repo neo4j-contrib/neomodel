@@ -1219,6 +1219,18 @@ class AsyncQueryBuilder:
                 yield result
 
 
+@dataclass
+class Path:
+    """Path traversal definition."""
+
+    value: str
+    optional: bool = False
+    include_nodes_in_return: bool = True
+    include_rels_in_return: bool = True
+    relation_filtering: bool = False
+    alias: str | None = None
+
+
 class AsyncBaseSet:
     """
     Base class for all node sets.
@@ -1228,6 +1240,10 @@ class AsyncBaseSet:
 
     query_cls = AsyncQueryBuilder
     source_class: type[AsyncStructuredNode]
+
+    # Attributes defined in subclasses (AsyncNodeSet)
+    _unique_variables: list[str]
+    relations_to_fetch: list[Path]
 
     async def all(self, lazy: bool = False) -> list:
         """
@@ -1298,18 +1314,6 @@ class AsyncBaseSet:
             ast = await self.query_cls(self).build_ast()
             _first_item = [node async for node in ast._execute()][0]
             return _first_item
-
-
-@dataclass
-class Path:
-    """Path traversal definition."""
-
-    value: str
-    optional: bool = False
-    include_nodes_in_return: bool = True
-    include_rels_in_return: bool = True
-    relation_filtering: bool = False
-    alias: str | None = None
 
 
 @dataclass
