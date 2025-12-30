@@ -51,7 +51,7 @@ async def test_read_elements_id():
     else:
         # Nodes' ids
         expected_error_type = ValueError
-        expected_error_message = "id is deprecated in Neo4j version 5, please migrate to element_id\. If you use the id in a Cypher query, replace id\(\) by elementId\(\)\."
+        expected_error_message = "id is deprecated in Neo4j version 5, please migrate to element_id\\. If you use the id in a Cypher query, replace id\\(\\) by elementId\\(\\)\\."
         assert isinstance(lex_hives.element_id, str)
         with pytest.raises(
             expected_error_type,
