@@ -76,9 +76,7 @@ async def test_install_all():
 async def test_install_label_twice(capsys):
     await adb.drop_constraints()
     await adb.drop_indexes()
-    expected_std_out = (
-        "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
-    )
+    expected_std_out = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
     await adb.install_labels(AbstractNode)
     await adb.install_labels(AbstractNode)
 

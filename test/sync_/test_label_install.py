@@ -75,9 +75,7 @@ def test_install_all():
 def test_install_label_twice(capsys):
     db.drop_constraints()
     db.drop_indexes()
-    expected_std_out = (
-        "{code: Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists}"
-    )
+    expected_std_out = "Neo.ClientError.Schema.EquivalentSchemaRuleAlreadyExists"
     db.install_labels(AbstractNode)
     db.install_labels(AbstractNode)
 

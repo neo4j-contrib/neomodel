@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 # check source node is saved and not deleted
 def check_source(fn: Callable) -> Callable:
-    fn_name = fn.func_name if hasattr(fn, "func_name") else fn.__name__
+    fn_name = fn.__name__
 
     @functools.wraps(fn)
     def checker(self: Any, *args: Any, **kwargs: Any) -> Callable:
