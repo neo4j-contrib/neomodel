@@ -3,8 +3,8 @@ Transaction management for the neomodel module.
 """
 
 import warnings
-from asyncio import iscoroutinefunction
 from functools import wraps
+from inspect import iscoroutinefunction
 from typing import Any, Callable
 
 from neo4j.api import Bookmarks
