@@ -1,4 +1,11 @@
-Version 6.0.0 2025-xx
+Version 6.0.1 2025-12
+* Make async iterator fully async, like : async for node in MyNodeClass.nodes
+* Add thresholding to semantic indexes. Thanks to @greengori11a
+* Adds support for Python 3.14
+* Bumps to neo4j driver 6.x
+* Remove unnecessary typing .pyi files
+
+Version 6.0.0 2025-12
 * Modernize config object, using a dataclass with typing, runtime and update validation rules, and environment variables support
 * Fix async support of parallel transactions, using ContextVar
 * Introduces merge_by parameter for batch operations to customize merge behaviour (label and property keys)

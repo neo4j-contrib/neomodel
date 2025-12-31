@@ -9,8 +9,8 @@ from neomodel import (
     AsyncStructuredRel,
     DateTimeProperty,
     FloatProperty,
-    StringProperty,
     FulltextIndex,
+    StringProperty,
     adb,
 )
 from neomodel.semantic_filters import FulltextFilter
@@ -67,8 +67,9 @@ async def test_fulltextfilter_topk_works():
                 analyzer="standard-no-stop-words", eventually_consistent=False
             )
         )
+
     await adb.install_labels(fulltextNodetopk)
-    
+
     node1 = await fulltextNodetopk(description="this description").save()
     node2 = await fulltextNodetopk(description="that description").save()
     node3 = await fulltextNodetopk(description="my description").save()
@@ -81,6 +82,7 @@ async def test_fulltextfilter_topk_works():
 
     result = await fulltextNodeSearch.all()
     assert len(result) == 2
+
 
 @mark_async_test
 async def test_fulltextfilter_with_node_propertyfilter():
@@ -147,9 +149,12 @@ async def test_fulltextfilter_threshold():
         other="other thing", description="Another other thing"
     ).save()
 
-    fulltextFilterThresh= fulltextNodeThresh.nodes.filter(
+    fulltextFilterThresh = fulltextNodeThresh.nodes.filter(
         fulltext_filter=FulltextFilter(
-            topk=3, fulltext_attribute_name="description", query_string="thing", threshold=0.09
+            topk=3,
+            fulltext_attribute_name="description",
+            query_string="thing",
+            threshold=0.09,
         ),
         other="thing",
     )
@@ -161,6 +166,7 @@ async def test_fulltextfilter_threshold():
     assert all(isinstance(x[0], fulltextNodeThresh) for x in result)
     assert result[0][0].other == "thing"
     assert all(x[1] >= 0.09 for x in result)
+
 
 @mark_async_test
 async def test_dont_duplicate_fulltext_filter_node():
@@ -318,7 +324,6 @@ async def test_fulltextfiler_nonexistent_attribute():
     if not await adb.version_is_higher_than("5.16"):
         pytest.skip("Not supported before 5.16")
 
-
     class TestNodeWithFT(AsyncStructuredNode):
         name = StringProperty()
         fulltext = StringProperty(
@@ -361,6 +366,54 @@ async def test_fulltextfiler_no_fulltext_index():
         nodeset = TestNodeWithoutFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1, fulltext_attribute_name="fulltext", query_string="something"
+            )
+        )
+        await nodeset.all()
+
+
+@mark_async_test
+async def test_fulltextfilter_invalid_threshold_type():
+    """
+    Tests that ValueError is raised when threshold is not a float or None.
+    """
+
+    if not await adb.version_is_higher_than("5.16"):
+        pytest.skip("Not supported before 5.16")
+
+    class TestNodeWithFTInvalidType(AsyncStructuredNode):
+        name = StringProperty()
+        fulltext = StringProperty(
+            fulltext_index=FulltextIndex(
+                analyzer="standard-no-stop-words", eventually_consistent=False
+            )
+        )
+
+    await adb.install_labels(TestNodeWithFTInvalidType)
+
+    # Test with string threshold (invalid type)
+    with pytest.raises(
+        ValueError, match="Full Text Filter Threshold must be a float or None."
+    ):
+        nodeset = TestNodeWithFTInvalidType.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="fulltext",
+                query_string="something",
+                threshold="0.5",  # Invalid: string instead of float
+            )
+        )
+        await nodeset.all()
+
+    # Test with integer threshold (invalid type)
+    with pytest.raises(
+        ValueError, match="Full Text Filter Threshold must be a float or None."
+    ):
+        nodeset = TestNodeWithFTInvalidType.nodes.filter(
+            fulltext_filter=FulltextFilter(
+                topk=1,
+                fulltext_attribute_name="fulltext",
+                query_string="something",
+                threshold=1,  # Invalid: int instead of float
             )
         )
         await nodeset.all()

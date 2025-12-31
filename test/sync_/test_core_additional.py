@@ -175,7 +175,13 @@ def test_proxy_aenter_parallel_runtime_warning():
             with patch.object(test_db, "begin", new_callable=Mock) as mock_begin:
                 proxy.__enter__()
 
-                mock_warn.assert_called_once()
+                # Filter for the specific parallel runtime warning
+                parallel_runtime_calls = [
+                    call
+                    for call in mock_warn.call_args_list
+                    if "Parallel runtime is only available" in str(call[0][0])
+                ]
+                assert len(parallel_runtime_calls) == 1
                 mock_begin.assert_called_once()
 
 

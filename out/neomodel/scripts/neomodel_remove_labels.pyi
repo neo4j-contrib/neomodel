@@ -1,3 +1,0 @@
-from neomodel.sync_.database import db as db
-
-def main() -> None: ...

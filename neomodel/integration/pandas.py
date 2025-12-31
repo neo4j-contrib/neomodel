@@ -20,7 +20,7 @@ Example:
 
 """
 
-
+from typing import Any
 from warnings import warn
 
 try:
@@ -34,7 +34,11 @@ except ImportError:
     raise
 
 
-def to_dataframe(query_results: tuple, index=None, dtype=None):
+def to_dataframe(
+    query_results: tuple[list[list[Any]], list[str]],
+    index: Any | None = None,
+    dtype: Any | None = None,
+) -> DataFrame:
     """Convert the results of a db.cypher_query call and associated metadata
     into a pandas DataFrame.
     Optionally, specify an index and/or a datatype for the columns.
@@ -43,10 +47,18 @@ def to_dataframe(query_results: tuple, index=None, dtype=None):
     return DataFrame(results, columns=meta, index=index, dtype=dtype)
 
 
-def to_series(query_results: tuple, field=0, index=None, dtype=None):
+def to_series(
+    query_results: tuple[list[list[Any]], list[str]],
+    field: int = 0,
+    index: Any | None = None,
+    dtype: Any | None = None,
+) -> Series:
     """Convert the results of a db.cypher_query call
     into a pandas Series for the given field.
     Optionally, specify an index and/or a datatype for the columns.
     """
     results, _ = query_results
-    return Series([record[field] for record in results], index=index, dtype=dtype)
+    if dtype is None:
+        return Series([record[field] for record in results], index=index)
+    else:
+        return Series([record[field] for record in results], index=index, dtype=dtype)

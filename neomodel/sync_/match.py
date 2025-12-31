@@ -4,6 +4,7 @@ import string
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
+from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
@@ -1214,25 +1215,87 @@ class QueryBuilder:
                         for item in self._ast.additional_return
                     ]
         query = self.build_query()
-        results, prop_names = db.cypher_query(
-            query,
-            self._query_params,
-            resolve_objects=True,
-        )
-        if dict_output:
-            for item in results:
-                yield dict(zip(prop_names, item))
-            return
-        # The following is not as elegant as it could be but had to be copied from the
-        # version prior to cypher_query with the resolve_objects capability.
-        # It seems that certain calls are only supposed to be focusing to the first
-        # result item returned (?)
-        if results and len(results[0]) == 1:
-            for n in results:
-                yield n[0]
+
+        # Use streaming for async code to avoid loading all results into memory
+        if Util.is_async_code:
+            # Helper to process streaming results
+            def process_stream(stream_iterator):
+                first_result = True
+                result_has_single_column = False
+                for values, prop_names in stream_iterator:
+                    if first_result:
+                        # Determine format on first result
+                        result_has_single_column = len(values) == 1
+                        first_result = False
+
+                    if dict_output:
+                        yield dict(zip(prop_names, values))
+                    elif result_has_single_column:
+                        yield values[0]
+                    else:
+                        yield values
+
+            # Stream results one by one from the database
+            if db._active_transaction:
+                # Use current transaction if active
+                stream = db._stream_cypher_query(
+                    db._active_transaction,
+                    query,
+                    self._query_params,
+                    handle_unique=True,
+                    resolve_objects=True,
+                )
+                for item in process_stream(stream):
+                    yield item
+            else:
+                # Create a session for streaming
+                # Note: We need to keep the session open during iteration
+                with db.driver.session(
+                    database=db._database_name,
+                    impersonated_user=db.impersonated_user,
+                ) as session:
+                    stream = db._stream_cypher_query(
+                        session,
+                        query,
+                        self._query_params,
+                        handle_unique=True,
+                        resolve_objects=True,
+                    )
+                    for item in process_stream(stream):
+                        yield item
         else:
-            for result in results:
-                yield result
+            # Sync code path: use traditional approach (fetch all results)
+            results, prop_names = db.cypher_query(
+                query,
+                self._query_params,
+                resolve_objects=True,
+            )
+            if dict_output:
+                for item in results:
+                    yield dict(zip(prop_names, item))
+                return
+            # The following is not as elegant as it could be but had to be copied from the
+            # version prior to cypher_query with the resolve_objects capability.
+            # It seems that certain calls are only supposed to be focusing to the first
+            # result item returned (?)
+            if results and len(results[0]) == 1:
+                for n in results:
+                    yield n[0]
+            else:
+                for result in results:
+                    yield result
+
+
+@dataclass
+class Path:
+    """Path traversal definition."""
+
+    value: str
+    optional: bool = False
+    include_nodes_in_return: bool = True
+    include_rels_in_return: bool = True
+    relation_filtering: bool = False
+    alias: str | None = None
 
 
 class BaseSet:
@@ -1244,6 +1307,10 @@ class BaseSet:
 
     query_cls = QueryBuilder
     source_class: type[StructuredNode]
+
+    # Attributes defined in subclasses (AsyncNodeSet)
+    _unique_variables: list[str]
+    relations_to_fetch: list[Path]
 
     def all(self, lazy: bool = False) -> list:
         """
@@ -1259,6 +1326,16 @@ class BaseSet:
         return results
 
     def __iter__(self) -> Iterator:
+        """
+        Async iterator that streams results from the database one at a time.
+
+        This provides true iteration without loading all results into memory first.
+        For large result sets, this is much more memory efficient than using all().
+
+        Example:
+            for node in Coffee.nodes:
+                print(node.name)  # Process each node as it arrives
+        """
         ast = self.query_cls(self).build_ast()
         for item in ast._execute():
             yield item
@@ -1314,18 +1391,6 @@ class BaseSet:
             ast = self.query_cls(self).build_ast()
             _first_item = [node for node in ast._execute()][0]
             return _first_item
-
-
-@dataclass
-class Path:
-    """Path traversal definition."""
-
-    value: str
-    optional: bool = False
-    include_nodes_in_return: bool = True
-    include_rels_in_return: bool = True
-    relation_filtering: bool = False
-    alias: str | None = None
 
 
 @dataclass
