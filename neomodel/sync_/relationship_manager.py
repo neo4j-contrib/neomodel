@@ -495,9 +495,11 @@ class RelationshipDefinition:
                 db._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: type[StructuredRel] | None = None
+        self,
+        cls_name: str | type[StructuredNode],
+        model: type[StructuredRel] | None = None,
     ) -> None:
-        if not isinstance(cls_name, (str, object)):
+        if not isinstance(cls_name, str) and not isinstance(cls_name, type):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (StructuredRel,)):
@@ -622,7 +624,7 @@ class ZeroOrMore(RelationshipManager):
 class RelationshipTo(RelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,
@@ -639,7 +641,7 @@ class RelationshipTo(RelationshipDefinition):
 class RelationshipFrom(RelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,
@@ -656,7 +658,7 @@ class RelationshipFrom(RelationshipDefinition):
 class Relationship(RelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,

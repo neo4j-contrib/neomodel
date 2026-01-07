@@ -513,9 +513,11 @@ class AsyncRelationshipDefinition:
                 adb._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: type[AsyncStructuredRel] | None = None
+        self,
+        cls_name: str | type[AsyncStructuredNode],
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
-        if not isinstance(cls_name, (str, object)):
+        if not isinstance(cls_name, str) and not isinstance(cls_name, type):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (AsyncStructuredRel,)):
@@ -642,7 +644,7 @@ class AsyncZeroOrMore(AsyncRelationshipManager):
 class AsyncRelationshipTo(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
@@ -659,7 +661,7 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
 class AsyncRelationshipFrom(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
@@ -676,7 +678,7 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
 class AsyncRelationship(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
