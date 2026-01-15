@@ -43,3 +43,6 @@ UNKNOWN_SERVER_VERSION = """
     Unable to perform this operation because the database server version is not known. 
     This might mean that the database server is offline.
 """
+
+PATH_CONTEXT_MATCH = "match"
+PATH_CONTEXT_EXISTS = "exists"

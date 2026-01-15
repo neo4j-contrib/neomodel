@@ -1185,6 +1185,27 @@ async def test_in_filter_with_array_property():
 
 
 @mark_async_test
+async def test_exists_filter():
+    jim = await PersonX(name="Jim", age=3).save()
+    tom = await PersonX(name="tom", age=33).save()
+    germany = await CountryX(code="DE").save()
+    await jim.country.connect(germany)
+    await tom.country.connect(germany)
+    berlin = await CityX(name="Berlin").save()
+    await berlin.country.connect(germany)
+    await jim.city.connect(berlin)
+
+    result = await PersonX.nodes.filter(city__exists=True)
+    assert result[0] == jim
+    result = await PersonX.nodes.filter(city__exists=False)
+    assert result[0] == tom
+    result = await PersonX.nodes.filter(city__country__exists=True)
+    assert len(result) == 1
+    result = await PersonX.nodes.filter(country__exists=True)
+    assert len(result) == 2
+
+
+@mark_async_test
 async def test_unique_variables():
     arabica = await Species(name="Arabica").save()
     nescafe = await Coffee(name="Nescafe", price=99).save()
