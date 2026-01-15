@@ -4,7 +4,6 @@ import string
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Union
 
-from neomodel import constants
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_ import relationship_manager
 from neomodel.async_.database import adb
@@ -15,7 +14,7 @@ from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection
+from neomodel.util import RelationshipDirection, deprecated
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -1766,6 +1765,9 @@ class AsyncNodeSet(AsyncBaseSet):
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
+    @deprecated(
+        "This method is deprecated and set to be removed in a future release. Please use .filter(has_rel__exists=True) instead."
+    )
     def has(self, **kwargs: Any) -> "AsyncBaseSet":
         must_match, dont_match = process_has_args(self.source_class, kwargs)
         self.must_match.update(must_match)

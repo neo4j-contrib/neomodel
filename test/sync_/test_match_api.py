@@ -3,6 +3,7 @@ from datetime import datetime
 from test._async_compat import mark_sync_test
 from unittest.mock import MagicMock, Mock
 
+import pytest
 from pytest import raises, skip, warns
 
 from neomodel import (
@@ -1185,6 +1186,9 @@ def test_exists_filter():
     berlin.country.connect(germany)
     jim.city.connect(berlin)
 
+    with pytest.raises(ValueError):
+        result = PersonX.nodes.filter(city__exists="WRONG")
+
     result = PersonX.nodes.filter(city__exists=True)
     assert result[0] == jim
     result = PersonX.nodes.filter(city__exists=False)
@@ -1193,6 +1197,12 @@ def test_exists_filter():
     assert len(result) == 1
     result = PersonX.nodes.filter(country__exists=True)
     assert len(result) == 2
+
+    result = PersonX.nodes.filter(name="Jim", country__exists=True)
+    assert result[0] == jim
+
+    result = PersonX.nodes.filter(city__name="Berlin", country__exists=True)
+    assert result[0][0] == jim
 
 
 @mark_sync_test

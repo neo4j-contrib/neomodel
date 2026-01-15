@@ -4,7 +4,6 @@ import string
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
-from neomodel import constants
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
@@ -15,7 +14,7 @@ from neomodel.sync_.database import db
 from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection
+from neomodel.util import RelationshipDirection, deprecated
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -1762,6 +1761,9 @@ class NodeSet(BaseSet):
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
+    @deprecated(
+        "This method is deprecated and set to be removed in a future release. Please use .filter(has_rel__exists=True) instead."
+    )
     def has(self, **kwargs: Any) -> "BaseSet":
         must_match, dont_match = process_has_args(self.source_class, kwargs)
         self.must_match.update(must_match)
