@@ -2,51 +2,109 @@
 Batch node operations
 =====================
 
-All batch operations can be executed with one or more nodes.
-
-create()
---------
-Note that batch create is a relic of the Neo4j REST API.
-With the adoption of Bolt by neomodel, it exists for convenience and compatibility 
-and a CREATE query is issued for each `dict` provided.
-
-Create multiple nodes at once in a single transaction::
-
-    with db.transaction:
-        people = Person.create(
-            {'name': 'Tim', 'age': 83},
-            {'name': 'Bob', 'age': 23},
-            {'name': 'Jill', 'age': 34},
-        )
+neomodel follows Django's pattern where both read **and write** operations live on the
+``NodeSet`` (accessible via ``MyNode.nodes``).  This keeps the API consistent with the
+query interface and makes it easy to chain filters with creation.
 
 
-create_or_update()
-------------------
-Atomically create or update nodes in a single operation.
-The **required** and **unique** properties are used as keys to match nodes,
-all other properties being used only on the resulting write operation.
-For example::
+NodeSet methods (recommended)
+------------------------------
+
+Single-node methods
+~~~~~~~~~~~~~~~~~~~
+
+These methods create or retrieve **one node** at a time and follow the Django
+``objects.create()`` / ``objects.get_or_create()`` / ``objects.update_or_create()``
+conventions.
+
+``nodes.create(**kwargs)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Create a single node and return it::
 
     class Person(StructuredNode):
         name = StringProperty(required=True)
         age = IntegerProperty()
 
-    people = Person.create_or_update(
-        {'name': 'Tim', 'age': 83}, # created
-        {'name': 'Bob', 'age': 23}, # created
-        {'name': 'Jill', 'age': 34}, # created
+    tim = await Person.nodes.create(name="Tim", age=83)
+
+``nodes.get_or_create(defaults=None, **kwargs)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Look up a node by ``**kwargs``.  If it does not exist, create it (merging
+``defaults`` into the creation properties, but **not** using them for lookup).
+Returns ``(node, created)``::
+
+    # first call → created=True
+    tim, created = await Person.nodes.get_or_create(name="Tim", defaults={"age": 83})
+    assert created is True
+
+    # second call → created=False, existing node returned
+    tim2, created = await Person.nodes.get_or_create(name="Tim", defaults={"age": 99})
+    assert created is False
+    assert tim2.age == 83   # age was NOT changed because the node already existed
+
+``nodes.update_or_create(defaults=None, **kwargs)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Like ``get_or_create``, but **updates** the matched node with ``defaults`` when it
+already exists.  Returns ``(node, created)``::
+
+    tim, created = await Person.nodes.update_or_create(
+        name="Tim",
+        defaults={"age": 99},
+    )
+    assert tim.age == 99  # updated on match, or set on creation
+
+
+Bulk methods
+~~~~~~~~~~~~
+
+These methods accept any number of property dicts and process them in a single
+operation.
+
+``nodes.bulk_create(*props, **kwargs)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Create multiple nodes at once.  A CREATE query is issued for each dict::
+
+    with db.transaction:
+        people = await Person.nodes.bulk_create(
+            {"name": "Tim",  "age": 83},
+            {"name": "Bob",  "age": 23},
+            {"name": "Jill", "age": 34},
+        )
+
+.. note::
+    ``bulk_create`` also supports the ``relationship`` parameter (see
+    `Relationships and Relationship Properties`_ below).
+
+``nodes.bulk_create_or_update(*props, **kwargs)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Atomically create or update multiple nodes.  The **required** and **unique**
+properties are used as keys; all other properties are updated on match::
+
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+        age = IntegerProperty()
+
+    people = await Person.nodes.bulk_create_or_update(
+        {"name": "Tim",  "age": 83},  # created
+        {"name": "Bob",  "age": 23},  # created
+        {"name": "Jill", "age": 34},  # created
     )
 
-    more_people = Person.create_or_update(
-        {'name': 'Tim', 'age': 73}, # updated
-        {'name': 'Bob', 'age': 35}, # updated
-        {'name': 'Jane', 'age': 24}, # created
+    updated = await Person.nodes.bulk_create_or_update(
+        {"name": "Tim",  "age": 73},  # updated
+        {"name": "Bob",  "age": 35},  # updated
+        {"name": "Jane", "age": 24},  # created
     )
+
 
 Custom Merge Keys
 ~~~~~~~~~~~~~~~~~
-By default, neomodel uses all required properties as merge keys.
-However, you can specify custom merge criteria using the ``merge_by`` parameter::
+``nodes.get_or_create``, ``bulk_create_or_update``, and the deprecated
+``get_or_create()`` / ``create_or_update()`` classmethods accept a ``merge_by``
+parameter to override which properties are used as lookup keys.
+
+For the single-node ``nodes.get_or_create``, ``merge_by`` is a list of kwarg names
+to use as the lookup key (defaults to all kwargs)::
 
     class User(StructuredNode):
         username = StringProperty(required=True)
@@ -54,101 +112,76 @@ However, you can specify custom merge criteria using the ``merge_by`` parameter:
         full_name = StringProperty()
         age = IntegerProperty()
 
-    # Default behavior (merge by username + email)
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 30
-    })
+    # Default: look up by both username and email
+    user, created = await User.nodes.get_or_create(
+        username="johndoe", email="john@example.com", age=30
+    )
 
-    # Custom merge by email only
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 31
-    }, merge_by={'keys': ['email']})
+    # Custom: look up by email only; username and age are creation-only via defaults
+    user, created = await User.nodes.get_or_create(
+        email="john@example.com",
+        merge_by=["email"],
+        defaults={"username": "johndoe", "age": 30},
+    )
 
-    # Custom merge by username only
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john.doe@newcompany.com',
-        'age': 32
-    }, merge_by={'label': 'User', 'keys': ['username']})
+    # Custom: look up by username only
+    user, created = await User.nodes.get_or_create(
+        username="johndoe",
+        email="john.doe@newcompany.com",
+        merge_by=["username"],
+    )
 
-The ``merge_by`` parameter accepts a dictionary with:
-- ``label``: The Neo4j label to match against (optional, defaults to the node's inherited labels)
-- ``keys``: The property name(s) to use as the merge key(s).
+For ``bulk_create_or_update`` and the deprecated classmethods, ``merge_by`` is a dict
+with ``keys`` (required) and an optional ``label``::
 
-This is particularly useful when you want to merge nodes based on specific properties
-rather than all required properties, or when you need to merge based on properties
-that are not required.
+    # Custom: merge by email only
+    users = await User.nodes.bulk_create_or_update(
+        {"username": "johndoe", "email": "john@example.com", "age": 31},
+        merge_by={"keys": ["email"]},
+    )
 
-Examples of different merge key configurations::
+    # Custom: merge by username only, with explicit label
+    users = await User.nodes.bulk_create_or_update(
+        {"username": "johndoe", "email": "john.doe@newcompany.com", "age": 32},
+        merge_by={"label": "User", "keys": ["username"]},
+    )
 
-    # Single key (string)
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 30
-    }, merge_by={'keys': ['email']})
+The deprecated ``get_or_create()`` classmethod uses the same dict form::
 
-    # Multiple keys (list)
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 30
-    }, merge_by={'label': 'User', 'keys': ['username', 'email']})
+    users = User.get_or_create(
+        {"username": "johndoe", "email": "john@example.com", "age": 31},
+        merge_by={"keys": ["email"]},
+    )
 
-    # Multiple keys with different label
-    users = User.create_or_update({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 30
-    }, merge_by={'label': 'Person', 'keys': ['email', 'age']}) # For when your node has multiple labels
+``merge_by`` (dict form) accepts:
 
-Only explicitly provided properties will be updated on the node in all other cases::
-    class NodeWithDefaultProp(AsyncStructuredNode):
-        name = StringProperty(required=True)
-        age = IntegerProperty(default=30)
-        other_prop = StringProperty()
+- ``keys`` – list of property names to use as the merge key(s) (required).
+- ``label`` – Neo4j label to match against (optional; defaults to the node's
+  inherited labels).
 
-    node = await NodeWithDefaultProp.create_or_update({"name": "Tania", "age": 20})
-    assert node[0].name == "Tania"
+Only explicitly provided properties will be updated on the node when the key
+matches::
+
+    node = await NodeWithDefaultProp.nodes.bulk_create_or_update({"name": "Tania", "age": 20})
     assert node[0].age == 20
 
-    node = await MultiRequiredPropNode.create_or_update(
-        {"name": "Tania", "other_prop": "other"}
-    )
-    assert node[0].name == "Tania"
-    assert (
-        node[0].age == 20
-    )  # Tania is still 20 even though default says she should be 30
-    assert (
-        node[0].other_prop == "other"
-    )  # She does have a brand new other_prop, lucky her !
+    node = await NodeWithDefaultProp.nodes.bulk_create_or_update({"name": "Tania", "other_prop": "other"})
+    assert node[0].age == 20   # age is NOT reset to the default of 30 — it was not provided
 
-
-However, if fields used as keys have default values, those default values will be used if the property is omitted in your call.
-This means that when using `UniqueIdProperty`, which is both unique and has a default value, if you do not pass it explicitly,
-it will generate a new (random) value for it, and thus create a new node instead of updating an existing one::
-
-    class UniquePerson(StructuredNode):
-        uid = UniqueIdProperty()
-        name = StringProperty(required=True)
-
-    unique_person = UniquePerson.create_or_update({"name": "Tim"}) # created
-    unique_person = UniquePerson.create_or_update({"name": "Tim"}) # created again with a new uid
 
 .. attention::
-    This has been raised as an [issue in GitHub](https://github.com/neo4j-contrib/neomodel/issues/807).
-    While it is not a bug in itself, it is a deviation from the expected behavior of the function, and thus may be unexpected.
-    Therefore, an idea would be to refactor the batch mechanism to allow users to specify which properties are used as keys to match nodes.
+    When using ``UniqueIdProperty`` (which is both unique and has a default value),
+    omitting it will generate a fresh random UID and therefore **create** a new node
+    instead of matching the existing one.  Always pass the UID explicitly if you want
+    to update an existing node.
+    (`GitHub issue #807 <https://github.com/neo4j-contrib/neomodel/issues/807>`_)
 
 
 Relationships and Relationship Properties
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The ``create_or_update()`` method also supports the ``relationship`` parameter to match nodes within a specific relationship context,
-and the ``rel_props`` parameter to set properties on the relationship::
+The bulk methods support the ``relationship`` parameter to scope the operation within
+a specific relationship context, and ``rel_props`` to set properties on that
+relationship::
 
     from datetime import datetime, UTC
 
@@ -158,165 +191,100 @@ and the ``rel_props`` parameter to set properties on the relationship::
 
     class Dog(StructuredNode):
         name = StringProperty(required=True)
-        owner = RelationshipTo('Person', 'OWNS', model=PetsRel)
+        owner = RelationshipTo("Person", "OWNS", model=PetsRel)
 
     class Person(StructuredNode):
         name = StringProperty(unique_index=True)
-        pets = RelationshipFrom('Dog', 'OWNS', model=PetsRel)
+        pets = RelationshipFrom("Dog", "OWNS", model=PetsRel)
 
-    charlie = Person.get_or_create({"name": "Charlie"})[0]
+    charlie, _ = await Person.nodes.get_or_create(name="Charlie")
     since_date = datetime(2019, 3, 10, tzinfo=UTC)
 
-    dogs = Dog.create_or_update(
+    dogs = await Dog.nodes.bulk_create_or_update(
         {"name": "Spot"},
         relationship=charlie.pets,
         rel_props={"since": since_date, "notes": "First adoption"},
     )
 
-You can also create or update multiple nodes in a batch with the same relationship and relationship properties::
+The same pattern applies to ``bulk_create``::
 
-    diana = Person.get_or_create({"name": "Diana"})[0]
-    since_date = datetime(2022, 6, 15, tzinfo=UTC)
+    diana, _ = await Person.nodes.get_or_create(name="Diana")
 
-    dogs = Dog.create_or_update(
+    dogs = await Dog.nodes.bulk_create(
         {"name": "Bella"},
         {"name": "Charlie"},
         {"name": "Daisy"},
         relationship=diana.pets,
-        rel_props={"since": since_date, "notes": "Rescue dogs"},
+        rel_props={"since": datetime(2022, 6, 15, tzinfo=UTC), "notes": "Rescue dogs"},
     )
 
 .. note::
-    When using ``create_or_update()`` with a relationship, if a node is matched and updated, a new relationship
-    will be created with the provided ``rel_props``. The old relationship (if it existed) will remain, and you may
-    end up with multiple relationships between the same nodes.
+    When using the bulk merge methods with a ``relationship``, if a node is matched
+    and updated, a **new** relationship is created with the provided ``rel_props``.
+    The old relationship (if any) will remain.
 
 
-get_or_create()
----------------
-Atomically get or create nodes in a single operation.
-For example::
-
-    people = Person.get_or_create(
-        {'name': 'Tim'}, # created
-        {'name': 'Bob'}, # created
-    )
-
-    people_with_jill = Person.get_or_create(
-        {'name': 'Tim'}, # fetched
-        {'name': 'Bob'}, # fetched
-        {'name': 'Jill'}, # created
-    )
-    # are same nodes
-    assert people[0] == people_with_jill[0]
-    assert people[1] == people_with_jill[1]
-
-The **required** and **unique** properties are used as keys to match nodes,
-all other properties being used only when a new node is created.
-For example::
-    class Person(StructuredNode):
-        name = StringProperty(required=True)
-        age = IntegerProperty()
-
-    node = await Person.get_or_create({"name": "Tania", "age": 20})
-    assert node[0].name == "Tania"
-    assert node[0].age == 20
-
-    node = await MultiRequiredPropNode.get_or_create({"name": "Tania", "age": 30})
-    assert node[0].name == "Tania"
-    assert node[0].age == 20  # Tania was fetched and not created, age is still 20
-
-Custom Merge Keys
-~~~~~~~~~~~~~~~~~
-The ``get_or_create()`` method also supports the ``merge_by`` parameter for custom merge criteria::
-
-    class User(StructuredNode):
-        username = StringProperty(required=True, unique_index=True)
-        email = StringProperty(required=True, unique_index=True)
-        full_name = StringProperty()
-        age = IntegerProperty()
-
-    # Default behavior (merge by username + email)
-    users = User.get_or_create({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 30
-    })
-
-    # Custom merge by email only
-    users = User.get_or_create({
-        'username': 'johndoe',
-        'email': 'john@example.com',
-        'age': 31
-    }, merge_by={'keys': ['email']})
-
-    # Custom merge by username only
-    users = User.get_or_create({
-        'username': 'johndoe',
-        'email': 'john.doe@newcompany.com',
-        'age': 32
-    }, merge_by={'label': 'User', 'keys': ['username']})
-
-The same ``merge_by`` parameter format applies to both ``create_or_update()`` and ``get_or_create()`` methods.
-
-
-Additionally, get_or_create() allows the "relationship" parameter to be passed. When a relationship is specified, the
-matching is done based on that relationship and not globally. The relationship becomes one of the keys to match nodes::
+get_or_create with a relationship (scoped uniqueness)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The deprecated ``get_or_create()`` classmethod supports a ``relationship`` parameter to
+enforce per-owner uniqueness::
 
     class Dog(StructuredNode):
         name = StringProperty(required=True)
-        owner = RelationshipTo('Person', 'owner')
+        owner = RelationshipTo("Person", "owner")
 
     class Person(StructuredNode):
         name = StringProperty(unique_index=True)
-        pets = RelationshipFrom('Dog', 'owner')
+        pets = RelationshipFrom("Dog", "owner")
 
-    bob = Person.get_or_create({"name": "Bob"})[0]
-    bobs_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
+    bob, _ = await Person.nodes.get_or_create(name="Bob")
+    bobs_gizmo = await Dog.get_or_create({"name": "Gizmo"}, relationship=bob.pets)
 
-    tim = Person.get_or_create({"name": "Tim"})[0]
-    tims_gizmo = Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
+    tim, _ = await Person.nodes.get_or_create(name="Tim")
+    tims_gizmo = await Dog.get_or_create({"name": "Gizmo"}, relationship=tim.pets)
 
-    # not the same gizmo
-    assert bobs_gizmo[0] != tims_gizmo[0]
+    assert bobs_gizmo[0] != tims_gizmo[0]   # different Gizmos for different owners
 
-Relationship Properties
-~~~~~~~~~~~~~~~~~~~~~~~
-When using ``get_or_create()`` with a relationship, you can also set properties on the relationship using the ``rel_props`` parameter.
-This is particularly useful when your relationship has a model with properties::
 
-    from datetime import datetime, UTC
+Lazy mode
+~~~~~~~~~
+All bulk methods accept ``lazy=True``, which makes the query return element IDs
+instead of fully hydrated nodes (useful when you only need IDs)::
 
-    class PetsRel(StructuredRel):
-        since = DateTimeProperty()
-        notes = StringProperty()
-
-    class Dog(StructuredNode):
-        name = StringProperty(required=True)
-        owner = RelationshipTo('Person', 'OWNS', model=PetsRel)
-
-    class Person(StructuredNode):
-        name = StringProperty(unique_index=True)
-        pets = RelationshipFrom('Dog', 'OWNS', model=PetsRel)
-
-    bob = Person.get_or_create({"name": "Bob"})[0]
-    since_date = datetime(2020, 1, 15, tzinfo=UTC)
-
-    dogs = Dog.get_or_create(
-        {"name": "Gizmo"},
-        relationship=bob.pets,
-        rel_props={"since": since_date, "notes": "Good boy!"},
+    element_ids = await Person.nodes.bulk_create(
+        {"name": "Tim", "age": 83},
+        lazy=True,
     )
 
-You can also create multiple nodes in a batch with the same relationship and relationship properties::
 
-    alice = Person.get_or_create({"name": "Alice"})[0]
-    since_date = datetime(2021, 5, 20, tzinfo=UTC)
+----
 
-    dogs = Dog.get_or_create(
-        {"name": "Rex"},
-        {"name": "Max"},
-        {"name": "Luna"},
-        relationship=alice.pets,
-        rel_props={"since": since_date, "notes": "Adopted together"},
-    )
+Deprecated class-level methods
+--------------------------------
+
+.. deprecated::
+    The class-level ``create()``, ``get_or_create()``, and ``create_or_update()``
+    methods on ``StructuredNode`` are **deprecated** and will be removed in a future
+    release.  Use the ``NodeSet`` methods on ``MyNode.nodes`` instead.
+
++------------------------------------------+--------------------------------------------------+
+| Old (deprecated)                         | New (recommended)                                |
++==========================================+==================================================+
+| ``Person.create({"name": "Tim"})``       | ``await Person.nodes.bulk_create({"name": ...})``|
++------------------------------------------+--------------------------------------------------+
+| ``Person.get_or_create({"name": ...})``  | ``await Person.nodes.get_or_create(name=...)``   |
++------------------------------------------+--------------------------------------------------+
+| ``Person.create_or_update({"name": ...})``| ``await Person.nodes.bulk_create_or_update(...)``|
++------------------------------------------+--------------------------------------------------+
+
+For single-node creation with a ``created`` flag, prefer the new Django-style methods:
+
++--------------------------------------------------+-----------------------------------------+
+| New single-node method                           | Returns                                 |
++==================================================+=========================================+
+| ``await Person.nodes.create(name=...)``          | ``node``                                |
++--------------------------------------------------+-----------------------------------------+
+| ``await Person.nodes.get_or_create(name=...)``   | ``(node, created: bool)``               |
++--------------------------------------------------+-----------------------------------------+
+| ``await Person.nodes.update_or_create(name=...)``| ``(node, created: bool)``               |
++--------------------------------------------------+-----------------------------------------+

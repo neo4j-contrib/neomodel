@@ -2,6 +2,7 @@ from datetime import datetime
 from test._async_compat import mark_sync_test
 from zoneinfo import ZoneInfo
 
+import pytest
 from pytest import raises
 
 from neomodel import (
@@ -706,3 +707,223 @@ def test_merge_key_with_create_or_update_multiple_keys():
     assert nodes2[0].element_id != node1.element_id  # Should be a new node
     assert nodes2[0].name == "John"
     assert nodes2[0].email == "john.doe@example.com"
+
+
+# ── NodeSet write API ──────────────────────────────────────────────────────────
+
+
+class NSUser(StructuredNode):
+    email = StringProperty(unique_index=True, required=True)
+    age = IntegerProperty()
+
+
+class NSUserWithUID(StructuredNode):
+    uid = UniqueIdProperty()
+    name = StringProperty(required=True)
+
+
+class NSPetDog(StructuredNode):
+    name = StringProperty(required=True)
+    owner = RelationshipTo("NSPerson", "OWNED_BY")
+
+
+class NSPerson(StructuredNode):
+    name = StringProperty(unique_index=True)
+    pets = RelationshipFrom("NSPetDog", "OWNED_BY")
+
+
+# ── NodeSet.create ─────────────────────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_nodeset_create_single():
+    user = NSUser.nodes.create(email="nodeset_create@test.com", age=25)
+    assert user.email == "nodeset_create@test.com"
+    assert user.age == 25
+    assert user.element_id is not None
+
+
+@mark_sync_test
+def test_nodeset_create_generates_uid():
+    user = NSUserWithUID.nodes.create(name="Alice")
+    assert user.uid is not None
+    assert user.name == "Alice"
+
+
+# ── NodeSet.get_or_create ──────────────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_nodeset_get_or_create_creates():
+    user, created = NSUser.nodes.get_or_create(email="goc_new@test.com", age=30)
+    assert created is True
+    assert user.email == "goc_new@test.com"
+    assert user.age == 30
+
+
+@mark_sync_test
+def test_nodeset_get_or_create_gets_existing():
+    NSUser.nodes.create(email="goc_existing@test.com", age=20)
+    user, created = NSUser.nodes.get_or_create(email="goc_existing@test.com")
+    assert created is False
+    assert user.email == "goc_existing@test.com"
+    assert user.age == 20  # unchanged
+
+
+@mark_sync_test
+def test_nodeset_get_or_create_defaults_not_used_for_lookup():
+    # defaults are for creation only — not used to look up
+    user, created = NSUser.nodes.get_or_create(
+        defaults={"age": 99}, email="goc_defaults@test.com"
+    )
+    assert created is True
+    assert user.age == 99  # default applied on creation
+
+    # second call: should fetch, not update age
+    user2, created2 = NSUser.nodes.get_or_create(
+        defaults={"age": 1}, email="goc_defaults@test.com"
+    )
+    assert created2 is False
+    assert user2.element_id == user.element_id
+    assert user2.age == 99  # no update on match
+
+
+@mark_sync_test
+def test_nodeset_get_or_create_merge_by():
+    # Create with both email and age as kwargs
+    user, created = NSUser.nodes.get_or_create(
+        email="goc_mergeby@test.com", age=5, merge_by=["email"]
+    )
+    assert created is True
+    assert user.age == 5
+
+    # Second call: same email, different age — email is the only lookup key,
+    # so the existing node is fetched and age is NOT changed
+    user2, created2 = NSUser.nodes.get_or_create(
+        email="goc_mergeby@test.com", age=99, merge_by=["email"]
+    )
+    assert created2 is False
+    assert user2.element_id == user.element_id
+    assert user2.age == 5  # not updated — get_or_create does not update on match
+
+
+# ── NodeSet.update_or_create ───────────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_nodeset_update_or_create_creates():
+    user, created = NSUser.nodes.update_or_create(
+        defaults={"age": 10}, email="uoc_new@test.com"
+    )
+    assert created is True
+    assert user.age == 10
+
+
+@mark_sync_test
+def test_nodeset_update_or_create_updates_existing():
+    NSUser.nodes.create(email="uoc_existing@test.com", age=5)
+    user, created = NSUser.nodes.update_or_create(
+        defaults={"age": 42}, email="uoc_existing@test.com"
+    )
+    assert created is False
+    assert user.age == 42
+
+
+@mark_sync_test
+def test_nodeset_update_or_create_kwargs_are_merge_keys_only():
+    # kwargs are merge keys — age in kwargs is NOT updated by defaults
+    user, created = NSUser.nodes.update_or_create(
+        defaults={"age": 77}, email="uoc_keys@test.com"
+    )
+    assert created is True
+    assert user.age == 77
+
+    user2, created2 = NSUser.nodes.update_or_create(
+        defaults={"age": 88}, email="uoc_keys@test.com"
+    )
+    assert created2 is False
+    assert user2.element_id == user.element_id
+    assert user2.age == 88  # updated via defaults on match
+
+
+# ── NodeSet.bulk_create ────────────────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_nodeset_bulk_create():
+    users = NSUser.nodes.bulk_create(
+        {"email": "bulk1@test.com", "age": 1},
+        {"email": "bulk2@test.com", "age": 2},
+    )
+    assert len(users) == 2
+    assert users[0].age == 1
+    assert users[1].age == 2
+
+
+@mark_sync_test
+def test_nodeset_bulk_create_with_relationship():
+    owner = (NSPerson.nodes.bulk_create({"name": "BulkOwner"}))[0]
+    dogs = NSPetDog.nodes.bulk_create(
+        {"name": "Rex"},
+        {"name": "Max"},
+        relationship=owner.pets,
+    )
+    assert len(dogs) == 2
+    # verify relationships were created
+    for dog in dogs:
+        owners = dog.owner.all()
+        assert any(o.element_id == owner.element_id for o in owners)
+
+
+@mark_sync_test
+def test_nodeset_bulk_create_lazy():
+    results = NSUser.nodes.bulk_create({"email": "bulk_lazy@test.com"}, lazy=True)
+    assert len(results) == 1
+    assert isinstance(results[0], (str, int))  # element_id or legacy int id
+
+
+# ── NodeSet.bulk_create_or_update ──────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_nodeset_bulk_create_or_update():
+    existing = NSUser.nodes.create(email="bcou1@test.com", age=10)
+    users = NSUser.nodes.bulk_create_or_update(
+        {"email": "bcou1@test.com", "age": 20},
+        {"email": "bcou2@test.com", "age": 3},
+    )
+    assert len(users) == 2
+    assert users[0].element_id == existing.element_id
+    assert users[0].age == 20  # updated
+    assert users[1].age == 3  # created
+
+
+# ── Deprecation warnings ───────────────────────────────────────────────────────
+
+
+@mark_sync_test
+def test_deprecated_create_warns():
+    with pytest.warns(DeprecationWarning, match="bulk_create"):
+        NSUser.create({"email": "dep_create@test.com"})
+
+
+@mark_sync_test
+def test_deprecated_get_or_create_warns():
+    with pytest.warns(DeprecationWarning, match="get_or_create"):
+        NSUser.get_or_create({"email": "dep_goc@test.com"})
+
+
+@mark_sync_test
+def test_deprecated_create_or_update_warns():
+    with pytest.warns(DeprecationWarning, match="bulk_create_or_update"):
+        NSUser.create_or_update({"email": "dep_cou@test.com"})
+
+
+@mark_sync_test
+def test_save_does_not_warn(recwarn):
+    """save() must not trigger the deprecation warning even though it creates a node."""
+    user = NSUser(email="save_no_warn@test.com", age=1)
+    user.save()
+    dep_warns = [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
+    assert len(dep_warns) == 0
+    assert user.element_id is not None

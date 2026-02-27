@@ -14,7 +14,7 @@ from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection
+from neomodel.util import RelationshipDirection, _UnsavedNode
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -1752,6 +1752,270 @@ class AsyncNodeSet(AsyncBaseSet):
                 self.order_by_elements.append(prop + (" DESC" if desc else ""))
 
         return self
+
+    async def create(self, **kwargs: Any) -> AsyncStructuredNode:
+        """
+        Create a single node from the given properties.
+
+        Django-style single-item operation. For batch use, see :meth:`bulk_create`.
+
+        :param kwargs: Properties for the new node.
+        :return: The created node instance.
+        :rtype: AsyncStructuredNode
+        """
+        item = self.source_class.deflate(kwargs, obj=_UnsavedNode(), skip_empty=True)
+        query = f"CREATE (n:{':'.join(self.source_class.inherited_labels())} $create_params) RETURN n"
+        node_result, _ = await adb.cypher_query(query, {"create_params": item})
+        node = self.source_class.inflate(node_result[0][0])
+        if hasattr(self.source_class, "post_create"):
+            node.post_create()
+        return node
+
+    async def get_or_create(
+        self,
+        defaults: dict[str, Any] | None = None,
+        merge_by: list[str] | None = None,
+        **kwargs: Any,
+    ) -> tuple[AsyncStructuredNode, bool]:
+        """
+        Get a node matching kwargs, or create it if it doesn't exist.
+        When created, post_create is called if defined.
+
+        Django-style single-item operation.
+
+        :param defaults: Additional properties used only when creating (not used for lookup).
+        :type defaults: dict | None
+        :param merge_by: List of kwarg names to use as the lookup key. Defaults to all kwargs.
+        :type merge_by: list[str] | None
+        :param kwargs: Properties used to look up the node. Also used as creation props.
+        :return: A (node, created) tuple where created is True if the node was just created.
+        :rtype: tuple[AsyncStructuredNode, bool]
+        """
+        deflated_full = self.source_class.deflate(kwargs, skip_empty=True)
+        if merge_by:
+            deflated_lookup = {k: v for k, v in deflated_full.items() if k in merge_by}
+        else:
+            deflated_lookup = deflated_full
+        deflated_create = self.source_class.deflate(
+            {**kwargs, **(defaults or {})}, obj=_UnsavedNode(), skip_empty=True
+        )
+        labels = ":".join(self.source_class.inherited_labels())
+        merge_key_str = ", ".join(f"{k}: $lookup.{k}" for k in deflated_lookup)
+        params: dict[str, Any] = {
+            "lookup": deflated_lookup,
+            "create_params": deflated_create,
+        }
+        query = (
+            f"OPTIONAL MATCH (existing:{labels} {{{merge_key_str}}})\n"
+            f"MERGE (n:{labels} {{{merge_key_str}}})\n"
+            f"ON CREATE SET n = $create_params\n"
+            f"RETURN n, existing IS NULL AS created"
+        )
+        results, _ = await adb.cypher_query(query, params)
+        node = self.source_class.inflate(results[0][0])
+        created = results[0][1]
+        if created and hasattr(self.source_class, "post_create"):
+            node.post_create()
+        return node, created
+
+    async def update_or_create(
+        self,
+        defaults: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[AsyncStructuredNode, bool]:
+        """
+        Look up a node matching kwargs; update it with defaults if it exists,
+        or create it with kwargs + defaults if it does not.
+        When created, post_create is called if defined.
+
+        Django-style single-item operation. For batch use, see :meth:`bulk_create_or_update`.
+
+        :param defaults: Properties to update on match, and to include when creating.
+        :type defaults: dict | None
+        :param kwargs: Properties used to look up the node (merge keys).
+        :return: A (node, created) tuple where created is True if the node was just created.
+        :rtype: tuple[AsyncStructuredNode, bool]
+        """
+        deflated_lookup = self.source_class.deflate(kwargs, skip_empty=True)
+        deflated_create = self.source_class.deflate(
+            {**kwargs, **(defaults or {})}, obj=_UnsavedNode(), skip_empty=True
+        )
+        # Derive update params from the already-deflated full dict, excluding the
+        # lookup keys — avoids calling deflate() on a partial dict that may lack
+        # required properties.
+        deflated_update = {
+            k: v for k, v in deflated_create.items() if k not in deflated_lookup
+        }
+        labels = ":".join(self.source_class.inherited_labels())
+        merge_key_str = ", ".join(f"{k}: $lookup.{k}" for k in deflated_lookup)
+        params: dict[str, Any] = {
+            "lookup": deflated_lookup,
+            "create_params": deflated_create,
+            "update_params": deflated_update,
+        }
+        query = (
+            f"OPTIONAL MATCH (existing:{labels} {{{merge_key_str}}})\n"
+            f"MERGE (n:{labels} {{{merge_key_str}}})\n"
+            f"ON CREATE SET n = $create_params\n"
+            f"ON MATCH SET n += $update_params\n"
+            f"RETURN n, existing IS NULL AS created"
+        )
+        results, _ = await adb.cypher_query(query, params)
+        node = self.source_class.inflate(results[0][0])
+        created = results[0][1]
+        if created and hasattr(self.source_class, "post_create"):
+            node.post_create()
+        return node, created
+
+    async def bulk_create(self, *props: tuple, **kwargs: Any) -> list:
+        """
+        Call to CREATE with a list of property dicts. New instances will be created and saved.
+
+        :param props: Dicts of properties to create the nodes with.
+        :type props: tuple
+        :param lazy: False by default, specify True to get nodes with id only without the properties.
+        :type lazy: bool
+        :param relationship: Optional relationship to create alongside each new node.
+        :type relationship: Any | None
+        :param rel_props: Optional dict of relationship properties. Only used with relationship.
+        :type rel_props: dict[str, Any] | None
+        :return: list of nodes (or element ids if lazy=True)
+        :rtype: list
+        """
+        lazy: bool = kwargs.get("lazy", False)
+        relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
+
+        results = []
+        for item in [
+            self.source_class.deflate(p, obj=_UnsavedNode(), skip_empty=True)
+            for p in props
+        ]:
+            if relationship is None:
+                query = f"CREATE (n:{':'.join(self.source_class.inherited_labels())} $create_params)"
+                if lazy:
+                    query += f" RETURN {await adb.get_id_method()}(n)"
+                else:
+                    query += " RETURN n"
+                node_result, _ = await adb.cypher_query(query, {"create_params": item})
+            else:
+                from neomodel.async_.relationship_manager import (
+                    deflate_relationship_properties,
+                    validate_relationship,
+                )
+
+                validate_relationship(relationship, rel_props)
+                relation_type = relationship.definition.get("relation_type")
+                query_params: dict[str, Any] = {
+                    "create_params": item,
+                    "source_id": await adb.parse_element_id(
+                        relationship.source.element_id
+                    ),
+                }
+                labels = ":".join(self.source_class.inherited_labels())
+                query = (
+                    f"MATCH (source:{relationship.source.__label__}) "
+                    f"WHERE {await adb.get_id_method()}(source) = $source_id\n"
+                    f"CREATE (n:{labels} $create_params)\n"
+                )
+                if rel_props:
+                    rel_prop = deflate_relationship_properties(
+                        relationship=relationship,
+                        rel_props=rel_props,
+                        query_params=query_params,
+                    )
+                    query += (
+                        "CREATE "
+                        + _rel_helper(
+                            lhs="source",
+                            rhs="n",
+                            ident=None,
+                            relation_type=relation_type,
+                            direction=relationship.definition["direction"],
+                            relation_properties=rel_prop,
+                        )
+                        + "\n"
+                    )
+                else:
+                    query += (
+                        "CREATE "
+                        + _rel_helper(
+                            lhs="source",
+                            rhs="n",
+                            ident=None,
+                            relation_type=relation_type,
+                            direction=relationship.definition["direction"],
+                        )
+                        + "\n"
+                    )
+                if lazy:
+                    query += f"RETURN {await adb.get_id_method()}(n)"
+                else:
+                    query += "RETURN n"
+                node_result, _ = await adb.cypher_query(query, query_params)
+            results.extend(node_result[0])
+
+        if lazy:
+            return results
+        nodes = [self.source_class.inflate(node) for node in results]
+        if hasattr(self.source_class, "post_create"):
+            for node in nodes:
+                node.post_create()
+        return nodes
+
+    async def bulk_create_or_update(self, *props: tuple, **kwargs: Any) -> list:
+        """
+        Call to MERGE with a list of property dicts. New instances are created if they don't
+        exist, and existing instances are updated with any explicitly specified properties.
+        This is an atomic operation.
+
+        Note that post_create is not called. For a single-node variant that returns a
+        (node, created) tuple and calls post_create, see :meth:`update_or_create`.
+
+        :param props: Dicts of properties to create or update the entities with.
+        :type props: tuple
+        :param relationship: Optional relationship to get/create when a new entity is created.
+        :type relationship: Any | None
+        :param lazy: False by default, specify True to get nodes with id only without the properties.
+        :type lazy: bool
+        :param merge_by: Optional dict with 'label' and 'keys' to specify custom merge criteria.
+                        'label' is optional and should be a string, 'keys' is a list of strings.
+                        If 'label' is not provided, uses the node's inherited labels.
+                        If 'keys' is not provided, uses the node's required properties as merge keys.
+        :type merge_by: dict[str, str | list[str]] | None
+        :param rel_props: Optional dict of relationship properties.
+        :type rel_props: dict[str, Any] | None
+        :return: list of nodes
+        :rtype: list
+        """
+        lazy: bool = bool(kwargs.get("lazy", False))
+        relationship = kwargs.get("relationship")
+        rel_props = kwargs.get("rel_props")
+        merge_by = kwargs.get("merge_by")
+
+        create_or_update_params = []
+        for specified, deflated in [
+            (p, self.source_class.deflate(p, skip_empty=True)) for p in props
+        ]:
+            create_or_update_params.append(
+                {
+                    "create": deflated,
+                    "update": {k: v for k, v in deflated.items() if k in specified},
+                }
+            )
+        query, params = await self.source_class._build_merge_query(
+            tuple(create_or_update_params),
+            update_existing=True,
+            relationship=relationship,
+            lazy=lazy,
+            rel_props=rel_props,
+            merge_by=merge_by,
+        )
+        results = await adb.cypher_query(query, params)
+        if lazy:
+            return [r[0] for r in results[0]]
+        else:
+            return [self.source_class.inflate(r[0]) for r in results[0]]
 
     def _register_relation_to_fetch(
         self, relation_def: Any, alias: str | None = None

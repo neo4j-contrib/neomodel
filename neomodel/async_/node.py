@@ -16,7 +16,7 @@ from neomodel.constants import STREAMING_WARNING
 from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
 from neomodel.hooks import hooks
 from neomodel.properties import Property
-from neomodel.util import _UnsavedNode, classproperty
+from neomodel.util import classproperty, deprecated
 
 if TYPE_CHECKING:
     from neomodel.async_.match import AsyncNodeSet
@@ -324,9 +324,17 @@ class AsyncStructuredNode(NodeBase):
         return query, query_params
 
     @classmethod
+    @deprecated(
+        "MyNode.create() is deprecated. Use MyNode.nodes.bulk_create() for batch "
+        "or MyNode.nodes.create() for single-node creation."
+    )
     async def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
+
+        .. deprecated::
+            Use :meth:`AsyncNodeSet.bulk_create` for batch creation, or
+            :meth:`AsyncNodeSet.create` for single-node creation.
 
         :param props: dict of properties to create the nodes.
         :type props: tuple
@@ -334,44 +342,27 @@ class AsyncStructuredNode(NodeBase):
         :type: bool
         :rtype: list
         """
-
         if "streaming" in kwargs:
             warnings.warn(
                 STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
-
-        lazy = kwargs.get("lazy", False)
-        # create mapped query
-        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
-
-        # close query
-        if lazy:
-            query += f" RETURN {await adb.get_id_method()}(n)"
-        else:
-            query += " RETURN n"
-
-        results = []
-        for item in [
-            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
-        ]:
-            node, _ = await adb.cypher_query(query, {"create_params": item})
-            results.extend(node[0])
-
-        nodes = [cls.inflate(node) for node in results]
-
-        if not lazy and hasattr(cls, "post_create"):
-            for node in nodes:
-                node.post_create()
-
-        return nodes
+        return await cls.nodes.bulk_create(*props, **kwargs)
 
     @classmethod
+    @deprecated(
+        "MyNode.create_or_update() is deprecated. Use MyNode.nodes.bulk_create_or_update() "
+        "for batch or MyNode.nodes.update_or_create() for single node with created flag."
+    )
     async def create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
+
+        .. deprecated::
+            Use :meth:`AsyncNodeSet.bulk_create_or_update` for batch use, or
+            :meth:`AsyncNodeSet.update_or_create` for a single node with a (node, created) return value.
 
         Note that the post_create hook isn't called after create_or_update
 
@@ -389,44 +380,13 @@ class AsyncStructuredNode(NodeBase):
         :return: list of nodes
         :rtype: list
         """
-        lazy: bool = bool(kwargs.get("lazy", False))
-        relationship = kwargs.get("relationship")
-        rel_props = kwargs.get("rel_props")
-        merge_by = kwargs.get("merge_by")
-
-        # build merge query, make sure to update only explicitly specified properties
-        create_or_update_params = []
-        for specified, deflated in [
-            (p, cls.deflate(p, skip_empty=True)) for p in props
-        ]:
-            create_or_update_params.append(
-                {
-                    "create": deflated,
-                    "update": {k: v for k, v in deflated.items() if k in specified},
-                }
-            )
-        query, params = await cls._build_merge_query(
-            tuple(create_or_update_params),
-            update_existing=True,
-            relationship=relationship,
-            lazy=lazy,
-            rel_props=rel_props,
-            merge_by=merge_by,
-        )
-
         if "streaming" in kwargs:
             warnings.warn(
                 STREAMING_WARNING,
                 category=DeprecationWarning,
                 stacklevel=1,
             )
-
-        # fetch and build instance for each result
-        results = await adb.cypher_query(query, params)
-        if lazy:
-            return [r[0] for r in results[0]]
-        else:
-            return [cls.inflate(r[0]) for r in results[0]]
+        return await cls.nodes.bulk_create_or_update(*props, **kwargs)
 
     async def cypher(
         self, query: str, params: dict[str, Any] | None = None
@@ -465,11 +425,18 @@ class AsyncStructuredNode(NodeBase):
         return True
 
     @classmethod
+    @deprecated(
+        "MyNode.get_or_create() is deprecated. Use MyNode.nodes.get_or_create() "
+        "for a single node with created flag."
+    )
     async def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
         Parameters must contain all required properties, any non required properties with defaults will be generated.
+
+        .. deprecated::
+            Use :meth:`AsyncNodeSet.get_or_create` for a single node with a (node, created) return value.
 
         Note that the post_create hook isn't called after get_or_create
 
@@ -488,12 +455,16 @@ class AsyncStructuredNode(NodeBase):
         :return: list of nodes
         :rtype: list
         """
-        lazy = kwargs.get("lazy", False)
+        if "streaming" in kwargs:
+            warnings.warn(
+                STREAMING_WARNING,
+                category=DeprecationWarning,
+                stacklevel=1,
+            )
+        lazy: bool = bool(kwargs.get("lazy", False))
         relationship = kwargs.get("relationship")
         rel_props = kwargs.get("rel_props")
         merge_by = kwargs.get("merge_by")
-
-        # build merge query
         get_or_create_params = [
             {"create": cls.deflate(p, skip_empty=True)} for p in props
         ]
@@ -504,20 +475,10 @@ class AsyncStructuredNode(NodeBase):
             rel_props=rel_props,
             merge_by=merge_by,
         )
-
-        if "streaming" in kwargs:
-            warnings.warn(
-                STREAMING_WARNING,
-                category=DeprecationWarning,
-                stacklevel=1,
-            )
-
-        # fetch and build instance for each result
         results = await adb.cypher_query(query, params)
         if lazy:
             return [r[0] for r in results[0]]
-        else:
-            return [cls.inflate(r[0]) for r in results[0]]
+        return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
     def inflate(cls: Any, graph_entity: Node) -> Any:  # type: ignore[override]
@@ -635,7 +596,6 @@ class AsyncStructuredNode(NodeBase):
                 f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            result = await self.create(self.__properties__)
-            created_node = result[0]
+            created_node = await self.__class__.nodes.create(**self.__properties__)
             self.element_id_property = created_node.element_id
         return self

@@ -1,3 +1,13 @@
+Version 6.1.0 (unreleased)
+* Move batch write operations to NodeSet (``MyNode.nodes.*``) following Django's Manager pattern:
+  - New single-node methods: ``nodes.create()``, ``nodes.get_or_create()``, ``nodes.update_or_create()``
+  - New bulk methods: ``nodes.bulk_create()``, ``nodes.bulk_create_or_update()``
+  - ``get_or_create`` and ``update_or_create`` return ``(node, created: bool)`` tuples (Django-style)
+  - ``bulk_create`` now also accepts the ``relationship`` and ``rel_props`` parameters
+* Deprecate class-level ``StructuredNode.create()``, ``StructuredNode.get_or_create()``, and
+  ``StructuredNode.create_or_update()`` — they emit a ``DeprecationWarning`` and maintain
+  backward-compatible behaviour
+
 Version 6.0.1 2025-12
 * Make async iterator fully async, like : async for node in MyNodeClass.nodes
 * Add thresholding to semantic indexes. Thanks to @greengori11a
