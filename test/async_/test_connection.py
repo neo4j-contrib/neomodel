@@ -91,6 +91,24 @@ async def test_config_driver_works():
 
 
 @mark_async_test
+async def test_no_connection_configured_raises():
+    # When neither a URL nor a driver is configured, the first query must fail
+    # loudly instead of silently connecting with default credentials.
+    config = get_config()
+    saved_url = config.database_url
+    saved_driver = config.driver
+    await adb.close_connection()
+    config.database_url = None
+    config.driver = None
+    try:
+        with pytest.raises(ValueError, match="No Neo4j connection has been configured"):
+            await adb.cypher_query("RETURN 1")
+    finally:
+        config.database_url = saved_url
+        config.driver = saved_driver
+
+
+@mark_async_test
 async def test_connect_to_non_default_database():
     if not await adb.edition_is_enterprise():
         pytest.skip("Skipping test for community edition - no multi database in CE")

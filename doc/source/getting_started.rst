@@ -5,12 +5,14 @@ Getting started
 Connecting
 ==========
 
-Before executing any neomodel code, set the connection url::
+Before executing any neomodel code, set the connection url. There is no default
+connection: if none is configured, the first query raises an error rather than
+connecting to localhost with default credentials. ::
 
     from neomodel import get_config
-    
+
     config = get_config()
-    config.database_url = 'bolt://neo4j:password@localhost:7687'  # default
+    config.database_url = 'bolt://neo4j:password@localhost:7687'
 
 This must be called early on in your app, if you are using Django the `settings.py` file is ideal.
 

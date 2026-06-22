@@ -1,7 +1,11 @@
+Version 7.0.0 unreleased
+* BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials
+
 Version 6.2.0 2026-06
 * Add transaction timeout support, per transaction via db.transaction(timeout=...) / db.begin(timeout=...), or as a global default via config.transaction_timeout / NEOMODEL_TRANSACTION_TIMEOUT. Thanks to @DenesPal
 * Fix Unicode case-insensitive filters. Thanks to @profatsky
 * Security fixes
+* BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials
 
 Version 6.1.0 2026-03
 * Add new exists operator in filter()

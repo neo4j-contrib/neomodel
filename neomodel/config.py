@@ -28,8 +28,8 @@ class NeomodelConfig:
     """
 
     # Connection settings
-    database_url: str = field(
-        default="bolt://neo4j:foobarbaz@localhost:7687",
+    database_url: str | None = field(
+        default=None,
         metadata={
             "env_var": "NEOMODEL_DATABASE_URL",
             "description": "Graph database connection URL",
