@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 from neo4j.exceptions import ClientError
 
+from neomodel._async_compat.util import Lock
 from neomodel.sync_.database import Database, ensure_connection
 from neomodel.sync_.transaction import TransactionProxy
 
@@ -19,6 +20,8 @@ def test_ensure_connection_decorator_no_driver():
     class MockDB:
         def __init__(self):
             self.driver = None
+            # ensure_connection guards lazy driver creation with this lock.
+            self._connection_lock = Lock()
 
         def set_connection(self, **kwargs):
             # Dummy implementation for testing

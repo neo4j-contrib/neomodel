@@ -1,3 +1,6 @@
+Version 7.0.0 unreleased
+* Make the Neo4j driver process-wide instead of context-local: it is now shared across threads and async tasks rather than rebuilt per context, fixing a connection-pool leak (notably in thread pools and sync Celery/gunicorn workers) and ensuring close_connection() closes the driver for the whole process. Session, transaction, impersonation, parallel-runtime and target-database-name state remain context-local. set_connection() now closes the previous neomodel-managed driver before replacing it (user-supplied drivers are left untouched). Removed the unused _pid attribute.
+
 Version 6.2.0 2026-06
 * Add transaction timeout support, per transaction via db.transaction(timeout=...) / db.begin(timeout=...), or as a global default via config.transaction_timeout / NEOMODEL_TRANSACTION_TIMEOUT. Thanks to @DenesPal
 * Fix Unicode case-insensitive filters. Thanks to @profatsky
