@@ -10,12 +10,9 @@ class UnicodeFilterNode(StructuredNode):
 @mark_sync_test
 def test_unicode_case_insensitive_filters():
     node = UnicodeFilterNode(name="Алиса Тест").save()
-    UnicodeFilterNode(name="Other A").save()
+    UnicodeFilterNode(name="Other").save()
 
-    assert (
-        UnicodeFilterNode.nodes.filter(name__iexact="алиса тест").get()
-        == node
-    )
+    assert UnicodeFilterNode.nodes.filter(name__iexact="алиса тест").get() == node
     assert UnicodeFilterNode.nodes.filter(name__icontains="лиса").get() == node
     assert UnicodeFilterNode.nodes.filter(name__istartswith="али").get() == node
     assert UnicodeFilterNode.nodes.filter(name__iendswith="еСТ").get() == node
