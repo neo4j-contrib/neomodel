@@ -3,7 +3,6 @@ Database connection and management for the async neomodel module.
 """
 
 import logging
-import os
 import sys
 import time
 from contextvars import ContextVar
@@ -24,6 +23,7 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
+from neomodel._async_compat.util import AsyncLock
 from neomodel.config import get_config
 from neomodel.constants import (
     ACCESS_MODE_READ,
@@ -176,11 +176,17 @@ def ensure_connection(func: Callable) -> Callable:
             _db = self
 
         if not _db.driver:
-            config = get_config()
-            if hasattr(config, "database_url") and config.database_url:
-                await _db.set_connection(url=config.database_url)
-            elif hasattr(config, "driver") and config.driver:
-                await _db.set_connection(driver=config.driver)
+            # The driver is process-wide (shared across threads and async
+            # contexts). Guard the lazy build with a lock and re-check inside it
+            # so concurrent first callers establish a single driver/pool instead
+            # of each racing to create their own.
+            async with _db._connection_lock:
+                if not _db.driver:
+                    config = get_config()
+                    if hasattr(config, "database_url") and config.database_url:
+                        await _db.set_connection(url=config.database_url)
+                    elif hasattr(config, "driver") and config.driver:
+                        await _db.set_connection(driver=config.driver)
 
         return await func(self, *args, **kwargs)
 
@@ -221,33 +227,41 @@ class AsyncDatabase:
         # Prevent re-initialization of the singleton instance
         if AsyncDatabase._initialized:
             return
-        # Private to instances and contexts
+
+        # Process-wide state. A neo4j driver is thread-safe and holds a single
+        # connection pool that is meant to be shared across the whole process,
+        # so the driver and the connection facts derived from it live on the
+        # singleton rather than per-context. ``_connection_lock`` guards the
+        # lazy creation of the driver against concurrent first callers.
+        self._connection_lock = AsyncLock()
+        self.driver: AsyncDriver | None = None
+        # Whether neomodel created the current driver (via a URL) and is
+        # therefore responsible for closing it. A user-supplied driver is owned
+        # by the caller and is never closed implicitly when the connection is
+        # replaced.
+        self._owns_driver: bool = False
+        # ``url`` is the public, password-redacted connection URL (safe to log
+        # or inspect). ``_connection_url`` keeps the credential-bearing URL
+        # privately, only used internally to re-establish the connection
+        # (e.g. on session expiry).
+        self.url: str | None = None
+        self._connection_url: str | None = None
+        # Server-level facts: the same for every context talking to this driver.
+        self._database_version: str | None = None
+        self._database_edition: str | None = None
+
+        # Context-local state. These must not leak across threads or async
+        # tasks: each logical unit of work gets its own session/transaction,
+        # its own impersonation and runtime settings, and may target a
+        # different database (used for per-database class resolution).
         self.__active_transaction: ContextVar[AsyncTransaction | None] = ContextVar(
             "_active_transaction", default=None
-        )
-        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
-        # The credential-bearing URL is kept separately from the public,
-        # password-redacted ``url`` so that the latter can be safely logged or
-        # inspected. This one is only used internally to re-establish the
-        # connection (e.g. on session expiry).
-        self.__connection_url: ContextVar[str | None] = ContextVar(
-            "connection_url", default=None
-        )
-        self.__driver: ContextVar[AsyncDriver | None] = ContextVar(
-            "driver", default=None
         )
         self.__session: ContextVar[AsyncSession | None] = ContextVar(
             "_session", default=None
         )
-        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
         self.__database_name: ContextVar[str | None] = ContextVar(
             "_database_name", default=DEFAULT_DATABASE
-        )
-        self.__database_version: ContextVar[str | None] = ContextVar(
-            "_database_version", default=None
-        )
-        self.__database_edition: ContextVar[str | None] = ContextVar(
-            "_database_edition", default=None
         )
         self.__impersonated_user: ContextVar[str | None] = ContextVar(
             "impersonated_user", default=None
@@ -293,22 +307,6 @@ class AsyncDatabase:
     def _active_transaction(self, value: AsyncTransaction | None) -> None:
         self.__active_transaction.set(value)
 
-    @property
-    def url(self) -> str | None:
-        return self.__url.get()
-
-    @url.setter
-    def url(self, value: str | None) -> None:
-        self.__url.set(value)
-
-    @property
-    def _connection_url(self) -> str | None:
-        return self.__connection_url.get()
-
-    @_connection_url.setter
-    def _connection_url(self, value: str | None) -> None:
-        self.__connection_url.set(value)
-
     @staticmethod
     def _redact_url_password(url: str) -> str:
         """
@@ -329,14 +327,6 @@ class AsyncDatabase:
         return f"{url[:credentials_start]}{username}:***{url[at_index:]}"
 
     @property
-    def driver(self) -> AsyncDriver | None:
-        return self.__driver.get()
-
-    @driver.setter
-    def driver(self, value: AsyncDriver | None) -> None:
-        self.__driver.set(value)
-
-    @property
     def _session(self) -> AsyncSession | None:
         return self.__session.get()
 
@@ -345,36 +335,12 @@ class AsyncDatabase:
         self.__session.set(value)
 
     @property
-    def _pid(self) -> int | None:
-        return self.__pid.get()
-
-    @_pid.setter
-    def _pid(self, value: int | None) -> None:
-        self.__pid.set(value)
-
-    @property
     def _database_name(self) -> str | None:
         return self.__database_name.get()
 
     @_database_name.setter
     def _database_name(self, value: str | None) -> None:
         self.__database_name.set(value)
-
-    @property
-    def _database_version(self) -> str | None:
-        return self.__database_version.get()
-
-    @_database_version.setter
-    def _database_version(self, value: str | None) -> None:
-        self.__database_version.set(value)
-
-    @property
-    def _database_edition(self) -> str | None:
-        return self.__database_edition.get()
-
-    @_database_edition.setter
-    def _database_edition(self, value: str | None) -> None:
-        self.__database_edition.set(value)
 
     @property
     def impersonated_user(self) -> str | None:
@@ -398,6 +364,12 @@ class AsyncDatabase:
         """
         Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
 
+        The driver (and the server facts derived from it) is shared across the
+        whole process, so calling this replaces the connection for every thread
+        and async context, not just the calling one. The target database name is
+        context-local: it is set for the current context here and inherited by
+        any child contexts spawned afterwards.
+
         Args:
             url (str): Optionally, Neo4j URL in the form protocol://username:password@hostname:port/dbname.
             When provided, a Neo4j driver instance will be created by neomodel.
@@ -405,15 +377,23 @@ class AsyncDatabase:
             driver (neo4j.Driver): Optionally, a pre-created driver instance.
             When provided, neomodel will not create a driver instance but use this one instead.
         """
+        # Replacing the process-wide driver: close the previous one if neomodel
+        # created it, so its connection pool is not leaked. A user-supplied
+        # driver is left untouched - its lifecycle belongs to the caller.
+        if self.driver is not None and self._owns_driver:
+            await self.driver.close()
+            self.driver = None
+            self._owns_driver = False
+
         if driver:
             self.driver = driver
+            self._owns_driver = False
             config = get_config()
             if hasattr(config, "database_name") and config.database_name:
                 self._database_name = config.database_name
         elif url:
             self._parse_driver_from_url(url=url)
 
-        self._pid = os.getpid()
         self._active_transaction = None
         # Set to default database if it hasn't been set before
         if self._database_name is None:
@@ -491,6 +471,8 @@ class AsyncDatabase:
             scheme + "://" + hostname,
             **options,  # type: ignore[arg-type]
         )
+        # neomodel created this driver and is responsible for closing it.
+        self._owns_driver = True
         # Keep the credential-bearing URL private (for reconnection) and expose
         # only a password-redacted version through the public ``url`` attribute.
         self._connection_url = url
@@ -506,6 +488,10 @@ class AsyncDatabase:
         """
         Closes the currently open driver.
         The driver should always be closed at the end of the application's lifecyle.
+
+        The driver is process-wide, so this closes it for every thread and async
+        context. The context-local target database name is reset for the calling
+        context only.
         """
         self._database_version = None
         self._database_edition = None
@@ -514,6 +500,7 @@ class AsyncDatabase:
         if self.driver is not None:
             await self.driver.close()
             self.driver = None
+        self._owns_driver = False
 
     @property
     async def database_version(self) -> str | None:

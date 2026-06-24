@@ -256,6 +256,8 @@ redefined) as well as the state of the current *node-class registry*. These two 
 debug the model mismatch further.
 
 
+.. _multiple-databases:
+
 Database specific labels
 ------------------------
 **Only for Neo4j Enterprise Edition, with multiple databases**
