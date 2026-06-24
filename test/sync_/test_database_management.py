@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 from test._async_compat import mark_sync_test
 from unittest.mock import Mock, patch
 
@@ -195,7 +196,6 @@ def test_async_database_properties():
     assert reset_singleton.url is None
     assert reset_singleton.driver is None
     assert reset_singleton._session is None
-    assert reset_singleton._pid is None
     assert reset_singleton._database_name is neo4j.DEFAULT_DATABASE
     assert reset_singleton._database_version is None
     assert reset_singleton._database_edition is None
@@ -235,3 +235,28 @@ def test_parallel_transactions():
         return result[0][0], result[0][1], transaction_id, session_id
 
     _ = asyncio.gather(*(query(i) for i in range(1, 5)))
+
+
+@mark_sync_test
+def test_driver_state_is_process_global():
+    # Ensure the singleton is connected.
+    db.cypher_query("RETURN 1")
+
+    driver = db.driver
+    version = db._database_version
+    edition = db._database_edition
+    assert driver is not None
+
+    # A brand-new context - as seen by a fresh OS thread, or a task that did not
+    # inherit this context - must observe the SAME process-wide driver and
+    # server facts, rather than finding them unset and rebuilding a separate
+    # driver/connection pool.
+    fresh_context = contextvars.Context()
+    assert fresh_context.run(lambda: db.driver) is driver
+    assert fresh_context.run(lambda: db._database_version) == version
+    assert fresh_context.run(lambda: db._database_edition) == edition
+
+    # Per-context state, by contrast, stays isolated: a fresh context sees the
+    # defaults, not whatever the current context happens to hold.
+    assert fresh_context.run(lambda: db._session) is None
+    assert fresh_context.run(lambda: db._active_transaction) is None
