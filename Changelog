@@ -1,4 +1,5 @@
 Version 7.0.0 unreleased
+* BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials
 * Make the Neo4j driver process-wide instead of context-local: it is now shared across threads and async tasks rather than rebuilt per context, fixing a connection-pool leak (notably in thread pools and sync Celery/gunicorn workers) and ensuring close_connection() closes the driver for the whole process. Session, transaction, impersonation, parallel-runtime and target-database-name state remain context-local. set_connection() now closes the previous neomodel-managed driver before replacing it (user-supplied drivers are left untouched). Removed the unused _pid attribute.
 * Refactor the Database/AsyncDatabase god object into focused collaborators behind an unchanged facade: a standalone node-class registry (neomodel/_node_class_registry.py), a ConnectionManager (driver/url/version/transactions), a QueryRunner (cypher_query/streaming/object resolution) and a SchemaManager (index/constraint installation and schema admin). The public db/adb API is unchanged. This is an internal-only change.
 
@@ -6,6 +7,7 @@ Version 6.2.0 2026-06
 * Add transaction timeout support, per transaction via db.transaction(timeout=...) / db.begin(timeout=...), or as a global default via config.transaction_timeout / NEOMODEL_TRANSACTION_TIMEOUT. Thanks to @DenesPal
 * Fix Unicode case-insensitive filters. Thanks to @profatsky
 * Security fixes
+* BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials
 
 Version 6.1.0 2026-03
 * Add new exists operator in filter()

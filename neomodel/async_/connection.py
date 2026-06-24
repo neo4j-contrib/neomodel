@@ -74,6 +74,14 @@ def ensure_connection(func: Callable) -> Callable:
                         await _db.set_connection(url=config.database_url)
                     elif hasattr(config, "driver") and config.driver:
                         await _db.set_connection(driver=config.driver)
+                    else:
+                        raise ValueError(
+                            "No Neo4j connection has been configured. Set "
+                            "`neomodel.config.DATABASE_URL` (or the NEOMODEL_DATABASE_URL "
+                            "environment variable), provide a driver via "
+                            "`neomodel.config.DRIVER`, or call `db.set_connection(...)` "
+                            "before running queries."
+                        )
 
         return await func(self, *args, **kwargs)
 
