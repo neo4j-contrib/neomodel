@@ -397,7 +397,7 @@ async def test_cypher_query_retries_on_session_expired():
 
     assert results == [["after-retry"]]
     assert meta == ("value",)
-    connection.set_connection.assert_awaited_once_with(
+    connection.set_connection.assert_called_once_with(
         url="bolt://user:pass@localhost:7687"
     )
 
