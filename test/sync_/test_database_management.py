@@ -16,6 +16,7 @@ from neomodel import (
     db,
 )
 from neomodel._async_compat.util import Util
+from neomodel.exceptions import FeatureNotSupported
 from neomodel.sync_.database import Database, _redact_params
 
 
@@ -98,7 +99,7 @@ def test_change_password_is_not_injectable():
     malicious_user = "admin` SET PASSWORD 'pwned"
     malicious_password = "secret' SET ROLE admin //"
 
-    with patch.object(test_db, "cypher_query", new_callable=Mock) as mock_cypher:
+    with patch.object(test_db._query, "cypher_query", new_callable=Mock) as mock_cypher:
         test_db.change_neo4j_password(malicious_user, malicious_password)
 
     query, params = mock_cypher.call_args.args[:2]
@@ -260,3 +261,192 @@ def test_driver_state_is_process_global():
     # defaults, not whatever the current context happens to hold.
     assert fresh_context.run(lambda: db._session) is None
     assert fresh_context.run(lambda: db._active_transaction) is None
+
+
+# ---------------------------------------------------------------------------
+# Schema management delegated through the facade
+#
+# These exercise the AsyncDatabase facade -> AsyncSchemaManager wiring against
+# mocks so they do not depend on what is actually installed in the database.
+# ---------------------------------------------------------------------------
+
+
+@mark_sync_test
+def test_clear_neo4j_database():
+    """clear_neo4j_database clears data and optionally constraints/indexes."""
+    test_db = Database()
+
+    with patch.object(test_db._query, "cypher_query", new_callable=Mock) as mock_cypher:
+        with patch.object(
+            test_db._schema, "drop_constraints", new_callable=Mock
+        ) as mock_drop_constraints:
+            with patch.object(
+                test_db._schema, "drop_indexes", new_callable=Mock
+            ) as mock_drop_indexes:
+                test_db.clear_neo4j_database(clear_constraints=True, clear_indexes=True)
+
+                mock_cypher.assert_called_once()
+                mock_drop_constraints.assert_called_once()
+                mock_drop_indexes.assert_called_once()
+
+
+@mark_sync_test
+def test_drop_constraints():
+    """drop_constraints lists then drops each constraint."""
+    test_db = Database()
+
+    mock_results = [
+        {"name": "constraint1", "labelsOrTypes": ["Label1"], "properties": ["prop1"]},
+        {"name": "constraint2", "labelsOrTypes": ["Label2"], "properties": ["prop2"]},
+    ]
+
+    with patch.object(test_db._query, "cypher_query", new_callable=Mock) as mock_cypher:
+        mock_cypher.return_value = (
+            mock_results,
+            ["name", "labelsOrTypes", "properties"],
+        )
+
+        test_db.drop_constraints(quiet=False)
+
+        # 1 call to list constraints + 1 drop per constraint.
+        assert mock_cypher.call_count == 3
+
+
+@mark_sync_test
+def test_drop_indexes():
+    """drop_indexes drops each listed index."""
+    test_db = Database()
+
+    mock_indexes = [
+        {"name": "index1", "labelsOrTypes": ["Label1"], "properties": ["prop1"]},
+        {"name": "index2", "labelsOrTypes": ["Label2"], "properties": ["prop2"]},
+    ]
+
+    with patch.object(
+        test_db._schema, "list_indexes", new_callable=Mock
+    ) as mock_list_indexes:
+        mock_list_indexes.return_value = mock_indexes
+
+        with patch.object(
+            test_db._query, "cypher_query", new_callable=Mock
+        ) as mock_cypher:
+            test_db.drop_indexes(quiet=False)
+
+            assert mock_cypher.call_count == 2
+
+
+@mark_sync_test
+def test_remove_all_labels():
+    """remove_all_labels drops both constraints and indexes."""
+    test_db = Database()
+
+    with patch.object(
+        test_db._schema, "drop_constraints", new_callable=Mock
+    ) as mock_drop_constraints:
+        with patch.object(
+            test_db._schema, "drop_indexes", new_callable=Mock
+        ) as mock_drop_indexes:
+            with patch("sys.stdout") as mock_stdout:
+                test_db.remove_all_labels()
+
+                mock_drop_constraints.assert_called_once_with(
+                    quiet=False, stdout=mock_stdout
+                )
+                mock_drop_indexes.assert_called_once_with(
+                    quiet=False, stdout=mock_stdout
+                )
+
+
+@mark_sync_test
+def test_install_all_labels():
+    """install_all_labels installs labels for each registered node class."""
+    test_db = Database()
+
+    class MockNode:
+        def __init__(self, name):
+            self.__name__ = name
+
+        @classmethod
+        def install_labels(cls, quiet=True, stdout=None):
+            pass
+
+    with patch("neomodel.sync_.node.StructuredNode", MockNode):
+        with patch("sys.stdout"):
+            test_db.install_all_labels()
+
+
+# ---------------------------------------------------------------------------
+# Facade behaviour
+# ---------------------------------------------------------------------------
+
+
+@mark_sync_test
+def test_impersonate_requires_enterprise_edition():
+    """Impersonation is an enterprise-only feature: on a non-enterprise edition
+    it must raise FeatureNotSupported rather than silently issuing impersonated
+    queries. The edition is stubbed so the check is deterministic regardless of
+    the server the tests run against."""
+    db = Database()
+    original_edition = db._database_edition
+    try:
+        # A non-None edition short-circuits the lazy server lookup.
+        db._database_edition = "community"
+        with pytest.raises(FeatureNotSupported):
+            db.impersonate("somebody")
+    finally:
+        db._database_edition = original_edition
+
+
+@mark_sync_test
+def test_facade_delegates_state_to_connection_manager():
+    """The Database facade reads and writes shared connection state through
+    its ConnectionManager rather than holding any of its own."""
+    db = Database()
+    connection = db._connection
+
+    # Getters read straight from the connection manager.
+    assert db.driver is connection.driver
+    assert db._owns_driver is connection._owns_driver
+    assert db._connection_lock is connection._connection_lock
+    assert db._connection_url == connection._connection_url
+
+    # Setters write through to the connection manager. Capture and restore the
+    # originals so the shared singleton is left untouched for other tests.
+    originals = {
+        name: getattr(connection, name)
+        for name in (
+            "url",
+            "_connection_url",
+            "_database_version",
+            "_database_edition",
+            "_database_name",
+            "_active_transaction",
+            "_session",
+            "_owns_driver",
+        )
+    }
+    try:
+        # Round-trip the driver through the setter without changing it.
+        db.driver = connection.driver
+        assert db.driver is connection.driver
+
+        db.url = "redacted://url"
+        db._connection_url = "bolt://user:pass@localhost:7687"
+        db._database_version = "5.99.0"
+        db._database_edition = "enterprise"
+        db._database_name = "facade-test-db"
+        db._active_transaction = "tx-sentinel"
+        db._session = "session-sentinel"
+        db._owns_driver = not originals["_owns_driver"]
+
+        assert connection.url == "redacted://url"
+        assert connection._connection_url == "bolt://user:pass@localhost:7687"
+        assert connection._database_version == "5.99.0"
+        assert connection._database_edition == "enterprise"
+        assert connection._database_name == "facade-test-db"
+        assert connection._active_transaction == "tx-sentinel"
+        assert connection._session == "session-sentinel"
+        assert connection._owns_driver == (not originals["_owns_driver"])
+    finally:
+        for name, value in originals.items():
+            setattr(connection, name, value)
