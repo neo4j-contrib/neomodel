@@ -64,12 +64,14 @@ async def test_clear_neo4j_database():
     """Test clear_neo4j_database method."""
     test_db = AsyncDatabase()
 
-    with patch.object(test_db, "cypher_query", new_callable=AsyncMock) as mock_cypher:
+    with patch.object(
+        test_db._query, "cypher_query", new_callable=AsyncMock
+    ) as mock_cypher:
         with patch.object(
-            test_db, "drop_constraints", new_callable=AsyncMock
+            test_db._schema, "drop_constraints", new_callable=AsyncMock
         ) as mock_drop_constraints:
             with patch.object(
-                test_db, "drop_indexes", new_callable=AsyncMock
+                test_db._schema, "drop_indexes", new_callable=AsyncMock
             ) as mock_drop_indexes:
                 await test_db.clear_neo4j_database(
                     clear_constraints=True, clear_indexes=True
@@ -90,7 +92,9 @@ async def test_drop_constraints():
         {"name": "constraint2", "labelsOrTypes": ["Label2"], "properties": ["prop2"]},
     ]
 
-    with patch.object(test_db, "cypher_query", new_callable=AsyncMock) as mock_cypher:
+    with patch.object(
+        test_db._query, "cypher_query", new_callable=AsyncMock
+    ) as mock_cypher:
         mock_cypher.return_value = (
             mock_results,
             ["name", "labelsOrTypes", "properties"],
@@ -113,12 +117,12 @@ async def test_drop_indexes():
     ]
 
     with patch.object(
-        test_db, "list_indexes", new_callable=AsyncMock
+        test_db._schema, "list_indexes", new_callable=AsyncMock
     ) as mock_list_indexes:
         mock_list_indexes.return_value = mock_indexes
 
         with patch.object(
-            test_db, "cypher_query", new_callable=AsyncMock
+            test_db._query, "cypher_query", new_callable=AsyncMock
         ) as mock_cypher:
             await test_db.drop_indexes(quiet=False)
 
@@ -132,10 +136,10 @@ async def test_remove_all_labels():
     test_db = AsyncDatabase()
 
     with patch.object(
-        test_db, "drop_constraints", new_callable=AsyncMock
+        test_db._schema, "drop_constraints", new_callable=AsyncMock
     ) as mock_drop_constraints:
         with patch.object(
-            test_db, "drop_indexes", new_callable=AsyncMock
+            test_db._schema, "drop_indexes", new_callable=AsyncMock
         ) as mock_drop_indexes:
             with patch("sys.stdout") as mock_stdout:
                 await test_db.remove_all_labels()
@@ -249,7 +253,9 @@ async def test_cypher_query_client_error_generic():
     """Test cypher_query with generic ClientError."""
     test_db = AsyncDatabase()
 
-    with patch.object(test_db, "_run_cypher_query", new_callable=AsyncMock) as mock_run:
+    with patch.object(
+        test_db._query, "_run_cypher_query", new_callable=AsyncMock
+    ) as mock_run:
         client_error = ClientError("Neo.ClientError.Generic", "message")
         mock_run.side_effect = client_error
 

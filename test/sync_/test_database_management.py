@@ -98,7 +98,7 @@ def test_change_password_is_not_injectable():
     malicious_user = "admin` SET PASSWORD 'pwned"
     malicious_password = "secret' SET ROLE admin //"
 
-    with patch.object(test_db, "cypher_query", new_callable=Mock) as mock_cypher:
+    with patch.object(test_db._query, "cypher_query", new_callable=Mock) as mock_cypher:
         test_db.change_neo4j_password(malicious_user, malicious_password)
 
     query, params = mock_cypher.call_args.args[:2]

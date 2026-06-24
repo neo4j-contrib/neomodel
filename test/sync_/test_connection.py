@@ -173,7 +173,7 @@ class _DummyDriver:
 def captured_url_parsing(monkeypatch):
     """Patch driver creation so _parse_driver_from_url can be exercised in
     isolation, capturing the parsed auth and address."""
-    from neomodel.sync_ import database as db_module
+    from neomodel.sync_ import connection as conn_module
 
     captured: dict = {}
 
@@ -185,8 +185,8 @@ def captured_url_parsing(monkeypatch):
         captured["address"] = address
         return _DummyDriver()
 
-    monkeypatch.setattr(db_module, "basic_auth", fake_basic_auth)
-    monkeypatch.setattr(db_module.GraphDatabase, "driver", staticmethod(fake_driver))
+    monkeypatch.setattr(conn_module, "basic_auth", fake_basic_auth)
+    monkeypatch.setattr(conn_module.GraphDatabase, "driver", staticmethod(fake_driver))
     return captured
 
 
