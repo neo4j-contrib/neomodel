@@ -24,6 +24,7 @@ from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
 from neo4j.graph import Node, Path, Relationship
 
+from neomodel.async_._registry import registry
 from neomodel.config import get_config
 from neomodel.constants import (
     ACCESS_MODE_READ,
@@ -195,10 +196,6 @@ class AsyncDatabase:
     The singleton instance is accessible via the module-level 'adb' variable.
     """
 
-    # Shared global registries
-    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
-    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
-
     # Singleton instance tracking
     _instance: "AsyncDatabase | None" = None
     _initialized: bool = False
@@ -284,6 +281,17 @@ class AsyncDatabase:
 
         cls._instance = None
         cls._initialized = False
+
+    @property
+    def _NODE_CLASS_REGISTRY(self) -> dict[frozenset, Any]:
+        # The registry is now a standalone object; this property is kept for
+        # backward compatibility with code/tests that read or mutate
+        # ``db._NODE_CLASS_REGISTRY`` directly.
+        return registry._node_class_registry
+
+    @property
+    def _DB_SPECIFIC_CLASS_REGISTRY(self) -> dict[str, dict[frozenset, Any]]:
+        return registry._db_specific_class_registry
 
     @property
     def _active_transaction(self) -> AsyncTransaction | None:
@@ -705,41 +713,25 @@ class AsyncDatabase:
         # Node, Relationship objects
         if isinstance(object_to_resolve, Node):
             _labels = frozenset(object_to_resolve.labels)
-            if _labels in self._NODE_CLASS_REGISTRY:
-                return self._NODE_CLASS_REGISTRY[_labels].inflate(object_to_resolve)
-            elif (
-                self._database_name is not None
-                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
-                and _labels in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
-            ):
-                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
-                    _labels
-                ].inflate(object_to_resolve)
-            else:
-                raise NodeClassNotDefined(
-                    object_to_resolve,
-                    self._NODE_CLASS_REGISTRY,
-                    self._DB_SPECIFIC_CLASS_REGISTRY,
-                )
+            node_class = registry.get_class(_labels, self._database_name)
+            if node_class is not None:
+                return node_class.inflate(object_to_resolve)
+            raise NodeClassNotDefined(
+                object_to_resolve,
+                self._NODE_CLASS_REGISTRY,
+                self._DB_SPECIFIC_CLASS_REGISTRY,
+            )
 
         if isinstance(object_to_resolve, Relationship):
             rel_type = frozenset([object_to_resolve.type])
-            if rel_type in self._NODE_CLASS_REGISTRY:
-                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
-            elif (
-                self._database_name is not None
-                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
-                and rel_type in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
-            ):
-                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
-                    rel_type
-                ].inflate(object_to_resolve)
-            else:
-                raise RelationshipClassNotDefined(
-                    object_to_resolve,
-                    self._NODE_CLASS_REGISTRY,
-                    self._DB_SPECIFIC_CLASS_REGISTRY,
-                )
+            rel_class = registry.get_class(rel_type, self._database_name)
+            if rel_class is not None:
+                return rel_class.inflate(object_to_resolve)
+            raise RelationshipClassNotDefined(
+                object_to_resolve,
+                self._NODE_CLASS_REGISTRY,
+                self._DB_SPECIFIC_CLASS_REGISTRY,
+            )
 
         if isinstance(object_to_resolve, Path):
             from neomodel.async_.path import AsyncNeomodelPath  # type: ignore

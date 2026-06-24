@@ -5,16 +5,15 @@ Node classes and metadata for the async neomodel module.
 from __future__ import annotations
 
 import warnings
-from itertools import combinations
 from typing import TYPE_CHECKING, Any, Callable
 
 from neo4j.graph import Node
 
+from neomodel.async_._registry import registry
 from neomodel.async_.database import adb
 from neomodel.async_.property_manager import AsyncPropertyManager
-from neomodel.config import get_config
 from neomodel.constants import STREAMING_WARNING
-from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
+from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
 from neomodel.properties import Property
 from neomodel.util import _UnsavedNode, classproperty, escape_label
@@ -96,60 +95,7 @@ class NodeMeta(type):
 
 
 def build_class_registry(cls: Any) -> None:
-    base_label_set = frozenset(cls.inherited_labels())
-    optional_label_set = set(cls.inherited_optional_labels())
-
-    # Construct all possible combinations of labels + optional labels
-    possible_label_combinations = [
-        frozenset(set(x).union(base_label_set))
-        for i in range(1, len(optional_label_set) + 1)
-        for x in combinations(optional_label_set, i)
-    ]
-    possible_label_combinations.append(base_label_set)
-
-    # Check if config allows reloading
-    allow_reload = get_config().allow_reload
-
-    for label_set in possible_label_combinations:
-        if not hasattr(cls, "__target_databases__"):
-            if label_set not in adb._NODE_CLASS_REGISTRY:
-                adb._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                if allow_reload:
-                    node_class_labels = ",".join(cls.inherited_labels())
-                    warnings.warn(
-                        f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
-                        f"is being reloaded. Updating class registry.",
-                        UserWarning,
-                        stacklevel=4,
-                    )
-                    adb._NODE_CLASS_REGISTRY[label_set] = cls
-                else:
-                    raise NodeClassAlreadyDefined(
-                        cls, adb._NODE_CLASS_REGISTRY, adb._DB_SPECIFIC_CLASS_REGISTRY
-                    )
-        else:
-            for database in cls.__target_databases__:
-                if database not in adb._DB_SPECIFIC_CLASS_REGISTRY:
-                    adb._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
-                if label_set not in adb._DB_SPECIFIC_CLASS_REGISTRY[database]:
-                    adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                else:
-                    if allow_reload:
-                        node_class_labels = ",".join(cls.inherited_labels())
-                        warnings.warn(
-                            f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
-                            f"is being reloaded for database {database}. Updating class registry.",
-                            UserWarning,
-                            stacklevel=4,
-                        )
-                        adb._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                    else:
-                        raise NodeClassAlreadyDefined(
-                            cls,
-                            adb._NODE_CLASS_REGISTRY,
-                            adb._DB_SPECIFIC_CLASS_REGISTRY,
-                        )
+    registry.register(cls)
 
 
 NodeBase: type = NodeMeta(
