@@ -9,6 +9,24 @@ NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "foobarbaz")
 
 
+def pytest_configure(config):
+    """Configure the neomodel connection before collection.
+
+    The database URL no longer has a built-in default (a connection must be
+    configured explicitly), so the test harness sets one here. This must happen
+    before collection because some test modules (e.g. test_scripts.py) touch the
+    database at import time, and it is set via the environment so it survives the
+    reset_config() calls in the configuration tests.
+    """
+    os.environ.setdefault(
+        "NEOMODEL_DATABASE_URL",
+        os.environ.get("NEO4J_BOLT_URL", "bolt://neo4j:foobarbaz@localhost:7687"),
+    )
+    from neomodel import get_config
+
+    get_config().database_url = os.environ["NEOMODEL_DATABASE_URL"]
+
+
 def pytest_addoption(parser):
     """
     Adds the command line option --resetdb.
