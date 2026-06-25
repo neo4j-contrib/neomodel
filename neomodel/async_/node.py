@@ -338,23 +338,31 @@ class AsyncStructuredNode(NodeBase):
             )
 
         lazy = kwargs.get("lazy", False)
-        # create mapped query
-        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
+
+        create_params = [
+            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
+        ]
+        if not create_params:
+            return []
+
+        # Create all nodes in a single round-trip by unwinding the list of
+        # property maps, rather than issuing one CREATE per node.
+        query = (
+            "UNWIND $create_params AS create_param\n"
+            f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+            "SET n = create_param\n"
+        )
 
         # close query
         if lazy:
-            query += f" RETURN {await adb.get_id_method()}(n)"
+            query += f"RETURN {await adb.get_id_method()}(n)"
         else:
-            query += " RETURN n"
+            query += "RETURN n"
 
-        results = []
-        for item in [
-            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
-        ]:
-            node, _ = await adb.cypher_query(query, {"create_params": item})
-            results.extend(node[0])
+        # UNWIND preserves order, so results line up with the input props.
+        results, _ = await adb.cypher_query(query, {"create_params": create_params})
 
-        nodes = [cls.inflate(node) for node in results]
+        nodes = [cls.inflate(row[0]) for row in results]
 
         if not lazy and hasattr(cls, "post_create"):
             for node in nodes:

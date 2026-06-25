@@ -6,9 +6,8 @@ All batch operations can be executed with one or more nodes.
 
 create()
 --------
-Note that batch create is a relic of the Neo4j REST API.
-With the adoption of Bolt by neomodel, it exists for convenience and compatibility 
-and a CREATE query is issued for each `dict` provided.
+All provided nodes are created in a single ``UNWIND`` query (one round-trip),
+rather than one CREATE per ``dict``.
 
 Create multiple nodes at once in a single transaction::
 
