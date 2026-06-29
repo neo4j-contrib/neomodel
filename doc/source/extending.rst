@@ -49,7 +49,7 @@ labels, the `__optional_labels__` property must be defined as a list of strings:
         __optional_labels__ = ["SuperSaver", "SeniorDiscount"]
         balance = IntegerProperty(index=True)
 
-.. note:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
+.. note:: Optional-label combinations are resolved at lookup time, so the node-class registry stores a single entry per class regardless of how many optional labels it declares.
 
 .. _allowing_class_reloading:
 

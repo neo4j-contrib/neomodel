@@ -413,3 +413,24 @@ def test_unsaved_nodes_hashable_and_distinct():
     assert hash(a) == hash(a)
     assert a != b
     assert len({a, b}) == 2
+
+
+@mark_sync_test
+def test_optional_label_object_resolution():
+    # A node carrying a base label plus an optional label must still resolve to
+    # its class, even though base+optional combinations are no longer
+    # pre-registered (they are resolved lazily at lookup).
+    class Gadget(StructuredNode):
+        __optional_labels__ = ["Featured"]
+        name = StringProperty(unique_index=True)
+
+    Gadget(name="g1").save()
+    # Give the node its optional label directly in the database.
+    db.cypher_query("MATCH (n:Gadget {name:'g1'}) SET n:Featured")
+
+    results, _ = db.cypher_query(
+        "MATCH (n:Gadget {name:'g1'}) RETURN n", resolve_objects=True
+    )
+    resolved = results[0][0]
+    assert isinstance(resolved, Gadget)
+    assert resolved.name == "g1"
