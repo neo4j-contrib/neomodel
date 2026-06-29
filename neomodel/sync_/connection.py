@@ -376,7 +376,8 @@ class ConnectionManager:
         ):
             raise SystemError("Transaction in progress")
 
-        assert self.driver is not None, "Driver has not been created"
+        if self.driver is None:
+            raise RuntimeError("Driver has not been created")
 
         self._session = self.driver.session(
             default_access_mode=access_mode,
@@ -385,7 +386,6 @@ class ConnectionManager:
             **parameters,
         )
 
-        assert self._session is not None, "Session has not been created"
         timeout = get_config().transaction_timeout if timeout is None else timeout
         self._active_transaction = self._session.begin_transaction(timeout=timeout)
 
@@ -396,21 +396,22 @@ class ConnectionManager:
 
         :return: last_bookmarks
         """
+        if self._active_transaction is None:
+            raise RuntimeError(NO_TRANSACTION_IN_PROGRESS)
+        if self._session is None:
+            raise RuntimeError(NO_SESSION_OPEN)
         try:
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             self._active_transaction.commit()
-
-            assert self._session is not None, NO_SESSION_OPEN
             last_bookmarks: Bookmarks = self._session.last_bookmarks()
         finally:
-            # In case something went wrong during
-            # committing changes to the database
-            # we have to close an active transaction and session.
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            self._active_transaction.close()
-
-            assert self._session is not None, NO_SESSION_OPEN
-            self._session.close()
+            # Always release the transaction and session, even if committing
+            # above failed. Guard with explicit None-checks (rather than
+            # asserts) so cleanup never masks the original error and does not
+            # vanish under `python -O`.
+            if self._active_transaction is not None:
+                self._active_transaction.close()
+            if self._session is not None:
+                self._session.close()
 
             self._active_transaction = None
             self._session = None
@@ -422,17 +423,17 @@ class ConnectionManager:
         """
         Rolls back the current transaction and closes its session
         """
+        if self._active_transaction is None:
+            raise RuntimeError(NO_TRANSACTION_IN_PROGRESS)
         try:
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
             self._active_transaction.rollback()
         finally:
-            # In case when something went wrong during changes rollback,
-            # we have to close an active transaction and session
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            self._active_transaction.close()
-
-            assert self._session is not None, NO_SESSION_OPEN
-            self._session.close()
+            # See commit(): guard cleanup with explicit None-checks so it cannot
+            # mask the original error or vanish under `python -O`.
+            if self._active_transaction is not None:
+                self._active_transaction.close()
+            if self._session is not None:
+                self._session.close()
 
             self._active_transaction = None
             self._session = None
@@ -441,8 +442,12 @@ class ConnectionManager:
         """
         Updates the database server information when it is required
         """
+        if self._query is None:
+            raise RuntimeError(
+                "Query runner has not been wired up; the connection manager must "
+                "be owned by a Database instance before use."
+            )
         try:
-            assert self._query is not None
             results = self._query.cypher_query(
                 "CALL dbms.components() yield versions, edition return versions[0], edition"
             )
