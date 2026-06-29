@@ -321,3 +321,20 @@ def test_proxy_call_decorator():
             mock_enter.return_value = proxy
             result = decorated()
             assert result == "success"
+
+
+@mark_sync_test
+def test_commit_without_transaction_raises():
+    # Calling commit with no active transaction must raise a clear error rather
+    # than an AttributeError on None (and must not vanish under python -O - see
+    # test_optimized_mode_checks.py).
+    assert db._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        db.commit()
+
+
+@mark_sync_test
+def test_rollback_without_transaction_raises():
+    assert db._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        db.rollback()
