@@ -356,3 +356,30 @@ def test_reserved_property_keys():
 
         class ReservedPropertiesTargetRel(StructuredRel):
             target = StringProperty()
+
+
+@mark_sync_test
+def test_pre_action_check_blocks_unsaved_node():
+    # element_id is a class-level property, so hasattr() is always True; the
+    # unsaved-node guard must check that element_id resolves to None.
+    unsaved = User(email="unsaved@test.com", age=1)
+    assert unsaved.element_id is None
+
+    with raises(ValueError, match="unsaved node"):
+        unsaved.refresh()
+    with raises(ValueError, match="unsaved node"):
+        unsaved.labels()
+    with raises(ValueError, match="unsaved node"):
+        unsaved.cypher("MATCH (n) RETURN n")
+    with raises(ValueError, match="unsaved node"):
+        unsaved.delete()
+
+
+@mark_sync_test
+def test_pre_action_check_blocks_deleted_node():
+    user = User(email="todelete@test.com", age=1).save()
+    user.delete()
+
+    # The deleted check takes precedence over the unsaved one.
+    with raises(ValueError, match="deleted node"):
+        user.refresh()
