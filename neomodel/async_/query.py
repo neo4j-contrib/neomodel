@@ -116,6 +116,22 @@ def _log_slow_query(query: str, params: dict[str, Any] | None, tte: float) -> No
         )
 
 
+# Phrases Neo4j uses to describe a uniqueness-constraint violation. The wording
+# depends on the server version and on how the violating write happened: an
+# inline ``CREATE (n:Label {...})`` reports "... already exists with label ...",
+# whereas a ``SET`` (used by batch create()'s UNWIND ... SET, and by 4.x servers
+# generally) reports "... share the property value ...". Both mean the same
+# thing and should surface as UniqueProperty.
+_UNIQUE_VIOLATION_MARKERS = (
+    "already exists with label",
+    "share the property value",
+)
+
+
+def _is_unique_constraint_violation(message: str) -> bool:
+    return any(marker in message for marker in _UNIQUE_VIOLATION_MARKERS)
+
+
 class AsyncQueryRunner:
     """Runs Cypher and resolves results against a connection manager."""
 
@@ -316,7 +332,7 @@ class AsyncQueryRunner:
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
                 if hasattr(e, "message") and e.message is not None:
-                    if "already exists with label" in e.message and handle_unique:
+                    if _is_unique_constraint_violation(e.message) and handle_unique:
                         raise UniqueProperty(e.message) from e
                     raise ConstraintValidationFailed(e.message) from e
                 raise ConstraintValidationFailed(
@@ -391,7 +407,7 @@ class AsyncQueryRunner:
         except ClientError as e:
             if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
                 if hasattr(e, "message") and e.message is not None:
-                    if "already exists with label" in e.message and handle_unique:
+                    if _is_unique_constraint_violation(e.message) and handle_unique:
                         raise UniqueProperty(e.message) from e
                     raise ConstraintValidationFailed(e.message) from e
                 raise ConstraintValidationFailed(
