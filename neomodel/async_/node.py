@@ -142,6 +142,22 @@ class AsyncStructuredNode(NodeBase):
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
+    def __hash__(self) -> int:
+        """
+        Make node instances hashable (usable in sets and as dict keys).
+
+        Defining ``__eq__`` above sets ``__hash__`` to None, which makes
+        instances unhashable; this restores it consistently with ``__eq__``:
+        saved nodes hash by their element_id (so two instances of the same
+        database node hash equal), unsaved nodes hash by object identity.
+
+        Note: a node's hash therefore changes when it is first saved, so do not
+        rely on a node's membership in a set/dict across a save().
+        """
+        if self.was_saved:
+            return hash(self.element_id)
+        return hash(id(self))
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self}>"
 
