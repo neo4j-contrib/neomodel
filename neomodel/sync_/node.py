@@ -585,7 +585,10 @@ class StructuredNode(NodeBase):
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on deleted node"
             )
-        if not hasattr(self, "element_id"):
+        # ``element_id`` is a property that is always present on the class, so
+        # ``hasattr`` would always be True; an unsaved node is one whose
+        # element_id resolves to None.
+        if self.element_id is None:
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
@@ -595,18 +598,13 @@ class StructuredNode(NodeBase):
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
-        if hasattr(self, "element_id"):
-            results = self.cypher(
-                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
-            )
-            request = results[0]
-            if not request or not request[0]:
-                raise self.__class__.DoesNotExist("Can't refresh non existent node")
-            node = self.inflate(request[0][0])
-            for key, val in node.__properties__.items():
-                setattr(self, key, val)
-        else:
-            raise ValueError("Can't refresh unsaved node")
+        results = self.cypher(f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n")
+        request = results[0]
+        if not request or not request[0]:
+            raise self.__class__.DoesNotExist("Can't refresh non existent node")
+        node = self.inflate(request[0][0])
+        for key, val in node.__properties__.items():
+            setattr(self, key, val)
 
     @hooks
     def save(self) -> "StructuredNode":
