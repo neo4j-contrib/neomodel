@@ -63,6 +63,47 @@ async def test_batch_create():
 
 
 @mark_async_test
+async def test_batch_create_uses_single_round_trip(monkeypatch):
+    # create() must issue a single UNWIND query for the whole batch, not one
+    # CREATE per node.
+    original = adb.cypher_query
+    queries = []
+
+    async def counting_cypher_query(query, *args, **kwargs):
+        queries.append(query)
+        return await original(query, *args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+
+    users = await Customer.create(
+        {"email": "rt1@aol.com", "age": 1},
+        {"email": "rt2@aol.com", "age": 2},
+        {"email": "rt3@aol.com", "age": 3},
+    )
+
+    assert len(users) == 3
+    assert len(queries) == 1
+    assert "UNWIND" in queries[0]
+
+
+@mark_async_test
+async def test_batch_create_empty_is_noop(monkeypatch):
+    # Creating from no props should not touch the database at all.
+    original = adb.cypher_query
+    call_count = 0
+
+    async def counting_cypher_query(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+
+    assert await Customer.create() == []
+    assert call_count == 0
+
+
+@mark_async_test
 async def test_batch_create_or_update():
     users = await Customer.create_or_update(
         {"email": "merge1@aol.com", "age": 11},

@@ -59,6 +59,47 @@ def test_batch_create():
 
 
 @mark_sync_test
+def test_batch_create_uses_single_round_trip(monkeypatch):
+    # create() must issue a single UNWIND query for the whole batch, not one
+    # CREATE per node.
+    original = db.cypher_query
+    queries = []
+
+    def counting_cypher_query(query, *args, **kwargs):
+        queries.append(query)
+        return original(query, *args, **kwargs)
+
+    monkeypatch.setattr(db, "cypher_query", counting_cypher_query)
+
+    users = Customer.create(
+        {"email": "rt1@aol.com", "age": 1},
+        {"email": "rt2@aol.com", "age": 2},
+        {"email": "rt3@aol.com", "age": 3},
+    )
+
+    assert len(users) == 3
+    assert len(queries) == 1
+    assert "UNWIND" in queries[0]
+
+
+@mark_sync_test
+def test_batch_create_empty_is_noop(monkeypatch):
+    # Creating from no props should not touch the database at all.
+    original = db.cypher_query
+    call_count = 0
+
+    def counting_cypher_query(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(db, "cypher_query", counting_cypher_query)
+
+    assert Customer.create() == []
+    assert call_count == 0
+
+
+@mark_sync_test
 def test_batch_create_or_update():
     users = Customer.create_or_update(
         {"email": "merge1@aol.com", "age": 11},
