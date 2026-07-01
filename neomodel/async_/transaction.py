@@ -92,7 +92,13 @@ class AsyncTransactionProxy:
 
 
 class BookmarkingAsyncTransactionProxy(AsyncTransactionProxy):
-    def __call__(self, func: Callable) -> Callable:
+    # Signature kept compatible with the base __call__ (Liskov); this proxy only
+    # supports decorator usage, so ``func`` is always provided in practice.
+    def __call__(
+        self, func: Callable | None = None, *, timeout: float | None = None
+    ) -> Callable:
+        if func is None:
+            raise TypeError("with_bookmark can only be used as a decorator")
         if AsyncUtil.is_async_code and not iscoroutinefunction(func):
             raise TypeError(NOT_COROUTINE_ERROR)
 

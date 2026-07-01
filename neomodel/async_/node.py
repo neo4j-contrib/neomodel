@@ -5,7 +5,7 @@ Node classes and metadata for the async neomodel module.
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from neo4j.graph import Node
 
@@ -102,6 +102,23 @@ NodeBase: type = NodeMeta(
     "NodeBase", (AsyncPropertyManager,), {"__abstract_node__": True}
 )
 
+_T = TypeVar("_T", bound="AsyncStructuredNode")
+
+
+class _NodesProperty:
+    """Class-level descriptor backing ``MyNode.nodes``.
+
+    Typing ``__get__`` with ``owner: type[_T]`` makes ``MyNode.nodes`` resolve to
+    ``AsyncNodeSet[MyNode]`` for type checkers, so ``MyNode.nodes.get(...)`` is
+    known to return ``MyNode`` (and iteration yields ``MyNode``). At runtime it
+    behaves like the previous classproperty.
+    """
+
+    def __get__(self, instance: Any, owner: type[_T]) -> AsyncNodeSet[_T]:
+        from neomodel.async_.match import AsyncNodeSet
+
+        return AsyncNodeSet(owner)
+
 
 class AsyncStructuredNode(NodeBase):
     """
@@ -166,16 +183,9 @@ class AsyncStructuredNode(NodeBase):
 
     # dynamic properties
 
-    @classproperty
-    def nodes(self) -> "AsyncNodeSet":
-        """
-        Returns a NodeSet object representing all nodes of the classes label
-        :return: NodeSet
-        :rtype: NodeSet
-        """
-        from neomodel.async_.match import AsyncNodeSet
-
-        return AsyncNodeSet(self)
+    # Returns an AsyncNodeSet representing all nodes of the class's label.
+    # See _NodesProperty for why this is a descriptor rather than a classproperty.
+    nodes = _NodesProperty()
 
     @property
     def element_id(self) -> Any | None:
@@ -251,7 +261,10 @@ class AsyncStructuredNode(NodeBase):
                 merge_db_keys.append(defined[key].get_db_property_name(key))
 
             if "label" in merge_by:
-                merge_labels = escape_label(merge_by["label"])
+                label = merge_by["label"]
+                if not isinstance(label, str):
+                    raise ValueError("merge_by 'label' must be a string")
+                merge_labels = escape_label(label)
             else:
                 merge_labels = ":".join(
                     escape_label(label) for label in cls.inherited_labels()

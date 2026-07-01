@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Iterable, Union
+from typing import Any, AsyncIterator, Generic, Iterable, TypeVar, Union
 
 from typing_extensions import Self
 
@@ -13,6 +13,9 @@ from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
+
+# The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
+T = TypeVar("T", bound=AsyncStructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
@@ -308,7 +311,7 @@ def _initialize_filter_args_variables(
 
 def _process_filter_key(
     cls: type[AsyncStructuredNode], key: str
-) -> tuple[Property, str, str]:
+) -> tuple[Property | None, str, str]:
     (
         current_class,
         current_rel_model,
@@ -366,8 +369,10 @@ def process_filter_args(cls: type[AsyncStructuredNode], kwargs: dict[str, Any]) 
 
     for key, value in kwargs.items():
         property_obj, operator, prop = _process_filter_key(cls, key)
+        # property_obj is None only for hop-ending filters, whose operator is
+        # EXISTS/ISNULL - branches in _deflate_value that never dereference it.
         deflated_value, operator, prop = _deflate_value(
-            cls, property_obj, key, value, operator, prop
+            cls, property_obj, key, value, operator, prop  # type: ignore[arg-type]
         )
         # map property to correct property name in the database
         db_property = prop
@@ -1355,7 +1360,7 @@ class Path:
     alias: str | None = None
 
 
-class AsyncBaseSet:
+class AsyncBaseSet(Generic[T]):
     """
     Base class for all node sets.
 
@@ -1363,13 +1368,14 @@ class AsyncBaseSet:
     """
 
     query_cls = AsyncQueryBuilder
-    source_class: type[AsyncStructuredNode]
+    source: Any
+    source_class: type[T]
 
     # Attributes defined in subclasses (AsyncNodeSet)
     _unique_variables: list[str]
     relations_to_fetch: list[Path]
 
-    async def all(self, lazy: bool = False) -> list:
+    async def all(self, lazy: bool = False) -> list[T]:
         """
         Return all nodes belonging to the set
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1382,7 +1388,7 @@ class AsyncBaseSet:
         ]  # Collect all nodes asynchronously
         return results
 
-    async def __aiter__(self) -> AsyncIterator:
+    async def __aiter__(self) -> AsyncIterator[T]:
         """
         Async iterator that streams results from the database one at a time.
 
@@ -1429,7 +1435,7 @@ class AsyncBaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    async def get_item(self, key: int | slice) -> Self | AsyncStructuredNode:
+    async def get_item(self, key: int | slice) -> Self | T:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1589,7 +1595,7 @@ class RawCypher:
         return string.Template(self.statement).substitute(context)
 
 
-class AsyncNodeSet(AsyncBaseSet):
+class AsyncNodeSet(AsyncBaseSet[T]):
     """
     A class representing as set of nodes matching common query parameters
     """
@@ -1629,7 +1635,7 @@ class AsyncNodeSet(AsyncBaseSet):
 
     async def _get(
         self, limit: int | None = None, lazy: bool = False, **kwargs: dict[str, Any]
-    ) -> list:
+    ) -> list[T]:
         self.filter(**kwargs)
         if limit:
             self.limit = limit
@@ -1637,7 +1643,7 @@ class AsyncNodeSet(AsyncBaseSet):
         results = [node async for node in ast._execute(lazy)]
         return results
 
-    async def get(self, lazy: bool = False, **kwargs: Any) -> AsyncStructuredNode:
+    async def get(self, lazy: bool = False, **kwargs: Any) -> T:
         """
         Retrieve one node from the set matching supplied parameters
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1651,7 +1657,7 @@ class AsyncNodeSet(AsyncBaseSet):
             raise self.source_class.DoesNotExist(repr(kwargs))
         return result[0]
 
-    async def get_or_none(self, **kwargs: Any) -> AsyncStructuredNode | None:
+    async def get_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve a node from the set matching supplied parameters or return none
 
@@ -1663,7 +1669,7 @@ class AsyncNodeSet(AsyncBaseSet):
         except self.source_class.DoesNotExist:
             return None
 
-    async def first(self, **kwargs: Any) -> AsyncStructuredNode:
+    async def first(self, **kwargs: Any) -> T:
         """
         Retrieve the first node from the set matching supplied parameters
 
@@ -1676,7 +1682,7 @@ class AsyncNodeSet(AsyncBaseSet):
         else:
             raise self.source_class.DoesNotExist(repr(kwargs))
 
-    async def first_or_none(self, **kwargs: Any) -> Self | None:
+    async def first_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve the first node from the set matching supplied parameters or return none
 
@@ -2000,7 +2006,7 @@ class AsyncNodeSet(AsyncBaseSet):
         return self
 
 
-class AsyncTraversal(AsyncBaseSet):
+class AsyncTraversal(AsyncBaseSet[AsyncStructuredNode]):
     """
     Models a traversal from a node to another.
 

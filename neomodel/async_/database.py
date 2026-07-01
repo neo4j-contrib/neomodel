@@ -240,7 +240,7 @@ class AsyncDatabase:
 
     async def begin(
         self,
-        access_mode: str = ACCESS_MODE_WRITE,
+        access_mode: str | None = ACCESS_MODE_WRITE,
         timeout: float | None = None,
         **parameters: Any,
     ) -> None:
@@ -329,7 +329,7 @@ class AsyncDatabase:
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
+    ) -> tuple[list, tuple[str, ...]]:
         return await self._query.cypher_query(
             query,
             params,
