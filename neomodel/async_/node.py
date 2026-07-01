@@ -552,7 +552,7 @@ class AsyncStructuredNode(NodeBase):
             return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
-    def inflate(cls: Any, graph_entity: Node) -> Any:  # type: ignore[override]
+    def inflate(cls: Any, graph_entity: Node) -> Any:
         """
         Inflate a raw neo4j_driver node to a neomodel node
         :param graph_entity: node

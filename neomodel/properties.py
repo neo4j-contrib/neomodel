@@ -25,7 +25,7 @@ def validator(fn: Callable) -> Callable:
         raise ValueError("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
-    def _validator(  # type: ignore
+    def _validator(
         self, value: Any, obj: Any | None = None, rethrow: bool | None = True
     ) -> Any:
         if rethrow:

@@ -1631,7 +1631,7 @@ class AsyncNodeSet(AsyncBaseSet[T]):
         self.fulltext_query: FulltextFilter | None = None
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     async def _get(
         self, limit: int | None = None, lazy: bool = False, **kwargs: dict[str, Any]
@@ -2029,7 +2029,7 @@ class AsyncTraversal(AsyncBaseSet[AsyncStructuredNode]):
     filters: list
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def __init__(self, source: Any, name: str, definition: dict) -> None:
         """

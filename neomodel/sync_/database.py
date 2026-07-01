@@ -275,25 +275,25 @@ class Database:
         """
         Returns the current transaction object
         """
-        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+        from neomodel.sync_.transaction import TransactionProxy
 
         return TransactionProxy(self)
 
     @property
     def write_transaction(self) -> "TransactionProxy":
-        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+        from neomodel.sync_.transaction import TransactionProxy
 
         return TransactionProxy(self, access_mode=ACCESS_MODE_WRITE)
 
     @property
     def read_transaction(self) -> "TransactionProxy":
-        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+        from neomodel.sync_.transaction import TransactionProxy
 
         return TransactionProxy(self, access_mode=ACCESS_MODE_READ)
 
     @property
     def parallel_read_transaction(self) -> "TransactionProxy":
-        from neomodel.sync_.transaction import TransactionProxy  # type: ignore
+        from neomodel.sync_.transaction import TransactionProxy
 
         return TransactionProxy(
             self, access_mode=ACCESS_MODE_READ, parallel_runtime=True
@@ -308,7 +308,7 @@ class Database:
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
-        from neomodel.sync_.transaction import ImpersonationHandler  # type: ignore
+        from neomodel.sync_.transaction import ImpersonationHandler
 
         db_edition = self.database_edition
         if db_edition != ENTERPRISE_EDITION_TAG:

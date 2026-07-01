@@ -189,7 +189,7 @@ class AsyncQueryRunner:
             )
 
         if isinstance(object_to_resolve, Path):
-            from neomodel.async_.path import AsyncNeomodelPath  # type: ignore
+            from neomodel.async_.path import AsyncNeomodelPath
 
             return AsyncNeomodelPath(object_to_resolve)
 

@@ -17,7 +17,7 @@ class RelationshipDirection(IntEnum):
 def deprecated(message: str) -> Callable:
     # pylint:disable=invalid-name
     def f__(f: Callable) -> Callable:
-        def f_(*args, **kwargs) -> Any:  # type: ignore
+        def f_(*args, **kwargs) -> Any:
             warnings.warn(message, category=DeprecationWarning, stacklevel=2)
             return f(*args, **kwargs)
 

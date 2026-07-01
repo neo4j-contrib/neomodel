@@ -189,7 +189,7 @@ class QueryRunner:
             )
 
         if isinstance(object_to_resolve, Path):
-            from neomodel.sync_.path import NeomodelPath  # type: ignore
+            from neomodel.sync_.path import NeomodelPath
 
             return NeomodelPath(object_to_resolve)
 
