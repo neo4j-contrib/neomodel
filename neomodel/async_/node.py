@@ -447,6 +447,87 @@ class AsyncStructuredNode(NodeBase):
         else:
             return [cls.inflate(r[0]) for r in results[0]]
 
+    @classmethod
+    async def bulk_save(
+        cls, nodes: list[AsyncStructuredNode]
+    ) -> list[AsyncStructuredNode]:
+        """
+        Save a list of nodes of this class in a bulk, minimising round-trips.
+
+        New nodes (those never saved) are created in a single ``UNWIND ... CREATE``
+        query, and already-saved nodes are updated in a single
+        ``UNWIND ... MATCH ... SET`` query. So this issues at most two queries
+        regardless of how many nodes are passed, rather than one round-trip per
+        node as with calling ``save()`` in a loop.
+
+        ``pre_save`` / ``post_save`` hooks are run on each node (as with
+        ``save()``); ``post_create`` is not (use ``create()`` if you need it).
+        All nodes must be instances of this class (they share its labels).
+
+        :param nodes: the node instances to save
+        :return: the same node instances, in the order given (created ones now
+            carry their element_id)
+        """
+        nodes = list(nodes)
+        if not nodes:
+            return []
+
+        for node in nodes:
+            if hasattr(node, "deleted") and node.deleted:
+                raise ValueError(
+                    f"{cls.__name__}.bulk_save() attempted on deleted node"
+                )
+            if hasattr(node, "pre_save"):
+                node.pre_save()
+
+        to_create = [n for n in nodes if not hasattr(n, "element_id_property")]
+        to_update = [n for n in nodes if hasattr(n, "element_id_property")]
+
+        # Create the new nodes in a single round-trip (mirrors create()).
+        if to_create:
+            create_params = [
+                cls.deflate(node.__properties__, obj=_UnsavedNode(), skip_empty=True)
+                for node in to_create
+            ]
+            create_query = (
+                "UNWIND $create_params AS create_param\n"
+                f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+                "SET n = create_param\n"
+                "RETURN n"
+            )
+            results, _ = await adb.cypher_query(
+                create_query, {"create_params": create_params}
+            )
+            # UNWIND preserves order, so results line up with to_create.
+            for node, row in zip(to_create, results):
+                node.element_id_property = cls.inflate(row[0]).element_id
+
+        # Update the existing nodes in a single round-trip.
+        if to_update:
+            id_method = await adb.get_id_method()
+            rows = [
+                {
+                    "eid": await adb.parse_element_id(node.element_id),
+                    "props": cls.deflate(node.__properties__, node),
+                }
+                for node in to_update
+            ]
+            set_labels = "".join(
+                f"SET n:{escape_label(label)}\n" for label in cls.inherited_labels()
+            )
+            update_query = (
+                "UNWIND $rows AS row\n"
+                f"MATCH (n) WHERE {id_method}(n) = row.eid\n"
+                "SET n += row.props\n" + set_labels
+            )
+            await adb.cypher_query(update_query, {"rows": rows})
+
+        for node in nodes:
+            if hasattr(node, "post_save"):
+                node.post_save()
+
+        return nodes
+
     async def cypher(
         self, query: str, params: dict[str, Any] | None = None
     ) -> tuple[list | None, tuple[str, ...] | None]:
