@@ -19,6 +19,33 @@ Create multiple nodes at once in a single transaction::
         )
 
 
+bulk_save()
+-----------
+Persist a list of **node instances** in a fixed number of round-trips, rather
+than one ``save()`` per node. Unlike ``create()`` (which takes property
+``dict``\ s and always inserts), ``bulk_save()`` takes instances and both
+creates the new ones and updates the already-saved ones:
+
+- new nodes (never saved) are inserted in a single ``UNWIND ... CREATE`` query,
+- already-saved nodes are updated in a single ``UNWIND ... MATCH ... SET`` query.
+
+So at most two queries are issued regardless of how many nodes are passed. The
+same instances are returned in the order given, with created ones now carrying
+their ``element_id``::
+
+    tim = Person(name='Tim', age=83)          # new
+    bob = Person(name='Bob', age=23).save()   # already saved
+    bob.age = 24                              # mutated
+
+    Person.bulk_save([tim, bob])              # inserts Tim, updates Bob
+    assert tim.element_id is not None
+
+``pre_save`` / ``post_save`` hooks are run on each node, as with ``save()``.
+``post_create`` is **not** run — use ``create()`` if you need it. All nodes must
+be instances of the class ``bulk_save()`` is called on, since they share its
+labels.
+
+
 create_or_update()
 ------------------
 Atomically create or update nodes in a single operation.
