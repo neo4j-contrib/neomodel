@@ -73,7 +73,7 @@ class AsyncRelationshipManager:
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         """

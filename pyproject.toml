@@ -91,11 +91,12 @@ max-attributes = 10
 max-args = 8
 
 [tool.mypy]
+warn_unused_ignores = true
+no_implicit_reexport = true
+
 [[tool.mypy.overrides]]
 module = ["neomodel.scripts.*", "neomodel.contrib.spatial_properties"]
 ignore_errors = true
-check_untyped_defs = true
-disallow_untyped_defs = true
 
 [project.scripts]
 neomodel_install_labels = "neomodel.scripts.neomodel_install_labels:main"

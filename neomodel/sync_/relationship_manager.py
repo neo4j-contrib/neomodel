@@ -6,12 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
 from neomodel.exceptions import NotConnected, RelationshipClassRedefined
 from neomodel.sync_.database import db
-from neomodel.sync_.match import (
-    NodeSet,
-    Traversal,
-    _rel_helper,
-    _rel_merge_helper,
-)
+from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
 from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
@@ -73,7 +68,7 @@ class RelationshipManager:
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def check_cardinality(self, node: "StructuredNode") -> None:
         """

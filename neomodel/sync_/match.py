@@ -2,19 +2,22 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Union
+from typing import Any, Generic, Iterable, Iterator, TypeVar, Union
 
 from typing_extensions import Self
 
 from neomodel._async_compat.util import Util
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
-from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.sync_ import relationship_manager
 from neomodel.sync_.database import db
 from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
+
+# The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
+T = TypeVar("T", bound=StructuredNode)
+from neomodel.properties import AliasProperty, ArrayProperty, Property
+from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import RelationshipDirection, deprecated
 
@@ -306,7 +309,7 @@ def _initialize_filter_args_variables(
 
 def _process_filter_key(
     cls: type[StructuredNode], key: str
-) -> tuple[Property, str, str]:
+) -> tuple[Property | None, str, str]:
     (
         current_class,
         current_rel_model,
@@ -364,8 +367,10 @@ def process_filter_args(cls: type[StructuredNode], kwargs: dict[str, Any]) -> di
 
     for key, value in kwargs.items():
         property_obj, operator, prop = _process_filter_key(cls, key)
+        # property_obj is None only for hop-ending filters, whose operator is
+        # EXISTS/ISNULL - branches in _deflate_value that never dereference it.
         deflated_value, operator, prop = _deflate_value(
-            cls, property_obj, key, value, operator, prop
+            cls, property_obj, key, value, operator, prop  # type: ignore[arg-type]
         )
         # map property to correct property name in the database
         db_property = prop
@@ -1351,7 +1356,7 @@ class Path:
     alias: str | None = None
 
 
-class BaseSet:
+class BaseSet(Generic[T]):
     """
     Base class for all node sets.
 
@@ -1359,13 +1364,14 @@ class BaseSet:
     """
 
     query_cls = QueryBuilder
-    source_class: type[StructuredNode]
+    source: Any
+    source_class: type[T]
 
     # Attributes defined in subclasses (AsyncNodeSet)
     _unique_variables: list[str]
     relations_to_fetch: list[Path]
 
-    def all(self, lazy: bool = False) -> list:
+    def all(self, lazy: bool = False) -> list[T]:
         """
         Return all nodes belonging to the set
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1378,7 +1384,7 @@ class BaseSet:
         ]  # Collect all nodes asynchronously
         return results
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[T]:
         """
         Async iterator that streams results from the database one at a time.
 
@@ -1425,7 +1431,7 @@ class BaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    def __getitem__(self, key: int | slice) -> Self | StructuredNode:
+    def __getitem__(self, key: int | slice) -> Self | T:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1585,7 +1591,7 @@ class RawCypher:
         return string.Template(self.statement).substitute(context)
 
 
-class NodeSet(BaseSet):
+class NodeSet(BaseSet[T]):
     """
     A class representing as set of nodes matching common query parameters
     """
@@ -1621,11 +1627,11 @@ class NodeSet(BaseSet):
         self.fulltext_query: FulltextFilter | None = None
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def _get(
         self, limit: int | None = None, lazy: bool = False, **kwargs: dict[str, Any]
-    ) -> list:
+    ) -> list[T]:
         self.filter(**kwargs)
         if limit:
             self.limit = limit
@@ -1633,7 +1639,7 @@ class NodeSet(BaseSet):
         results = [node for node in ast._execute(lazy)]
         return results
 
-    def get(self, lazy: bool = False, **kwargs: Any) -> StructuredNode:
+    def get(self, lazy: bool = False, **kwargs: Any) -> T:
         """
         Retrieve one node from the set matching supplied parameters
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1647,7 +1653,7 @@ class NodeSet(BaseSet):
             raise self.source_class.DoesNotExist(repr(kwargs))
         return result[0]
 
-    def get_or_none(self, **kwargs: Any) -> StructuredNode | None:
+    def get_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve a node from the set matching supplied parameters or return none
 
@@ -1659,7 +1665,7 @@ class NodeSet(BaseSet):
         except self.source_class.DoesNotExist:
             return None
 
-    def first(self, **kwargs: Any) -> StructuredNode:
+    def first(self, **kwargs: Any) -> T:
         """
         Retrieve the first node from the set matching supplied parameters
 
@@ -1672,7 +1678,7 @@ class NodeSet(BaseSet):
         else:
             raise self.source_class.DoesNotExist(repr(kwargs))
 
-    def first_or_none(self, **kwargs: Any) -> Self | None:
+    def first_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve the first node from the set matching supplied parameters or return none
 
@@ -1922,9 +1928,8 @@ class NodeSet(BaseSet):
         self,
         nodeset: Self,
         return_set: list[str],
-        initial_context: (
-            list[str | NodeNameResolver | RelationNameResolver | RawCypher] | None
-        ) = None,
+        initial_context: list[str | NodeNameResolver | RelationNameResolver | RawCypher]
+        | None = None,
     ) -> Self:
         """Add a subquery to this node set.
 
@@ -1995,7 +2000,7 @@ class NodeSet(BaseSet):
         return self
 
 
-class Traversal(BaseSet):
+class Traversal(BaseSet[StructuredNode]):
     """
     Models a traversal from a node to another.
 
@@ -2018,7 +2023,7 @@ class Traversal(BaseSet):
     filters: list
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def __init__(self, source: Any, name: str, definition: dict) -> None:
         """

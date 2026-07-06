@@ -240,7 +240,7 @@ class AsyncDatabase:
 
     async def begin(
         self,
-        access_mode: str = ACCESS_MODE_WRITE,
+        access_mode: str | None = ACCESS_MODE_WRITE,
         timeout: float | None = None,
         **parameters: Any,
     ) -> None:
@@ -277,25 +277,25 @@ class AsyncDatabase:
         """
         Returns the current transaction object
         """
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self)
 
     @property
     def write_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_WRITE)
 
     @property
     def read_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_READ)
 
     @property
     def parallel_read_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(
             self, access_mode=ACCESS_MODE_READ, parallel_runtime=True
@@ -310,7 +310,7 @@ class AsyncDatabase:
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
-        from neomodel.async_.transaction import ImpersonationHandler  # type: ignore
+        from neomodel.async_.transaction import ImpersonationHandler
 
         db_edition = await self.database_edition
         if db_edition != ENTERPRISE_EDITION_TAG:
@@ -329,7 +329,7 @@ class AsyncDatabase:
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
+    ) -> tuple[list, tuple[str, ...]]:
         return await self._query.cypher_query(
             query,
             params,

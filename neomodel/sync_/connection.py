@@ -356,7 +356,7 @@ class ConnectionManager:
     @ensure_connection
     def begin(
         self,
-        access_mode: str = ACCESS_MODE_WRITE,
+        access_mode: str | None = ACCESS_MODE_WRITE,
         timeout: float | None = None,
         **parameters: Any,
     ) -> None:
@@ -379,8 +379,10 @@ class ConnectionManager:
         if self.driver is None:
             raise RuntimeError("Driver has not been created")
 
+        # ``access_mode`` may be None (transaction proxies use it to mean
+        # "unspecified"); the driver expects a concrete mode, so default to WRITE.
         self._session = self.driver.session(
-            default_access_mode=access_mode,
+            default_access_mode=access_mode or ACCESS_MODE_WRITE,
             database=self._database_name,
             impersonated_user=self.impersonated_user,
             **parameters,

@@ -8,7 +8,6 @@ classes via the standalone registry. It operates against an
 """
 
 import logging
-import sys
 import time
 from typing import Any, AsyncIterator
 
@@ -190,7 +189,7 @@ class AsyncQueryRunner:
             )
 
         if isinstance(object_to_resolve, Path):
-            from neomodel.async_.path import AsyncNeomodelPath  # type: ignore
+            from neomodel.async_.path import AsyncNeomodelPath
 
             return AsyncNeomodelPath(object_to_resolve)
 
@@ -241,7 +240,7 @@ class AsyncQueryRunner:
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
+    ) -> tuple[list, tuple[str, ...]]:
         """
         Runs a query on the database and returns a list of results and their headers.
 
@@ -313,14 +312,17 @@ class AsyncQueryRunner:
         handle_unique: bool,
         retry_on_session_expire: bool,
         resolve_objects: bool,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
+    ) -> tuple[list, tuple[str, ...]]:
         try:
             # Retrieve the data
             start = time.time()
             if self.db._parallel_runtime:
                 query = "CYPHER runtime=parallel " + query
+            # _build_run_query only wraps in Query for auto-commit sessions (never
+            # transactions), but mypy cannot correlate that with the session type here.
             response: AsyncResult = await session.run(
-                query=self._build_run_query(session, query), parameters=params
+                query=self._build_run_query(session, query),  # type: ignore[arg-type]
+                parameters=params,
             )
             results, meta = [list(r.values()) async for r in response], response.keys()
             end = time.time()
@@ -339,9 +341,8 @@ class AsyncQueryRunner:
                     "A constraint validation failed"
                 ) from e
 
-            exc_info = sys.exc_info()
-            if exc_info[1] is not None and exc_info[2] is not None:
-                raise exc_info[1].with_traceback(exc_info[2])
+            # Any other ClientError propagates unchanged (with its traceback).
+            raise
         except SessionExpired:
             if retry_on_session_expire:
                 await self.db.set_connection(url=self.db._connection_url)
@@ -384,8 +385,11 @@ class AsyncQueryRunner:
             if self.db._parallel_runtime:
                 query = "CYPHER runtime=parallel " + query
 
+            # _build_run_query only wraps in Query for auto-commit sessions (never
+            # transactions), but mypy cannot correlate that with the session type here.
             response: AsyncResult = await session.run(
-                query=self._build_run_query(session, query), parameters=params
+                query=self._build_run_query(session, query),  # type: ignore[arg-type]
+                parameters=params,
             )
             keys = response.keys()
 
@@ -414,6 +418,5 @@ class AsyncQueryRunner:
                     "A constraint validation failed"
                 ) from e
 
-            exc_info = sys.exc_info()
-            if exc_info[1] is not None and exc_info[2] is not None:
-                raise exc_info[1].with_traceback(exc_info[2])
+            # Any other ClientError propagates unchanged (with its traceback).
+            raise
