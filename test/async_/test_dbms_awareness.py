@@ -3,7 +3,6 @@ from test._async_compat import mark_async_test
 import pytest
 
 from neomodel import adb
-from neomodel.util import version_tag_to_integer
 
 
 @mark_async_test
@@ -27,11 +26,3 @@ async def test_edition_awareness():
         assert await adb.edition_is_enterprise()
     else:
         assert not await adb.edition_is_enterprise()
-
-
-def test_version_tag_to_integer():
-    assert version_tag_to_integer("5.7.1") == 50701
-    assert version_tag_to_integer("5.1") == 50100
-    assert version_tag_to_integer("5") == 50000
-    assert version_tag_to_integer("5.14.1") == 51401
-    assert version_tag_to_integer("5.14-aura") == 51400

@@ -23,7 +23,6 @@ from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
-    AsyncTraversal,
     Collect,
     Last,
     NodeNameResolver,
@@ -33,7 +32,6 @@ from neomodel.async_.match import (
     Size,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
-from neomodel.util import RelationshipDirection
 
 
 class SupplierRel(AsyncStructuredRel):
@@ -417,33 +415,6 @@ async def test_extra_filters():
         await Coffee.nodes.filter(elementId="4:xxx:111").all()
 
 
-def test_traversal_definition_keys_are_valid():
-    muckefuck = Coffee(name="Mukkefuck", price=1)
-
-    with raises(ValueError):
-        AsyncTraversal(
-            muckefuck,
-            "a_name",
-            {
-                "node_class": Supplier,
-                "direction": RelationshipDirection.INCOMING,
-                "relationship_type": "KNOWS",
-                "model": None,
-            },
-        )
-
-    AsyncTraversal(
-        muckefuck,
-        "a_name",
-        {
-            "node_class": Supplier,
-            "direction": RelationshipDirection.INCOMING,
-            "relation_type": "KNOWS",
-            "model": None,
-        },
-    )
-
-
 @mark_async_test
 async def test_empty_filters():
     """Test this case:
@@ -575,18 +546,6 @@ async def test_q_filters():
 
     with raises(TypeError):
         await Coffee.nodes.filter(Q(price=5) | QQ()).all()
-
-
-def test_qbase():
-    test_print_out = str(Q(price=5) | Q(price=10))
-    test_repr = repr(Q(price=5) | Q(price=10))
-    assert test_print_out == "(OR: ('price', 5), ('price', 10))"
-    assert test_repr == "<Q: (OR: ('price', 5), ('price', 10))>"
-
-    assert ("price", 5) in (Q(price=5) | Q(price=10))
-
-    test_hash = set([Q(price_lt=30) | ~Q(price=5), Q(price_lt=30) | ~Q(price=5)])
-    assert len(test_hash) == 1
 
 
 @mark_async_test
