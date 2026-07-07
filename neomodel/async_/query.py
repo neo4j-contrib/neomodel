@@ -173,8 +173,8 @@ class AsyncQueryRunner:
                 return node_class.inflate(object_to_resolve)
             raise NodeClassNotDefined(
                 object_to_resolve,
-                registry._node_class_registry,
-                registry._db_specific_class_registry,
+                registry.snapshot_node_registry(),
+                registry.snapshot_db_registry(),
             )
 
         if isinstance(object_to_resolve, Relationship):
@@ -184,8 +184,8 @@ class AsyncQueryRunner:
                 return rel_class.inflate(object_to_resolve)
             raise RelationshipClassNotDefined(
                 object_to_resolve,
-                registry._node_class_registry,
-                registry._db_specific_class_registry,
+                registry.snapshot_node_registry(),
+                registry.snapshot_db_registry(),
             )
 
         if isinstance(object_to_resolve, Path):
