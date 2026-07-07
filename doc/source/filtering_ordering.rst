@@ -113,17 +113,6 @@ Traversals can be of any length, with each relationships separated by a double u
     # country is here a relationship between Supplier and Country
     Coffee.nodes.filter(suppliers__country__name='Brazil')
 
-Enforcing relationship/path existence
--------------------------------------
-
-The `has` method checks for existence of (one or more) relationships, in this case it returns a set of `Coffee` nodes which have a supplier::
-
-    Coffee.nodes.has(suppliers=True)
-
-This can be negated by setting `suppliers=False`, to find `Coffee` nodes without `suppliers`.
-
-You can also filter on the existence of more complex traversals by using the `traverse_relations` method. See :ref:`Path traversal`.
-
 Ordering
 ========
 

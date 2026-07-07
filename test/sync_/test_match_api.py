@@ -147,27 +147,6 @@ def test_filter_exclude_via_labels():
 
 
 @mark_sync_test
-def test_simple_has_via_label():
-    nescafe = Coffee(name="Nescafe", price=99).save()
-    tesco = Supplier(name="Tesco", delivery_cost=2).save()
-    nescafe.suppliers.connect(tesco)
-
-    ns = NodeSet(Coffee).has(suppliers=True)
-    qb = QueryBuilder(ns).build_ast()
-    results = [node for node in qb._execute()]
-    assert "COFFEE SUPPLIERS" in qb._ast.where[0]
-    assert len(results) == 1
-    assert results[0].name == "Nescafe"
-
-    Coffee(name="nespresso", price=99).save()
-    ns = NodeSet(Coffee).has(suppliers=False)
-    qb = QueryBuilder(ns).build_ast()
-    results = [node for node in qb._execute()]
-    assert len(results) > 0
-    assert "NOT" in qb._ast.where[0]
-
-
-@mark_sync_test
 def test_get():
     Coffee(name="1", price=3).save()
     assert Coffee.nodes.get(name="1")
