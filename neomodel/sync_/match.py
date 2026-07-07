@@ -1768,15 +1768,6 @@ class NodeSet(BaseSet[T]):
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
-    @deprecated(
-        "This method is deprecated and set to be removed in a future release. Please use .filter(has_rel__exists=True) instead."
-    )
-    def has(self, **kwargs: Any) -> Self:
-        must_match, dont_match = process_has_args(self.source_class, kwargs)
-        self.must_match.update(must_match)
-        self.dont_match.update(dont_match)
-        return self
-
     def order_by(self, *props: Any) -> Self:
         """
         Order by properties. Prepend with minus to do descending. Pass None to
@@ -1928,8 +1919,9 @@ class NodeSet(BaseSet[T]):
         self,
         nodeset: Self,
         return_set: list[str],
-        initial_context: list[str | NodeNameResolver | RelationNameResolver | RawCypher]
-        | None = None,
+        initial_context: (
+            list[str | NodeNameResolver | RelationNameResolver | RawCypher] | None
+        ) = None,
     ) -> Self:
         """Add a subquery to this node set.
 
