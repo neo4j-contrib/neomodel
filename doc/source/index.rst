@@ -88,6 +88,7 @@ Contents
    transactions
    hooks
    batch
+   pydantic
    configuration
    extending
    module_documentation
