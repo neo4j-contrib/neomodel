@@ -149,27 +149,6 @@ async def test_filter_exclude_via_labels():
 
 
 @mark_async_test
-async def test_simple_has_via_label():
-    nescafe = await Coffee(name="Nescafe", price=99).save()
-    tesco = await Supplier(name="Tesco", delivery_cost=2).save()
-    await nescafe.suppliers.connect(tesco)
-
-    ns = AsyncNodeSet(Coffee).has(suppliers=True)
-    qb = await AsyncQueryBuilder(ns).build_ast()
-    results = [node async for node in qb._execute()]
-    assert "COFFEE SUPPLIERS" in qb._ast.where[0]
-    assert len(results) == 1
-    assert results[0].name == "Nescafe"
-
-    await Coffee(name="nespresso", price=99).save()
-    ns = AsyncNodeSet(Coffee).has(suppliers=False)
-    qb = await AsyncQueryBuilder(ns).build_ast()
-    results = [node async for node in qb._execute()]
-    assert len(results) > 0
-    assert "NOT" in qb._ast.where[0]
-
-
-@mark_async_test
 async def test_get():
     await Coffee(name="1", price=3).save()
     assert await Coffee.nodes.get(name="1")

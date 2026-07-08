@@ -1,8 +1,10 @@
+import warnings
 from test._async_compat import mark_async_test
 
 from pytest import raises, skip
 
 from neomodel import AsyncStructuredNode, StringProperty, adb, get_config
+from neomodel.async_._registry import registry
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 
 
@@ -29,26 +31,11 @@ async def test_db_specific_node_labels():
         __target_databases__ = [db_two]
         identifier = StringProperty()
 
-    # This should have reached this point without failing
-    # It means db specific registry is allowing reuse of labels in different databases
-    # Next test will check if the standard registry still denies reuse of labels
-    with raises(NodeClassAlreadyDefined):
-
-        class ExperimentTwo(AsyncStructuredNode):
-            __label__ = "Experiment"
-            name = StringProperty()
-
-        await ExperimentTwo(name="experiment2").save()
-
-    # Finally, this tests that db specific registry denies reuse of labels in the same db
-    with raises(NodeClassAlreadyDefined):
-
-        class PatientOneBis(AsyncStructuredNode):
-            __label__ = "Patient"
-            __target_databases__ = [db_one]
-            name = StringProperty()
-
-        await PatientOneBis(name="patient1.2").save()
+    # Reaching this point without failing means the database-specific registry
+    # allows reuse of the same label ("Patient") in different databases.
+    # (Genuine same-label clashes - two distinct classes for the same label in
+    # the same scope - are now reported at resolution time; see
+    # test_duplicate_labels_raise_on_resolution.)
 
     config = get_config()
     # Now, we will test object resolution
@@ -94,85 +81,91 @@ async def test_resolution_not_defined_class():
 
 
 @mark_async_test
-async def test_allow_reload_flag():
-    """Test that allow_reload config allows redefining classes without raising an exception."""
-    import warnings
+async def test_class_redefinition_is_allowed():
+    """Redefining a class (e.g. on hot reload) no longer raises: node classes are
+    discovered from the live hierarchy, so the latest definition simply wins."""
 
+    class ReloadableNode(AsyncStructuredNode):
+        __label__ = "ReloadableNode"
+        name = StringProperty()
+
+    # Redefining the same class must not raise (previously required allow_reload).
+    class ReloadableNode(AsyncStructuredNode):  # noqa: F811
+        __label__ = "ReloadableNode"
+        name = StringProperty()
+        email = StringProperty()  # a new property on the latest definition
+
+    node = await ReloadableNode(name="reloaded", email="who@where.com").save()
+    resolved, _ = await adb.cypher_query(
+        "MATCH (n:ReloadableNode) RETURN n", resolve_objects=True
+    )
+    # The latest definition (with the extra property) is used for resolution.
+    assert resolved[0][0] == node
+    assert hasattr(resolved[0][0], "email")
+
+
+@mark_async_test
+async def test_allow_reload_is_deprecated():
+    """config.allow_reload is a deprecated no-op that warns when set."""
     neomodel_config = get_config()
-    neomodel_config.allow_reload = True
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        neomodel_config.allow_reload = True
     try:
-        # First, define a class with allow_reload enabled
-        class ReloadableNode(AsyncStructuredNode):
-            __label__ = "ReloadableNode"
-            name = StringProperty()
-
-        # Now redefine the same class - this should issue a warning but not raise an exception
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-
-            class ReloadableNode(AsyncStructuredNode):  # noqa: F811
-                __label__ = "ReloadableNode"
-                name = StringProperty()
-                email = StringProperty()  # Add a new property
-
-            # Verify a warning was issued
-            assert len(w) == 1
-            assert issubclass(w[0].category, UserWarning)
-            assert "is being reloaded" in str(w[0].message)
-            assert "ReloadableNode" in str(w[0].message)
+        assert any(
+            issubclass(w.category, DeprecationWarning)
+            and "allow_reload" in str(w.message)
+            for w in recorded
+        )
     finally:
         neomodel_config.allow_reload = False
 
 
 @mark_async_test
-async def test_allow_reload_without_flag():
-    """Test that without allow_reload config, redefining raises NodeClassAlreadyDefined."""
+async def test_duplicate_labels_raise_on_resolution():
+    """Two distinct live classes claiming the same labels are reported as a
+    NodeClassAlreadyDefined when a matching node is resolved (not at definition)."""
 
-    class NonReloadableNode(AsyncStructuredNode):
-        __label__ = "NonReloadableNode"
+    class OriginalDup(AsyncStructuredNode):
+        __label__ = "DupResolutionLabel"
         name = StringProperty()
 
-    # Attempting to redefine should raise an exception
-    with raises(NodeClassAlreadyDefined):
+    # A genuinely different class (not a reload) claiming the same label.
+    class ConflictingDup(AsyncStructuredNode):
+        __label__ = "DupResolutionLabel"
+        title = StringProperty()
 
-        class NonReloadableNode(AsyncStructuredNode):  # noqa: F811
-            __label__ = "NonReloadableNode"
-            email = StringProperty()
+    await adb.cypher_query("CREATE (:DupResolutionLabel {name: 'x'})")
+    with raises(
+        NodeClassAlreadyDefined,
+        match=r"Class .* with labels .* already defined:.*",
+    ):
+        await adb.cypher_query(
+            "MATCH (n:DupResolutionLabel) RETURN n", resolve_objects=True
+        )
 
 
 @mark_async_test
-async def test_allow_reload_with_target_databases():
-    """Test that allow_reload config works with database-specific classes."""
+async def test_class_redefinition_with_target_databases():
+    """Redefining a database-specific class is likewise allowed; the latest
+    definition wins in that database's registry."""
     if not await adb.edition_is_enterprise():
         skip("Skipping test for community edition")
-
-    import warnings
 
     db_test = "testreloaddb"
     await adb.cypher_query(f"CREATE DATABASE {db_test} IF NOT EXISTS")
 
-    neomodel_config = get_config()
-    neomodel_config.allow_reload = True
-    try:
-        # Define a class for a specific database with allow_reload
-        class ReloadablePatient(AsyncStructuredNode):
-            __label__ = "ReloadablePatient"
-            __target_databases__ = [db_test]
-            name = StringProperty()
+    class ReloadablePatient(AsyncStructuredNode):
+        __label__ = "ReloadablePatient"
+        __target_databases__ = [db_test]
+        name = StringProperty()
 
-        # Redefine the same class - should warn but not raise
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+    # Redefining the database-specific class must not raise.
+    class ReloadablePatient(AsyncStructuredNode):  # noqa: F811
+        __label__ = "ReloadablePatient"
+        __target_databases__ = [db_test]
+        identifier = StringProperty()  # a new property on the latest definition
 
-            class ReloadablePatient(AsyncStructuredNode):  # noqa: F811
-                __label__ = "ReloadablePatient"
-                __target_databases__ = [db_test]
-                identifier = StringProperty()
-
-            # Verify a warning was issued
-            assert len(w) == 1
-            assert issubclass(w[0].category, UserWarning)
-            assert "is being reloaded for database" in str(w[0].message)
-            assert db_test in str(w[0].message)
-    finally:
-        neomodel_config.allow_reload = False
+    resolved = registry.get_class(frozenset(["ReloadablePatient"]), db_test)
+    assert resolved is not None
+    assert "identifier" in dict(resolved.__all_properties__)

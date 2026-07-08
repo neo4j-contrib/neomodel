@@ -16,7 +16,7 @@ from neomodel.properties import Property
 from neomodel.sync_._registry import registry
 from neomodel.sync_.database import db
 from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import _UnsavedNode, classproperty, escape_label
+from neomodel.util import _UnsavedNode, classproperty, deprecated, escape_label
 
 if TYPE_CHECKING:
     from neomodel.sync_.match import NodeSet
@@ -89,11 +89,18 @@ class NodeMeta(type):
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 
-            build_class_registry(cls)
+            # Defining a node class no longer pushes it into the registry; it just
+            # invalidates the lazily-built scan index. The class is discovered from
+            # the live hierarchy on the next resolution.
+            registry.note_class_defined()
 
         return cls
 
 
+@deprecated(
+    "build_class_registry() is deprecated: node classes are discovered "
+    "automatically from the live class hierarchy and no longer need registering."
+)
 def build_class_registry(cls: Any) -> None:
     registry.register(cls)
 
