@@ -1451,3 +1451,34 @@ async def test_includes_filter_with_traversal():
     assert enrique not in players
     assert dembele in players
     assert kolomuani in players
+
+
+@mark_async_test
+async def test_includes_filter_invalid_arguments():
+    # includes requires an ArrayProperty
+    with raises(
+        ValueError, match=r"must be an ArrayProperty to use the includes operator"
+    ):
+        await Player.nodes.filter(name__includes="striker")
+
+    # includes takes a single element, not a list/tuple
+    with raises(ValueError, match=r"Value must be a single element for includes"):
+        await Player.nodes.filter(tags__includes=["player", "striker"])
+
+    # includes_all / includes_any require an ArrayProperty
+    with raises(
+        ValueError,
+        match=r"must be an ArrayProperty to use the includes_all/includes_any",
+    ):
+        await Player.nodes.filter(name__includes_all=["striker"])
+    with raises(
+        ValueError,
+        match=r"must be an ArrayProperty to use the includes_all/includes_any",
+    ):
+        await Player.nodes.filter(name__includes_any=["striker"])
+
+    # includes_all / includes_any take a list or tuple, not a single element
+    with raises(ValueError, match=r"Value must be a list or tuple"):
+        await Player.nodes.filter(tags__includes_all="striker")
+    with raises(ValueError, match=r"Value must be a list or tuple"):
+        await Player.nodes.filter(tags__includes_any="striker")
