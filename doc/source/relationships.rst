@@ -82,6 +82,18 @@ This is only available for relationships with a defined relationship model::
 
     rel = jim.friends.relationship(bob)
 
+You can also filter the related nodes on the properties of the relationship itself
+using ``match``. This is only available for relationships with a defined
+relationship model. ``match`` returns a ``NodeSet``, so its result can be
+iterated, awaited, or further refined with the usual ``NodeSet`` methods
+(``get``, ``first``, ``filter``, ``order_by`` ...)::
+
+    # all friends jim met in Paris
+    jim.friends.match(met='Paris')
+
+    # the single friend jim met in Paris, as a node
+    jim.friends.match(met='Paris').get(name='bob')
+
 Relationship Uniqueness
 =======================
 

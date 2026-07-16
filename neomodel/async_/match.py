@@ -1654,7 +1654,12 @@ class AsyncNodeSet(AsyncBaseSet[T]):
 
     def __init__(self, source: Any) -> None:
         self.source = source  # could be a Traverse object or a node class
-        if isinstance(source, AsyncTraversal):
+        if isinstance(source, AsyncNodeSet):
+            # unwrap: reuse the wrapped set's underlying source (e.g. a
+            # Traversal carrying match() filters) so chaining stays flat
+            self.source = source.source
+            self.source_class = source.source_class
+        elif isinstance(source, AsyncTraversal):
             self.source_class = source.target_class
         elif inspect.isclass(source) and issubclass(source, AsyncStructuredNode):
             self.source_class = source
@@ -2110,14 +2115,14 @@ class AsyncTraversal(AsyncBaseSet[AsyncStructuredNode]):
         self.name = name
         self.filters: list = []
 
-    def match(self, **kwargs: dict[str, Any]) -> "AsyncTraversal":
+    def match(self, **kwargs: dict[str, Any]) -> "AsyncNodeSet":
         """
         Traverse relationships with properties matching the given parameters.
 
             e.g: `.match(price__lt=10)`
 
         :param kwargs: see `NodeSet.filter()` for syntax
-        :return: self
+        :return: NodeSet wrapping this traversal
         """
         if kwargs:
             if self.definition.get("model") is None:
@@ -2127,4 +2132,4 @@ class AsyncTraversal(AsyncBaseSet[AsyncStructuredNode]):
             output = process_filter_args(self.definition["model"], kwargs)
             if output:
                 self.filters.append(output)
-        return self
+        return AsyncNodeSet(self)

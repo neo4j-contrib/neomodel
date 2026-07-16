@@ -396,7 +396,7 @@ class RelationshipManager:
 
     def match(self, **kwargs: Any) -> NodeSet:
         """
-        Return set of nodes who's relationship properties match supplied args
+        Return set of nodes whose relationship properties match supplied args
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
