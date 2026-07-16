@@ -166,6 +166,18 @@ _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
 _SPECIAL_OPERATOR_REGEX = "=~"
 _SPECIAL_OPERATOR_EXISTS = "EXISTS"
+_SPECIAL_OPERATOR_INCLUDES = "{val} IN {ident}.{prop}"
+_SPECIAL_OPERATOR_INCLUDES_ALL = "all(x IN {val} WHERE x IN {ident}.{prop})"
+_SPECIAL_OPERATOR_INCLUDES_ANY = "any(x IN {val} WHERE x IN {ident}.{prop})"
+
+# operators whose statement is built by formatting the operator template
+# (they reference {ident}/{prop}/{val}) rather than "{ident}.{prop} {op} {val}"
+_ARRAY_FORMAT_OPERATORS = (
+    _SPECIAL_OPERATOR_ARRAY_IN,
+    _SPECIAL_OPERATOR_INCLUDES,
+    _SPECIAL_OPERATOR_INCLUDES_ALL,
+    _SPECIAL_OPERATOR_INCLUDES_ANY,
+)
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
@@ -203,6 +215,9 @@ OPERATOR_TABLE = {
     "regex": _SPECIAL_OPERATOR_REGEX,
     "exact": "=",
     "exists": "EXISTS",
+    "includes": _SPECIAL_OPERATOR_INCLUDES,
+    "includes_all": _SPECIAL_OPERATOR_INCLUDES_ALL,
+    "includes_any": _SPECIAL_OPERATOR_INCLUDES_ANY,
 }
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
@@ -253,6 +268,32 @@ def _handle_special_operators(
             f"NOT {_SPECIAL_OPERATOR_EXISTS}" if not value else _SPECIAL_OPERATOR_EXISTS
         )
         deflated_value = value
+    elif operator == _SPECIAL_OPERATOR_INCLUDES:
+        if not isinstance(property_obj, ArrayProperty):
+            raise ValueError(
+                f"Property '{key}' must be an ArrayProperty to use the includes operator"
+            )
+        if isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a single element for includes operation {key}={value}"
+            )
+        # deflate against the array's inner element type so typed arrays work
+        deflated_value = (
+            property_obj.base_property.deflate(value)
+            if property_obj.base_property is not None
+            else value
+        )
+    elif operator in (_SPECIAL_OPERATOR_INCLUDES_ALL, _SPECIAL_OPERATOR_INCLUDES_ANY):
+        if not isinstance(property_obj, ArrayProperty):
+            raise ValueError(
+                f"Property '{key}' must be an ArrayProperty to use the "
+                f"includes_all/includes_any operators"
+            )
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a list or tuple for {operator} operation {key}={value}"
+            )
+        deflated_value = property_obj.deflate(value)
     elif operator in _REGEX_OPERATOR_TABLE.values():
         deflated_value = property_obj.deflate(value)
         if not isinstance(deflated_value, str):
@@ -897,7 +938,7 @@ class QueryBuilder:
             statement = f"{'NOT ' if not val else ''}EXISTS {{ {statement} }}"
         else:
             place_holder = self._register_place_holder(ident + "_" + prop)
-            if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+            if operator in _ARRAY_FORMAT_OPERATORS:
                 statement = operator.format(
                     ident=ident,
                     prop=prop,
@@ -1013,6 +1054,17 @@ class QueryBuilder:
                         statement = (
                             f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
                         )
+                    elif operator in _ARRAY_FORMAT_OPERATORS:
+                        # these operators are templates referencing the property
+                        # and value directly, so they are formatted, not appended
+                        place_holder = self._register_place_holder(ident + "_" + prop)
+                        self._query_params[place_holder] = val
+                        formatted = operator.format(
+                            ident=ident,
+                            prop=prop,
+                            val=f"${place_holder}",
+                        )
+                        statement = f"{'NOT ' if negate else ''}{formatted}"
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
                         statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
@@ -1728,6 +1780,9 @@ class NodeSet(BaseSet[T]):
              * 'istartswith': case insensitive string starts with
              * 'endswith': string ends with
              * 'iendswith': case insensitive string ends with
+             * 'includes': ArrayProperty contains the given element
+             * 'includes_all': ArrayProperty contains all the given elements
+             * 'includes_any': ArrayProperty contains any of the given elements
 
         :return: self
         """
