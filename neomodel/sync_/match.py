@@ -1748,6 +1748,54 @@ class NodeSet(BaseSet[T]):
             pass
         return None
 
+    def bulk_create(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Create multiple nodes of this set's class in a single round-trip.
+
+        Each positional argument is a dict of properties for one node. This is
+        the batch counterpart to ``StructuredNode.save()`` (which creates one
+        node); it replaces the deprecated ``MyNode.create(...)`` classmethod.
+
+        :param props: one dict of properties per node to create
+        :param lazy: if True, return nodes with element_id only
+        :return: list of created nodes, in the order supplied
+        """
+        return self.source_class._bulk_create(*props, **kwargs)
+
+    def bulk_create_or_update(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Create or update multiple nodes in a single MERGE round-trip.
+
+        Replaces the deprecated ``MyNode.create_or_update(...)`` classmethod.
+        See ``bulk_create`` for the props/lazy/merge_by arguments.
+
+        :return: list of created/updated nodes, in the order supplied
+        """
+        return self.source_class._bulk_create_or_update(*props, **kwargs)
+
+    def bulk_get_or_create(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Get or create multiple nodes in a single MERGE round-trip.
+
+        Replaces the deprecated ``MyNode.get_or_create(...)`` classmethod.
+        See ``bulk_create`` for the props/lazy/merge_by arguments.
+
+        :return: list of fetched/created nodes, in the order supplied
+        """
+        return self.source_class._bulk_get_or_create(*props, **kwargs)
+
+    def bulk_save(self, nodes: list[T]) -> list[T]:
+        """
+        Persist a list of node instances of this set's class in bulk.
+
+        Convenience mirror of ``StructuredNode.bulk_save(...)`` so every batch
+        operation is reachable from ``MyNode.nodes``.
+
+        :param nodes: node instances to save
+        :return: the same instances, in order
+        """
+        return self.source_class.bulk_save(nodes)
+
     def filter(self, *args: Any, **kwargs: Any) -> Self:
         """
         Apply filters to the existing nodes in the set.
