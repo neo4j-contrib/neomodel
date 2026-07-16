@@ -78,6 +78,7 @@ __all__ = [
     "AttemptedCardinalityViolation",
     "BooleanProperty",
     "CardinalityViolation",
+    "MutualExclusionViolation",
     "ConstraintValidationFailed",
     "DateProperty",
     "DateTimeFormatProperty",

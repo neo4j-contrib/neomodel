@@ -42,6 +42,31 @@ This is useful for development purposes::
     config.soft_cardinality_check = True
 
 
+Mutually exclusive relationships
+================================
+Sometimes several relationships should be mutually exclusive: a node may hold one
+of them or another, but not both at once. Tag the relationships with the same
+``exclusion_group`` name to enforce this. It is orthogonal to cardinality - each
+relationship keeps its own cardinality constraint::
+
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+
+        # A person can have a cat or a dog (or a fish), but only one kind of pet.
+        cat = RelationshipTo('Cat', 'HAS_PET', cardinality=ZeroOrOne, exclusion_group='pet')
+        dog = RelationshipTo('Dog', 'HAS_PET', cardinality=One, exclusion_group='pet')
+        fish = RelationshipTo('Fish', 'HAS_PET', cardinality=ZeroOrOne, exclusion_group='pet')
+
+Connecting one relationship of the group while another is already connected raises
+:class:`~neomodel.exceptions.MutualExclusionViolation`. To switch to a different
+member of the group, ``disconnect`` the currently connected one first.
+
+.. note::
+   Like cardinality, this is an application-level check performed at
+   ``connect``/``replace`` time, not a database constraint, so it is not atomic
+   under concurrent writers.
+
+
 Properties
 ==========
 
