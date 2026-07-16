@@ -86,6 +86,24 @@ class NodeMeta(type):
                 cls.defined_properties(aliases=False, properties=False).items()
             )
 
+            # Warn about mutual-exclusion groups with a single member: a group of
+            # one excludes nothing, so it almost always signals a typo in the
+            # exclusion_group name.
+            exclusion_groups: dict[str, list[str]] = {}
+            for rel_name, rel_def in cls.__all_relationships__:
+                group = rel_def.definition.get("exclusion_group")
+                if group:
+                    exclusion_groups.setdefault(group, []).append(rel_name)
+            for group, members in exclusion_groups.items():
+                if len(members) < 2:
+                    warnings.warn(
+                        f"Mutual exclusion group '{group}' on {name} has a single "
+                        f"member ({members[0]}); it excludes nothing. Did you mean "
+                        f"to put another relationship in the same group?",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 

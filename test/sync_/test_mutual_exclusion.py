@@ -1,6 +1,7 @@
+import warnings
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+from pytest import raises, warns
 
 from neomodel import (
     MutualExclusionViolation,
@@ -109,3 +110,23 @@ def test_exclusion_allows_connect_after_disconnect():
     owner.dog.connect(dog)
 
     assert (owner.dog.single()).name == "Spike"
+
+
+def test_single_member_exclusion_group_warns():
+    with warns(
+        UserWarning, match=r"exclusion group 'lonely' on .* has a single member"
+    ):
+
+        class OneMemberGroup(StructuredNode):
+            name = StringProperty(required=True)
+            solo = RelationshipTo("JealousCat", "HAS_SOLO", exclusion_group="lonely")
+
+
+def test_valid_exclusion_group_does_not_warn():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning becomes an error
+
+        class TwoMemberGroup(StructuredNode):
+            name = StringProperty(required=True)
+            a = RelationshipTo("JealousCat", "HAS_A", exclusion_group="paired")
+            b = RelationshipTo("JealousDog", "HAS_B", exclusion_group="paired")

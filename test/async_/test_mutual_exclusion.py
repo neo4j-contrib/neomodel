@@ -1,6 +1,7 @@
+import warnings
 from test._async_compat import mark_async_test
 
-from pytest import raises
+from pytest import raises, warns
 
 from neomodel import (
     AsyncOne,
@@ -109,3 +110,25 @@ async def test_exclusion_allows_connect_after_disconnect():
     await owner.dog.connect(dog)
 
     assert (await owner.dog.single()).name == "Spike"
+
+
+def test_single_member_exclusion_group_warns():
+    with warns(
+        UserWarning, match=r"exclusion group 'lonely' on .* has a single member"
+    ):
+
+        class OneMemberGroup(AsyncStructuredNode):
+            name = StringProperty(required=True)
+            solo = AsyncRelationshipTo(
+                "JealousCat", "HAS_SOLO", exclusion_group="lonely"
+            )
+
+
+def test_valid_exclusion_group_does_not_warn():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning becomes an error
+
+        class TwoMemberGroup(AsyncStructuredNode):
+            name = StringProperty(required=True)
+            a = AsyncRelationshipTo("JealousCat", "HAS_A", exclusion_group="paired")
+            b = AsyncRelationshipTo("JealousDog", "HAS_B", exclusion_group="paired")

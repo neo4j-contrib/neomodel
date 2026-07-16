@@ -61,6 +61,11 @@ Connecting one relationship of the group while another is already connected rais
 :class:`~neomodel.exceptions.MutualExclusionViolation`. To switch to a different
 member of the group, ``disconnect`` the currently connected one first.
 
+A group needs at least two members to have any effect. If a class defines an
+``exclusion_group`` with a single member (usually a typo in the group name), a
+``UserWarning`` is emitted when the class is defined, since a lone member
+excludes nothing.
+
 .. note::
    Like cardinality, this is an application-level check performed at
    ``connect``/``replace`` time, not a database constraint, so it is not atomic
