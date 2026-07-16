@@ -1432,30 +1432,31 @@ def test_includes_filter_with_traversal():
 
 @mark_sync_test
 def test_includes_filter_invalid_arguments():
+    # NodeSet.filter() defers validation to query build, so force it with .all()
     # includes requires an ArrayProperty
     with raises(
         ValueError, match=r"must be an ArrayProperty to use the includes operator"
     ):
-        Player.nodes.filter(name__includes="striker")
+        Player.nodes.filter(name__includes="striker").all()
 
     # includes takes a single element, not a list/tuple
     with raises(ValueError, match=r"Value must be a single element for includes"):
-        Player.nodes.filter(tags__includes=["player", "striker"])
+        Player.nodes.filter(tags__includes=["player", "striker"]).all()
 
     # includes_all / includes_any require an ArrayProperty
     with raises(
         ValueError,
         match=r"must be an ArrayProperty to use the includes_all/includes_any",
     ):
-        Player.nodes.filter(name__includes_all=["striker"])
+        Player.nodes.filter(name__includes_all=["striker"]).all()
     with raises(
         ValueError,
         match=r"must be an ArrayProperty to use the includes_all/includes_any",
     ):
-        Player.nodes.filter(name__includes_any=["striker"])
+        Player.nodes.filter(name__includes_any=["striker"]).all()
 
     # includes_all / includes_any take a list or tuple, not a single element
     with raises(ValueError, match=r"Value must be a list or tuple"):
-        Player.nodes.filter(tags__includes_all="striker")
+        Player.nodes.filter(tags__includes_all="striker").all()
     with raises(ValueError, match=r"Value must be a list or tuple"):
-        Player.nodes.filter(tags__includes_any="striker")
+        Player.nodes.filter(tags__includes_any="striker").all()
