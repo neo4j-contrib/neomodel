@@ -86,6 +86,24 @@ class NodeMeta(type):
                 cls.defined_properties(aliases=False, properties=False).items()
             )
 
+            # Warn about mutual-exclusion groups with a single member: a group of
+            # one excludes nothing, so it almost always signals a typo in the
+            # exclusion_group name.
+            exclusion_groups: dict[str, list[str]] = {}
+            for rel_name, rel_def in cls.__all_relationships__:
+                group = rel_def.definition.get("exclusion_group")
+                if group:
+                    exclusion_groups.setdefault(group, []).append(rel_name)
+            for group, members in exclusion_groups.items():
+                if len(members) < 2:
+                    warnings.warn(
+                        f"Mutual exclusion group '{group}' on {name} has a single "
+                        f"member ({members[0]}); it excludes nothing. Did you mean "
+                        f"to put another relationship in the same group?",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 
@@ -277,8 +295,14 @@ class StructuredNode(NodeBase):
     def _build_merge_pattern(cls, merge_by: dict[str, str | list[str]] | None) -> str:
         """Build the ``n:Labels {keys}`` node pattern used by the MERGE query."""
         if merge_by:
-            merge_labels = cls._merge_labels(merge_by.get("label"))
-            merge_db_keys = cls._validated_merge_keys(merge_by["keys"])
+            label = merge_by.get("label")
+            if label is not None and not isinstance(label, str):
+                raise ValueError("merge_by 'label' must be a string")
+            keys = merge_by["keys"]
+            if not isinstance(keys, (list, tuple)):
+                raise ValueError("merge_by 'keys' must be a list of strings")
+            merge_labels = cls._merge_labels(label)
+            merge_db_keys = cls._validated_merge_keys(list(keys))
         else:
             merge_labels = cls._merge_labels(None)
             merge_db_keys = [

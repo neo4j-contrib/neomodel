@@ -36,6 +36,18 @@ class CardinalityViolation(NeomodelException):
         )
 
 
+class MutualExclusionViolation(NeomodelException):
+    """
+    Attempted to connect a relationship while another relationship in the same
+    mutual exclusion group is already connected.
+
+    Example: a `cat` and a `dog` relationship sharing exclusion_group="pet" -
+    connecting `dog` while `cat` is connected raises this.
+    """
+
+    pass
+
+
 class ModelDefinitionException(NeomodelException):
     """
     Abstract exception to handle error conditions related to the node-to-class registry.
@@ -275,6 +287,7 @@ class FeatureNotSupported(NeomodelException):
 __all__ = (
     AttemptedCardinalityViolation.__name__,
     CardinalityViolation.__name__,
+    MutualExclusionViolation.__name__,
     ConstraintValidationFailed.__name__,
     DeflateConflict.__name__,
     DeflateError.__name__,
