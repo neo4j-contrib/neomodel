@@ -252,94 +252,15 @@ class AsyncStructuredNode(NodeBase):
         """
         query_params: dict[str, Any] = {"merge_params": merge_params}
 
-        # Determine merge key and labels
-        if merge_by:
-            # Use custom merge keys. These (and the label) come from the caller,
-            # so validate the keys against the model's defined properties and
-            # backtick-escape every identifier to prevent Cypher injection.
-            defined = cls.defined_properties(aliases=False, rels=False)
-            merge_db_keys = []
-            for key in merge_by["keys"]:
-                if key not in defined:
-                    raise ValueError(
-                        f"Invalid merge_by key '{key}': not a defined property of "
-                        f"{cls.__name__}"
-                    )
-                merge_db_keys.append(defined[key].get_db_property_name(key))
+        n_merge = cls._build_merge_pattern(merge_by)
 
-            if "label" in merge_by:
-                label = merge_by["label"]
-                if not isinstance(label, str):
-                    raise ValueError("merge_by 'label' must be a string")
-                merge_labels = escape_label(label)
-            else:
-                merge_labels = ":".join(
-                    escape_label(label) for label in cls.inherited_labels()
-                )
-
-            n_merge_prm = ", ".join(
-                f"`{key}`: params.create.`{key}`" for key in merge_db_keys
-            )
-        else:
-            # Use default required properties
-            merge_labels = ":".join(
-                escape_label(label) for label in cls.inherited_labels()
-            )
-            n_merge_prm = ", ".join(
-                (
-                    f"`{db_name}`: params.create.`{db_name}`"
-                    for db_name in (
-                        getattr(cls, p).get_db_property_name(p)
-                        for p in cls.__required_properties__
-                    )
-                )
-            )
-
-        n_merge = f"n:{merge_labels} {{{n_merge_prm}}}"
         if relationship is None:
             # create "simple" unwind query
             query = f"UNWIND $merge_params as params\n MERGE ({n_merge})\n "
         else:
-            # validate relationship
-            from neomodel.async_.relationship_manager import (
-                deflate_relationship_properties,
-                validate_relationship,
+            query = await cls._build_relationship_merge(
+                n_merge, relationship, rel_props, query_params
             )
-
-            validate_relationship(relationship, rel_props)
-            relation_type = relationship.definition.get("relation_type")
-
-            from neomodel.async_.match import _rel_helper, _rel_merge_helper
-
-            query_params["source_id"] = await adb.parse_element_id(
-                relationship.source.element_id
-            )
-            query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
-            query += "WITH source\n UNWIND $merge_params as params \n "
-            query += "MERGE "
-            if rel_props:
-                rel_prop = deflate_relationship_properties(
-                    relationship=relationship,
-                    rel_props=rel_props,
-                    query_params=query_params,
-                )
-
-                query += _rel_merge_helper(
-                    lhs="source",
-                    rhs=n_merge,
-                    ident="r",
-                    relation_type=relation_type,
-                    direction=relationship.definition["direction"],
-                    relation_properties=rel_prop,
-                )
-            else:
-                query += _rel_helper(
-                    lhs="source",
-                    rhs=n_merge,
-                    ident=None,
-                    relation_type=relation_type,
-                    direction=relationship.definition["direction"],
-                )
 
         query += "ON CREATE SET n = params.create\n "
         # if update_existing, write properties on match as well
@@ -353,6 +274,100 @@ class AsyncStructuredNode(NodeBase):
             query += "RETURN n"
 
         return query, query_params
+
+    @classmethod
+    def _build_merge_pattern(cls, merge_by: dict[str, str | list[str]] | None) -> str:
+        """Build the ``n:Labels {keys}`` node pattern used by the MERGE query."""
+        if merge_by:
+            merge_labels = cls._merge_labels(merge_by.get("label"))
+            merge_db_keys = cls._validated_merge_keys(merge_by["keys"])
+        else:
+            merge_labels = cls._merge_labels(None)
+            merge_db_keys = [
+                getattr(cls, p).get_db_property_name(p)
+                for p in cls.__required_properties__
+            ]
+
+        n_merge_prm = ", ".join(
+            f"`{key}`: params.create.`{key}`" for key in merge_db_keys
+        )
+        return f"n:{merge_labels} {{{n_merge_prm}}}"
+
+    @classmethod
+    def _merge_labels(cls, label: str | None) -> str:
+        """Backtick-escape the merge label(s); fall back to inherited labels."""
+        if label is not None:
+            return escape_label(label)
+        return ":".join(escape_label(lbl) for lbl in cls.inherited_labels())
+
+    @classmethod
+    def _validated_merge_keys(cls, keys: list[str]) -> list[str]:
+        """Validate caller-supplied merge keys against defined properties.
+
+        Keys come from the caller, so each must map to a defined property; the
+        resolved db property names are later backtick-escaped to prevent Cypher
+        injection.
+        """
+        defined = cls.defined_properties(aliases=False, rels=False)
+        merge_db_keys = []
+        for key in keys:
+            if key not in defined:
+                raise ValueError(
+                    f"Invalid merge_by key '{key}': not a defined property of "
+                    f"{cls.__name__}"
+                )
+            merge_db_keys.append(defined[key].get_db_property_name(key))
+        return merge_db_keys
+
+    @classmethod
+    async def _build_relationship_merge(
+        cls,
+        n_merge: str,
+        relationship: Any,
+        rel_props: dict[str, Any] | None,
+        query_params: dict[str, Any],
+    ) -> str:
+        """Build the MATCH/MERGE clause that connects the source node via a rel."""
+        from neomodel.async_.relationship_manager import (
+            deflate_relationship_properties,
+            validate_relationship,
+        )
+
+        validate_relationship(relationship, rel_props)
+        relation_type = relationship.definition.get("relation_type")
+        direction = relationship.definition["direction"]
+
+        from neomodel.async_.match import _rel_helper, _rel_merge_helper
+
+        query_params["source_id"] = await adb.parse_element_id(
+            relationship.source.element_id
+        )
+        query = f"MATCH (source:{relationship.source.__label__}) WHERE {await adb.get_id_method()}(source) = $source_id\n "
+        query += "WITH source\n UNWIND $merge_params as params \n "
+        query += "MERGE "
+        if rel_props:
+            rel_prop = deflate_relationship_properties(
+                relationship=relationship,
+                rel_props=rel_props,
+                query_params=query_params,
+            )
+            query += _rel_merge_helper(
+                lhs="source",
+                rhs=n_merge,
+                ident="r",
+                relation_type=relation_type,
+                direction=direction,
+                relation_properties=rel_prop,
+            )
+        else:
+            query += _rel_helper(
+                lhs="source",
+                rhs=n_merge,
+                ident=None,
+                relation_type=relation_type,
+                direction=direction,
+            )
+        return query
 
     @classmethod
     async def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
