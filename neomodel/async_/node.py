@@ -297,8 +297,14 @@ class AsyncStructuredNode(NodeBase):
     def _build_merge_pattern(cls, merge_by: dict[str, str | list[str]] | None) -> str:
         """Build the ``n:Labels {keys}`` node pattern used by the MERGE query."""
         if merge_by:
-            merge_labels = cls._merge_labels(merge_by.get("label"))
-            merge_db_keys = cls._validated_merge_keys(merge_by["keys"])
+            label = merge_by.get("label")
+            if label is not None and not isinstance(label, str):
+                raise ValueError("merge_by 'label' must be a string")
+            keys = merge_by["keys"]
+            if not isinstance(keys, (list, tuple)):
+                raise ValueError("merge_by 'keys' must be a list of strings")
+            merge_labels = cls._merge_labels(label)
+            merge_db_keys = cls._validated_merge_keys(list(keys))
         else:
             merge_labels = cls._merge_labels(None)
             merge_db_keys = [
