@@ -1348,3 +1348,106 @@ async def test_parallel_runtime_conflict(mocker):
             assert not assert_last_query_startswith(
                 mock_transaction_run, "CYPHER runtime=parallel"
             )
+
+
+class MemberOfRelationship(AsyncStructuredRel):
+    tags = ArrayProperty(StringProperty(), required=True)
+
+
+class Player(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    tags = ArrayProperty(StringProperty(), required=True)
+    club = AsyncRelationshipTo(
+        "Club", "MEMBER_OF", model=MemberOfRelationship, cardinality=AsyncZeroOrOne
+    )
+
+
+class Club(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    members = AsyncRelationshipFrom("Player", "MEMBER_OF", model=MemberOfRelationship)
+
+
+@mark_async_test
+async def test_includes_filter_with_nodeset():
+    ronaldo = await Player(
+        name="Ronaldo", tags=["player", "striker", "portugal"]
+    ).save()
+    messi = await Player(name="Messi", tags=["player", "striker", "argentina"]).save()
+
+    # includes (single element), also with a Q object
+    assert ronaldo in await Player.nodes.filter(Q(tags__includes="striker"))
+    assert ronaldo in await Player.nodes.filter(tags__includes="striker")
+    assert messi in await Player.nodes.filter(tags__includes="striker")
+    assert ronaldo in await Player.nodes.filter(tags__includes="portugal")
+    assert messi not in await Player.nodes.filter(tags__includes="portugal")
+
+    # includes_any
+    assert ronaldo in await Player.nodes.filter(
+        Q(tags__includes_any=["portugal", "argentina"])
+    )
+    assert ronaldo in await Player.nodes.filter(
+        tags__includes_any=["portugal", "argentina"]
+    )
+    assert messi in await Player.nodes.filter(
+        tags__includes_any=["portugal", "argentina"]
+    )
+    assert messi in await Player.nodes.filter(
+        tags__includes_any=["portugal", "striker"]
+    )
+
+    # includes_all
+    assert ronaldo in await Player.nodes.filter(
+        Q(tags__includes_all=["player", "striker"])
+    )
+    assert messi in await Player.nodes.filter(tags__includes_all=["player", "striker"])
+    assert ronaldo in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "portugal"]
+    )
+    assert ronaldo not in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "argentina"]
+    )
+    assert messi not in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "portugal"]
+    )
+
+
+@mark_async_test
+async def test_includes_filter_with_traversal():
+    enrique = await Player(name="Enrique", tags=["spain"]).save()
+    donnarumma = await Player(name="Donnarumma", tags=["italia"]).save()
+    dembele = await Player(name="Dembele", tags=["france"]).save()
+    marquinhos = await Player(name="Marquinhos", tags=["brasil"]).save()
+    kolomuani = await Player(name="Kolo Muani", tags=["congo"]).save()
+
+    psg = await Club(name="PSG").save()
+    await psg.members.connect(enrique, properties={"tags": ["coach"]})
+    await psg.members.connect(donnarumma, properties={"tags": ["player", "goalkeeper"]})
+    await psg.members.connect(marquinhos, properties={"tags": ["player", "defender"]})
+    await psg.members.connect(dembele, properties={"tags": ["player", "forward"]})
+    await psg.members.connect(kolomuani, properties={"tags": ["player", "forward"]})
+
+    # includes on a relationship ArrayProperty, via match()
+    players = await psg.members.match(tags__includes="player").all()
+    assert donnarumma in players
+    assert dembele in players
+    assert marquinhos in players
+    assert kolomuani in players
+    assert enrique not in players
+    assert donnarumma in await psg.members.match(tags__includes="goalkeeper").all()
+    assert dembele not in await psg.members.match(tags__includes="goalkeeper").all()
+
+    # includes_any
+    players = await psg.members.match(tags__includes_any=["defender", "forward"]).all()
+    assert donnarumma not in players
+    assert dembele in players
+    assert marquinhos in players
+    assert kolomuani in players
+    assert enrique not in players
+
+    # includes_all
+    players = await psg.members.match(tags__includes_all=["player", "forward"]).all()
+    assert donnarumma not in players
+    assert marquinhos not in players
+    assert enrique not in players
+    assert dembele in players
+    assert kolomuani in players
