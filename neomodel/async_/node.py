@@ -394,7 +394,16 @@ class AsyncStructuredNode(NodeBase):
         return query
 
     @classmethod
+    @deprecated(
+        "StructuredNode.create() is deprecated and will be removed in neomodel 8.0. "
+        "Use MyNode.nodes.bulk_create(...) instead."
+    )
     async def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_create(...)``."""
+        return await cls._bulk_create(*props, **kwargs)
+
+    @classmethod
+    async def _bulk_create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
@@ -446,7 +455,18 @@ class AsyncStructuredNode(NodeBase):
         return nodes
 
     @classmethod
+    @deprecated(
+        "StructuredNode.create_or_update() is deprecated and will be removed in "
+        "neomodel 8.0. Use MyNode.nodes.bulk_create_or_update(...) instead."
+    )
     async def create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_create_or_update(...)``."""
+        return await cls._bulk_create_or_update(*props, **kwargs)
+
+    @classmethod
+    async def _bulk_create_or_update(
+        cls, *props: tuple, **kwargs: dict[str, Any]
+    ) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
@@ -624,7 +644,18 @@ class AsyncStructuredNode(NodeBase):
         return True
 
     @classmethod
+    @deprecated(
+        "StructuredNode.get_or_create() is deprecated and will be removed in "
+        "neomodel 8.0. Use MyNode.nodes.bulk_get_or_create(...) instead."
+    )
     async def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_get_or_create(...)``."""
+        return await cls._bulk_get_or_create(*props, **kwargs)
+
+    @classmethod
+    async def _bulk_get_or_create(
+        cls: Any, *props: tuple, **kwargs: dict[str, Any]
+    ) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
@@ -808,7 +839,7 @@ class AsyncStructuredNode(NodeBase):
                 f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            result = await self.create(self.__properties__)
+            result = await self._bulk_create(self.__properties__)
             created_node = result[0]
             self.element_id_property = created_node.element_id
         return self

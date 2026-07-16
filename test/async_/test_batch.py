@@ -879,3 +879,73 @@ async def test_bulk_save_runs_pre_and_post_save_hooks():
     assert getattr(node, "pre_save_ran", False)
     assert getattr(node, "post_save_ran", False)
     assert node.element_id is not None
+
+
+class BatchFruit(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    color = StringProperty()
+
+
+@mark_async_test
+async def test_nodeset_bulk_create():
+    fruits = await BatchFruit.nodes.bulk_create({"name": "apple"}, {"name": "banana"})
+    assert len(fruits) == 2
+    assert all(isinstance(f, BatchFruit) for f in fruits)
+    assert [f.name for f in fruits] == ["apple", "banana"]
+
+
+@mark_async_test
+async def test_nodeset_bulk_get_or_create_is_idempotent():
+    first = await BatchFruit.nodes.bulk_get_or_create({"name": "cherry"})
+    again = await BatchFruit.nodes.bulk_get_or_create({"name": "cherry"})
+    assert first[0].element_id == again[0].element_id
+
+
+@mark_async_test
+async def test_nodeset_bulk_create_or_update():
+    created = await BatchFruit.nodes.bulk_create_or_update(
+        {"name": "date", "color": "brown"}
+    )
+    updated = await BatchFruit.nodes.bulk_create_or_update(
+        {"name": "date", "color": "black"}
+    )
+    assert created[0].element_id == updated[0].element_id
+    assert updated[0].color == "black"
+
+
+@mark_async_test
+async def test_nodeset_bulk_save():
+    nodes = [BatchFruit(name="elderberry"), BatchFruit(name="fig")]
+    saved = await BatchFruit.nodes.bulk_save(nodes)
+    assert {n.name for n in saved} == {"elderberry", "fig"}
+    assert all(n.element_id is not None for n in saved)
+
+
+@mark_async_test
+async def test_deprecated_batch_classmethods_still_work_and_warn():
+    from pytest import warns
+
+    with warns(DeprecationWarning, match=r"create\(\) is deprecated.*bulk_create"):
+        created = await BatchFruit.create({"name": "grape"})
+    assert created[0].name == "grape"
+
+    with warns(
+        DeprecationWarning, match=r"get_or_create\(\) is deprecated.*bulk_get_or_create"
+    ):
+        await BatchFruit.get_or_create({"name": "grape"})
+
+    with warns(
+        DeprecationWarning,
+        match=r"create_or_update\(\) is deprecated.*bulk_create_or_update",
+    ):
+        await BatchFruit.create_or_update({"name": "grape", "color": "green"})
+
+
+@mark_async_test
+async def test_save_does_not_emit_deprecation_warning():
+    """save() creates via the internal impl, so it must NOT warn."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        await BatchFruit(name="honeydew").save()
