@@ -61,8 +61,24 @@ The filter method borrows the same Django filter format with double underscore p
 - iendswith - ends with string value, case insensitive
 - regex - matches a regex expression
 - iregex - matches a regex expression, case insensitive
+- includes - ``ArrayProperty`` contains the given element
+- includes_all - ``ArrayProperty`` contains all of the given elements
+- includes_any - ``ArrayProperty`` contains any of the given elements
 
 These operators work with both `.get` and `.filter` methods.
+
+The ``includes``, ``includes_all`` and ``includes_any`` operators only apply to
+``ArrayProperty`` (on nodes or on relationships). ``includes`` takes a single
+element, while ``includes_all`` / ``includes_any`` take a list::
+
+    # nodes whose tags array contains "arabica"
+    Coffee.nodes.filter(tags__includes='arabica')
+
+    # nodes whose tags array contains every listed value
+    Coffee.nodes.filter(tags__includes_all=['arabica', 'organic'])
+
+    # relationship ArrayProperty, via match()
+    java.suppliers.match(certifications__includes_any=['fairtrade', 'organic'])
 
 Combining filters
 -----------------
@@ -112,17 +128,6 @@ Traversals can be of any length, with each relationships separated by a double u
 
     # country is here a relationship between Supplier and Country
     Coffee.nodes.filter(suppliers__country__name='Brazil')
-
-Enforcing relationship/path existence
--------------------------------------
-
-The `has` method checks for existence of (one or more) relationships, in this case it returns a set of `Coffee` nodes which have a supplier::
-
-    Coffee.nodes.has(suppliers=True)
-
-This can be negated by setting `suppliers=False`, to find `Coffee` nodes without `suppliers`.
-
-You can also filter on the existence of more complex traversals by using the `traverse_relations` method. See :ref:`Path traversal`.
 
 Ordering
 ========

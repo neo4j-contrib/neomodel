@@ -5,19 +5,18 @@ Node classes and metadata for the neomodel module.
 from __future__ import annotations
 
 import warnings
-from itertools import combinations
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from neo4j.graph import Node
 
-from neomodel.config import get_config
 from neomodel.constants import STREAMING_WARNING
-from neomodel.exceptions import DoesNotExist, NodeClassAlreadyDefined
+from neomodel.exceptions import DoesNotExist
 from neomodel.hooks import hooks
 from neomodel.properties import Property
+from neomodel.sync_._registry import registry
 from neomodel.sync_.database import db
 from neomodel.sync_.property_manager import PropertyManager
-from neomodel.util import _UnsavedNode, classproperty, escape_label
+from neomodel.util import _UnsavedNode, classproperty, deprecated, escape_label
 
 if TYPE_CHECKING:
     from neomodel.sync_.match import NodeSet
@@ -87,72 +86,61 @@ class NodeMeta(type):
                 cls.defined_properties(aliases=False, properties=False).items()
             )
 
+            # Warn about mutual-exclusion groups with a single member: a group of
+            # one excludes nothing, so it almost always signals a typo in the
+            # exclusion_group name.
+            exclusion_groups: dict[str, list[str]] = {}
+            for rel_name, rel_def in cls.__all_relationships__:
+                group = rel_def.definition.get("exclusion_group")
+                if group:
+                    exclusion_groups.setdefault(group, []).append(rel_name)
+            for group, members in exclusion_groups.items():
+                if len(members) < 2:
+                    warnings.warn(
+                        f"Mutual exclusion group '{group}' on {name} has a single "
+                        f"member ({members[0]}); it excludes nothing. Did you mean "
+                        f"to put another relationship in the same group?",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
             cls.__label__ = namespace.get("__label__", name)
             cls.__optional_labels__ = namespace.get("__optional_labels__", [])
 
-            build_class_registry(cls)
+            # Defining a node class no longer pushes it into the registry; it just
+            # invalidates the lazily-built scan index. The class is discovered from
+            # the live hierarchy on the next resolution.
+            registry.note_class_defined()
 
         return cls
 
 
+@deprecated(
+    "build_class_registry() is deprecated: node classes are discovered "
+    "automatically from the live class hierarchy and no longer need registering."
+)
 def build_class_registry(cls: Any) -> None:
-    base_label_set = frozenset(cls.inherited_labels())
-    optional_label_set = set(cls.inherited_optional_labels())
-
-    # Construct all possible combinations of labels + optional labels
-    possible_label_combinations = [
-        frozenset(set(x).union(base_label_set))
-        for i in range(1, len(optional_label_set) + 1)
-        for x in combinations(optional_label_set, i)
-    ]
-    possible_label_combinations.append(base_label_set)
-
-    # Check if config allows reloading
-    allow_reload = get_config().allow_reload
-
-    for label_set in possible_label_combinations:
-        if not hasattr(cls, "__target_databases__"):
-            if label_set not in db._NODE_CLASS_REGISTRY:
-                db._NODE_CLASS_REGISTRY[label_set] = cls
-            else:
-                if allow_reload:
-                    node_class_labels = ",".join(cls.inherited_labels())
-                    warnings.warn(
-                        f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
-                        f"is being reloaded. Updating class registry.",
-                        UserWarning,
-                        stacklevel=4,
-                    )
-                    db._NODE_CLASS_REGISTRY[label_set] = cls
-                else:
-                    raise NodeClassAlreadyDefined(
-                        cls, db._NODE_CLASS_REGISTRY, db._DB_SPECIFIC_CLASS_REGISTRY
-                    )
-        else:
-            for database in cls.__target_databases__:
-                if database not in db._DB_SPECIFIC_CLASS_REGISTRY:
-                    db._DB_SPECIFIC_CLASS_REGISTRY[database] = {}
-                if label_set not in db._DB_SPECIFIC_CLASS_REGISTRY[database]:
-                    db._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                else:
-                    if allow_reload:
-                        node_class_labels = ",".join(cls.inherited_labels())
-                        warnings.warn(
-                            f"Class {cls.__module__}.{cls.__name__} with labels {node_class_labels} "
-                            f"is being reloaded for database {database}. Updating class registry.",
-                            UserWarning,
-                            stacklevel=4,
-                        )
-                        db._DB_SPECIFIC_CLASS_REGISTRY[database][label_set] = cls
-                    else:
-                        raise NodeClassAlreadyDefined(
-                            cls,
-                            db._NODE_CLASS_REGISTRY,
-                            db._DB_SPECIFIC_CLASS_REGISTRY,
-                        )
+    registry.register(cls)
 
 
 NodeBase: type = NodeMeta("NodeBase", (PropertyManager,), {"__abstract_node__": True})
+
+_T = TypeVar("_T", bound="StructuredNode")
+
+
+class _NodesProperty:
+    """Class-level descriptor backing ``MyNode.nodes``.
+
+    Typing ``__get__`` with ``owner: type[_T]`` makes ``MyNode.nodes`` resolve to
+    ``NodeSet[MyNode]`` for type checkers, so ``MyNode.nodes.get(...)`` is
+    known to return ``MyNode`` (and iteration yields ``MyNode``). At runtime it
+    behaves like the previous classproperty.
+    """
+
+    def __get__(self, instance: Any, owner: type[_T]) -> NodeSet[_T]:
+        from neomodel.sync_.match import NodeSet
+
+        return NodeSet(owner)
 
 
 class StructuredNode(NodeBase):
@@ -194,6 +182,22 @@ class StructuredNode(NodeBase):
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
+    def __hash__(self) -> int:
+        """
+        Make node instances hashable (usable in sets and as dict keys).
+
+        Defining ``__eq__`` above sets ``__hash__`` to None, which makes
+        instances unhashable; this restores it consistently with ``__eq__``:
+        saved nodes hash by their element_id (so two instances of the same
+        database node hash equal), unsaved nodes hash by object identity.
+
+        Note: a node's hash therefore changes when it is first saved, so do not
+        rely on a node's membership in a set/dict across a save().
+        """
+        if self.was_saved:
+            return hash(self.element_id)
+        return hash(id(self))
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self}>"
 
@@ -202,16 +206,9 @@ class StructuredNode(NodeBase):
 
     # dynamic properties
 
-    @classproperty
-    def nodes(self) -> "NodeSet":
-        """
-        Returns a NodeSet object representing all nodes of the classes label
-        :return: NodeSet
-        :rtype: NodeSet
-        """
-        from neomodel.sync_.match import NodeSet
-
-        return NodeSet(self)
+    # Returns an AsyncNodeSet representing all nodes of the class's label.
+    # See _NodesProperty for why this is a descriptor rather than a classproperty.
+    nodes = _NodesProperty()
 
     @property
     def element_id(self) -> Any | None:
@@ -298,8 +295,14 @@ class StructuredNode(NodeBase):
     def _build_merge_pattern(cls, merge_by: dict[str, str | list[str]] | None) -> str:
         """Build the ``n:Labels {keys}`` node pattern used by the MERGE query."""
         if merge_by:
-            merge_labels = cls._merge_labels(merge_by.get("label"))
-            merge_db_keys = cls._validated_merge_keys(merge_by["keys"])
+            label = merge_by.get("label")
+            if label is not None and not isinstance(label, str):
+                raise ValueError("merge_by 'label' must be a string")
+            keys = merge_by["keys"]
+            if not isinstance(keys, (list, tuple)):
+                raise ValueError("merge_by 'keys' must be a list of strings")
+            merge_labels = cls._merge_labels(label)
+            merge_db_keys = cls._validated_merge_keys(list(keys))
         else:
             merge_labels = cls._merge_labels(None)
             merge_db_keys = [
@@ -387,7 +390,16 @@ class StructuredNode(NodeBase):
         return query
 
     @classmethod
+    @deprecated(
+        "StructuredNode.create() is deprecated and will be removed in neomodel 8.0. "
+        "Use MyNode.nodes.bulk_create(...) instead."
+    )
     def create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_create(...)``."""
+        return cls._bulk_create(*props, **kwargs)
+
+    @classmethod
+    def _bulk_create(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to CREATE with parameters map. A new instance will be created and saved.
 
@@ -406,23 +418,31 @@ class StructuredNode(NodeBase):
             )
 
         lazy = kwargs.get("lazy", False)
-        # create mapped query
-        query = f"CREATE (n:{':'.join(cls.inherited_labels())} $create_params)"
+
+        create_params = [
+            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
+        ]
+        if not create_params:
+            return []
+
+        # Create all nodes in a single round-trip by unwinding the list of
+        # property maps, rather than issuing one CREATE per node.
+        query = (
+            "UNWIND $create_params AS create_param\n"
+            f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+            "SET n = create_param\n"
+        )
 
         # close query
         if lazy:
-            query += f" RETURN {db.get_id_method()}(n)"
+            query += f"RETURN {db.get_id_method()}(n)"
         else:
-            query += " RETURN n"
+            query += "RETURN n"
 
-        results = []
-        for item in [
-            cls.deflate(p, obj=_UnsavedNode(), skip_empty=True) for p in props
-        ]:
-            node, _ = db.cypher_query(query, {"create_params": item})
-            results.extend(node[0])
+        # UNWIND preserves order, so results line up with the input props.
+        results, _ = db.cypher_query(query, {"create_params": create_params})
 
-        nodes = [cls.inflate(node) for node in results]
+        nodes = [cls.inflate(row[0]) for row in results]
 
         if not lazy and hasattr(cls, "post_create"):
             for node in nodes:
@@ -431,7 +451,16 @@ class StructuredNode(NodeBase):
         return nodes
 
     @classmethod
+    @deprecated(
+        "StructuredNode.create_or_update() is deprecated and will be removed in "
+        "neomodel 8.0. Use MyNode.nodes.bulk_create_or_update(...) instead."
+    )
     def create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_create_or_update(...)``."""
+        return cls._bulk_create_or_update(*props, **kwargs)
+
+    @classmethod
+    def _bulk_create_or_update(cls, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exists,
         this is an atomic operation. If an instance already exists all optional properties specified will be updated.
@@ -491,6 +520,83 @@ class StructuredNode(NodeBase):
         else:
             return [cls.inflate(r[0]) for r in results[0]]
 
+    @classmethod
+    def bulk_save(cls, nodes: list[StructuredNode]) -> list[StructuredNode]:
+        """
+        Save a list of nodes of this class in a bulk, minimising round-trips.
+
+        New nodes (those never saved) are created in a single ``UNWIND ... CREATE``
+        query, and already-saved nodes are updated in a single
+        ``UNWIND ... MATCH ... SET`` query. So this issues at most two queries
+        regardless of how many nodes are passed, rather than one round-trip per
+        node as with calling ``save()`` in a loop.
+
+        ``pre_save`` / ``post_save`` hooks are run on each node (as with
+        ``save()``); ``post_create`` is not (use ``create()`` if you need it).
+        All nodes must be instances of this class (they share its labels).
+
+        :param nodes: the node instances to save
+        :return: the same node instances, in the order given (created ones now
+            carry their element_id)
+        """
+        nodes = list(nodes)
+        if not nodes:
+            return []
+
+        for node in nodes:
+            if hasattr(node, "deleted") and node.deleted:
+                raise ValueError(
+                    f"{cls.__name__}.bulk_save() attempted on deleted node"
+                )
+            if hasattr(node, "pre_save"):
+                node.pre_save()
+
+        to_create = [n for n in nodes if not hasattr(n, "element_id_property")]
+        to_update = [n for n in nodes if hasattr(n, "element_id_property")]
+
+        # Create the new nodes in a single round-trip (mirrors create()).
+        if to_create:
+            create_params = [
+                cls.deflate(node.__properties__, obj=_UnsavedNode(), skip_empty=True)
+                for node in to_create
+            ]
+            create_query = (
+                "UNWIND $create_params AS create_param\n"
+                f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+                "SET n = create_param\n"
+                "RETURN n"
+            )
+            results, _ = db.cypher_query(create_query, {"create_params": create_params})
+            # UNWIND preserves order, so results line up with to_create.
+            for node, row in zip(to_create, results):
+                node.element_id_property = cls.inflate(row[0]).element_id
+
+        # Update the existing nodes in a single round-trip.
+        if to_update:
+            id_method = db.get_id_method()
+            rows = [
+                {
+                    "eid": db.parse_element_id(node.element_id),
+                    "props": cls.deflate(node.__properties__, node),
+                }
+                for node in to_update
+            ]
+            set_labels = "".join(
+                f"SET n:{escape_label(label)}\n" for label in cls.inherited_labels()
+            )
+            update_query = (
+                "UNWIND $rows AS row\n"
+                f"MATCH (n) WHERE {id_method}(n) = row.eid\n"
+                "SET n += row.props\n" + set_labels
+            )
+            db.cypher_query(update_query, {"rows": rows})
+
+        for node in nodes:
+            if hasattr(node, "post_save"):
+                node.post_save()
+
+        return nodes
+
     def cypher(
         self, query: str, params: dict[str, Any] | None = None
     ) -> tuple[list | None, tuple[str, ...] | None]:
@@ -528,7 +634,16 @@ class StructuredNode(NodeBase):
         return True
 
     @classmethod
+    @deprecated(
+        "StructuredNode.get_or_create() is deprecated and will be removed in "
+        "neomodel 8.0. Use MyNode.nodes.bulk_get_or_create(...) instead."
+    )
     def get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
+        """Deprecated alias for ``MyNode.nodes.bulk_get_or_create(...)``."""
+        return cls._bulk_get_or_create(*props, **kwargs)
+
+    @classmethod
+    def _bulk_get_or_create(cls: Any, *props: tuple, **kwargs: dict[str, Any]) -> list:
         """
         Call to MERGE with parameters map. A new instance will be created and saved if does not already exist,
         this is an atomic operation.
@@ -583,7 +698,7 @@ class StructuredNode(NodeBase):
             return [cls.inflate(r[0]) for r in results[0]]
 
     @classmethod
-    def inflate(cls: Any, graph_entity: Node) -> Any:  # type: ignore[override]
+    def inflate(cls: Any, graph_entity: Node) -> Any:
         """
         Inflate a raw neo4j_driver node to a neomodel node
         :param graph_entity: node
@@ -647,7 +762,10 @@ class StructuredNode(NodeBase):
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on deleted node"
             )
-        if not hasattr(self, "element_id"):
+        # ``element_id`` is a property that is always present on the class, so
+        # ``hasattr`` would always be True; an unsaved node is one whose
+        # element_id resolves to None.
+        if self.element_id is None:
             raise ValueError(
                 f"{self.__class__.__name__}.{action}() attempted on unsaved node"
             )
@@ -657,18 +775,13 @@ class StructuredNode(NodeBase):
         Reload the node from neo4j
         """
         self._pre_action_check("refresh")
-        if hasattr(self, "element_id"):
-            results = self.cypher(
-                f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n"
-            )
-            request = results[0]
-            if not request or not request[0]:
-                raise self.__class__.DoesNotExist("Can't refresh non existent node")
-            node = self.inflate(request[0][0])
-            for key, val in node.__properties__.items():
-                setattr(self, key, val)
-        else:
-            raise ValueError("Can't refresh unsaved node")
+        results = self.cypher(f"MATCH (n) WHERE {db.get_id_method()}(n)=$self RETURN n")
+        request = results[0]
+        if not request or not request[0]:
+            raise self.__class__.DoesNotExist("Can't refresh non existent node")
+        node = self.inflate(request[0][0])
+        for key, val in node.__properties__.items():
+            setattr(self, key, val)
 
     @hooks
     def save(self) -> "StructuredNode":
@@ -712,7 +825,7 @@ class StructuredNode(NodeBase):
                 f"{self.__class__.__name__}.save() attempted on deleted node"
             )
         else:  # create
-            result = self.create(self.__properties__)
+            result = self._bulk_create(self.__properties__)
             created_node = result[0]
             self.element_id_property = created_node.element_id
         return self

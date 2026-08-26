@@ -10,6 +10,15 @@ from neomodel.exceptions import AttemptedCardinalityViolation, CardinalityViolat
 if TYPE_CHECKING:
     from neomodel import AsyncStructuredNode, AsyncStructuredRel
 
+# AsyncZeroOrMore is defined in relationship_manager and re-exported here (used by
+# neomodel/__init__); listing it in __all__ keeps that an explicit re-export.
+__all__ = [
+    "AsyncOne",
+    "AsyncOneOrMore",
+    "AsyncZeroOrMore",
+    "AsyncZeroOrOne",
+]
+
 
 class AsyncZeroOrOne(AsyncRelationshipManager):
     """A relationship to zero or one node."""

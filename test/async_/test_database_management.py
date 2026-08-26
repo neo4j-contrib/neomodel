@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 from test._async_compat import mark_async_test
 from unittest.mock import AsyncMock, patch
 
@@ -15,7 +16,8 @@ from neomodel import (
     adb,
 )
 from neomodel._async_compat.util import AsyncUtil
-from neomodel.async_.database import AsyncDatabase, _redact_params
+from neomodel.async_.database import AsyncDatabase
+from neomodel.exceptions import FeatureNotSupported
 
 
 class City(AsyncStructuredNode):
@@ -97,7 +99,9 @@ async def test_change_password_is_not_injectable():
     malicious_user = "admin` SET PASSWORD 'pwned"
     malicious_password = "secret' SET ROLE admin //"
 
-    with patch.object(test_db, "cypher_query", new_callable=AsyncMock) as mock_cypher:
+    with patch.object(
+        test_db._query, "cypher_query", new_callable=AsyncMock
+    ) as mock_cypher:
         await test_db.change_neo4j_password(malicious_user, malicious_password)
 
     query, params = mock_cypher.call_args.args[:2]
@@ -110,58 +114,6 @@ async def test_change_password_is_not_injectable():
     # The username is escaped as a single backtick-quoted identifier: any
     # backtick it contains is doubled, so it cannot terminate the identifier.
     assert query == "ALTER USER `admin`` SET PASSWORD 'pwned` SET PASSWORD $password"
-
-
-@mark_async_test
-async def test_redact_params_masks_password():
-    """Sensitive parameter values must be masked before being logged."""
-    assert _redact_params({"password": "supersecret", "user": "neo4j"}) == {
-        "password": "******",
-        "user": "neo4j",
-    }
-    # The real secret never appears in the redacted output.
-    assert "supersecret" not in repr(_redact_params({"password": "supersecret"}))
-    # Empty / missing params are passed through untouched.
-    assert _redact_params(None) is None
-    assert _redact_params({}) == {}
-
-
-@mark_async_test
-async def test_redact_params_matches_sensitive_key_variants():
-    """A range of secret-bearing key names should be masked, including
-    compound and differently-cased variants."""
-    # Use distinctive values that cannot appear as substrings of the (unredacted)
-    # keys, so the leak check below is meaningful.
-    sensitive = {
-        "pwd": "secret-value-pwd",
-        "Password": "secret-value-password",
-        "user_password": "secret-value-user-password",
-        "API_KEY": "secret-value-api-key",
-        "stripe_api_key": "secret-value-stripe-api-key",
-        "refresh_token": "secret-value-refresh-token",
-        "client_secret": "secret-value-client-secret",
-        "authorization": "secret-value-authorization",
-        "otp": "secret-value-otp",
-        "ssn": "secret-value-ssn",
-    }
-    redacted = _redact_params(sensitive)
-    assert all(value == "******" for value in redacted.values()), redacted
-    for original_value in sensitive.values():
-        assert original_value not in repr(redacted)
-
-
-@mark_async_test
-async def test_redact_params_does_not_over_redact():
-    """Substring matching must not flag innocuous keys that merely contain a
-    sensitive token as a fragment (e.g. 'author' contains 'auth')."""
-    benign = {
-        "author": "alice",
-        "passenger": "bob",
-        "monkey": "george",
-        "user": "neo4j",
-        "name": "thing",
-    }
-    assert _redact_params(benign) == benign
 
 
 @mark_async_test
@@ -195,7 +147,6 @@ async def test_async_database_properties():
     assert reset_singleton.url is None
     assert reset_singleton.driver is None
     assert reset_singleton._session is None
-    assert reset_singleton._pid is None
     assert reset_singleton._database_name is neo4j.DEFAULT_DATABASE
     assert reset_singleton._database_version is None
     assert reset_singleton._database_edition is None
@@ -235,3 +186,223 @@ async def test_parallel_transactions():
         return result[0][0], result[0][1], transaction_id, session_id
 
     _ = await asyncio.gather(*(query(i) for i in range(1, 5)))
+
+
+@mark_async_test
+async def test_driver_state_is_process_global():
+    # Ensure the singleton is connected.
+    await adb.cypher_query("RETURN 1")
+
+    driver = adb.driver
+    version = adb._database_version
+    edition = adb._database_edition
+    assert driver is not None
+
+    # A brand-new context - as seen by a fresh OS thread, or a task that did not
+    # inherit this context - must observe the SAME process-wide driver and
+    # server facts, rather than finding them unset and rebuilding a separate
+    # driver/connection pool.
+    fresh_context = contextvars.Context()
+    assert fresh_context.run(lambda: adb.driver) is driver
+    assert fresh_context.run(lambda: adb._database_version) == version
+    assert fresh_context.run(lambda: adb._database_edition) == edition
+
+    # Per-context state, by contrast, stays isolated: a fresh context sees the
+    # defaults, not whatever the current context happens to hold.
+    assert fresh_context.run(lambda: adb._session) is None
+    assert fresh_context.run(lambda: adb._active_transaction) is None
+
+
+# ---------------------------------------------------------------------------
+# Schema management delegated through the facade
+#
+# These exercise the AsyncDatabase facade -> AsyncSchemaManager wiring against
+# mocks so they do not depend on what is actually installed in the database.
+# ---------------------------------------------------------------------------
+
+
+@mark_async_test
+async def test_clear_neo4j_database():
+    """clear_neo4j_database clears data and optionally constraints/indexes."""
+    test_db = AsyncDatabase()
+
+    with patch.object(
+        test_db._query, "cypher_query", new_callable=AsyncMock
+    ) as mock_cypher:
+        with patch.object(
+            test_db._schema, "drop_constraints", new_callable=AsyncMock
+        ) as mock_drop_constraints:
+            with patch.object(
+                test_db._schema, "drop_indexes", new_callable=AsyncMock
+            ) as mock_drop_indexes:
+                await test_db.clear_neo4j_database(
+                    clear_constraints=True, clear_indexes=True
+                )
+
+                mock_cypher.assert_called_once()
+                mock_drop_constraints.assert_called_once()
+                mock_drop_indexes.assert_called_once()
+
+
+@mark_async_test
+async def test_drop_constraints():
+    """drop_constraints lists then drops each constraint."""
+    test_db = AsyncDatabase()
+
+    mock_results = [
+        {"name": "constraint1", "labelsOrTypes": ["Label1"], "properties": ["prop1"]},
+        {"name": "constraint2", "labelsOrTypes": ["Label2"], "properties": ["prop2"]},
+    ]
+
+    with patch.object(
+        test_db._query, "cypher_query", new_callable=AsyncMock
+    ) as mock_cypher:
+        mock_cypher.return_value = (
+            mock_results,
+            ["name", "labelsOrTypes", "properties"],
+        )
+
+        await test_db.drop_constraints(quiet=False)
+
+        # 1 call to list constraints + 1 drop per constraint.
+        assert mock_cypher.call_count == 3
+
+
+@mark_async_test
+async def test_drop_indexes():
+    """drop_indexes drops each listed index."""
+    test_db = AsyncDatabase()
+
+    mock_indexes = [
+        {"name": "index1", "labelsOrTypes": ["Label1"], "properties": ["prop1"]},
+        {"name": "index2", "labelsOrTypes": ["Label2"], "properties": ["prop2"]},
+    ]
+
+    with patch.object(
+        test_db._schema, "list_indexes", new_callable=AsyncMock
+    ) as mock_list_indexes:
+        mock_list_indexes.return_value = mock_indexes
+
+        with patch.object(
+            test_db._query, "cypher_query", new_callable=AsyncMock
+        ) as mock_cypher:
+            await test_db.drop_indexes(quiet=False)
+
+            assert mock_cypher.call_count == 2
+
+
+@mark_async_test
+async def test_remove_all_labels():
+    """remove_all_labels drops both constraints and indexes."""
+    test_db = AsyncDatabase()
+
+    with patch.object(
+        test_db._schema, "drop_constraints", new_callable=AsyncMock
+    ) as mock_drop_constraints:
+        with patch.object(
+            test_db._schema, "drop_indexes", new_callable=AsyncMock
+        ) as mock_drop_indexes:
+            with patch("sys.stdout") as mock_stdout:
+                await test_db.remove_all_labels()
+
+                mock_drop_constraints.assert_called_once_with(
+                    quiet=False, stdout=mock_stdout
+                )
+                mock_drop_indexes.assert_called_once_with(
+                    quiet=False, stdout=mock_stdout
+                )
+
+
+@mark_async_test
+async def test_install_all_labels():
+    """install_all_labels installs labels for each registered node class."""
+    test_db = AsyncDatabase()
+
+    class MockNode:
+        def __init__(self, name):
+            self.__name__ = name
+
+        @classmethod
+        async def install_labels(cls, quiet=True, stdout=None):
+            pass
+
+    with patch("neomodel.async_.node.AsyncStructuredNode", MockNode):
+        with patch("sys.stdout"):
+            await test_db.install_all_labels()
+
+
+# ---------------------------------------------------------------------------
+# Facade behaviour
+# ---------------------------------------------------------------------------
+
+
+@mark_async_test
+async def test_impersonate_requires_enterprise_edition():
+    """Impersonation is an enterprise-only feature: on a non-enterprise edition
+    it must raise FeatureNotSupported rather than silently issuing impersonated
+    queries. The edition is stubbed so the check is deterministic regardless of
+    the server the tests run against."""
+    db = AsyncDatabase()
+    original_edition = db._database_edition
+    try:
+        # A non-None edition short-circuits the lazy server lookup.
+        db._database_edition = "community"
+        with pytest.raises(FeatureNotSupported):
+            await db.impersonate("somebody")
+    finally:
+        db._database_edition = original_edition
+
+
+@mark_async_test
+async def test_facade_delegates_state_to_connection_manager():
+    """The AsyncDatabase facade reads and writes shared connection state through
+    its AsyncConnectionManager rather than holding any of its own."""
+    db = AsyncDatabase()
+    connection = db._connection
+
+    # Getters read straight from the connection manager.
+    assert db.driver is connection.driver
+    assert db._owns_driver is connection._owns_driver
+    assert db._connection_lock is connection._connection_lock
+    assert db._connection_url == connection._connection_url
+
+    # Setters write through to the connection manager. Capture and restore the
+    # originals so the shared singleton is left untouched for other tests.
+    originals = {
+        name: getattr(connection, name)
+        for name in (
+            "url",
+            "_connection_url",
+            "_database_version",
+            "_database_edition",
+            "_database_name",
+            "_active_transaction",
+            "_session",
+            "_owns_driver",
+        )
+    }
+    try:
+        # Round-trip the driver through the setter without changing it.
+        db.driver = connection.driver
+        assert db.driver is connection.driver
+
+        db.url = "redacted://url"
+        db._connection_url = "bolt://user:pass@localhost:7687"
+        db._database_version = "5.99.0"
+        db._database_edition = "enterprise"
+        db._database_name = "facade-test-db"
+        db._active_transaction = "tx-sentinel"
+        db._session = "session-sentinel"
+        db._owns_driver = not originals["_owns_driver"]
+
+        assert connection.url == "redacted://url"
+        assert connection._connection_url == "bolt://user:pass@localhost:7687"
+        assert connection._database_version == "5.99.0"
+        assert connection._database_edition == "enterprise"
+        assert connection._database_name == "facade-test-db"
+        assert connection._active_transaction == "tx-sentinel"
+        assert connection._session == "session-sentinel"
+        assert connection._owns_driver == (not originals["_owns_driver"])
+    finally:
+        for name, value in originals.items():
+            setattr(connection, name, value)

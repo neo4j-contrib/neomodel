@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Iterable, Union
+from typing import Any, AsyncIterator, Generic, Iterable, TypeVar, Union
 
 from typing_extensions import Self
 
@@ -13,6 +13,9 @@ from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.relationship import AsyncStructuredRel
 from neomodel.exceptions import MultipleNodesReturned
 from neomodel.match_q import Q, QBase
+
+# The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
+T = TypeVar("T", bound=AsyncStructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
@@ -163,6 +166,18 @@ _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
 _SPECIAL_OPERATOR_REGEX = "=~"
 _SPECIAL_OPERATOR_EXISTS = "EXISTS"
+_SPECIAL_OPERATOR_INCLUDES = "{val} IN {ident}.{prop}"
+_SPECIAL_OPERATOR_INCLUDES_ALL = "all(x IN {val} WHERE x IN {ident}.{prop})"
+_SPECIAL_OPERATOR_INCLUDES_ANY = "any(x IN {val} WHERE x IN {ident}.{prop})"
+
+# operators whose statement is built by formatting the operator template
+# (they reference {ident}/{prop}/{val}) rather than "{ident}.{prop} {op} {val}"
+_ARRAY_FORMAT_OPERATORS = (
+    _SPECIAL_OPERATOR_ARRAY_IN,
+    _SPECIAL_OPERATOR_INCLUDES,
+    _SPECIAL_OPERATOR_INCLUDES_ALL,
+    _SPECIAL_OPERATOR_INCLUDES_ANY,
+)
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
@@ -200,6 +215,9 @@ OPERATOR_TABLE = {
     "regex": _SPECIAL_OPERATOR_REGEX,
     "exact": "=",
     "exists": "EXISTS",
+    "includes": _SPECIAL_OPERATOR_INCLUDES,
+    "includes_all": _SPECIAL_OPERATOR_INCLUDES_ALL,
+    "includes_any": _SPECIAL_OPERATOR_INCLUDES_ANY,
 }
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
@@ -252,6 +270,32 @@ def _handle_special_operators(
             f"NOT {_SPECIAL_OPERATOR_EXISTS}" if not value else _SPECIAL_OPERATOR_EXISTS
         )
         deflated_value = value
+    elif operator == _SPECIAL_OPERATOR_INCLUDES:
+        if not isinstance(property_obj, ArrayProperty):
+            raise ValueError(
+                f"Property '{key}' must be an ArrayProperty to use the includes operator"
+            )
+        if isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a single element for includes operation {key}={value}"
+            )
+        # deflate against the array's inner element type so typed arrays work
+        deflated_value = (
+            property_obj.base_property.deflate(value)
+            if property_obj.base_property is not None
+            else value
+        )
+    elif operator in (_SPECIAL_OPERATOR_INCLUDES_ALL, _SPECIAL_OPERATOR_INCLUDES_ANY):
+        if not isinstance(property_obj, ArrayProperty):
+            raise ValueError(
+                f"Property '{key}' must be an ArrayProperty to use the "
+                f"includes_all/includes_any operators"
+            )
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value must be a list or tuple for {operator} operation {key}={value}"
+            )
+        deflated_value = property_obj.deflate(value)
     elif operator in _REGEX_OPERATOR_TABLE.values():
         deflated_value = property_obj.deflate(value)
         if not isinstance(deflated_value, str):
@@ -308,7 +352,7 @@ def _initialize_filter_args_variables(
 
 def _process_filter_key(
     cls: type[AsyncStructuredNode], key: str
-) -> tuple[Property, str, str]:
+) -> tuple[Property | None, str, str]:
     (
         current_class,
         current_rel_model,
@@ -366,8 +410,10 @@ def process_filter_args(cls: type[AsyncStructuredNode], kwargs: dict[str, Any]) 
 
     for key, value in kwargs.items():
         property_obj, operator, prop = _process_filter_key(cls, key)
+        # property_obj is None only for hop-ending filters, whose operator is
+        # EXISTS/ISNULL - branches in _deflate_value that never dereference it.
         deflated_value, operator, prop = _deflate_value(
-            cls, property_obj, key, value, operator, prop
+            cls, property_obj, key, value, operator, prop  # type: ignore[arg-type]
         )
         # map property to correct property name in the database
         db_property = prop
@@ -894,7 +940,7 @@ class AsyncQueryBuilder:
             statement = f"{'NOT ' if not val else ''}EXISTS {{ {statement} }}"
         else:
             place_holder = self._register_place_holder(ident + "_" + prop)
-            if operator == _SPECIAL_OPERATOR_ARRAY_IN:
+            if operator in _ARRAY_FORMAT_OPERATORS:
                 statement = operator.format(
                     ident=ident,
                     prop=prop,
@@ -1010,6 +1056,17 @@ class AsyncQueryBuilder:
                         statement = (
                             f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
                         )
+                    elif operator in _ARRAY_FORMAT_OPERATORS:
+                        # these operators are templates referencing the property
+                        # and value directly, so they are formatted, not appended
+                        place_holder = self._register_place_holder(ident + "_" + prop)
+                        self._query_params[place_holder] = val
+                        formatted = operator.format(
+                            ident=ident,
+                            prop=prop,
+                            val=f"${place_holder}",
+                        )
+                        statement = f"{'NOT ' if negate else ''}{formatted}"
                     else:
                         place_holder = self._register_place_holder(ident + "_" + prop)
                         statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
@@ -1355,7 +1412,7 @@ class Path:
     alias: str | None = None
 
 
-class AsyncBaseSet:
+class AsyncBaseSet(Generic[T]):
     """
     Base class for all node sets.
 
@@ -1363,13 +1420,14 @@ class AsyncBaseSet:
     """
 
     query_cls = AsyncQueryBuilder
-    source_class: type[AsyncStructuredNode]
+    source: Any
+    source_class: type[T]
 
     # Attributes defined in subclasses (AsyncNodeSet)
     _unique_variables: list[str]
     relations_to_fetch: list[Path]
 
-    async def all(self, lazy: bool = False) -> list:
+    async def all(self, lazy: bool = False) -> list[T]:
         """
         Return all nodes belonging to the set
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1382,7 +1440,7 @@ class AsyncBaseSet:
         ]  # Collect all nodes asynchronously
         return results
 
-    async def __aiter__(self) -> AsyncIterator:
+    async def __aiter__(self) -> AsyncIterator[T]:
         """
         Async iterator that streams results from the database one at a time.
 
@@ -1429,7 +1487,7 @@ class AsyncBaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    async def get_item(self, key: int | slice) -> Self | AsyncStructuredNode:
+    async def get_item(self, key: int | slice) -> Self | T:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1589,14 +1647,19 @@ class RawCypher:
         return string.Template(self.statement).substitute(context)
 
 
-class AsyncNodeSet(AsyncBaseSet):
+class AsyncNodeSet(AsyncBaseSet[T]):
     """
     A class representing as set of nodes matching common query parameters
     """
 
     def __init__(self, source: Any) -> None:
         self.source = source  # could be a Traverse object or a node class
-        if isinstance(source, AsyncTraversal):
+        if isinstance(source, AsyncNodeSet):
+            # unwrap: reuse the wrapped set's underlying source (e.g. a
+            # Traversal carrying match() filters) so chaining stays flat
+            self.source = source.source
+            self.source_class = source.source_class
+        elif isinstance(source, AsyncTraversal):
             self.source_class = source.target_class
         elif inspect.isclass(source) and issubclass(source, AsyncStructuredNode):
             self.source_class = source
@@ -1625,11 +1688,11 @@ class AsyncNodeSet(AsyncBaseSet):
         self.fulltext_query: FulltextFilter | None = None
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     async def _get(
         self, limit: int | None = None, lazy: bool = False, **kwargs: dict[str, Any]
-    ) -> list:
+    ) -> list[T]:
         self.filter(**kwargs)
         if limit:
             self.limit = limit
@@ -1637,7 +1700,7 @@ class AsyncNodeSet(AsyncBaseSet):
         results = [node async for node in ast._execute(lazy)]
         return results
 
-    async def get(self, lazy: bool = False, **kwargs: Any) -> AsyncStructuredNode:
+    async def get(self, lazy: bool = False, **kwargs: Any) -> T:
         """
         Retrieve one node from the set matching supplied parameters
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1651,7 +1714,7 @@ class AsyncNodeSet(AsyncBaseSet):
             raise self.source_class.DoesNotExist(repr(kwargs))
         return result[0]
 
-    async def get_or_none(self, **kwargs: Any) -> AsyncStructuredNode | None:
+    async def get_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve a node from the set matching supplied parameters or return none
 
@@ -1663,7 +1726,7 @@ class AsyncNodeSet(AsyncBaseSet):
         except self.source_class.DoesNotExist:
             return None
 
-    async def first(self, **kwargs: Any) -> AsyncStructuredNode:
+    async def first(self, **kwargs: Any) -> T:
         """
         Retrieve the first node from the set matching supplied parameters
 
@@ -1676,7 +1739,7 @@ class AsyncNodeSet(AsyncBaseSet):
         else:
             raise self.source_class.DoesNotExist(repr(kwargs))
 
-    async def first_or_none(self, **kwargs: Any) -> Self | None:
+    async def first_or_none(self, **kwargs: Any) -> T | None:
         """
         Retrieve the first node from the set matching supplied parameters or return none
 
@@ -1688,6 +1751,54 @@ class AsyncNodeSet(AsyncBaseSet):
         except self.source_class.DoesNotExist:
             pass
         return None
+
+    async def bulk_create(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Create multiple nodes of this set's class in a single round-trip.
+
+        Each positional argument is a dict of properties for one node. This is
+        the batch counterpart to ``StructuredNode.save()`` (which creates one
+        node); it replaces the deprecated ``MyNode.create(...)`` classmethod.
+
+        :param props: one dict of properties per node to create
+        :param lazy: if True, return nodes with element_id only
+        :return: list of created nodes, in the order supplied
+        """
+        return await self.source_class._bulk_create(*props, **kwargs)
+
+    async def bulk_create_or_update(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Create or update multiple nodes in a single MERGE round-trip.
+
+        Replaces the deprecated ``MyNode.create_or_update(...)`` classmethod.
+        See ``bulk_create`` for the props/lazy/merge_by arguments.
+
+        :return: list of created/updated nodes, in the order supplied
+        """
+        return await self.source_class._bulk_create_or_update(*props, **kwargs)
+
+    async def bulk_get_or_create(self, *props: Any, **kwargs: Any) -> list[T]:
+        """
+        Get or create multiple nodes in a single MERGE round-trip.
+
+        Replaces the deprecated ``MyNode.get_or_create(...)`` classmethod.
+        See ``bulk_create`` for the props/lazy/merge_by arguments.
+
+        :return: list of fetched/created nodes, in the order supplied
+        """
+        return await self.source_class._bulk_get_or_create(*props, **kwargs)
+
+    async def bulk_save(self, nodes: list[T]) -> list[T]:
+        """
+        Persist a list of node instances of this set's class in bulk.
+
+        Convenience mirror of ``StructuredNode.bulk_save(...)`` so every batch
+        operation is reachable from ``MyNode.nodes``.
+
+        :param nodes: node instances to save
+        :return: the same instances, in order
+        """
+        return await self.source_class.bulk_save(nodes)
 
     def filter(self, *args: Any, **kwargs: Any) -> Self:
         """
@@ -1721,6 +1832,9 @@ class AsyncNodeSet(AsyncBaseSet):
              * 'istartswith': case insensitive string starts with
              * 'endswith': string ends with
              * 'iendswith': case insensitive string ends with
+             * 'includes': ArrayProperty contains the given element
+             * 'includes_all': ArrayProperty contains all the given elements
+             * 'includes_any': ArrayProperty contains any of the given elements
 
         :return: self
         """
@@ -1764,15 +1878,6 @@ class AsyncNodeSet(AsyncBaseSet):
         """
         if args or kwargs:
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
-        return self
-
-    @deprecated(
-        "This method is deprecated and set to be removed in a future release. Please use .filter(has_rel__exists=True) instead."
-    )
-    def has(self, **kwargs: Any) -> Self:
-        must_match, dont_match = process_has_args(self.source_class, kwargs)
-        self.must_match.update(must_match)
-        self.dont_match.update(dont_match)
         return self
 
     def order_by(self, *props: Any) -> Self:
@@ -1926,8 +2031,9 @@ class AsyncNodeSet(AsyncBaseSet):
         self,
         nodeset: Self,
         return_set: list[str],
-        initial_context: list[str | NodeNameResolver | RelationNameResolver | RawCypher]
-        | None = None,
+        initial_context: (
+            list[str | NodeNameResolver | RelationNameResolver | RawCypher] | None
+        ) = None,
     ) -> Self:
         """Add a subquery to this node set.
 
@@ -2000,7 +2106,7 @@ class AsyncNodeSet(AsyncBaseSet):
         return self
 
 
-class AsyncTraversal(AsyncBaseSet):
+class AsyncTraversal(AsyncBaseSet[AsyncStructuredNode]):
     """
     Models a traversal from a node to another.
 
@@ -2023,7 +2129,7 @@ class AsyncTraversal(AsyncBaseSet):
     filters: list
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def __init__(self, source: Any, name: str, definition: dict) -> None:
         """
@@ -2048,6 +2154,7 @@ class AsyncTraversal(AsyncBaseSet):
             "model",
             "node_class",
             "relation_type",
+            "exclusion_group",
         }
         if invalid_keys:
             raise ValueError(f"Prohibited keys in Traversal definition: {invalid_keys}")
@@ -2057,14 +2164,14 @@ class AsyncTraversal(AsyncBaseSet):
         self.name = name
         self.filters: list = []
 
-    def match(self, **kwargs: dict[str, Any]) -> "AsyncTraversal":
+    def match(self, **kwargs: dict[str, Any]) -> "AsyncNodeSet":
         """
         Traverse relationships with properties matching the given parameters.
 
             e.g: `.match(price__lt=10)`
 
         :param kwargs: see `NodeSet.filter()` for syntax
-        :return: self
+        :return: NodeSet wrapping this traversal
         """
         if kwargs:
             if self.definition.get("model") is None:
@@ -2074,4 +2181,4 @@ class AsyncTraversal(AsyncBaseSet):
             output = process_filter_args(self.definition["model"], kwargs)
             if output:
                 self.filters.append(output)
-        return self
+        return AsyncNodeSet(self)

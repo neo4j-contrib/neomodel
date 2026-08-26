@@ -63,6 +63,47 @@ async def test_batch_create():
 
 
 @mark_async_test
+async def test_batch_create_uses_single_round_trip(monkeypatch):
+    # create() must issue a single UNWIND query for the whole batch, not one
+    # CREATE per node.
+    original = adb.cypher_query
+    queries = []
+
+    async def counting_cypher_query(query, *args, **kwargs):
+        queries.append(query)
+        return await original(query, *args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+
+    users = await Customer.create(
+        {"email": "rt1@aol.com", "age": 1},
+        {"email": "rt2@aol.com", "age": 2},
+        {"email": "rt3@aol.com", "age": 3},
+    )
+
+    assert len(users) == 3
+    assert len(queries) == 1
+    assert "UNWIND" in queries[0]
+
+
+@mark_async_test
+async def test_batch_create_empty_is_noop(monkeypatch):
+    # Creating from no props should not touch the database at all.
+    original = adb.cypher_query
+    call_count = 0
+
+    async def counting_cypher_query(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+
+    assert await Customer.create() == []
+    assert call_count == 0
+
+
+@mark_async_test
 async def test_batch_create_or_update():
     users = await Customer.create_or_update(
         {"email": "merge1@aol.com", "age": 11},
@@ -752,3 +793,159 @@ async def test_merge_by_label_is_escaped():
     # The pre-existing node must still be present.
     await existing.refresh()
     assert existing.name == "Victim"
+
+
+@mark_async_test
+async def test_bulk_save_creates_new_nodes():
+    users = [Customer(email=f"bulk{i}@aol.com", age=i) for i in range(3)]
+    saved = await Customer.bulk_save(users)
+
+    assert len(saved) == 3
+    # Created instances now carry their element_id and are persisted.
+    for user in users:
+        assert user.element_id is not None
+    assert (await Customer.nodes.get(email="bulk1@aol.com")).age == 1
+
+
+@mark_async_test
+async def test_bulk_save_updates_existing_nodes():
+    a = await Customer(email="upd_a@aol.com", age=1).save()
+    b = await Customer(email="upd_b@aol.com", age=2).save()
+
+    a.age = 10
+    b.age = 20
+    await Customer.bulk_save([a, b])
+
+    assert (await Customer.nodes.get(email="upd_a@aol.com")).age == 10
+    assert (await Customer.nodes.get(email="upd_b@aol.com")).age == 20
+
+
+@mark_async_test
+async def test_bulk_save_uses_two_queries_regardless_of_count(monkeypatch):
+    # A mix of one existing node (update) and two new ones (create) must issue
+    # a single UNWIND create and a single UNWIND update - not one query per node.
+    existing = await Customer(email="rt_existing@aol.com", age=1).save()
+    existing.age = 99
+    new_nodes = [
+        Customer(email="rt_new1@aol.com", age=1),
+        Customer(email="rt_new2@aol.com", age=2),
+    ]
+
+    original = adb.cypher_query
+    unwind_queries = []
+
+    async def counting_cypher_query(query, *args, **kwargs):
+        if "UNWIND" in query:
+            unwind_queries.append(query)
+        return await original(query, *args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+    await Customer.bulk_save([existing, *new_nodes])
+
+    assert len(unwind_queries) == 2  # one create, one update
+    assert (await Customer.nodes.get(email="rt_existing@aol.com")).age == 99
+
+
+@mark_async_test
+async def test_bulk_save_empty_is_noop(monkeypatch):
+    original = adb.cypher_query
+    call_count = 0
+
+    async def counting_cypher_query(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(adb, "cypher_query", counting_cypher_query)
+    assert await Customer.bulk_save([]) == []
+    assert call_count == 0
+
+
+@mark_async_test
+async def test_bulk_save_runs_pre_and_post_save_hooks():
+    class BulkHookNode(AsyncStructuredNode):
+        name = StringProperty(unique_index=True)
+
+        def pre_save(self):
+            self.pre_save_ran = True
+
+        def post_save(self):
+            self.post_save_ran = True
+
+    await adb.install_labels(BulkHookNode)
+    node = BulkHookNode(name="hooky")
+    await BulkHookNode.bulk_save([node])
+
+    assert getattr(node, "pre_save_ran", False)
+    assert getattr(node, "post_save_ran", False)
+    assert node.element_id is not None
+
+
+class BatchFruit(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    color = StringProperty()
+
+
+@mark_async_test
+async def test_nodeset_bulk_create():
+    fruits = await BatchFruit.nodes.bulk_create({"name": "apple"}, {"name": "banana"})
+    assert len(fruits) == 2
+    assert all(isinstance(f, BatchFruit) for f in fruits)
+    assert [f.name for f in fruits] == ["apple", "banana"]
+
+
+@mark_async_test
+async def test_nodeset_bulk_get_or_create_is_idempotent():
+    first = await BatchFruit.nodes.bulk_get_or_create({"name": "cherry"})
+    again = await BatchFruit.nodes.bulk_get_or_create({"name": "cherry"})
+    assert first[0].element_id == again[0].element_id
+
+
+@mark_async_test
+async def test_nodeset_bulk_create_or_update():
+    created = await BatchFruit.nodes.bulk_create_or_update(
+        {"name": "date", "color": "brown"}
+    )
+    updated = await BatchFruit.nodes.bulk_create_or_update(
+        {"name": "date", "color": "black"}
+    )
+    assert created[0].element_id == updated[0].element_id
+    assert updated[0].color == "black"
+
+
+@mark_async_test
+async def test_nodeset_bulk_save():
+    nodes = [BatchFruit(name="elderberry"), BatchFruit(name="fig")]
+    saved = await BatchFruit.nodes.bulk_save(nodes)
+    assert {n.name for n in saved} == {"elderberry", "fig"}
+    assert all(n.element_id is not None for n in saved)
+
+
+@mark_async_test
+async def test_deprecated_batch_classmethods_still_work_and_warn():
+    from pytest import warns
+
+    with warns(DeprecationWarning, match=r"create\(\) is deprecated.*bulk_create"):
+        created = await BatchFruit.create({"name": "grape"})
+    assert created[0].name == "grape"
+
+    with warns(
+        DeprecationWarning, match=r"get_or_create\(\) is deprecated.*bulk_get_or_create"
+    ):
+        await BatchFruit.get_or_create({"name": "grape"})
+
+    with warns(
+        DeprecationWarning,
+        match=r"create_or_update\(\) is deprecated.*bulk_create_or_update",
+    ):
+        await BatchFruit.create_or_update({"name": "grape", "color": "green"})
+
+
+@mark_async_test
+async def test_save_does_not_emit_deprecation_warning():
+    """save() creates via the internal impl, so it must NOT warn."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        await BatchFruit(name="honeydew").save()

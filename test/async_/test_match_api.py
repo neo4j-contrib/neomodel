@@ -23,7 +23,6 @@ from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_.match import (
     AsyncNodeSet,
     AsyncQueryBuilder,
-    AsyncTraversal,
     Collect,
     Last,
     NodeNameResolver,
@@ -33,7 +32,6 @@ from neomodel.async_.match import (
     Size,
 )
 from neomodel.exceptions import MultipleNodesReturned, RelationshipClassNotDefined
-from neomodel.util import RelationshipDirection
 
 
 class SupplierRel(AsyncStructuredRel):
@@ -148,27 +146,6 @@ async def test_filter_exclude_via_labels():
     assert "NOT" in qb._ast.where[0]
     assert len(results) == 1
     assert results[0].name == "Kenco"
-
-
-@mark_async_test
-async def test_simple_has_via_label():
-    nescafe = await Coffee(name="Nescafe", price=99).save()
-    tesco = await Supplier(name="Tesco", delivery_cost=2).save()
-    await nescafe.suppliers.connect(tesco)
-
-    ns = AsyncNodeSet(Coffee).has(suppliers=True)
-    qb = await AsyncQueryBuilder(ns).build_ast()
-    results = [node async for node in qb._execute()]
-    assert "COFFEE SUPPLIERS" in qb._ast.where[0]
-    assert len(results) == 1
-    assert results[0].name == "Nescafe"
-
-    await Coffee(name="nespresso", price=99).save()
-    ns = AsyncNodeSet(Coffee).has(suppliers=False)
-    qb = await AsyncQueryBuilder(ns).build_ast()
-    results = [node async for node in qb._execute()]
-    assert len(results) > 0
-    assert "NOT" in qb._ast.where[0]
 
 
 @mark_async_test
@@ -417,33 +394,6 @@ async def test_extra_filters():
         await Coffee.nodes.filter(elementId="4:xxx:111").all()
 
 
-def test_traversal_definition_keys_are_valid():
-    muckefuck = Coffee(name="Mukkefuck", price=1)
-
-    with raises(ValueError):
-        AsyncTraversal(
-            muckefuck,
-            "a_name",
-            {
-                "node_class": Supplier,
-                "direction": RelationshipDirection.INCOMING,
-                "relationship_type": "KNOWS",
-                "model": None,
-            },
-        )
-
-    AsyncTraversal(
-        muckefuck,
-        "a_name",
-        {
-            "node_class": Supplier,
-            "direction": RelationshipDirection.INCOMING,
-            "relation_type": "KNOWS",
-            "model": None,
-        },
-    )
-
-
 @mark_async_test
 async def test_empty_filters():
     """Test this case:
@@ -575,18 +525,6 @@ async def test_q_filters():
 
     with raises(TypeError):
         await Coffee.nodes.filter(Q(price=5) | QQ()).all()
-
-
-def test_qbase():
-    test_print_out = str(Q(price=5) | Q(price=10))
-    test_repr = repr(Q(price=5) | Q(price=10))
-    assert test_print_out == "(OR: ('price', 5), ('price', 10))"
-    assert test_repr == "<Q: (OR: ('price', 5), ('price', 10))>"
-
-    assert ("price", 5) in (Q(price=5) | Q(price=10))
-
-    test_hash = set([Q(price_lt=30) | ~Q(price=5), Q(price_lt=30) | ~Q(price=5)])
-    assert len(test_hash) == 1
 
 
 @mark_async_test
@@ -1410,3 +1348,138 @@ async def test_parallel_runtime_conflict(mocker):
             assert not assert_last_query_startswith(
                 mock_transaction_run, "CYPHER runtime=parallel"
             )
+
+
+class MemberOfRelationship(AsyncStructuredRel):
+    tags = ArrayProperty(StringProperty(), required=True)
+
+
+class Player(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    tags = ArrayProperty(StringProperty(), required=True)
+    club = AsyncRelationshipTo(
+        "Club", "MEMBER_OF", model=MemberOfRelationship, cardinality=AsyncZeroOrOne
+    )
+
+
+class Club(AsyncStructuredNode):
+    name = StringProperty(unique_index=True, required=True)
+    members = AsyncRelationshipFrom("Player", "MEMBER_OF", model=MemberOfRelationship)
+
+
+@mark_async_test
+async def test_includes_filter_with_nodeset():
+    ronaldo = await Player(
+        name="Ronaldo", tags=["player", "striker", "portugal"]
+    ).save()
+    messi = await Player(name="Messi", tags=["player", "striker", "argentina"]).save()
+
+    # includes (single element), also with a Q object
+    assert ronaldo in await Player.nodes.filter(Q(tags__includes="striker"))
+    assert ronaldo in await Player.nodes.filter(tags__includes="striker")
+    assert messi in await Player.nodes.filter(tags__includes="striker")
+    assert ronaldo in await Player.nodes.filter(tags__includes="portugal")
+    assert messi not in await Player.nodes.filter(tags__includes="portugal")
+
+    # includes_any
+    assert ronaldo in await Player.nodes.filter(
+        Q(tags__includes_any=["portugal", "argentina"])
+    )
+    assert ronaldo in await Player.nodes.filter(
+        tags__includes_any=["portugal", "argentina"]
+    )
+    assert messi in await Player.nodes.filter(
+        tags__includes_any=["portugal", "argentina"]
+    )
+    assert messi in await Player.nodes.filter(
+        tags__includes_any=["portugal", "striker"]
+    )
+
+    # includes_all
+    assert ronaldo in await Player.nodes.filter(
+        Q(tags__includes_all=["player", "striker"])
+    )
+    assert messi in await Player.nodes.filter(tags__includes_all=["player", "striker"])
+    assert ronaldo in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "portugal"]
+    )
+    assert ronaldo not in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "argentina"]
+    )
+    assert messi not in await Player.nodes.filter(
+        tags__includes_all=["player", "striker", "portugal"]
+    )
+
+
+@mark_async_test
+async def test_includes_filter_with_traversal():
+    enrique = await Player(name="Enrique", tags=["spain"]).save()
+    donnarumma = await Player(name="Donnarumma", tags=["italia"]).save()
+    dembele = await Player(name="Dembele", tags=["france"]).save()
+    marquinhos = await Player(name="Marquinhos", tags=["brasil"]).save()
+    kolomuani = await Player(name="Kolo Muani", tags=["congo"]).save()
+
+    psg = await Club(name="PSG").save()
+    await psg.members.connect(enrique, properties={"tags": ["coach"]})
+    await psg.members.connect(donnarumma, properties={"tags": ["player", "goalkeeper"]})
+    await psg.members.connect(marquinhos, properties={"tags": ["player", "defender"]})
+    await psg.members.connect(dembele, properties={"tags": ["player", "forward"]})
+    await psg.members.connect(kolomuani, properties={"tags": ["player", "forward"]})
+
+    # includes on a relationship ArrayProperty, via match()
+    players = await psg.members.match(tags__includes="player").all()
+    assert donnarumma in players
+    assert dembele in players
+    assert marquinhos in players
+    assert kolomuani in players
+    assert enrique not in players
+    assert donnarumma in await psg.members.match(tags__includes="goalkeeper").all()
+    assert dembele not in await psg.members.match(tags__includes="goalkeeper").all()
+
+    # includes_any
+    players = await psg.members.match(tags__includes_any=["defender", "forward"]).all()
+    assert donnarumma not in players
+    assert dembele in players
+    assert marquinhos in players
+    assert kolomuani in players
+    assert enrique not in players
+
+    # includes_all
+    players = await psg.members.match(tags__includes_all=["player", "forward"]).all()
+    assert donnarumma not in players
+    assert marquinhos not in players
+    assert enrique not in players
+    assert dembele in players
+    assert kolomuani in players
+
+
+@mark_async_test
+async def test_includes_filter_invalid_arguments():
+    # NodeSet.filter() defers validation to query build, so force it with .all()
+    # includes requires an ArrayProperty
+    with raises(
+        ValueError, match=r"must be an ArrayProperty to use the includes operator"
+    ):
+        await Player.nodes.filter(name__includes="striker").all()
+
+    # includes takes a single element, not a list/tuple
+    with raises(ValueError, match=r"Value must be a single element for includes"):
+        await Player.nodes.filter(tags__includes=["player", "striker"]).all()
+
+    # includes_all / includes_any require an ArrayProperty
+    with raises(
+        ValueError,
+        match=r"must be an ArrayProperty to use the includes_all/includes_any",
+    ):
+        await Player.nodes.filter(name__includes_all=["striker"]).all()
+    with raises(
+        ValueError,
+        match=r"must be an ArrayProperty to use the includes_all/includes_any",
+    ):
+        await Player.nodes.filter(name__includes_any=["striker"]).all()
+
+    # includes_all / includes_any take a list or tuple, not a single element
+    with raises(ValueError, match=r"Value must be a list or tuple"):
+        await Player.nodes.filter(tags__includes_all="striker").all()
+    with raises(ValueError, match=r"Value must be a list or tuple"):
+        await Player.nodes.filter(tags__includes_any="striker").all()

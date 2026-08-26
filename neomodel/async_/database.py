@@ -1,190 +1,44 @@
 """
-Database connection and management for the async neomodel module.
+Database facade for the async neomodel module.
+
+``AsyncDatabase`` is the singleton ``adb`` that user code and the rest of
+neomodel talk to. It is a thin facade that composes three collaborators and
+delegates to them:
+
+* :class:`~neomodel.async_.connection.AsyncConnectionManager` - driver, URL,
+  server version/edition, sessions and transactions (the shared state).
+* :class:`~neomodel.async_.query.AsyncQueryRunner` - Cypher execution, streaming
+  and object resolution.
+* :class:`~neomodel.async_.schema.AsyncSchemaManager` - index/constraint
+  installation and schema admin.
+
+The node-class registry lives in :mod:`neomodel.async_._registry`.
+
+``ensure_connection`` and ``_redact_params`` are re-exported here for backward
+compatibility with code that imports them from this module.
 """
 
-import logging
-import os
-import sys
-import time
-from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, TextIO
-from urllib.parse import urlsplit
+from typing import TYPE_CHECKING, Any, AsyncIterator, TextIO
 
-from neo4j import (
-    DEFAULT_DATABASE,
-    AsyncDriver,
-    AsyncGraphDatabase,
-    AsyncResult,
-    AsyncSession,
-    AsyncTransaction,
-    Query,
-    basic_auth,
-)
+from neo4j import AsyncDriver, AsyncSession, AsyncTransaction
 from neo4j.api import Bookmarks
-from neo4j.exceptions import ClientError, ServiceUnavailable, SessionExpired
-from neo4j.graph import Node, Path, Relationship
 
-from neomodel.config import get_config
+from neomodel.async_._registry import registry
+from neomodel.async_.connection import AsyncConnectionManager, ensure_connection
+from neomodel.async_.query import AsyncQueryRunner, _redact_params
+from neomodel.async_.schema import AsyncSchemaManager
 from neomodel.constants import (
     ACCESS_MODE_READ,
     ACCESS_MODE_WRITE,
-    CONSTRAINT_ALREADY_EXISTS,
-    DROP_CONSTRAINT_COMMAND,
-    DROP_INDEX_COMMAND,
-    ELEMENT_ID_METHOD,
     ENTERPRISE_EDITION_TAG,
-    INDEX_ALREADY_EXISTS,
-    LEGACY_ID_METHOD,
-    LIST_CONSTRAINTS_COMMAND,
-    LOOKUP_INDEX_TYPE,
-    NO_SESSION_OPEN,
-    NO_TRANSACTION_IN_PROGRESS,
-    RULE_ALREADY_EXISTS,
-    UNKNOWN_SERVER_VERSION,
-    VERSION_FULLTEXT_INDEXES_SUPPORT,
-    VERSION_LEGACY_ID,
-    VERSION_PARALLEL_RUNTIME_SUPPORT,
-    VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT,
-    VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT,
-    VERSION_VECTOR_INDEXES_SUPPORT,
 )
-from neomodel.exceptions import (
-    ConstraintValidationFailed,
-    FeatureNotSupported,
-    NodeClassNotDefined,
-    RelationshipClassNotDefined,
-    UniqueProperty,
-)
-from neomodel.properties import FulltextIndex, Property, VectorIndex
-from neomodel.util import (
-    escape_cypher_string_literal,
-    escape_identifier,
-    version_tag_to_integer,
-)
+from neomodel.exceptions import FeatureNotSupported
 
-# The imports inside this block are only for type checking tools (like mypy or IDEs) to help with code hints and error checking.
-# These imports are ignored when the code actually runs, so they don't affect runtime performance or cause circular import problems.
+# Re-exported for backward compatibility (imported from this module elsewhere).
+__all__ = ["AsyncDatabase", "adb", "ensure_connection", "_redact_params"]
+
 if TYPE_CHECKING:
-    from neomodel.async_.node import AsyncStructuredNode  # type: ignore
     from neomodel.async_.transaction import AsyncTransactionProxy, ImpersonationHandler
-
-logger = logging.getLogger(__name__)
-
-# Substrings that mark a query-parameter key as sensitive. Keys are normalised
-# to lowercase alphanumerics before matching, so compound and differently-styled
-# names such as "user_password", "stripe_api_key", "refresh_token" or
-# "accessKey" are all caught. This is a best-effort default; applications with
-# their own naming conventions should configure
-# ``config.cypher_log_redaction_hook``.
-SENSITIVE_PARAM_KEY_SUBSTRINGS = frozenset(
-    {
-        "password",
-        "passwd",
-        "passphrase",
-        "secret",
-        "token",
-        "apikey",
-        "privatekey",
-        "credential",
-        "authorization",
-        "accesskey",
-        "sessionkey",
-        "encryptionkey",
-    }
-)
-
-# Short or ambiguous names that are only treated as sensitive on an exact
-# (normalised) match, to avoid false positives from substring matching such as
-# "author" (auth), "passenger" (pass) or "monkey" (key).
-SENSITIVE_PARAM_KEYS = frozenset(
-    {
-        "pwd",
-        "pass",
-        "auth",
-        "key",
-        "otp",
-        "totp",
-        "mfa",
-        "pin",
-        "ssn",
-        "cvv",
-        "cvc",
-    }
-)
-
-
-def _is_sensitive_param_key(key: Any) -> bool:
-    """Return True if a query-parameter key looks like it carries a secret."""
-    normalized = "".join(char for char in str(key).lower() if char.isalnum())
-    if normalized in SENSITIVE_PARAM_KEYS:
-        return True
-    return any(token in normalized for token in SENSITIVE_PARAM_KEY_SUBSTRINGS)
-
-
-def _redact_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Return a copy of ``params`` suitable for logging.
-
-    Query parameters may contain sensitive data (PII, secrets, password hashes,
-    whatever the application stores). If a custom redaction hook is configured
-    via ``config.cypher_log_redaction_hook`` it is applied; otherwise the values
-    of keys that look sensitive (see :func:`_is_sensitive_param_key`) are masked.
-    """
-    if not params:
-        return params
-    hook = getattr(get_config(), "cypher_log_redaction_hook", None)
-    if hook is not None:
-        return hook(params)
-    return {
-        key: ("******" if _is_sensitive_param_key(key) else value)
-        for key, value in params.items()
-    }
-
-
-def _log_slow_query(query: str, params: dict[str, Any] | None, tte: float) -> None:
-    """Log a query and its (redacted) parameters when Cypher debug logging is on.
-
-    Driven by ``config.cypher_debug`` / ``config.slow_queries`` (populated from
-    NEOMODEL_CYPHER_DEBUG / NEOMODEL_SLOW_QUERIES) rather than reading the
-    environment on every query.
-    """
-    config = get_config()
-    if config.cypher_debug and tte > config.slow_queries:
-        logger.debug(
-            "query: "
-            + query
-            + "\nparams: "
-            + repr(_redact_params(params))
-            + f"\ntook: {tte:.2g}s\n"
-        )
-
-
-def ensure_connection(func: Callable) -> Callable:
-    """Decorator that ensures a connection is established before executing the decorated function.
-
-    Args:
-        func (callable): The function to be decorated.
-
-    Returns:
-        callable: The decorated function.
-    """
-
-    async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Callable:
-        # Sort out where to find url
-        if hasattr(self, "db"):
-            _db = self.db
-        else:
-            _db = self
-
-        if not _db.driver:
-            config = get_config()
-            if hasattr(config, "database_url") and config.database_url:
-                await _db.set_connection(url=config.database_url)
-            elif hasattr(config, "driver") and config.driver:
-                await _db.set_connection(driver=config.driver)
-
-        return await func(self, *args, **kwargs)
-
-    return wrapper
 
 
 class AsyncDatabase:
@@ -193,11 +47,11 @@ class AsyncDatabase:
 
     This class enforces singleton behavior - only one instance can exist at a time.
     The singleton instance is accessible via the module-level 'adb' variable.
-    """
 
-    # Shared global registries
-    _NODE_CLASS_REGISTRY: dict[frozenset, Any] = {}
-    _DB_SPECIFIC_CLASS_REGISTRY: dict[str, dict[frozenset, Any]] = {}
+    It is a facade over an ``AsyncConnectionManager`` (connection/transaction
+    state), an ``AsyncQueryRunner`` (query execution) and an
+    ``AsyncSchemaManager`` (index/constraint management).
+    """
 
     # Singleton instance tracking
     _instance: "AsyncDatabase | None" = None
@@ -209,9 +63,6 @@ class AsyncDatabase:
 
         Returns:
             AsyncDatabase: The singleton instance
-
-        Raises:
-            RuntimeError: If attempting to create a second instance
         """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -221,42 +72,16 @@ class AsyncDatabase:
         # Prevent re-initialization of the singleton instance
         if AsyncDatabase._initialized:
             return
-        # Private to instances and contexts
-        self.__active_transaction: ContextVar[AsyncTransaction | None] = ContextVar(
-            "_active_transaction", default=None
-        )
-        self.__url: ContextVar[str | None] = ContextVar("url", default=None)
-        # The credential-bearing URL is kept separately from the public,
-        # password-redacted ``url`` so that the latter can be safely logged or
-        # inspected. This one is only used internally to re-establish the
-        # connection (e.g. on session expiry).
-        self.__connection_url: ContextVar[str | None] = ContextVar(
-            "connection_url", default=None
-        )
-        self.__driver: ContextVar[AsyncDriver | None] = ContextVar(
-            "driver", default=None
-        )
-        self.__session: ContextVar[AsyncSession | None] = ContextVar(
-            "_session", default=None
-        )
-        self.__pid: ContextVar[int | None] = ContextVar("_pid", default=None)
-        self.__database_name: ContextVar[str | None] = ContextVar(
-            "_database_name", default=DEFAULT_DATABASE
-        )
-        self.__database_version: ContextVar[str | None] = ContextVar(
-            "_database_version", default=None
-        )
-        self.__database_edition: ContextVar[str | None] = ContextVar(
-            "_database_edition", default=None
-        )
-        self.__impersonated_user: ContextVar[str | None] = ContextVar(
-            "impersonated_user", default=None
-        )
-        self.__parallel_runtime: ContextVar[bool | None] = ContextVar(
-            "_parallel_runtime", default=False
-        )
 
-        # Mark the singleton as initialized
+        # Compose the collaborators. The connection manager holds the shared
+        # state; the query runner and schema manager operate against it. The
+        # connection manager needs the query runner to detect the server
+        # version, so wire it in after construction.
+        self._connection = AsyncConnectionManager()
+        self._query = AsyncQueryRunner(self._connection)
+        self._connection._query = self._query
+        self._schema = AsyncSchemaManager(self._connection, self._query)
+
         AsyncDatabase._initialized = True
 
     @classmethod
@@ -285,274 +110,192 @@ class AsyncDatabase:
         cls._instance = None
         cls._initialized = False
 
+    # ------------------------------------------------------------------ #
+    # Class registry (standalone object, exposed for backward compat)
+    # ------------------------------------------------------------------ #
     @property
-    def _active_transaction(self) -> AsyncTransaction | None:
-        return self.__active_transaction.get()
-
-    @_active_transaction.setter
-    def _active_transaction(self, value: AsyncTransaction | None) -> None:
-        self.__active_transaction.set(value)
-
-    @property
-    def url(self) -> str | None:
-        return self.__url.get()
-
-    @url.setter
-    def url(self, value: str | None) -> None:
-        self.__url.set(value)
+    def _NODE_CLASS_REGISTRY(self) -> dict[frozenset, Any]:
+        return registry._node_class_registry
 
     @property
-    def _connection_url(self) -> str | None:
-        return self.__connection_url.get()
+    def _DB_SPECIFIC_CLASS_REGISTRY(self) -> dict[str, dict[frozenset, Any]]:
+        return registry._db_specific_class_registry
 
-    @_connection_url.setter
-    def _connection_url(self, value: str | None) -> None:
-        self.__connection_url.set(value)
-
-    @staticmethod
-    def _redact_url_password(url: str) -> str:
-        """
-        Return a copy of a Neo4j connection URL with the password component
-        replaced by ``***`` so the URL can be stored or surfaced in error
-        messages without leaking credentials.
-        """
-        scheme_index = url.find("://")
-        at_index = url.rfind("@")
-        if scheme_index == -1 or at_index == -1:
-            # No userinfo section, so there is no password to redact.
-            return url
-        credentials_start = scheme_index + len("://")
-        credentials = url[credentials_start:at_index]
-        if ":" not in credentials:
-            return url
-        username = credentials.split(":", 1)[0]
-        return f"{url[:credentials_start]}{username}:***{url[at_index:]}"
-
+    # ------------------------------------------------------------------ #
+    # Shared connection state (delegated to the connection manager)
+    # ------------------------------------------------------------------ #
     @property
     def driver(self) -> AsyncDriver | None:
-        return self.__driver.get()
+        return self._connection.driver
 
     @driver.setter
     def driver(self, value: AsyncDriver | None) -> None:
-        self.__driver.set(value)
+        self._connection.driver = value
 
     @property
-    def _session(self) -> AsyncSession | None:
-        return self.__session.get()
+    def _owns_driver(self) -> bool:
+        return self._connection._owns_driver
 
-    @_session.setter
-    def _session(self, value: AsyncSession | None) -> None:
-        self.__session.set(value)
-
-    @property
-    def _pid(self) -> int | None:
-        return self.__pid.get()
-
-    @_pid.setter
-    def _pid(self, value: int | None) -> None:
-        self.__pid.set(value)
+    @_owns_driver.setter
+    def _owns_driver(self, value: bool) -> None:
+        self._connection._owns_driver = value
 
     @property
-    def _database_name(self) -> str | None:
-        return self.__database_name.get()
+    def _connection_lock(self) -> Any:
+        return self._connection._connection_lock
 
-    @_database_name.setter
-    def _database_name(self, value: str | None) -> None:
-        self.__database_name.set(value)
+    @property
+    def url(self) -> str | None:
+        return self._connection.url
+
+    @url.setter
+    def url(self, value: str | None) -> None:
+        self._connection.url = value
+
+    @property
+    def _connection_url(self) -> str | None:
+        return self._connection._connection_url
+
+    @_connection_url.setter
+    def _connection_url(self, value: str | None) -> None:
+        self._connection._connection_url = value
 
     @property
     def _database_version(self) -> str | None:
-        return self.__database_version.get()
+        return self._connection._database_version
 
     @_database_version.setter
     def _database_version(self, value: str | None) -> None:
-        self.__database_version.set(value)
+        self._connection._database_version = value
 
     @property
     def _database_edition(self) -> str | None:
-        return self.__database_edition.get()
+        return self._connection._database_edition
 
     @_database_edition.setter
     def _database_edition(self, value: str | None) -> None:
-        self.__database_edition.set(value)
+        self._connection._database_edition = value
+
+    @property
+    def _active_transaction(self) -> AsyncTransaction | None:
+        return self._connection._active_transaction
+
+    @_active_transaction.setter
+    def _active_transaction(self, value: AsyncTransaction | None) -> None:
+        self._connection._active_transaction = value
+
+    @property
+    def _session(self) -> AsyncSession | None:
+        return self._connection._session
+
+    @_session.setter
+    def _session(self, value: AsyncSession | None) -> None:
+        self._connection._session = value
+
+    @property
+    def _database_name(self) -> str | None:
+        return self._connection._database_name
+
+    @_database_name.setter
+    def _database_name(self, value: str | None) -> None:
+        self._connection._database_name = value
 
     @property
     def impersonated_user(self) -> str | None:
-        return self.__impersonated_user.get()
+        return self._connection.impersonated_user
 
     @impersonated_user.setter
     def impersonated_user(self, value: str | None) -> None:
-        self.__impersonated_user.set(value)
+        self._connection.impersonated_user = value
 
     @property
     def _parallel_runtime(self) -> bool | None:
-        return self.__parallel_runtime.get()
+        return self._connection._parallel_runtime
 
     @_parallel_runtime.setter
     def _parallel_runtime(self, value: bool | None) -> None:
-        self.__parallel_runtime.set(value)
+        self._connection._parallel_runtime = value
 
+    # ------------------------------------------------------------------ #
+    # Connection lifecycle and server facts (delegated to connection)
+    # ------------------------------------------------------------------ #
     async def set_connection(
         self, url: str | None = None, driver: AsyncDriver | None = None
     ) -> None:
-        """
-        Sets the connection up and relevant internal. This can be done using a Neo4j URL or a driver instance.
-
-        Args:
-            url (str): Optionally, Neo4j URL in the form protocol://username:password@hostname:port/dbname.
-            When provided, a Neo4j driver instance will be created by neomodel.
-
-            driver (neo4j.Driver): Optionally, a pre-created driver instance.
-            When provided, neomodel will not create a driver instance but use this one instead.
-        """
-        if driver:
-            self.driver = driver
-            config = get_config()
-            if hasattr(config, "database_name") and config.database_name:
-                self._database_name = config.database_name
-        elif url:
-            self._parse_driver_from_url(url=url)
-
-        self._pid = os.getpid()
-        self._active_transaction = None
-        # Set to default database if it hasn't been set before
-        if self._database_name is None:
-            self._database_name = DEFAULT_DATABASE
-
-        # Getting the information about the database version requires a connection to the database
-        self._database_version = None
-        self._database_edition = None
-        await self._update_database_version()
+        await self._connection.set_connection(url=url, driver=driver)
 
     def _parse_driver_from_url(self, url: str) -> None:
-        """Parse the driver information from the given URL and initialize the driver.
-
-        Args:
-            url (str): The URL to parse.
-
-        Raises:
-            ValueError: If the URL format is not as expected.
-
-        Returns:
-            None - Sets the driver and database_name as class properties
-        """
-        valid_schemas = [
-            "bolt",
-            "bolt+s",
-            "bolt+ssc",
-            "bolt+routing",
-            "neo4j",
-            "neo4j+s",
-            "neo4j+ssc",
-        ]
-
-        # Split the URL by its delimiters rather than substituting the password
-        # substring: this keeps passwords containing characters like "@" or ":"
-        # intact and avoids corrupting the URL when the password happens to match
-        # another part of it. Credentials are split off the last "@" and the
-        # username from the first ":", so only the very first ":" is treated as
-        # the user/password separator.
-        split_url = urlsplit(url)
-        scheme = split_url.scheme
-        if "@" not in split_url.netloc or scheme not in valid_schemas:
-            raise ValueError(
-                "Expecting url format: bolt://user:password@localhost:7687 got "
-                f"{self._redact_url_password(url)}"
-            )
-
-        credentials, hostname = split_url.netloc.rsplit("@", 1)
-        username, separator, password = credentials.partition(":")
-        if not separator:
-            raise ValueError(
-                "Expecting url format: bolt://user:password@localhost:7687 got "
-                f"{self._redact_url_password(url)}"
-            )
-        database_name = split_url.path.strip("/")
-
-        config = get_config()
-        options = {
-            "auth": basic_auth(username, password),
-            "connection_acquisition_timeout": config.connection_acquisition_timeout,
-            "connection_timeout": config.connection_timeout,
-            "keep_alive": config.keep_alive,
-            "max_connection_lifetime": config.max_connection_lifetime,
-            "max_connection_pool_size": config.max_connection_pool_size,
-            "max_transaction_retry_time": config.max_transaction_retry_time,
-            "resolver": config.resolver,
-            "user_agent": config.user_agent,
-        }
-
-        if "+s" not in scheme:
-            options["encrypted"] = config.encrypted
-            options["trusted_certificates"] = config.trusted_certificates
-
-        # Ignore the type error because the workaround would be duplicating code
-        self.driver = AsyncGraphDatabase.driver(
-            scheme + "://" + hostname,
-            **options,  # type: ignore[arg-type]
-        )
-        # Keep the credential-bearing URL private (for reconnection) and expose
-        # only a password-redacted version through the public ``url`` attribute.
-        self._connection_url = url
-        self.url = self._redact_url_password(url)
-        # The database name can be provided through the url or the config
-        if database_name == "":
-            if hasattr(config, "database_name") and config.database_name:
-                self._database_name = config.database_name
-        else:
-            self._database_name = database_name
+        self._connection._parse_driver_from_url(url=url)
 
     async def close_connection(self) -> None:
-        """
-        Closes the currently open driver.
-        The driver should always be closed at the end of the application's lifecyle.
-        """
-        self._database_version = None
-        self._database_edition = None
-        self._database_name = None
-        self._connection_url = None
-        if self.driver is not None:
-            await self.driver.close()
-            self.driver = None
+        await self._connection.close_connection()
 
     @property
     async def database_version(self) -> str | None:
-        if self._database_version is None:
-            await self._update_database_version()
-
-        return self._database_version
+        return await self._connection.database_version
 
     @property
     async def database_edition(self) -> str | None:
-        if self._database_edition is None:
-            await self._update_database_version()
+        return await self._connection.database_edition
 
-        return self._database_edition
+    async def begin(
+        self,
+        access_mode: str | None = ACCESS_MODE_WRITE,
+        timeout: float | None = None,
+        **parameters: Any,
+    ) -> None:
+        await self._connection.begin(
+            access_mode=access_mode, timeout=timeout, **parameters
+        )
 
+    async def commit(self) -> Bookmarks:
+        return await self._connection.commit()
+
+    async def rollback(self) -> None:
+        await self._connection.rollback()
+
+    async def get_id_method(self) -> str:
+        return await self._connection.get_id_method()
+
+    async def parse_element_id(self, element_id: str | None) -> str | int:
+        return await self._connection.parse_element_id(element_id)
+
+    async def version_is_higher_than(self, version_tag: str) -> bool:
+        return await self._connection.version_is_higher_than(version_tag)
+
+    async def edition_is_enterprise(self) -> bool:
+        return await self._connection.edition_is_enterprise()
+
+    async def parallel_runtime_available(self) -> bool:
+        return await self._connection.parallel_runtime_available()
+
+    # ------------------------------------------------------------------ #
+    # Transaction context managers and impersonation
+    # ------------------------------------------------------------------ #
     @property
     def transaction(self) -> "AsyncTransactionProxy":
         """
         Returns the current transaction object
         """
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self)
 
     @property
     def write_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_WRITE)
 
     @property
     def read_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(self, access_mode=ACCESS_MODE_READ)
 
     @property
     def parallel_read_transaction(self) -> "AsyncTransactionProxy":
-        from neomodel.async_.transaction import AsyncTransactionProxy  # type: ignore
+        from neomodel.async_.transaction import AsyncTransactionProxy
 
         return AsyncTransactionProxy(
             self, access_mode=ACCESS_MODE_READ, parallel_runtime=True
@@ -567,7 +310,7 @@ class AsyncDatabase:
         Returns:
             ImpersonationHandler: Context manager to set/unset the user to impersonate
         """
-        from neomodel.async_.transaction import ImpersonationHandler  # type: ignore
+        from neomodel.async_.transaction import ImpersonationHandler
 
         db_edition = await self.database_edition
         if db_edition != ENTERPRISE_EDITION_TAG:
@@ -576,216 +319,9 @@ class AsyncDatabase:
             )
         return ImpersonationHandler(self, impersonated_user=user)
 
-    @ensure_connection
-    async def begin(
-        self,
-        access_mode: str = ACCESS_MODE_WRITE,
-        timeout: float | None = None,
-        **parameters: Any,
-    ) -> None:
-        """
-        Begins a new transaction. Raises SystemError if a transaction is already active.
-
-        :param access_mode: The access mode of the transaction, defaults to write.
-        :type access_mode: str
-        :param timeout: Transaction timeout in seconds. Falls back to
-            config.transaction_timeout when None. Pass 0 to disable the timeout
-            for this transaction (the driver will use the server default).
-        :type timeout: float | None
-        """
-        if (
-            hasattr(self, "_active_transaction")
-            and self._active_transaction is not None
-        ):
-            raise SystemError("Transaction in progress")
-
-        assert self.driver is not None, "Driver has not been created"
-
-        self._session = self.driver.session(
-            default_access_mode=access_mode,
-            database=self._database_name,
-            impersonated_user=self.impersonated_user,
-            **parameters,
-        )
-
-        assert self._session is not None, "Session has not been created"
-        timeout = get_config().transaction_timeout if timeout is None else timeout
-        self._active_transaction = await self._session.begin_transaction(
-            timeout=timeout
-        )
-
-    @ensure_connection
-    async def commit(self) -> Bookmarks:
-        """
-        Commits the current transaction and closes its session
-
-        :return: last_bookmarks
-        """
-        try:
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            await self._active_transaction.commit()
-
-            assert self._session is not None, NO_SESSION_OPEN
-            last_bookmarks: Bookmarks = await self._session.last_bookmarks()
-        finally:
-            # In case something went wrong during
-            # committing changes to the database
-            # we have to close an active transaction and session.
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            await self._active_transaction.close()
-
-            assert self._session is not None, NO_SESSION_OPEN
-            await self._session.close()
-
-            self._active_transaction = None
-            self._session = None
-
-        return last_bookmarks
-
-    @ensure_connection
-    async def rollback(self) -> None:
-        """
-        Rolls back the current transaction and closes its session
-        """
-        try:
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            await self._active_transaction.rollback()
-        finally:
-            # In case when something went wrong during changes rollback,
-            # we have to close an active transaction and session
-            assert self._active_transaction is not None, NO_TRANSACTION_IN_PROGRESS
-            await self._active_transaction.close()
-
-            assert self._session is not None, NO_SESSION_OPEN
-            await self._session.close()
-
-            self._active_transaction = None
-            self._session = None
-
-    async def _update_database_version(self) -> None:
-        """
-        Updates the database server information when it is required
-        """
-        try:
-            results = await self.cypher_query(
-                "CALL dbms.components() yield versions, edition return versions[0], edition"
-            )
-            self._database_version = results[0][0][0]
-            self._database_edition = results[0][0][1]
-        except ServiceUnavailable:
-            # The database server is not running yet
-            pass
-
-    def _object_resolution(self, object_to_resolve: Any) -> Any:
-        """
-        Performs in place automatic object resolution on a result
-        returned by cypher_query.
-
-        The function operates recursively in order to be able to resolve Nodes
-        within nested list structures and Path objects. Not meant to be called
-        directly, used primarily by _result_resolution.
-
-        :param object_to_resolve: A result as returned by cypher_query.
-        :type Any:
-
-        :return: An instantiated object.
-        """
-        # Below is the original comment that came with the code extracted in
-        # this method. It is not very clear but I decided to keep it just in
-        # case
-        #
-        #
-        # For some reason, while the type of `a_result_attribute[1]`
-        # as reported by the neo4j driver is `Node` for Node-type data
-        # retrieved from the database.
-        # When the retrieved data are Relationship-Type,
-        # the returned type is `abc.[REL_LABEL]` which is however
-        # a descendant of Relationship.
-        # Consequently, the type checking was changed for both
-        # Node, Relationship objects
-        if isinstance(object_to_resolve, Node):
-            _labels = frozenset(object_to_resolve.labels)
-            if _labels in self._NODE_CLASS_REGISTRY:
-                return self._NODE_CLASS_REGISTRY[_labels].inflate(object_to_resolve)
-            elif (
-                self._database_name is not None
-                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
-                and _labels in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
-            ):
-                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
-                    _labels
-                ].inflate(object_to_resolve)
-            else:
-                raise NodeClassNotDefined(
-                    object_to_resolve,
-                    self._NODE_CLASS_REGISTRY,
-                    self._DB_SPECIFIC_CLASS_REGISTRY,
-                )
-
-        if isinstance(object_to_resolve, Relationship):
-            rel_type = frozenset([object_to_resolve.type])
-            if rel_type in self._NODE_CLASS_REGISTRY:
-                return self._NODE_CLASS_REGISTRY[rel_type].inflate(object_to_resolve)
-            elif (
-                self._database_name is not None
-                and self._database_name in self._DB_SPECIFIC_CLASS_REGISTRY
-                and rel_type in self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name]
-            ):
-                return self._DB_SPECIFIC_CLASS_REGISTRY[self._database_name][
-                    rel_type
-                ].inflate(object_to_resolve)
-            else:
-                raise RelationshipClassNotDefined(
-                    object_to_resolve,
-                    self._NODE_CLASS_REGISTRY,
-                    self._DB_SPECIFIC_CLASS_REGISTRY,
-                )
-
-        if isinstance(object_to_resolve, Path):
-            from neomodel.async_.path import AsyncNeomodelPath  # type: ignore
-
-            return AsyncNeomodelPath(object_to_resolve)
-
-        if isinstance(object_to_resolve, list):
-            return [self._object_resolution(item) for item in object_to_resolve]
-
-        if isinstance(object_to_resolve, dict):
-            return {
-                key: self._object_resolution(value)
-                for key, value in object_to_resolve.items()
-            }
-
-        return object_to_resolve
-
-    def _result_resolution(self, result_list: list) -> list:
-        """
-        Performs in place automatic object resolution on a set of results
-        returned by cypher_query.
-
-        The function operates recursively in order to be able to resolve Nodes
-        within nested list structures. Not meant to be called directly,
-        used primarily by cypher_query.
-
-        :param result_list: A list of results as returned by cypher_query.
-        :type list:
-
-        :return: A list of instantiated objects.
-        """
-
-        # Object resolution occurs in-place
-        for a_result_item in enumerate(result_list):
-            for a_result_attribute in enumerate(a_result_item[1]):
-                # Primitive types should remain primitive types,
-                # Nodes to be resolved to native objects
-                resolved_object = a_result_attribute[1]
-
-                resolved_object = self._object_resolution(resolved_object)
-
-                result_list[a_result_item[0]][a_result_attribute[0]] = resolved_object
-
-        return result_list
-
-    @ensure_connection
+    # ------------------------------------------------------------------ #
+    # Query execution (delegated to the query runner)
+    # ------------------------------------------------------------------ #
     async def cypher_query(
         self,
         query: str,
@@ -793,124 +329,16 @@ class AsyncDatabase:
         handle_unique: bool = True,
         retry_on_session_expire: bool = False,
         resolve_objects: bool = False,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
-        """
-        Runs a query on the database and returns a list of results and their headers.
+    ) -> tuple[list, tuple[str, ...]]:
+        return await self._query.cypher_query(
+            query,
+            params,
+            handle_unique,
+            retry_on_session_expire,
+            resolve_objects,
+        )
 
-        :param query: A CYPHER query
-        :type: str
-        :param params: Dictionary of parameters
-        :type: dict
-        :param handle_unique: Whether or not to raise UniqueProperty exception on Cypher's ConstraintValidation errors
-        :type: bool
-        :param retry_on_session_expire: Whether or not to attempt the same query again if the transaction has expired.
-        If you use neomodel with your own driver, you must catch SessionExpired exceptions yourself and retry with a new driver instance.
-        :type: bool
-        :param resolve_objects: Whether to attempt to resolve the returned nodes to data model objects automatically
-        :type: bool
-
-        :return: A tuple containing a list of results and a tuple of headers.
-        """
-        if params is None:
-            params = {}
-        if self._active_transaction:
-            # Use current transaction if a transaction is currently active
-            results, meta = await self._run_cypher_query(
-                self._active_transaction,
-                query,
-                params,
-                handle_unique,
-                retry_on_session_expire,
-                resolve_objects,
-            )
-        else:
-            # Otherwise create a new session in a with to dispose of it after it has been run
-            if self.driver:
-                async with self.driver.session(
-                    database=self._database_name,
-                    impersonated_user=self.impersonated_user,
-                ) as session:
-                    results, meta = await self._run_cypher_query(
-                        session,
-                        query,
-                        params,
-                        handle_unique,
-                        retry_on_session_expire,
-                        resolve_objects,
-                    )
-            else:
-                raise ValueError("No driver has been set")
-
-        return results, meta
-
-    @staticmethod
-    def _build_run_query(
-        session: AsyncSession | AsyncTransaction, query: str
-    ) -> str | Query:
-        """
-        Wrap the query so the configured transaction timeout applies to auto-commit
-        queries. The driver only accepts a timeout on session.run; queries running in
-        an explicit transaction inherit the timeout given to begin_transaction.
-        """
-        timeout = get_config().transaction_timeout
-        if timeout is not None and isinstance(session, AsyncSession):
-            return Query(query, timeout=timeout)
-        return query
-
-    async def _run_cypher_query(
-        self,
-        session: AsyncSession | AsyncTransaction,
-        query: str,
-        params: dict[str, Any],
-        handle_unique: bool,
-        retry_on_session_expire: bool,
-        resolve_objects: bool,
-    ) -> tuple[list | None, tuple[str, ...] | None]:
-        try:
-            # Retrieve the data
-            start = time.time()
-            if self._parallel_runtime:
-                query = "CYPHER runtime=parallel " + query
-            response: AsyncResult = await session.run(
-                query=self._build_run_query(session, query), parameters=params
-            )
-            results, meta = [list(r.values()) async for r in response], response.keys()
-            end = time.time()
-
-            if resolve_objects:
-                # Do any automatic resolution required
-                results = self._result_resolution(results)
-
-        except ClientError as e:
-            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if hasattr(e, "message") and e.message is not None:
-                    if "already exists with label" in e.message and handle_unique:
-                        raise UniqueProperty(e.message) from e
-                    raise ConstraintValidationFailed(e.message) from e
-                raise ConstraintValidationFailed(
-                    "A constraint validation failed"
-                ) from e
-
-            exc_info = sys.exc_info()
-            if exc_info[1] is not None and exc_info[2] is not None:
-                raise exc_info[1].with_traceback(exc_info[2])
-        except SessionExpired:
-            if retry_on_session_expire:
-                await self.set_connection(url=self._connection_url)
-                return await self.cypher_query(
-                    query=query,
-                    params=params,
-                    handle_unique=handle_unique,
-                    retry_on_session_expire=False,
-                )
-            raise
-
-        tte = end - start
-        _log_slow_query(query, params, tte)
-
-        return results, meta
-
-    async def _stream_cypher_query(
+    def _stream_cypher_query(
         self,
         session: AsyncSession | AsyncTransaction,
         query: str,
@@ -918,658 +346,54 @@ class AsyncDatabase:
         handle_unique: bool,
         resolve_objects: bool,
     ) -> AsyncIterator[tuple[list, tuple[str, ...]]]:
-        """
-        Stream query results one record at a time without loading all into memory.
-
-        This is an internal method used for async iteration. It yields results
-        as they arrive from the database instead of collecting them all first.
-
-        :param session: Neo4j session or transaction
-        :param query: Cypher query string
-        :param params: Query parameters
-        :param handle_unique: Whether to raise UniqueProperty on constraint violations
-        :param resolve_objects: Whether to resolve nodes to neomodel objects
-        :yields: Tuple of (values_list, keys_tuple) for each record
-        """
-        try:
-            start = time.time()
-            if self._parallel_runtime:
-                query = "CYPHER runtime=parallel " + query
-
-            response: AsyncResult = await session.run(
-                query=self._build_run_query(session, query), parameters=params
-            )
-            keys = response.keys()
-
-            # Stream results one record at a time
-            async for record in response:
-                values = list(record.values())
-
-                if resolve_objects:
-                    # Resolve objects for this single record
-                    for idx, value in enumerate(values):
-                        values[idx] = self._object_resolution(value)
-
-                yield values, keys
-
-            end = time.time()
-            tte = end - start
-            _log_slow_query(query, params, tte)
-
-        except ClientError as e:
-            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if hasattr(e, "message") and e.message is not None:
-                    if "already exists with label" in e.message and handle_unique:
-                        raise UniqueProperty(e.message) from e
-                    raise ConstraintValidationFailed(e.message) from e
-                raise ConstraintValidationFailed(
-                    "A constraint validation failed"
-                ) from e
-
-            exc_info = sys.exc_info()
-            if exc_info[1] is not None and exc_info[2] is not None:
-                raise exc_info[1].with_traceback(exc_info[2])
-
-    async def get_id_method(self) -> str:
-        db_version = await self.database_version
-        if db_version is None:
-            raise RuntimeError(UNKNOWN_SERVER_VERSION)
-        if db_version.startswith(VERSION_LEGACY_ID):
-            return LEGACY_ID_METHOD
-        else:
-            return ELEMENT_ID_METHOD
-
-    async def parse_element_id(self, element_id: str | None) -> str | int:
-        if element_id is None:
-            raise ValueError(
-                "Unable to parse element id, are you sure this element has been saved ?"
-            )
-        db_version = await self.database_version
-        if db_version is None:
-            raise RuntimeError(UNKNOWN_SERVER_VERSION)
-        return (
-            int(element_id) if db_version.startswith(VERSION_LEGACY_ID) else element_id
+        return self._query._stream_cypher_query(
+            session, query, params, handle_unique, resolve_objects
         )
 
+    def _object_resolution(self, object_to_resolve: Any) -> Any:
+        return self._query._object_resolution(object_to_resolve)
+
+    # ------------------------------------------------------------------ #
+    # Schema management (delegated to the schema manager)
+    # ------------------------------------------------------------------ #
     async def list_indexes(self, exclude_token_lookup: bool = False) -> list[dict]:
-        """Returns all indexes existing in the database
-
-        Arguments:
-            exclude_token_lookup[bool]: Exclude automatically create token lookup indexes
-
-        Returns:
-            Sequence[dict]: List of dictionaries, each entry being an index definition
-        """
-        indexes, meta_indexes = await self.cypher_query("SHOW INDEXES")
-        indexes_as_dict = [dict(zip(meta_indexes, row)) for row in indexes]
-
-        if exclude_token_lookup:
-            indexes_as_dict = [
-                obj for obj in indexes_as_dict if obj["type"] != LOOKUP_INDEX_TYPE
-            ]
-
-        return indexes_as_dict
+        return await self._schema.list_indexes(
+            exclude_token_lookup=exclude_token_lookup
+        )
 
     async def list_constraints(self) -> list[dict]:
-        """Returns all constraints existing in the database
-
-        Returns:
-            Sequence[dict]: List of dictionaries, each entry being a constraint definition
-        """
-        constraints, meta_constraints = await self.cypher_query(
-            LIST_CONSTRAINTS_COMMAND
-        )
-        constraints_as_dict = [dict(zip(meta_constraints, row)) for row in constraints]
-
-        return constraints_as_dict
-
-    @ensure_connection
-    async def version_is_higher_than(self, version_tag: str) -> bool:
-        """Returns true if the database version is higher or equal to a given tag
-
-        Args:
-            version_tag (str): The version to compare against
-
-        Returns:
-            bool: True if the database version is higher or equal to the given version
-        """
-        db_version = await self.database_version
-        if db_version is None:
-            raise RuntimeError(UNKNOWN_SERVER_VERSION)
-        return version_tag_to_integer(db_version) >= version_tag_to_integer(version_tag)
-
-    @ensure_connection
-    async def edition_is_enterprise(self) -> bool:
-        """Returns true if the database edition is enterprise
-
-        Returns:
-            bool: True if the database edition is enterprise
-        """
-        edition = await self.database_edition
-        if edition is None:
-            raise RuntimeError(UNKNOWN_SERVER_VERSION)
-        return edition == ENTERPRISE_EDITION_TAG
-
-    @ensure_connection
-    async def parallel_runtime_available(self) -> bool:
-        """Returns true if the database supports parallel runtime
-
-        Returns:
-            bool: True if the database supports parallel runtime
-        """
-        return (
-            await self.version_is_higher_than(VERSION_PARALLEL_RUNTIME_SUPPORT)
-            and await self.edition_is_enterprise()
-        )
+        return await self._schema.list_constraints()
 
     async def change_neo4j_password(self, user: str, new_password: str) -> None:
-        escaped_user = user.replace("`", "``")
-        await self.cypher_query(
-            f"ALTER USER `{escaped_user}` SET PASSWORD $password",
-            {"password": new_password},
-        )
+        await self._schema.change_neo4j_password(user, new_password)
 
     async def clear_neo4j_database(
         self, clear_constraints: bool = False, clear_indexes: bool = False
     ) -> None:
-        await self.cypher_query(
-            """
-            MATCH (a)
-            CALL { WITH a DETACH DELETE a }
-            IN TRANSACTIONS OF 5000 rows
-        """
+        await self._schema.clear_neo4j_database(
+            clear_constraints=clear_constraints, clear_indexes=clear_indexes
         )
-        if clear_constraints:
-            await self.drop_constraints()
-        if clear_indexes:
-            await self.drop_indexes()
 
     async def drop_constraints(
         self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
-        """
-        Discover and drop all constraints.
-
-        :type: bool
-        :return: None
-        """
-        if not stdout or stdout is None:
-            stdout = sys.stdout
-
-        results, meta = await self.cypher_query(LIST_CONSTRAINTS_COMMAND)
-
-        results_as_dict = [dict(zip(meta, row)) for row in results]
-        for constraint in results_as_dict:
-            await self.cypher_query(
-                DROP_CONSTRAINT_COMMAND + escape_identifier(constraint["name"])
-            )
-            if not quiet:
-                stdout.write(
-                    (
-                        " - Dropping unique constraint and index"
-                        f" on label {constraint['labelsOrTypes'][0]}"
-                        f" with property {constraint['properties'][0]}.\n"
-                    )
-                )
-        if not quiet:
-            stdout.write("\n")
+        await self._schema.drop_constraints(quiet=quiet, stdout=stdout)
 
     async def drop_indexes(
         self, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
-        """
-        Discover and drop all indexes, except the automatically created token lookup indexes.
-
-        :type: bool
-        :return: None
-        """
-        if not stdout or stdout is None:
-            stdout = sys.stdout
-
-        indexes = await self.list_indexes(exclude_token_lookup=True)
-        for index in indexes:
-            await self.cypher_query(
-                DROP_INDEX_COMMAND + escape_identifier(index["name"])
-            )
-            if not quiet:
-                stdout.write(
-                    f" - Dropping index on labels {','.join(index['labelsOrTypes'])} with properties {','.join(index['properties'])}.\n"
-                )
-        if not quiet:
-            stdout.write("\n")
+        await self._schema.drop_indexes(quiet=quiet, stdout=stdout)
 
     async def remove_all_labels(self, stdout: TextIO | None = None) -> None:
-        """
-        Calls functions for dropping constraints and indexes.
-
-        :param stdout: output stream
-        :return: None
-        """
-
-        if not stdout:
-            stdout = sys.stdout
-
-        stdout.write("Dropping constraints...\n")
-        await self.drop_constraints(quiet=False, stdout=stdout)
-
-        stdout.write("Dropping indexes...\n")
-        await self.drop_indexes(quiet=False, stdout=stdout)
+        await self._schema.remove_all_labels(stdout=stdout)
 
     async def install_all_labels(self, stdout: TextIO | None = None) -> None:
-        """
-        Discover all subclasses of StructuredNode in your application and execute install_labels on each.
-        Note: code must be loaded (imported) in order for a class to be discovered.
-
-        :param stdout: output stream
-        :return: None
-        """
-
-        if not stdout or stdout is None:
-            stdout = sys.stdout
-
-        def subsub(cls: Any) -> list:  # recursively return all subclasses
-            subclasses = cls.__subclasses__()
-            if not subclasses:  # base case: no more subclasses
-                return []
-            return subclasses + [g for s in cls.__subclasses__() for g in subsub(s)]
-
-        stdout.write("Setting up indexes and constraints...\n\n")
-
-        i = 0
-        from .node import AsyncStructuredNode
-
-        for cls in subsub(AsyncStructuredNode):
-            stdout.write(f"Found {cls.__module__}.{cls.__name__}\n")
-            await self.install_labels(cls, quiet=False, stdout=stdout)
-            i += 1
-
-        if i:
-            stdout.write("\n")
-
-        stdout.write(f"Finished {i} classes.\n")
+        await self._schema.install_all_labels(stdout=stdout)
 
     async def install_labels(
         self, cls: Any, quiet: bool = True, stdout: TextIO | None = None
     ) -> None:
-        """
-        Setup labels with indexes and constraints for a given class
-
-        :param cls: StructuredNode class
-        :type: class
-        :param quiet: (default true) enable standard output
-        :param stdout: stdout stream
-        :type: bool
-        :return: None
-        """
-        _stdout = stdout if stdout else sys.stdout
-
-        if not hasattr(cls, "__label__"):
-            if not quiet:
-                _stdout.write(
-                    f" ! Skipping class {cls.__module__}.{cls.__name__} is abstract\n"
-                )
-            return
-
-        for name, property in cls.defined_properties(aliases=False, rels=False).items():
-            await self._install_node(cls, name, property, quiet, _stdout)
-
-        for _, relationship in cls.defined_properties(
-            aliases=False, rels=True, properties=False
-        ).items():
-            await self._install_relationship(cls, relationship, quiet, _stdout)
-
-    async def _create_node_index(
-        self, target_cls: Any, property_name: str, stdout: TextIO, quiet: bool
-    ) -> None:
-        label = target_cls.__label__
-        index_name = f"index_{label}_{property_name}"
-        if not quiet:
-            stdout.write(
-                f" + Creating node index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
-            )
-        try:
-            await self.cypher_query(
-                f"CREATE INDEX {escape_identifier(index_name)} "
-                f"FOR (n:{escape_identifier(label)}) "
-                f"ON (n.{escape_identifier(property_name)}); "
-            )
-        except ClientError as e:
-            if e.code in (
-                RULE_ALREADY_EXISTS,
-                INDEX_ALREADY_EXISTS,
-            ):
-                stdout.write(f"{str(e)}\n")
-            else:
-                raise
-
-    async def _create_node_fulltext_index(
-        self,
-        target_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        fulltext_index: FulltextIndex,
-        quiet: bool,
-    ) -> None:
-        if await self.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
-            label = target_cls.__label__
-            index_name = f"fulltext_index_{label}_{property_name}"
-            if not quiet:
-                stdout.write(
-                    f" + Creating fulltext index for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
-                )
-            query = f"""
-                CREATE FULLTEXT INDEX {escape_identifier(index_name)} FOR (n:{escape_identifier(label)}) ON EACH [n.{escape_identifier(property_name)}]
-                OPTIONS {{
-                    indexConfig: {{
-                        `fulltext.analyzer`: '{escape_cypher_string_literal(fulltext_index.analyzer)}',
-                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
-                    }}
-                }};
-            """
-            try:
-                await self.cypher_query(query)
-            except ClientError as e:
-                if e.code in (
-                    RULE_ALREADY_EXISTS,
-                    INDEX_ALREADY_EXISTS,
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-        else:
-            raise FeatureNotSupported(
-                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
-            )
-
-    async def _create_node_vector_index(
-        self,
-        target_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        vector_index: VectorIndex,
-        quiet: bool,
-    ) -> None:
-        if await self.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
-            label = target_cls.__label__
-            index_name = f"vector_index_{label}_{property_name}"
-            if not quiet:
-                stdout.write(
-                    f" + Creating vector index for {property_name} on label {label} for class {target_cls.__module__}.{target_cls.__name__}\n"
-                )
-            query = f"""
-                CREATE VECTOR INDEX {escape_identifier(index_name)} FOR (n:{escape_identifier(label)}) ON n.{escape_identifier(property_name)}
-                OPTIONS {{
-                    indexConfig: {{
-                        `vector.dimensions`: {vector_index.dimensions},
-                        `vector.similarity_function`: '{escape_cypher_string_literal(vector_index.similarity_function)}'
-                    }}
-                }};
-            """
-            try:
-                await self.cypher_query(query)
-            except ClientError as e:
-                if e.code in (
-                    RULE_ALREADY_EXISTS,
-                    INDEX_ALREADY_EXISTS,
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-        else:
-            raise FeatureNotSupported(
-                f"Creation of vector indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.15 or higher."
-            )
-
-    async def _create_node_constraint(
-        self, target_cls: Any, property_name: str, stdout: TextIO, quiet: bool
-    ) -> None:
-        label = target_cls.__label__
-        constraint_name = f"constraint_unique_{label}_{property_name}"
-        if not quiet:
-            stdout.write(
-                f" + Creating node unique constraint for {property_name} on label {target_cls.__label__} for class {target_cls.__module__}.{target_cls.__name__}\n"
-            )
-        try:
-            await self.cypher_query(
-                f"""CREATE CONSTRAINT {escape_identifier(constraint_name)}
-                            FOR (n:{escape_identifier(label)}) REQUIRE n.{escape_identifier(property_name)} IS UNIQUE"""
-            )
-        except ClientError as e:
-            if e.code in (
-                RULE_ALREADY_EXISTS,
-                CONSTRAINT_ALREADY_EXISTS,
-            ):
-                stdout.write(f"{str(e)}\n")
-            else:
-                raise
-
-    async def _create_relationship_index(
-        self,
-        relationship_type: str,
-        target_cls: Any,
-        relationship_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        quiet: bool,
-    ) -> None:
-        index_name = f"index_{relationship_type}_{property_name}"
-        if not quiet:
-            stdout.write(
-                f" + Creating relationship index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
-            )
-        try:
-            await self.cypher_query(
-                f"CREATE INDEX {escape_identifier(index_name)} "
-                f"FOR ()-[r:{escape_identifier(relationship_type)}]-() "
-                f"ON (r.{escape_identifier(property_name)}); "
-            )
-        except ClientError as e:
-            if e.code in (
-                RULE_ALREADY_EXISTS,
-                INDEX_ALREADY_EXISTS,
-            ):
-                stdout.write(f"{str(e)}\n")
-            else:
-                raise
-
-    async def _create_relationship_fulltext_index(
-        self,
-        relationship_type: str,
-        target_cls: Any,
-        relationship_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        fulltext_index: FulltextIndex,
-        quiet: bool,
-    ) -> None:
-        if await self.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
-            index_name = f"fulltext_index_{relationship_type}_{property_name}"
-            if not quiet:
-                stdout.write(
-                    f" + Creating fulltext index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
-                )
-            query = f"""
-                CREATE FULLTEXT INDEX {escape_identifier(index_name)} FOR ()-[r:{escape_identifier(relationship_type)}]-() ON EACH [r.{escape_identifier(property_name)}]
-                OPTIONS {{
-                    indexConfig: {{
-                        `fulltext.analyzer`: '{escape_cypher_string_literal(fulltext_index.analyzer)}',
-                        `fulltext.eventually_consistent`: {fulltext_index.eventually_consistent}
-                    }}
-                }};
-            """
-            try:
-                await self.cypher_query(query)
-            except ClientError as e:
-                if e.code in (
-                    RULE_ALREADY_EXISTS,
-                    INDEX_ALREADY_EXISTS,
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-        else:
-            raise FeatureNotSupported(
-                f"Creation of full-text indexes from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.16 or higher."
-            )
-
-    async def _create_relationship_vector_index(
-        self,
-        relationship_type: str,
-        target_cls: Any,
-        relationship_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        vector_index: VectorIndex,
-        quiet: bool,
-    ) -> None:
-        if await self.version_is_higher_than(
-            VERSION_RELATIONSHIP_VECTOR_INDEXES_SUPPORT
-        ):
-            index_name = f"vector_index_{relationship_type}_{property_name}"
-            if not quiet:
-                stdout.write(
-                    f" + Creating vector index for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
-                )
-            query = f"""
-                CREATE VECTOR INDEX {escape_identifier(index_name)} FOR ()-[r:{escape_identifier(relationship_type)}]-() ON r.{escape_identifier(property_name)}
-                OPTIONS {{
-                    indexConfig: {{
-                        `vector.dimensions`: {vector_index.dimensions},
-                        `vector.similarity_function`: '{escape_cypher_string_literal(vector_index.similarity_function)}'
-                    }}
-                }};
-            """
-            try:
-                await self.cypher_query(query)
-            except ClientError as e:
-                if e.code in (
-                    RULE_ALREADY_EXISTS,
-                    INDEX_ALREADY_EXISTS,
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-        else:
-            raise FeatureNotSupported(
-                f"Creation of vector indexes for relationships from neomodel is not supported for Neo4j in version {await self.database_version}. Please upgrade to Neo4j 5.18 or higher."
-            )
-
-    async def _create_relationship_constraint(
-        self,
-        relationship_type: str,
-        target_cls: Any,
-        relationship_cls: Any,
-        property_name: str,
-        stdout: TextIO,
-        quiet: bool,
-    ) -> None:
-        if await self.version_is_higher_than(VERSION_RELATIONSHIP_CONSTRAINTS_SUPPORT):
-            constraint_name = f"constraint_unique_{relationship_type}_{property_name}"
-            if not quiet:
-                stdout.write(
-                    f" + Creating relationship unique constraint for {property_name} on relationship type {relationship_type} for relationship model {target_cls.__module__}.{relationship_cls.__name__}\n"
-                )
-            try:
-                await self.cypher_query(
-                    f"""CREATE CONSTRAINT {escape_identifier(constraint_name)}
-                                FOR ()-[r:{escape_identifier(relationship_type)}]-() REQUIRE r.{escape_identifier(property_name)} IS UNIQUE"""
-                )
-            except ClientError as e:
-                if e.code in (
-                    RULE_ALREADY_EXISTS,
-                    CONSTRAINT_ALREADY_EXISTS,
-                ):
-                    stdout.write(f"{str(e)}\n")
-                else:
-                    raise
-        else:
-            raise FeatureNotSupported(
-                f"Unique indexes on relationships are not supported in Neo4j version {await self.database_version}. Please upgrade to Neo4j 5.7 or higher."
-            )
-
-    async def _install_node(
-        self, cls: Any, name: str, property: Property, quiet: bool, stdout: TextIO
-    ) -> None:
-        # Create indexes and constraints for node property
-        db_property = property.get_db_property_name(name)
-        if property.index:
-            await self._create_node_index(
-                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
-            )
-        elif property.unique_index:
-            await self._create_node_constraint(
-                target_cls=cls, property_name=db_property, stdout=stdout, quiet=quiet
-            )
-
-        if property.fulltext_index:
-            await self._create_node_fulltext_index(
-                target_cls=cls,
-                property_name=db_property,
-                stdout=stdout,
-                fulltext_index=property.fulltext_index,
-                quiet=quiet,
-            )
-
-        if property.vector_index:
-            await self._create_node_vector_index(
-                target_cls=cls,
-                property_name=db_property,
-                stdout=stdout,
-                vector_index=property.vector_index,
-                quiet=quiet,
-            )
-
-    async def _install_relationship(
-        self, cls: Any, relationship: Any, quiet: bool, stdout: TextIO
-    ) -> None:
-        # Create indexes and constraints for relationship property
-        relationship_cls = relationship.definition["model"]
-        if relationship_cls is not None:
-            relationship_type = relationship.definition["relation_type"]
-            for prop_name, property in relationship_cls.defined_properties(
-                aliases=False, rels=False
-            ).items():
-                db_property = property.get_db_property_name(prop_name)
-                if property.index:
-                    await self._create_relationship_index(
-                        relationship_type=relationship_type,
-                        target_cls=cls,
-                        relationship_cls=relationship_cls,
-                        property_name=db_property,
-                        stdout=stdout,
-                        quiet=quiet,
-                    )
-                elif property.unique_index:
-                    await self._create_relationship_constraint(
-                        relationship_type=relationship_type,
-                        target_cls=cls,
-                        relationship_cls=relationship_cls,
-                        property_name=db_property,
-                        stdout=stdout,
-                        quiet=quiet,
-                    )
-
-                if property.fulltext_index:
-                    await self._create_relationship_fulltext_index(
-                        relationship_type=relationship_type,
-                        target_cls=cls,
-                        relationship_cls=relationship_cls,
-                        property_name=db_property,
-                        stdout=stdout,
-                        fulltext_index=property.fulltext_index,
-                        quiet=quiet,
-                    )
-
-                if property.vector_index:
-                    await self._create_relationship_vector_index(
-                        relationship_type=relationship_type,
-                        target_cls=cls,
-                        relationship_cls=relationship_cls,
-                        property_name=db_property,
-                        stdout=stdout,
-                        vector_index=property.vector_index,
-                        quiet=quiet,
-                    )
+        await self._schema.install_labels(cls, quiet=quiet, stdout=stdout)
 
 
 # Create a singleton instance of the database object

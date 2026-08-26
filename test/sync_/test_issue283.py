@@ -24,7 +24,6 @@ from neomodel import (
     StringProperty,
     StructuredNode,
     StructuredRel,
-    UniqueIdProperty,
     db,
 )
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
@@ -217,32 +216,26 @@ def test_validation_enforcement_to_db():
 @mark_sync_test
 def test_failed_result_resolution():
     """
-    A Neo4j driver node FROM the database contains labels that are unaware to
-    neomodel's Database class. This condition raises ClassDefinitionNotFound
-    exception.
+    A Neo4j driver node FROM the database contains labels that no known neomodel
+    class maps to. Resolving it raises NodeClassNotDefined.
     """
-
-    class RandomPerson(BasePerson):
-        randomness = FloatProperty(default=random.random)
 
     # A Technical Person...
     A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
         0
     ]
 
-    # A Random Person...
-    B = (RandomPerson.get_or_create({"name": "Mad Hatter"}))[0]
+    # ...befriends a node that carries the BasePerson label (so it comes back
+    # through the FRIENDS_WITH traversal) plus a label no live class is mapped
+    # to. This is the "class not imported / unknown to neomodel" condition,
+    # which no amount of registry poking is needed to reproduce now that classes
+    # are discovered from the live hierarchy.
+    db.cypher_query(
+        "MATCH (a:BasePerson {name: $name}) "
+        "CREATE (a)-[:FRIENDS_WITH]->(:BasePerson:UnknownSpecialisation {name: 'Mystery'})",
+        {"name": "Grumpy"},
+    )
 
-    A.friends_with.connect(B)
-
-    # Simulate the condition where the definition of class RandomPerson is not
-    # known yet.
-    del db._NODE_CLASS_REGISTRY[frozenset(["RandomPerson", "BasePerson"])]
-
-    # Now try to instantiate a RandomPerson
-    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
-        0
-    ]
     with pytest.raises(
         NodeClassNotDefined,
         match=r"Node with labels .* does not resolve to any of the known objects.*",
@@ -255,65 +248,53 @@ def test_failed_result_resolution():
 @mark_sync_test
 def test_node_label_mismatch():
     """
-    A Neo4j driver node FROM the database contains a superset of the known
-    labels.
+    A Neo4j driver node FROM the database contains a superset of a known class's
+    labels (extra labels that are not declared optional), so it resolves to no
+    class and raises NodeClassNotDefined.
     """
-
-    class SuperTechnicalPerson(TechnicalPerson):
-        superness = FloatProperty(default=1.0)
-
-    class UltraTechnicalPerson(SuperTechnicalPerson):
-        ultraness = FloatProperty(default=3.1415928)
 
     # Create a TechnicalPerson...
     A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
         0
     ]
-    # ...that is connected to an UltraTechnicalPerson
-    F = UltraTechnicalPerson(name="Chewbaka", expertise="Aarrr wgh ggwaaah").save()
-    A.friends_with.connect(F)
+    # ...connected to a node that carries every label a TechnicalPerson has PLUS
+    # an extra, non-optional label. No live class maps to that exact superset.
+    db.cypher_query(
+        "MATCH (a:BasePerson {name: $name}) "
+        "CREATE (a)-[:FRIENDS_WITH]->"
+        "(:BasePerson:TechnicalPerson:PhantomSpecialisation {name: 'Ghost', expertise: 'Haunting'})",
+        {"name": "Grumpy"},
+    )
 
-    # Forget about the UltraTechnicalPerson
-    del db._NODE_CLASS_REGISTRY[
-        frozenset(
-            [
-                "UltraTechnicalPerson",
-                "SuperTechnicalPerson",
-                "TechnicalPerson",
-                "BasePerson",
-            ]
-        )
-    ]
-
-    # Recall a TechnicalPerson and enumerate its friends.
-    # One of them is UltraTechnicalPerson which would be returned as a valid
-    # node to a friends_with query but is currently unknown to the node class registry.
-    A = (TechnicalPerson.get_or_create({"name": "Grumpy", "expertise": "Grumpiness"}))[
-        0
-    ]
     with pytest.raises(NodeClassNotDefined):
         friends = A.friends_with.all()
         for some_friend in friends:
             print(some_friend.name)
 
 
+@mark_sync_test
 def test_attempted_class_redefinition():
     """
-    A StructuredNode class is attempted to be redefined.
+    Two *distinct* live classes claiming the same labels are no longer rejected
+    at definition time; the clash is reported when a matching node is resolved.
+    (A same-name reload, by contrast, is allowed - see
+    test/sync_/test_registry.py::test_class_redefinition_is_allowed.)
     """
 
-    def redefine_class_locally():
-        # Since this test has already set up a class hierarchy in its global scope, we will try to redefine
-        # SomePerson here.
-        # The internal structure of the SomePerson entity does not matter at all here.
-        class SomePerson(BaseOtherPerson):
-            uid = UniqueIdProperty()
+    class FirstColliding(StructuredNode):
+        __label__ = "CollidingLabel"
+        name = StringProperty()
 
+    class SecondColliding(StructuredNode):
+        __label__ = "CollidingLabel"
+        title = StringProperty()
+
+    db.cypher_query("CREATE (:CollidingLabel {name: 'x'})")
     with pytest.raises(
         NodeClassAlreadyDefined,
         match=r"Class .* with labels .* already defined:.*",
     ):
-        redefine_class_locally()
+        db.cypher_query("MATCH (n:CollidingLabel) RETURN n", resolve_objects=True)
 
 
 @mark_sync_test

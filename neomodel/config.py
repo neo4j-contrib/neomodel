@@ -28,8 +28,8 @@ class NeomodelConfig:
     """
 
     # Connection settings
-    database_url: str = field(
-        default="bolt://neo4j:foobarbaz@localhost:7687",
+    database_url: str | None = field(
+        default=None,
         metadata={
             "env_var": "NEOMODEL_DATABASE_URL",
             "description": "Graph database connection URL",
@@ -171,19 +171,36 @@ class NeomodelConfig:
         default=False,
         metadata={
             "env_var": "NEOMODEL_ALLOW_RELOAD",
-            "description": "Allow node class redefinitions (issues warning instead of error)",
+            "description": (
+                "Deprecated and ignored. Node class redefinitions are now always "
+                "allowed (classes are discovered from the live hierarchy). Kept for "
+                "backward compatibility; will be removed in a future release."
+            ),
         },
     )
 
     def __post_init__(self):
         """Validate configuration after initialization."""
         self._validate_config()
+        # Marks the end of construction: deprecation warnings for individual
+        # fields (e.g. allow_reload) must only fire on later user assignments,
+        # not while the dataclass __init__ is still populating fields.
+        self._construction_done = True
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set attribute and validate configuration."""
         super().__setattr__(name, value)
         # Only validate if we're not in __init__ or __post_init__
         if hasattr(self, "_initialized"):
+            if name == "allow_reload" and getattr(self, "_construction_done", False):
+                warnings.warn(
+                    "config.allow_reload is deprecated and no longer has any effect: "
+                    "node classes are now discovered from the live class hierarchy, so "
+                    "redefining a class (hot reload) is always allowed and never raises. "
+                    "The setting will be removed in a future release.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             # Don't validate here - let the calling code handle validation
             pass
         else:

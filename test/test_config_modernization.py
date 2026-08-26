@@ -14,6 +14,18 @@ import pytest
 from neomodel import NeomodelConfig, config, get_config, reset_config, set_config
 from neomodel.config import clear_deprecation_warnings
 
+
+@pytest.fixture(autouse=True)
+def _reset_config_after_each_test():
+    # Several tests here mutate or reset the global config (some inside a
+    # patch.dict(..., clear=True) block, which leaves the cached config holding
+    # values loaded from a cleared environment). Reset after each test so the
+    # global config reloads from the real environment and does not leak a
+    # connectionless config into later test files.
+    yield
+    reset_config()
+
+
 # Type ignore for dynamic module attributes created by config module replacement
 # pylint: disable=no-member
 
@@ -25,7 +37,7 @@ class TestNeomodelConfig:
         """Test default configuration values."""
         config_obj = NeomodelConfig()
 
-        assert config_obj.database_url == "bolt://neo4j:foobarbaz@localhost:7687"
+        assert config_obj.database_url is None
         assert config_obj.force_timezone is False
         assert config_obj.soft_cardinality_check is False
         assert config_obj.cypher_debug is False
@@ -170,7 +182,7 @@ class TestNeomodelConfig:
             config_obj.update(unknown_field="value")
 
         # Original values should remain unchanged
-        assert config_obj.database_url == "bolt://neo4j:foobarbaz@localhost:7687"
+        assert config_obj.database_url is None
 
     def test_setattr_initialization(self):
         """Test __setattr__ method initialization logic."""
@@ -528,16 +540,20 @@ class TestEnvironmentVariableSupport:
 
     def test_env_var_missing_fields(self):
         """Test that missing environment variables use defaults."""
-        # Clear all neomodel environment variables
-        env_vars = {}
-        for key in list(os.environ.keys()):
-            if key.startswith("NEOMODEL_"):
-                env_vars[key] = None  # Remove from environment
+        # Build an environment with all NEOMODEL_ variables removed, keeping the
+        # rest (e.g. PATH) intact. Do not insert ``None`` values: os.environ only
+        # accepts strings, and leaking ``None`` (or dropping PATH) corrupts the
+        # environment for later tests that spawn subprocesses.
+        clean_env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("NEOMODEL_")
+        }
 
-        with patch.dict(os.environ, env_vars, clear=True):
+        with patch.dict(os.environ, clean_env, clear=True):
             reset_config()
             # Should use default values
-            assert config.DATABASE_URL == "bolt://neo4j:foobarbaz@localhost:7687"
+            assert config.DATABASE_URL is None
             assert config.FORCE_TIMEZONE is False
             assert config.CONNECTION_TIMEOUT == 30.0
             assert config.MAX_CONNECTION_POOL_SIZE == 100

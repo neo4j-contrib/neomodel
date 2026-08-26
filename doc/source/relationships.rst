@@ -42,6 +42,36 @@ This is useful for development purposes::
     config.soft_cardinality_check = True
 
 
+Mutually exclusive relationships
+================================
+Sometimes several relationships should be mutually exclusive: a node may hold one
+of them or another, but not both at once. Tag the relationships with the same
+``exclusion_group`` name to enforce this. It is orthogonal to cardinality - each
+relationship keeps its own cardinality constraint::
+
+    class Person(StructuredNode):
+        name = StringProperty(required=True)
+
+        # A person can have a cat or a dog (or a fish), but only one kind of pet.
+        cat = RelationshipTo('Cat', 'HAS_PET', cardinality=ZeroOrOne, exclusion_group='pet')
+        dog = RelationshipTo('Dog', 'HAS_PET', cardinality=One, exclusion_group='pet')
+        fish = RelationshipTo('Fish', 'HAS_PET', cardinality=ZeroOrOne, exclusion_group='pet')
+
+Connecting one relationship of the group while another is already connected raises
+:class:`~neomodel.exceptions.MutualExclusionViolation`. To switch to a different
+member of the group, ``disconnect`` the currently connected one first.
+
+A group needs at least two members to have any effect. If a class defines an
+``exclusion_group`` with a single member (usually a typo in the group name), a
+``UserWarning`` is emitted when the class is defined, since a lone member
+excludes nothing.
+
+.. note::
+   Like cardinality, this is an application-level check performed at
+   ``connect``/``replace`` time, not a database constraint, so it is not atomic
+   under concurrent writers.
+
+
 Properties
 ==========
 
@@ -81,6 +111,18 @@ You can retrieve relationships between two nodes using the 'relationship' method
 This is only available for relationships with a defined relationship model::
 
     rel = jim.friends.relationship(bob)
+
+You can also filter the related nodes on the properties of the relationship itself
+using ``match``. This is only available for relationships with a defined
+relationship model. ``match`` returns a ``NodeSet``, so its result can be
+iterated, awaited, or further refined with the usual ``NodeSet`` methods
+(``get``, ``first``, ``filter``, ``order_by`` ...)::
+
+    # all friends jim met in Paris
+    jim.friends.match(met='Paris')
+
+    # the single friend jim met in Paris, as a node
+    jim.friends.match(met='Paris').get(name='bob')
 
 Relationship Uniqueness
 =======================

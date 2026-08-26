@@ -356,3 +356,81 @@ def test_reserved_property_keys():
 
         class ReservedPropertiesTargetRel(StructuredRel):
             target = StringProperty()
+
+
+@mark_sync_test
+def test_pre_action_check_blocks_unsaved_node():
+    # element_id is a class-level property, so hasattr() is always True; the
+    # unsaved-node guard must check that element_id resolves to None.
+    unsaved = User(email="unsaved@test.com", age=1)
+    assert unsaved.element_id is None
+
+    with raises(ValueError, match="unsaved node"):
+        unsaved.refresh()
+    with raises(ValueError, match="unsaved node"):
+        unsaved.labels()
+    with raises(ValueError, match="unsaved node"):
+        unsaved.cypher("MATCH (n) RETURN n")
+    with raises(ValueError, match="unsaved node"):
+        unsaved.delete()
+
+
+@mark_sync_test
+def test_pre_action_check_blocks_deleted_node():
+    user = User(email="todelete@test.com", age=1).save()
+    user.delete()
+
+    # The deleted check takes precedence over the unsaved one.
+    with raises(ValueError, match="deleted node"):
+        user.refresh()
+
+
+@mark_sync_test
+def test_saved_node_is_hashable():
+    # Defining __eq__ would make instances unhashable without __hash__.
+    user = User(email="hashable@test.com", age=1).save()
+    assert hash(user) == hash(user.element_id)
+    assert {user} == {user}
+
+
+@mark_sync_test
+def test_equal_saved_nodes_hash_equal_and_dedup_in_set():
+    saved = User(email="dedup@test.com", age=1).save()
+    # A second, distinct Python object for the same database node.
+    fetched = User.nodes.get(email="dedup@test.com")
+    assert fetched is not saved
+    assert fetched == saved
+    assert hash(fetched) == hash(saved)
+    # Equal nodes must collapse to a single entry in a set.
+    assert len({saved, fetched}) == 1
+
+
+@mark_sync_test
+def test_unsaved_nodes_hashable_and_distinct():
+    a = User(email="unsaved-a@test.com", age=1)
+    b = User(email="unsaved-b@test.com", age=1)
+    # Hashable (by identity) and not equal, so both coexist in a set.
+    assert hash(a) == hash(a)
+    assert a != b
+    assert len({a, b}) == 2
+
+
+@mark_sync_test
+def test_optional_label_object_resolution():
+    # A node carrying a base label plus an optional label must still resolve to
+    # its class, even though base+optional combinations are no longer
+    # pre-registered (they are resolved lazily at lookup).
+    class Gadget(StructuredNode):
+        __optional_labels__ = ["Featured"]
+        name = StringProperty(unique_index=True)
+
+    Gadget(name="g1").save()
+    # Give the node its optional label directly in the database.
+    db.cypher_query("MATCH (n:Gadget {name:'g1'}) SET n:Featured")
+
+    results, _ = db.cypher_query(
+        "MATCH (n:Gadget {name:'g1'}) RETURN n", resolve_objects=True
+    )
+    resolved = results[0][0]
+    assert isinstance(resolved, Gadget)
+    assert resolved.name == "g1"

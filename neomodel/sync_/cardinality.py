@@ -10,6 +10,15 @@ from neomodel.sync_.relationship_manager import (  # pylint:disable=unused-impor
 if TYPE_CHECKING:
     from neomodel import StructuredNode, StructuredRel
 
+# AsyncZeroOrMore is defined in relationship_manager and re-exported here (used by
+# neomodel/__init__); listing it in __all__ keeps that an explicit re-export.
+__all__ = [
+    "One",
+    "OneOrMore",
+    "ZeroOrMore",
+    "ZeroOrOne",
+]
+
 
 class ZeroOrOne(RelationshipManager):
     """A relationship to zero or one node."""

@@ -1,4 +1,5 @@
 from test._async_compat import mark_sync_test
+from unittest.mock import Mock, patch
 
 import pytest
 from neo4j.api import Bookmarks
@@ -7,6 +8,8 @@ from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db
 from neomodel.config import get_config
+from neomodel.sync_.database import Database
+from neomodel.sync_.transaction import TransactionProxy
 
 
 class APerson(StructuredNode):
@@ -96,7 +99,7 @@ def test_write_transaction():
 
 
 @mark_sync_test
-def double_transaction():
+def test_double_transaction():
     db.begin()
     with raises(SystemError, match=r"Transaction in progress"):
         db.begin()
@@ -240,3 +243,98 @@ def test_transaction_timeout_as_decorator(spy_on_db_begin):
         (),
         {"access_mode": None, "bookmarks": None, "timeout": 4.2},
     )
+
+
+# ---------------------------------------------------------------------------
+# AsyncTransactionProxy unit tests
+# ---------------------------------------------------------------------------
+
+
+@mark_sync_test
+def test_proxy_aenter_parallel_runtime_warning():
+    """Entering a parallel-runtime proxy on a server that does not support it
+    warns and still begins the transaction."""
+    test_db = Database()
+    proxy = TransactionProxy(test_db, parallel_runtime=True)
+
+    with patch.object(
+        test_db, "parallel_runtime_available", new_callable=Mock
+    ) as mock_available:
+        mock_available.return_value = False
+
+        with patch("warnings.warn") as mock_warn:
+            with patch.object(test_db, "begin", new_callable=Mock) as mock_begin:
+                proxy.__enter__()
+
+                parallel_runtime_calls = [
+                    call
+                    for call in mock_warn.call_args_list
+                    if "Parallel runtime is only available" in str(call[0][0])
+                ]
+                assert len(parallel_runtime_calls) == 1
+                mock_begin.assert_called_once()
+
+
+@mark_sync_test
+def test_proxy_aexit_with_exception():
+    """An exception inside the context rolls back instead of committing."""
+    test_db = Database()
+    proxy = TransactionProxy(test_db)
+
+    with patch.object(test_db, "rollback", new_callable=Mock) as mock_rollback:
+        with patch.object(test_db, "commit", new_callable=Mock) as mock_commit:
+            proxy.__exit__(ValueError, ValueError("test"), None)
+            mock_rollback.assert_called_once()
+            mock_commit.assert_not_called()
+
+
+@mark_sync_test
+def test_proxy_aexit_success():
+    """A clean exit commits and records the returned bookmarks."""
+    test_db = Database()
+    proxy = TransactionProxy(test_db)
+
+    with patch.object(test_db, "rollback", new_callable=Mock) as mock_rollback:
+        with patch.object(test_db, "commit", new_callable=Mock) as mock_commit:
+            mock_commit.return_value = "bookmarks"
+
+            proxy.__exit__(None, None, None)
+            mock_rollback.assert_not_called()
+            mock_commit.assert_called_once()
+            assert proxy.last_bookmarks == "bookmarks"
+
+
+@mark_sync_test
+def test_proxy_call_decorator():
+    """Using the proxy as a decorator wraps the call in the transaction."""
+    test_db = Database()
+    proxy = TransactionProxy(test_db)
+
+    def test_func():
+        return "success"
+
+    decorated = proxy(test_func)
+    assert callable(decorated)
+
+    with patch.object(proxy, "__enter__", new_callable=Mock) as mock_enter:
+        with patch.object(proxy, "__exit__", new_callable=Mock):
+            mock_enter.return_value = proxy
+            result = decorated()
+            assert result == "success"
+
+
+@mark_sync_test
+def test_commit_without_transaction_raises():
+    # Calling commit with no active transaction must raise a clear error rather
+    # than an AttributeError on None (and must not vanish under python -O - see
+    # test_optimized_mode_checks.py).
+    assert db._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        db.commit()
+
+
+@mark_sync_test
+def test_rollback_without_transaction_raises():
+    assert db._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        db.rollback()

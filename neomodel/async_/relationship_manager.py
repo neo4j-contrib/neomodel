@@ -13,7 +13,11 @@ from neomodel.async_.match import (
 )
 from neomodel.async_.node import AsyncStructuredNode
 from neomodel.async_.relationship import AsyncStructuredRel
-from neomodel.exceptions import NotConnected, RelationshipClassRedefined
+from neomodel.exceptions import (
+    MutualExclusionViolation,
+    NotConnected,
+    RelationshipClassRedefined,
+)
 from neomodel.util import (
     RelationshipDirection,
     enumerate_traceback,
@@ -73,7 +77,7 @@ class AsyncRelationshipManager:
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     async def check_cardinality(self, node: "AsyncStructuredNode") -> None:
         """
@@ -84,6 +88,32 @@ class AsyncRelationshipManager:
         :type: AsyncStructuredNode
         :raises: AttemptedCardinalityViolation
         """
+
+    async def check_mutual_exclusion(self) -> None:
+        """
+        Check whether connecting this relationship would violate a mutual
+        exclusion group. Relationships sharing the same ``exclusion_group`` on
+        the source node are mutually exclusive: at most one of them may hold any
+        connection at a time (this is orthogonal to each relationship's own
+        cardinality).
+
+        :raises: MutualExclusionViolation
+        """
+        group = self.definition.get("exclusion_group")
+        if not group:
+            return
+        for rel_name, rel_def in self.source.defined_properties(
+            rels=True, aliases=False, properties=False
+        ).items():
+            if rel_name == self.name:
+                continue
+            if rel_def.definition.get("exclusion_group") != group:
+                continue
+            if await getattr(self.source, rel_name).get_len() > 0:
+                raise MutualExclusionViolation(
+                    f"Cannot connect '{self.name}': relationship '{rel_name}' "
+                    f"(mutual exclusion group '{group}') is already connected"
+                )
 
     def _check_node(self, obj: type["AsyncStructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""
@@ -108,6 +138,7 @@ class AsyncRelationshipManager:
         """
         self._check_node(node)
         await self.check_cardinality(node)
+        await self.check_mutual_exclusion()
 
         # Check for cardinality on the remote end.
         for rel_name, rel_def in node.defined_properties(
@@ -419,7 +450,7 @@ class AsyncRelationshipManager:
 
     def match(self, **kwargs: Any) -> AsyncNodeSet:
         """
-        Return set of nodes who's relationship properties match supplied args
+        Return set of nodes whose relationship properties match supplied args
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
@@ -461,6 +492,7 @@ class AsyncRelationshipDefinition:
         direction: int,
         manager: type[AsyncRelationshipManager] = AsyncRelationshipManager,
         model: type[AsyncStructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -480,6 +512,7 @@ class AsyncRelationshipDefinition:
             "relation_type": relation_type,
             "direction": direction,
             "model": model,
+            "exclusion_group": exclusion_group,
         }
 
         if model is not None:
@@ -648,6 +681,7 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -655,6 +689,7 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
             RelationshipDirection.OUTGOING,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )
 
 
@@ -665,6 +700,7 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -672,6 +708,7 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
             RelationshipDirection.INCOMING,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )
 
 
@@ -682,6 +719,7 @@ class AsyncRelationship(AsyncRelationshipDefinition):
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -689,4 +727,5 @@ class AsyncRelationship(AsyncRelationshipDefinition):
             RelationshipDirection.EITHER,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )

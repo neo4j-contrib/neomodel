@@ -1,4 +1,5 @@
 from test._async_compat import mark_async_test
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from neo4j.api import Bookmarks
@@ -6,6 +7,8 @@ from neo4j.exceptions import ClientError, TransactionError
 from pytest import raises
 
 from neomodel import AsyncStructuredNode, StringProperty, UniqueProperty, adb
+from neomodel.async_.database import AsyncDatabase
+from neomodel.async_.transaction import AsyncTransactionProxy
 from neomodel.config import get_config
 
 
@@ -96,7 +99,7 @@ async def test_write_transaction():
 
 
 @mark_async_test
-async def double_transaction():
+async def test_double_transaction():
     await adb.begin()
     with raises(SystemError, match=r"Transaction in progress"):
         await adb.begin()
@@ -240,3 +243,98 @@ async def test_transaction_timeout_as_decorator(spy_on_db_begin):
         (),
         {"access_mode": None, "bookmarks": None, "timeout": 4.2},
     )
+
+
+# ---------------------------------------------------------------------------
+# AsyncTransactionProxy unit tests
+# ---------------------------------------------------------------------------
+
+
+@mark_async_test
+async def test_proxy_aenter_parallel_runtime_warning():
+    """Entering a parallel-runtime proxy on a server that does not support it
+    warns and still begins the transaction."""
+    test_db = AsyncDatabase()
+    proxy = AsyncTransactionProxy(test_db, parallel_runtime=True)
+
+    with patch.object(
+        test_db, "parallel_runtime_available", new_callable=AsyncMock
+    ) as mock_available:
+        mock_available.return_value = False
+
+        with patch("warnings.warn") as mock_warn:
+            with patch.object(test_db, "begin", new_callable=AsyncMock) as mock_begin:
+                await proxy.__aenter__()
+
+                parallel_runtime_calls = [
+                    call
+                    for call in mock_warn.call_args_list
+                    if "Parallel runtime is only available" in str(call[0][0])
+                ]
+                assert len(parallel_runtime_calls) == 1
+                mock_begin.assert_called_once()
+
+
+@mark_async_test
+async def test_proxy_aexit_with_exception():
+    """An exception inside the context rolls back instead of committing."""
+    test_db = AsyncDatabase()
+    proxy = AsyncTransactionProxy(test_db)
+
+    with patch.object(test_db, "rollback", new_callable=AsyncMock) as mock_rollback:
+        with patch.object(test_db, "commit", new_callable=AsyncMock) as mock_commit:
+            await proxy.__aexit__(ValueError, ValueError("test"), None)
+            mock_rollback.assert_called_once()
+            mock_commit.assert_not_called()
+
+
+@mark_async_test
+async def test_proxy_aexit_success():
+    """A clean exit commits and records the returned bookmarks."""
+    test_db = AsyncDatabase()
+    proxy = AsyncTransactionProxy(test_db)
+
+    with patch.object(test_db, "rollback", new_callable=AsyncMock) as mock_rollback:
+        with patch.object(test_db, "commit", new_callable=AsyncMock) as mock_commit:
+            mock_commit.return_value = "bookmarks"
+
+            await proxy.__aexit__(None, None, None)
+            mock_rollback.assert_not_called()
+            mock_commit.assert_called_once()
+            assert proxy.last_bookmarks == "bookmarks"
+
+
+@mark_async_test
+async def test_proxy_call_decorator():
+    """Using the proxy as a decorator wraps the call in the transaction."""
+    test_db = AsyncDatabase()
+    proxy = AsyncTransactionProxy(test_db)
+
+    async def test_func():
+        return "success"
+
+    decorated = proxy(test_func)
+    assert callable(decorated)
+
+    with patch.object(proxy, "__aenter__", new_callable=AsyncMock) as mock_enter:
+        with patch.object(proxy, "__aexit__", new_callable=AsyncMock):
+            mock_enter.return_value = proxy
+            result = await decorated()
+            assert result == "success"
+
+
+@mark_async_test
+async def test_commit_without_transaction_raises():
+    # Calling commit with no active transaction must raise a clear error rather
+    # than an AttributeError on None (and must not vanish under python -O - see
+    # test_optimized_mode_checks.py).
+    assert adb._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        await adb.commit()
+
+
+@mark_async_test
+async def test_rollback_without_transaction_raises():
+    assert adb._active_transaction is None
+    with raises(RuntimeError, match="No transaction in progress"):
+        await adb.rollback()

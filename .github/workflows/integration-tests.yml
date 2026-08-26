@@ -10,6 +10,24 @@ on:
     branches: [ "master", "rc/**" ]
 
 jobs:
+  mypy:
+    # Static type checking. No database needed, so it runs once (not per matrix).
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+        cache: 'pip'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e '.[dev,extras]'
+    - name: Run mypy
+      run: |
+        mypy neomodel test/test_typing.py
+
   build:
     runs-on: ubuntu-latest
     strategy:

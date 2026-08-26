@@ -49,39 +49,17 @@ labels, the `__optional_labels__` property must be defined as a list of strings:
         __optional_labels__ = ["SuperSaver", "SeniorDiscount"]
         balance = IntegerProperty(index=True)
 
-.. note:: The size of the node class mapping grows exponentially with optional labels. Use with some caution.
+.. note:: Optional-label combinations are resolved at lookup time, so the node-class registry stores a single entry per class regardless of how many optional labels it declares.
 
 .. _allowing_class_reloading:
 
-Allowing Class Reloading
--------------------------
-By default, neomodel prevents class redefinition to ensure the integrity of the node-class registry.
-However, in development environments with hot-reloading (like Streamlit or Django's development server),
-this behavior can be problematic as classes get redefined on every code change.
-
-To support hot-reload workflows, you can enable the ``allow_reload`` global config parameter:
-
-.. code-block:: python
-
-    from neomodel import config
-    config.ALLOW_RELOAD = True
-
-Or using the modern config API:
-
-.. code-block:: python
-
-    from neomodel.config import get_config
-    get_config().allow_reload = True
-
-When ``allow_reload`` is enabled:
-
-* Class redefinitions will issue a ``UserWarning`` instead of raising ``NodeClassAlreadyDefined``
-* The class registry will be updated with the new definition
-* This works for both standard classes and database-specific classes (with ``__target_databases__``)
-
-.. warning:: Only enable ``allow_reload`` in development environments. In production, the default behavior of raising ``NodeClassAlreadyDefined`` helps catch unintentional class redefinitions that could lead to subtle bugs.
-
-Example with Streamlit:
+Class Reloading
+---------------
+Node classes are discovered from the live class hierarchy at lookup time, so
+**redefining a class is always allowed**. In development environments with
+hot-reloading (like Streamlit or Django's development server), where classes get
+redefined on every code change, the latest definition simply wins — no
+configuration is required.
 
 .. code-block:: python
 
@@ -89,11 +67,22 @@ Example with Streamlit:
     from neomodel import StructuredNode, StringProperty, config
 
     config.DATABASE_URL = 'bolt://neo4j:neo4j@localhost:7687'
-    config.ALLOW_RELOAD = True  # Allows Streamlit page reloads
 
     class User(StructuredNode):
         name = StringProperty(unique_index=True)
         email = StringProperty()
+
+.. deprecated:: 7.0.0
+    The ``config.allow_reload`` / ``config.ALLOW_RELOAD`` setting is deprecated
+    and no longer has any effect (redefinition is always allowed). Setting it
+    emits a ``DeprecationWarning``; it will be removed in a future release.
+
+.. note::
+    Redefining the *same* class (same module and name) is a no-op that updates
+    the mapping. A genuine clash — two *distinct* classes declaring the same
+    ``__label__`` — is no longer reported when the second class is defined; it is
+    reported as ``NodeClassAlreadyDefined`` only if a node with those labels is
+    actually resolved.
 
     st.write("User model loaded successfully")
 
@@ -166,10 +155,13 @@ These can also be set after calling the constructor but this would skip validati
 Automatic class resolution
 --------------------------
 Neomodel is able to transform nodes to native data model objects, automatically, via a *node-class registry*
-that is progressively built up during the definition of the models.
+that maps the set of labels associated with a node to the class that is implied by this set of labels.
 
-This *registry* is a dictionary that provides a mapping from the set of labels associated with a node to the class
-that is implied by this set of labels.
+The registry is built **lazily**: node classes are discovered by scanning the live
+``StructuredNode`` class hierarchy the first time a resolution needs them (and re-scanned
+whenever a new class has been defined since). Defining a model no longer mutates any global
+state, which is why redefining a class — for example on a development-server hot reload — is
+always allowed (see :ref:`allowing_class_reloading`).
 
 Consider for example the following snippet of code::
 
@@ -204,57 +196,36 @@ Therefore, a ``Node`` with labels ``"BasePerson", "TechnicalPerson"`` would lead
 
 This automatic class resolution however, requires a bit of caution:
 
-1. As a consequence of the way the *node-class registry* is built up and used, if a query results in instantiating an
-   object whose class definition has not yet been imported, then exception
-   ``neomodel.exceptions.ModelDefinitionMismatch`` will be raised.
+1. Resolution can only find classes that have actually been **imported** — the scan sees a
+   class once its ``class`` statement has executed. If a query returns a node whose class was
+   never imported (or whose exact label set matches no defined class), then
+   ``neomodel.exceptions.NodeClassNotDefined`` is raised.
         * Given the above class hierarchy, suppose that each of the classes ``BasePerson``, ``TechnicalPerson``,
           ``PilotPerson`` were defined in separate files / modules and a script only included::
 
               from base_models import BasePerson
               from pilot_models import PilotPerson
 
-          Then, this would mean that the ``BasePerson, TechnicalPerson --> TechnicalPerson`` entry would not have been
-          created in the node-class registry and therefore it would be impossible to resolve any `Node` objects (if
-          they happened to come up in a query) to an application specific object.
+          Then ``TechnicalPerson`` would never have been imported, so a ``Node`` with labels
+          ``BasePerson, TechnicalPerson`` coming back from a query could not be resolved.
 
-2. Since the only way to resolve objects at runtime is this mapping of a set of labels to a class, then
-   this mapping **must** be guaranteed to be unique. Therefore, if for any reason a class gets **redefined**, then
-   exception ``neomodel.exceptions.NodeClassAlreadyDefined`` will be raised.
-        * This behavior can be overridden in development environments by setting ``__allow_reload__ = True`` on the class,
-          which will issue a warning instead of raising an exception. See the section on :ref:`allowing_class_reloading` for more details.
-        * Given the above class hierarchy, suppose that an attempt was made to redefine one of the existing classes in
-          the local scope of some function ::
+2. The mapping of a label set to a class **must** be unique. Two *distinct* classes declaring
+   the same labels is a genuine clash. Unlike previous versions, this is no longer reported when
+   the second class is defined (definition has no global side-effect); instead
+   ``neomodel.exceptions.NodeClassAlreadyDefined`` is raised only if a node carrying those labels
+   is actually resolved. Redefining the *same* class (same module and name, e.g. a hot reload) is
+   not a clash — the latest definition simply wins.
 
-                import neomodel
+3. Two classes with different names but the same ``__label__`` override are the "distinct classes,
+   same labels" clash of point 2. This can be avoided under certain circumstances, as explained in
+   the next section on 'Database specific labels'.
 
-                class BasePerson(neomodel.StructuredNode):
-                    pass
-
-
-                class TechnicalPerson(BasePerson):
-                    pass
+Both ``NodeClassNotDefined`` and ``NodeClassAlreadyDefined`` produce an error message that returns the labels of the
+node that created the problem as well as the state of the current *node-class registry*. These two pieces of
+information can be used to debug the model mismatch further.
 
 
-                class PilotPerson(BasePerson):
-                    pass
-
-
-                def some_function():
-                    class PilotPerson(BasePerson):
-                        pass
-
-          If this was left unchecked and once ``some_function()`` executes, it would replace the mapping of
-          ``{"BasePerson", "PilotPerson"}`` to ``PilotPerson`` **in the global scope** with a mapping of the same
-          set of labels but towards the class defined within the **local scope** of ``some_function``.
-
-3. Two classes with different names but the same __label__ override will also result in a ``NodeClassAlreadyDefined`` exception.
-   This can be avoided under certain circumstances, as explained in the next section on 'Database specific labels'.
-
-Both ``ModelDefinitionMismatch`` and ``NodeClassAlreadyDefined`` produce an error message that returns the labels of the
-node that created the problem (either the `Node` returned from the database or the class that was attempted to be
-redefined) as well as the state of the current *node-class registry*. These two pieces of information can be used to
-debug the model mismatch further.
-
+.. _multiple-databases:
 
 Database specific labels
 ------------------------
@@ -279,8 +250,10 @@ based on the database it was fetched from ::
     db.set_connection("bolt://neo4j:password@localhost:7687/db_one")
     patients = db.cypher_query("MATCH (n:Patient) RETURN n", resolve_objects=True) --> instance of PatientOne
 
-The following will result in a ``NodeClassAlreadyDefined`` exception, because when retrieving from ``db_one``,
-neomodel would not be able to decide which model to parse into ::
+Avoid declaring a **global** class with the same label as your database-specific ones.
+The global registry is consulted before the database-specific one, so a global
+``GeneralPatient`` would shadow ``PatientOne``/``PatientTwo`` and always be chosen when
+resolving a ``Patient`` node, regardless of the database it came from ::
     class GeneralPatient(AsyncStructuredNode):
         __label__ = "Patient"
         name = StringProperty()

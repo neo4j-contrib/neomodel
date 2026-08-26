@@ -4,15 +4,19 @@ import re
 import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import date, datetime
-from typing import Any, Callable, Union, overload
+from typing import Any, Callable, Generic, TypeVar, Union, overload
 from zoneinfo import ZoneInfo
 
 import neo4j.time
+from typing_extensions import Self
 
 from neomodel.config import get_config
 from neomodel.exceptions import DeflateError, InflateError, NeomodelException
 
 TOO_MANY_DEFAULTS = "too many defaults"
+
+# The Python type a property holds, so ``node.some_string`` is typed ``str``.
+V = TypeVar("V")
 
 
 def validator(fn: Callable) -> Callable:
@@ -21,7 +25,7 @@ def validator(fn: Callable) -> Callable:
         raise ValueError("Unknown Property method " + fn_name)
 
     @functools.wraps(fn)
-    def _validator(  # type: ignore
+    def _validator(
         self, value: Any, obj: Any | None = None, rethrow: bool | None = True
     ) -> Any:
         if rethrow:
@@ -51,8 +55,8 @@ class FulltextIndex:
 
     def __init__(
         self,
-        analyzer: str | None = "standard-no-stop-words",
-        eventually_consistent: bool | None = False,
+        analyzer: str = "standard-no-stop-words",
+        eventually_consistent: bool = False,
     ):
         """
         Initializes new fulltext index definition with analyzer and eventually consistent
@@ -71,8 +75,8 @@ class VectorIndex:
 
     def __init__(
         self,
-        dimensions: int | None = 1536,
-        similarity_function: str | None = "cosine",
+        dimensions: int = 1536,
+        similarity_function: str = "cosine",
     ):
         """
         Initializes new vector index definition with dimensions and similarity
@@ -84,7 +88,7 @@ class VectorIndex:
         self.similarity_function = similarity_function
 
 
-class Property(metaclass=ABCMeta):
+class Property(Generic[V], metaclass=ABCMeta):
     """
     Base class for object properties.
 
@@ -187,6 +191,34 @@ class Property(metaclass=ABCMeta):
     def is_indexed(self) -> bool:
         return self.unique_index or self.index
 
+    @overload
+    def __get__(self, instance: None, owner: Any = None) -> Self:
+        ...
+
+    @overload
+    def __get__(self, instance: object, owner: Any = None) -> V:
+        ...
+
+    def __get__(self, instance: Any, owner: Any = None) -> Any:
+        """Typed-descriptor access.
+
+        On the class (``MyNode.some_prop``) this returns the property object
+        itself, so introspection keeps working. On an instance
+        (``node.some_prop``) it is typed as the property's Python value ``V``.
+
+        This is a *non-data* descriptor (no ``__set__``): PropertyManager stores
+        each property's value in the instance ``__dict__``, which shadows this
+        descriptor, so at runtime instance access returns that stored value and
+        this method is not actually invoked for populated properties. The body
+        is only a faithful fallback.
+        """
+        if instance is None:
+            return self
+        try:
+            return instance.__dict__[self.name]
+        except (KeyError, TypeError) as exc:
+            raise AttributeError(self.name) from exc
+
     @abstractmethod
     def inflate(self, value: Any, rethrow: bool = False) -> Any:
         pass
@@ -196,7 +228,7 @@ class Property(metaclass=ABCMeta):
         pass
 
 
-class NormalizedProperty(Property):
+class NormalizedProperty(Property[str]):
     """
     Base class for normalized properties. These use the same normalization
     method to in- or deflating.
@@ -314,7 +346,7 @@ class StringProperty(NormalizedProperty):
         return self.normalize(super().default_value())
 
 
-class IntegerProperty(Property):
+class IntegerProperty(Property[int]):
     """
     Stores an Integer value
     """
@@ -333,7 +365,7 @@ class IntegerProperty(Property):
         return int(super().default_value())
 
 
-class ArrayProperty(Property):
+class ArrayProperty(Property[list]):
     """
     Stores a list of items
     """
@@ -387,7 +419,7 @@ class ArrayProperty(Property):
         return list(super().default_value())
 
 
-class FloatProperty(Property):
+class FloatProperty(Property[float]):
     """
     Store a floating point value
     """
@@ -406,7 +438,7 @@ class FloatProperty(Property):
         return float(super().default_value())
 
 
-class BooleanProperty(Property):
+class BooleanProperty(Property[bool]):
     """
     Stores a boolean value
     """
@@ -425,7 +457,7 @@ class BooleanProperty(Property):
         return bool(super().default_value())
 
 
-class DateProperty(Property):
+class DateProperty(Property[date]):
     """
     Stores a date
     """
@@ -448,7 +480,7 @@ class DateProperty(Property):
         return value.isoformat()
 
 
-class DateTimeFormatProperty(Property):
+class DateTimeFormatProperty(Property[datetime]):
     """
     Store a datetime by custom format
     :param default_now: If ``True``, the creation time (Local) will be used as default.
@@ -483,7 +515,7 @@ class DateTimeFormatProperty(Property):
         return datetime.strftime(value, self.format)
 
 
-class DateTimeProperty(Property):
+class DateTimeProperty(Property[datetime]):
     """A property representing a :class:`datetime.datetime` object as
     unix epoch.
 
@@ -531,7 +563,7 @@ class DateTimeProperty(Property):
         return float((value - epoch_date).total_seconds())
 
 
-class DateTimeNeo4jFormatProperty(Property):
+class DateTimeNeo4jFormatProperty(Property[datetime]):
     """
     Store a datetime by native neo4j format
 
@@ -563,7 +595,7 @@ class DateTimeNeo4jFormatProperty(Property):
         return neo4j.time.DateTime.from_native(value)
 
 
-class JSONProperty(Property):
+class JSONProperty(Property[Any]):
     """
     Store a data structure as a JSON string.
 
@@ -636,7 +668,7 @@ class AliasProperty(property, Property):
         raise AttributeError("Cannot set read-only property 'unique_index'")
 
 
-class UniqueIdProperty(Property):
+class UniqueIdProperty(Property[str]):
     """
     A unique identifier, a randomly generated uid (uuid4) with a unique index
     """

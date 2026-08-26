@@ -103,6 +103,8 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(version_tag_to_integer("5.4.0"), 50400)
         self.assertEqual(version_tag_to_integer("4.0.0"), 40000)
         self.assertEqual(version_tag_to_integer("3.2.1"), 30201)
+        self.assertEqual(version_tag_to_integer("5.7.1"), 50701)
+        self.assertEqual(version_tag_to_integer("5.14.1"), 51401)
 
         # Test with less than 3 components
         self.assertEqual(version_tag_to_integer("5.4"), 50400)

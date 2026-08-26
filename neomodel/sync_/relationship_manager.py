@@ -4,14 +4,13 @@ import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
-from neomodel.exceptions import NotConnected, RelationshipClassRedefined
-from neomodel.sync_.database import db
-from neomodel.sync_.match import (
-    NodeSet,
-    Traversal,
-    _rel_helper,
-    _rel_merge_helper,
+from neomodel.exceptions import (
+    MutualExclusionViolation,
+    NotConnected,
+    RelationshipClassRedefined,
 )
+from neomodel.sync_.database import db
+from neomodel.sync_.match import NodeSet, Traversal, _rel_helper, _rel_merge_helper
 from neomodel.sync_.node import StructuredNode
 from neomodel.sync_.relationship import StructuredRel
 from neomodel.util import (
@@ -73,7 +72,7 @@ class RelationshipManager:
         return f"{self.description} in {direction} direction of type {self.definition['relation_type']} on node ({self.source.element_id}) of class '{self.source_class.__name__}'"
 
     def __await__(self) -> Any:
-        return self.all().__await__()  # type: ignore[attr-defined]
+        return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
 
     def check_cardinality(self, node: "StructuredNode") -> None:
         """
@@ -84,6 +83,32 @@ class RelationshipManager:
         :type: StructuredNode
         :raises: AttemptedCardinalityViolation
         """
+
+    def check_mutual_exclusion(self) -> None:
+        """
+        Check whether connecting this relationship would violate a mutual
+        exclusion group. Relationships sharing the same ``exclusion_group`` on
+        the source node are mutually exclusive: at most one of them may hold any
+        connection at a time (this is orthogonal to each relationship's own
+        cardinality).
+
+        :raises: MutualExclusionViolation
+        """
+        group = self.definition.get("exclusion_group")
+        if not group:
+            return
+        for rel_name, rel_def in self.source.defined_properties(
+            rels=True, aliases=False, properties=False
+        ).items():
+            if rel_name == self.name:
+                continue
+            if rel_def.definition.get("exclusion_group") != group:
+                continue
+            if getattr(self.source, rel_name).__len__() > 0:
+                raise MutualExclusionViolation(
+                    f"Cannot connect '{self.name}': relationship '{rel_name}' "
+                    f"(mutual exclusion group '{group}') is already connected"
+                )
 
     def _check_node(self, obj: type["StructuredNode"]) -> None:
         """check for valid node i.e correct class and is saved"""
@@ -108,6 +133,7 @@ class RelationshipManager:
         """
         self._check_node(node)
         self.check_cardinality(node)
+        self.check_mutual_exclusion()
 
         # Check for cardinality on the remote end.
         for rel_name, rel_def in node.defined_properties(
@@ -401,7 +427,7 @@ class RelationshipManager:
 
     def match(self, **kwargs: Any) -> NodeSet:
         """
-        Return set of nodes who's relationship properties match supplied args
+        Return set of nodes whose relationship properties match supplied args
 
         :param kwargs: same syntax as `NodeSet.filter()`
         :return: NodeSet
@@ -443,6 +469,7 @@ class RelationshipDefinition:
         direction: int,
         manager: type[RelationshipManager] = RelationshipManager,
         model: type[StructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         self._validate_class(cls_name, model)
 
@@ -462,6 +489,7 @@ class RelationshipDefinition:
             "relation_type": relation_type,
             "direction": direction,
             "model": model,
+            "exclusion_group": exclusion_group,
         }
 
         if model is not None:
@@ -628,6 +656,7 @@ class RelationshipTo(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -635,6 +664,7 @@ class RelationshipTo(RelationshipDefinition):
             RelationshipDirection.OUTGOING,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )
 
 
@@ -645,6 +675,7 @@ class RelationshipFrom(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -652,6 +683,7 @@ class RelationshipFrom(RelationshipDefinition):
             RelationshipDirection.INCOMING,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )
 
 
@@ -662,6 +694,7 @@ class Relationship(RelationshipDefinition):
         relation_type: str,
         cardinality: type[RelationshipManager] = ZeroOrMore,
         model: type[StructuredRel] | None = None,
+        exclusion_group: str | None = None,
     ) -> None:
         super().__init__(
             relation_type,
@@ -669,4 +702,5 @@ class Relationship(RelationshipDefinition):
             RelationshipDirection.EITHER,
             manager=cardinality,
             model=model,
+            exclusion_group=exclusion_group,
         )

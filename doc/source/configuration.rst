@@ -277,6 +277,32 @@ Or using the legacy approach::
     # Using URL - auto-managed
     db.set_connection(url='bolt://neo4j:neo4j@localhost:7687')
 
+When you pass a ``url``, neomodel creates and owns the driver, and will close it
+for you when the connection is replaced or closed. When you pass your own
+``driver``, neomodel uses it as-is and never closes it implicitly - its
+lifecycle remains your responsibility.
+
+Connection Scope
+~~~~~~~~~~~~~~~~
+
+The Neo4j driver is **process-wide**. A single driver (and its connection pool)
+is shared across all threads and async tasks, which is how the Neo4j driver is
+designed to be used. As a consequence:
+
+* ``set_connection()`` and ``close_connection()`` affect the **whole process**,
+  not just the calling thread or task. Calling ``set_connection()`` again
+  replaces the shared driver (closing the previous neomodel-managed one first).
+* You only need to connect **once** at startup. Threads spawned later (e.g. in a
+  ``ThreadPoolExecutor``, or sync Celery/gunicorn workers) and async tasks all
+  reuse the same driver automatically - they do not each build their own pool.
+
+The **target database name**, on the other hand, is context-local: setting it in
+one thread or task does not affect others. This is what allows different contexts
+to address different databases (see :ref:`Multiple databases <multiple-databases>`)
+over the same shared driver. The currently active transaction, session,
+impersonated user and parallel-runtime flag are likewise context-local, so
+concurrent tasks never share transaction state.
+
 Closing Connections
 ~~~~~~~~~~~~~~~~~~~
 
@@ -286,6 +312,8 @@ Since Neo4j version 5, driver auto-close is deprecated. Make sure to close the c
     db.close_connection()
 
 This will close the Neo4j driver and clean up neomodel's internal resources.
+Because the driver is process-wide, this closes it for every thread and async
+context, so call it only on shutdown.
 
 Security Best Practices
 -----------------------

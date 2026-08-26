@@ -5,12 +5,15 @@ from test._async_compat import (
     mark_sync_test,
 )
 from test.conftest import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USERNAME
+from unittest.mock import Mock, patch
 
 import pytest
 from neo4j import Driver, GraphDatabase
 from neo4j.debug import watch
 
 from neomodel import StringProperty, StructuredNode, db, get_config
+from neomodel._async_compat.util import Lock
+from neomodel.sync_.connection import ConnectionManager, ensure_connection
 
 
 @mark_async_function_auto_fixture
@@ -86,6 +89,24 @@ def test_config_driver_works():
     # Clear config
     # No need to close connection - pytest teardown will do it
     config.driver = None
+
+
+@mark_sync_test
+def test_no_connection_configured_raises():
+    # When neither a URL nor a driver is configured, the first query must fail
+    # loudly instead of silently connecting with default credentials.
+    config = get_config()
+    saved_url = config.database_url
+    saved_driver = config.driver
+    db.close_connection()
+    config.database_url = None
+    config.driver = None
+    try:
+        with pytest.raises(ValueError, match="No Neo4j connection has been configured"):
+            db.cypher_query("RETURN 1")
+    finally:
+        config.database_url = saved_url
+        config.driver = saved_driver
 
 
 @mark_sync_test
@@ -173,7 +194,7 @@ class _DummyDriver:
 def captured_url_parsing(monkeypatch):
     """Patch driver creation so _parse_driver_from_url can be exercised in
     isolation, capturing the parsed auth and address."""
-    from neomodel.sync_ import database as db_module
+    from neomodel.sync_ import connection as conn_module
 
     captured: dict = {}
 
@@ -185,8 +206,8 @@ def captured_url_parsing(monkeypatch):
         captured["address"] = address
         return _DummyDriver()
 
-    monkeypatch.setattr(db_module, "basic_auth", fake_basic_auth)
-    monkeypatch.setattr(db_module.GraphDatabase, "driver", staticmethod(fake_driver))
+    monkeypatch.setattr(conn_module, "basic_auth", fake_basic_auth)
+    monkeypatch.setattr(conn_module.GraphDatabase, "driver", staticmethod(fake_driver))
     return captured
 
 
@@ -274,3 +295,146 @@ def _set_connection(protocol):
 
     database_url = f"{protocol}://{aura_test_db_user}:{aura_test_db_password}@{aura_test_db_hostname}"
     db.set_connection(url=database_url)
+
+
+# ---------------------------------------------------------------------------
+# ensure_connection decorator
+# ---------------------------------------------------------------------------
+
+
+@mark_sync_test
+def test_ensure_connection_decorator_no_driver():
+    """The decorator lazily connects via the configured URL when no driver is set."""
+
+    class MockDB:
+        def __init__(self):
+            self.driver = None
+            # ensure_connection guards lazy driver creation with this lock.
+            self._connection_lock = Lock()
+
+        def set_connection(self, **kwargs):
+            pass
+
+        @ensure_connection
+        def test_method(self):
+            return "success"
+
+    test_db = MockDB()
+    with patch.object(
+        test_db, "set_connection", new_callable=Mock
+    ) as mock_set_connection:
+        result = test_db.test_method()
+        assert result == "success"
+        mock_set_connection.assert_called_once_with(
+            url="bolt://neo4j:foobarbaz@localhost:7687"
+        )
+
+
+@mark_sync_test
+def test_ensure_connection_decorator_uses_config_driver():
+    """When no URL is configured but a driver is, the decorator connects with it."""
+
+    class MockDB:
+        def __init__(self):
+            self.driver = None
+            self._connection_lock = Lock()
+
+        def set_connection(self, **kwargs):
+            pass
+
+        @ensure_connection
+        def test_method(self):
+            return "success"
+
+    config = get_config()
+    original_url = config.database_url
+    original_driver = config.driver
+    sentinel_driver = object()
+    try:
+        config.database_url = ""
+        config.driver = sentinel_driver
+        test_db = MockDB()
+        with patch.object(
+            test_db, "set_connection", new_callable=Mock
+        ) as mock_set_connection:
+            result = test_db.test_method()
+            assert result == "success"
+            mock_set_connection.assert_called_once_with(driver=sentinel_driver)
+    finally:
+        config.database_url = original_url
+        config.driver = original_driver
+
+
+@mark_sync_test
+def test_ensure_connection_decorator_with_driver():
+    """The decorator is a no-op passthrough when a driver already exists."""
+
+    class MockDB:
+        def __init__(self):
+            self.driver = "existing_driver"
+
+        @ensure_connection
+        def test_method(self):
+            return "success"
+
+    test_db = MockDB()
+    result = test_db.test_method()
+    assert result == "success"
+
+
+# ---------------------------------------------------------------------------
+# Server-version dependent helpers on AsyncConnectionManager
+#
+# When the server version cannot be determined these must fail with a clear
+# RuntimeError rather than returning nonsense. A fresh, unconnected manager
+# (with version detection stubbed out) reproduces that state without a server.
+# ---------------------------------------------------------------------------
+
+
+def _manager_without_version():
+    manager = ConnectionManager()
+    # A truthy driver lets the ensure_connection-decorated helpers run without
+    # trying to build a real connection.
+    manager.driver = object()
+    manager._database_version = None
+    manager._database_edition = None
+    return manager
+
+
+@mark_sync_test
+def test_get_id_method_raises_without_version():
+    manager = _manager_without_version()
+    with patch.object(manager, "_update_database_version", new_callable=Mock):
+        with pytest.raises(RuntimeError):
+            manager.get_id_method()
+
+
+@mark_sync_test
+def test_parse_element_id_none_raises_value_error():
+    manager = _manager_without_version()
+    with pytest.raises(ValueError, match="Unable to parse element id"):
+        manager.parse_element_id(None)
+
+
+@mark_sync_test
+def test_parse_element_id_raises_without_version():
+    manager = _manager_without_version()
+    with patch.object(manager, "_update_database_version", new_callable=Mock):
+        with pytest.raises(RuntimeError):
+            manager.parse_element_id("4:abc:0")
+
+
+@mark_sync_test
+def test_version_is_higher_than_raises_without_version():
+    manager = _manager_without_version()
+    with patch.object(manager, "_update_database_version", new_callable=Mock):
+        with pytest.raises(RuntimeError):
+            manager.version_is_higher_than("5.0")
+
+
+@mark_sync_test
+def test_edition_is_enterprise_raises_without_version():
+    manager = _manager_without_version()
+    with patch.object(manager, "_update_database_version", new_callable=Mock):
+        with pytest.raises(RuntimeError):
+            manager.edition_is_enterprise()
