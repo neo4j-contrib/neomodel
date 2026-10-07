@@ -17,9 +17,13 @@ from neomodel.sync_.relationship import StructuredRel
 # The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
 T = TypeVar("T", bound=StructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import FulltextFilter, VectorFilter
+from neomodel.semantic_filters import FulltextFilter, SemanticFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection, deprecated
+from neomodel.util import (
+    RelationshipDirection,
+    deprecated,
+    escape_identifier,
+)
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -528,8 +532,7 @@ class QueryAST:
     lookup: str | None
     additional_return: list[str] | None
     is_count: bool | None
-    vector_index_query: VectorFilter | None
-    fulltext_index_query: FulltextFilter | None
+    semantic_query: SemanticFilter | None
 
     def __init__(
         self,
@@ -546,8 +549,7 @@ class QueryAST:
         lookup: str | None = None,
         additional_return: list[str] | None = None,
         is_count: bool | None = False,
-        vector_index_query: VectorFilter | None = None,
-        fulltext_index_query: FulltextFilter | None = None,
+        semantic_query: SemanticFilter | None = None,
     ) -> None:
         self.match = match if match else []
         self.optional_match = optional_match if optional_match else []
@@ -564,8 +566,7 @@ class QueryAST:
             additional_return if additional_return else []
         )
         self.is_count = is_count
-        self.vector_index_query = vector_index_query
-        self.fulltext_index_query = fulltext_index_query
+        self.semantic_query = semantic_query
         self.subgraph: dict = {}
         self.mixed_filters: bool = False
 
@@ -591,17 +592,10 @@ class QueryBuilder:
 
         if (
             isinstance(self.node_set, NodeSet)
-            and hasattr(self.node_set, "vector_query")
-            and self.node_set.vector_query
+            and hasattr(self.node_set, "semantic_query")
+            and self.node_set.semantic_query
         ):
-            self.build_vector_query()
-
-        if (
-            isinstance(self.node_set, NodeSet)
-            and hasattr(self.node_set, "fulltext_query")
-            and self.node_set.fulltext_query
-        ):
-            self.build_fulltext_query()
+            self.build_semantic_query()
 
         self.build_source(self.node_set)
 
@@ -684,65 +678,40 @@ class QueryBuilder:
                         order_by.append(f"{result[0]}.{prop}")
             self._ast.order_by = order_by
 
-    def build_vector_query(self):
-        """
-        Query a vector indexed property on the node.
-        """
-        vector_filter = self.node_set.vector_query
+    def build_semantic_query(self):
+        semantic_filter = self.node_set.semantic_query
+        if semantic_filter is None:
+            return
         source_class = self.node_set.source_class
+        attribute_name = semantic_filter._attribute_name
         try:
-            attribute = getattr(
-                self.node_set.source, vector_filter.vector_attribute_name
-            )
-        except AttributeError as e:
-            raise AttributeError(
-                f"Attribute '{vector_filter.vector_attribute_name}' not found on '{source_class.__name__}'."
-            ) from e
+            attribute = getattr(self.node_set.source, attribute_name)
+        except AttributeError:
+            raise
 
-        if not attribute.vector_index:
+        if not semantic_filter._is_indexed(attribute):
             raise AttributeError(
-                f"Attribute {vector_filter.vector_attribute_name} is not declared with a vector index."
+                f"Attribute {attribute_name} is not declared with a {semantic_filter._index_name_prefix}"
             )
 
-        if type(vector_filter.threshold) not in [float, type(None)]:
-            raise ValueError("Vector Filter Threshold must be a float or None.")
+        if type(semantic_filter.threshold) not in [float, type(None)]:
+            raise ValueError("Semantic Filter Threshold must be a float or None.")
 
-        vector_filter.index_name = f"vector_index_{source_class.__label__}_{vector_filter.vector_attribute_name}"
-        vector_filter.node_set_label = source_class.__label__.lower()
+        semantic_filter._use_search_clause = db.version_is_higher_than(
+            semantic_filter._search_clause_supported_version
+        )
+        semantic_filter._index_name = f"{semantic_filter._index_name_prefix}_{source_class.__label__}_{attribute_name}"
+        semantic_filter._node_set_label = source_class.__label__.lower()
 
-        self._ast.vector_index_query = vector_filter
-        self._ast.return_clause = f"{vector_filter.node_set_label}, score"
-        self._ast.result_class = source_class.__class__
+        self._ast.semantic_query = semantic_filter
 
-    def build_fulltext_query(self):
-        """
-        Query a free text indexed property on the node.
-        """
-        full_text_filter = self.node_set.fulltext_query
-        source_class = self.node_set.source_class
-        try:
-            attribute = getattr(
-                self.node_set.source, full_text_filter.fulltext_attribute_name
+        if (
+            self._ast.semantic_query._use_search_clause
+            and self._ast.semantic_query._threshold_where_statement()
+        ):
+            self._ast.where.insert(
+                0, self._ast.semantic_query._threshold_where_statement()
             )
-        except AttributeError as e:
-            raise AttributeError(
-                f"Atribute '{full_text_filter.fulltext_attribute_name}' not found on '{source_class.__name__}'."
-            ) from e
-
-        if not attribute.fulltext_index:
-            raise AttributeError(
-                f"Attribute {full_text_filter.fulltext_attribute_name} is not declared with a full text index."
-            )
-
-        if type(full_text_filter.threshold) not in [float, type(None)]:
-            raise ValueError("Full Text Filter Threshold must be a float or None.")
-
-        full_text_filter.index_name = f"fulltext_index_{source_class.__label__}_{full_text_filter.fulltext_attribute_name}"
-        full_text_filter.node_set_label = source_class.__label__.lower()
-
-        self._ast.fulltext_index_query = full_text_filter
-        self._ast.return_clause = f"{full_text_filter.node_set_label}, score"
-        self._ast.result_class = source_class.__class__
 
     def build_traversal(self, traversal: "Traversal") -> str:
         """
@@ -1117,39 +1086,12 @@ class QueryBuilder:
         if self._ast.lookup:
             query += self._ast.lookup
 
-        if self._ast.vector_index_query:
-            query += f"""CALL () {{ 
-                CALL db.index.vector.queryNodes("{self._ast.vector_index_query.index_name}", {self._ast.vector_index_query.topk}, {self._ast.vector_index_query.vector}) 
-                YIELD node AS {self._ast.vector_index_query.node_set_label}, score """
-
-            if self._ast.vector_index_query.threshold:
-                query += f"""
-                WHERE score >= {self._ast.vector_index_query.threshold}
-                """
-
-            query += f"""
-                RETURN {self._ast.vector_index_query.node_set_label}, score 
-            }}"""
-
-            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
-            query += f""" WITH {self._ast.vector_index_query.node_set_label}, score"""
-
-        if self._ast.fulltext_index_query:
-            query += f"""CALL () {{
-                CALL db.index.fulltext.queryNodes("{self._ast.fulltext_index_query.index_name}", "{self._ast.fulltext_index_query.query_string}")
-                YIELD node AS {self._ast.fulltext_index_query.node_set_label}, score"""
-
-            if self._ast.fulltext_index_query.threshold:
-                query += f"""
-                WHERE score >= {self._ast.fulltext_index_query.threshold}
-                """
-
-            query += f"""
-                RETURN {self._ast.fulltext_index_query.node_set_label}, score LIMIT {self._ast.fulltext_index_query.topk}
-            }}
-                """
-            # This ensures that we bring the context of the new nodeSet and score along with us for metadata filtering
-            query += f""" WITH {self._ast.fulltext_index_query.node_set_label}, score"""
+        if (self._ast.semantic_query is not None) and (
+            not self._ast.semantic_query._use_search_clause
+        ):
+            query += self._ast.semantic_query._build_legacy_call(
+                node_set_label=self._ast.semantic_query._node_set_label
+            )
 
         # Instead of using only one MATCH statement for every relation
         # to follow, we use one MATCH per relation (to avoid cartesian
@@ -1157,12 +1099,25 @@ class QueryBuilder:
         # There might be optimizations to be done, using projections,
         # or pusing patterns instead of a chain of OPTIONAL MATCH.
         if self._ast.match:
-            query += " MATCH "
-            query += " MATCH ".join(i for i in self._ast.match)
+            match_stmts = self._ast.match
+            if (
+                self._ast.semantic_query is not None
+            ) and self._ast.semantic_query._use_search_clause:
+                # Attach the SEARCH subclause to the root node MATCH.
+                node_set_label = self._ast.semantic_query._node_set_label
+                match_stmts = (
+                    [
+                        f"""{match_stmts[0]} {self._ast.semantic_query._build_search_stmt(node_set_label=node_set_label)}  
+                    """
+                    ]
+                    + match_stmts[1:]
+                )
+            query += " MATCH " + " MATCH ".join(match_stmts)
 
         if self._ast.where:
             query += " WHERE "
-            query += " AND ".join(self._ast.where)
+            where_stmts = self._ast.where
+            query += " AND ".join(where_stmts)
 
         if self._ast.optional_match:
             query += " OPTIONAL MATCH "
@@ -1262,6 +1217,10 @@ class QueryBuilder:
                     # avoid duplicate error
                     returned_items.remove(varname)
                 returned_items.append(f"{leftpart} AS {varname}")
+
+        if self._ast.semantic_query is not None and not self._ast.is_count:
+            # This ensures that when a semantic query is used, score is the last thing that is always returned
+            returned_items.append("score")
 
         query += ", ".join(returned_items)
 
@@ -1680,8 +1639,7 @@ class NodeSet(BaseSet[T]):
         self._subqueries: list[Subquery] = []
         self._intermediate_transforms: list = []
         self._unique_variables: list[str] = []
-        self.vector_query: VectorFilter | None = None
-        self.fulltext_query: FulltextFilter | None = None
+        self.semantic_query: SemanticFilter | None = None
 
     def __await__(self) -> Any:
         return self.all().__await__()  # type: ignore[attr-defined, unused-ignore]
@@ -1835,31 +1793,30 @@ class NodeSet(BaseSet[T]):
         :return: self
         """
         if args or kwargs:
-            # Need to grab and remove the VectorFilter from both args and kwargs
-            # As args are a tuple, they're immutable. But we need to remove the vectorfilter from the arguments so they don't go into Q.
+            # Need to grab and remove the SemanticFilters from both args and kwargs
+            # As args are a tuple, they're immutable. But we need to remove the semantic filter
+            # from the arguments so they don't go into Q.
+
             new_args = []
             for arg in args:
-                if isinstance(arg, VectorFilter) and (not self.vector_query):
-                    self.vector_query = arg
-
-                if isinstance(arg, FulltextFilter) and (not self.fulltext_query):
-                    self.fulltext_query = arg
+                if isinstance(arg, SemanticFilter) and (not self.semantic_query):
+                    self.semantic_query = arg
 
                 new_args.append(arg)
 
             if (
                 kwargs.get("vector_filter")
-                and isinstance(kwargs["vector_filter"], VectorFilter)
-                and not self.vector_query
+                and isinstance(kwargs["vector_filter"], SemanticFilter)
+                and not self.semantic_query
             ):
-                self.vector_query = kwargs.pop("vector_filter")
+                self.semantic_query = kwargs.pop("vector_filter")
 
             if (
                 kwargs.get("fulltext_filter")
-                and isinstance(kwargs["fulltext_filter"], FulltextFilter)
-                and not self.fulltext_query
+                and isinstance(kwargs["fulltext_filter"], SemanticFilter)
+                and not self.semantic_query
             ):
-                self.fulltext_query = kwargs.pop("fulltext_filter")
+                self.semantic_query = kwargs.pop("fulltext_filter")
 
             self.q_filters = Q(self.q_filters & Q(*tuple(new_args), **kwargs))
 

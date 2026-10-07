@@ -197,6 +197,7 @@ def test_django_filter_w_vector_filter():
     result = vector_search_with_django_filter.all()
     assert len(result) == 1  # we only get the one node
     assert isinstance(result[0][0], djangoNode)
+    assert isinstance(result[0][1], float)
     assert result[0][0].number > 5
 
 
@@ -277,9 +278,7 @@ def test_vectorfilter_nonexistent_attribute():
     db.install_labels(TestNodeWithVector)
 
     # Test with non-existent attribute name
-    with pytest.raises(
-        AttributeError, match="Attribute 'nonexistent_vector' not found"
-    ):
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_vector'"):
         nodeset = TestNodeWithVector.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
@@ -306,7 +305,7 @@ def test_vectorfilter_no_vector_index():
     db.install_labels(TestNodeWithoutVector)
 
     # Test with attribute that exists but has no vector index
-    with pytest.raises(AttributeError, match="is not declared with a vector index"):
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutVector.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]
@@ -334,7 +333,7 @@ def test_vectorfilter_invalid_threshold_type():
 
     # Test with string threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Vector Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
@@ -348,7 +347,7 @@ def test_vectorfilter_invalid_threshold_type():
 
     # Test with integer threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Vector Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(

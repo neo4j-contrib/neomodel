@@ -161,7 +161,6 @@ async def test_fulltextfilter_threshold():
 
     result = await fulltextFilterThresh.all()
 
-    print(result)
     assert len(result) == 1
     assert all(isinstance(x[0], fulltextNodeThresh) for x in result)
     assert result[0][0].other == "thing"
@@ -334,9 +333,7 @@ async def test_fulltextfiler_nonexistent_attribute():
 
     await adb.install_labels(TestNodeWithFT)
 
-    with pytest.raises(
-        AttributeError, match="Atribute 'nonexistent_fulltext' not found"
-    ):
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
         nodeset = TestNodeWithFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1,
@@ -362,7 +359,7 @@ async def test_fulltextfiler_no_fulltext_index():
 
     await adb.install_labels(TestNodeWithoutFT)
 
-    with pytest.raises(AttributeError, match="is not declared with a full text index"):
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1, fulltext_attribute_name="fulltext", query_string="something"
@@ -392,7 +389,7 @@ async def test_fulltextfilter_invalid_threshold_type():
 
     # Test with string threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
@@ -406,7 +403,7 @@ async def test_fulltextfilter_invalid_threshold_type():
 
     # Test with integer threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
