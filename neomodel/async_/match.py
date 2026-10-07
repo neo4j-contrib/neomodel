@@ -1803,8 +1803,10 @@ class AsyncNodeSet(AsyncBaseSet[T]):
 
             new_args = []
             for arg in args:
-                if isinstance(arg, SemanticFilter) and (not self.semantic_query):
-                    self.semantic_query = arg
+                if isinstance(arg, SemanticFilter): 
+                    if not self.semantic_query:
+                        self.semantic_query = arg
+                    continue
 
                 new_args.append(arg)
 
