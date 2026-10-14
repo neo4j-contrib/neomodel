@@ -684,10 +684,7 @@ class QueryBuilder:
             return
         source_class = self.node_set.source_class
         attribute_name = semantic_filter._attribute_name
-        try:
-            attribute = getattr(self.node_set.source, attribute_name)
-        except AttributeError:
-            raise
+        attribute = getattr(self.node_set.source, attribute_name)
 
         if not semantic_filter._is_indexed(attribute):
             raise AttributeError(
