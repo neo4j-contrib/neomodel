@@ -16,6 +16,20 @@ from neomodel import (
 from neomodel.semantic_filters import FulltextFilter
 from neomodel.constants import VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT, VERSION_FULLTEXT_INDEXES_SUPPORT
 
+
+async def wait_for_indexes_ready(timeout: int = 30) -> None:
+    """
+    Block until all indexes are ONLINE.
+
+    Uses Neo4j's native db.awaitIndexes which waits server-side for every
+    index (including semantic/vector/fulltext) to finish populating.
+    """
+    try:
+        await adb.cypher_query(f"CALL db.awaitIndexes({timeout})")
+    except Exception:
+        results, _ = await adb.cypher_query("SHOW INDEXES YIELD name, state")
+        raise RuntimeError(f"Indexes not ready: {results}")
+
 @mark_async_test
 async def test_base_fulltextfilter():
     """
@@ -34,6 +48,7 @@ async def test_base_fulltextfilter():
         other = StringProperty()
 
     await adb.install_labels(fulltextNode)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNode(other="thing", description="Another thing").save()
 
@@ -69,6 +84,7 @@ async def test_fulltextfilter_topk_works():
         )
 
     await adb.install_labels(fulltextNodetopk)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodetopk(description="this description").save()
     node2 = await fulltextNodetopk(description="that description").save()
@@ -102,6 +118,7 @@ async def test_fulltextfilter_with_node_propertyfilter():
         other = StringProperty()
 
     await adb.install_labels(fulltextNodeBis)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeBis(other="thing", description="Another thing").save()
 
@@ -142,6 +159,7 @@ async def test_fulltextfilter_threshold():
         other = StringProperty()
 
     await adb.install_labels(fulltextNodeThresh)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeThresh(other="thing", description="Another thing").save()
 
@@ -194,7 +212,9 @@ async def test_dont_duplicate_fulltext_filter_node():
         other_name = StringProperty()
 
     await adb.install_labels(fulltextNodeTer)
+    await wait_for_indexes_ready()
     await adb.install_labels(otherfulltextNodeTer)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeTer(name="John", description="thing one").save()
     node2 = await fulltextNodeTer(name="Fred", description="thing two").save()
@@ -235,6 +255,7 @@ async def test_django_filter_w_fulltext_filter():
         number = FloatProperty()
 
     await adb.install_labels(fulltextDjangoNode)
+    await wait_for_indexes_ready()
 
     nodeone = await fulltextDjangoNode(
         name="John", description="thing one", number=float(10)
@@ -282,8 +303,11 @@ async def test_fulltextfilter_with_relationshipfilter():
         suppliers = AsyncRelationshipFrom(SupplierFT, "SUPPLIES", model=SuppliesFTRel)
 
     await adb.install_labels(SupplierFT)
+    await wait_for_indexes_ready()
     await adb.install_labels(SuppliesFTRel)
+    await wait_for_indexes_ready()
     await adb.install_labels(ProductFT)
+    await wait_for_indexes_ready()
 
     supplier1 = await SupplierFT(name="Supplier 1").save()
     supplier2 = await SupplierFT(name="Supplier 2").save()
@@ -332,6 +356,7 @@ async def test_fulltextfiler_nonexistent_attribute():
         )
 
     await adb.install_labels(TestNodeWithFT)
+    await wait_for_indexes_ready()
 
     with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
         nodeset = TestNodeWithFT.nodes.filter(
@@ -358,6 +383,7 @@ async def test_fulltextfiler_no_fulltext_index():
         fulltext = StringProperty()  # No fulltext_index
 
     await adb.install_labels(TestNodeWithoutFT)
+    await wait_for_indexes_ready()
 
     with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutFT.nodes.filter(
@@ -386,6 +412,7 @@ async def test_fulltextfilter_invalid_threshold_type():
         )
 
     await adb.install_labels(TestNodeWithFTInvalidType)
+    await wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
     with pytest.raises(

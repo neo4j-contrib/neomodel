@@ -18,6 +18,21 @@ from neomodel import (
 from neomodel.semantic_filters import VectorFilter
 from neomodel.constants import VERSION_VECTOR_INDEXES_SUPPORT, VERSION_VECTOR_SEARCH_CLAUSE_SUPPORT
 
+
+async def wait_for_indexes_ready(timeout: int = 30) -> None:
+    """
+    Block until all indexes are ONLINE.
+
+    Uses Neo4j's native db.awaitIndexes which waits server-side for every
+    index (including semantic/vector/fulltext) to finish populating.
+    """
+    try:
+        await adb.cypher_query(f"CALL db.awaitIndexes({timeout})")
+    except Exception:
+        results, _ = await adb.cypher_query("SHOW INDEXES YIELD name, state")
+        raise RuntimeError(f"Indexes not ready: {results}")
+
+
 @mark_async_test
 async def test_base_vectorfilter_async():
     """
@@ -35,6 +50,7 @@ async def test_base_vectorfilter_async():
         )
 
     await adb.install_labels(someNode)
+    await wait_for_indexes_ready()
 
     john = await someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -65,6 +81,7 @@ async def test_vectorfilter_thresholding():
         )
 
     await adb.install_labels(someNodeThresh)
+    await wait_for_indexes_ready()
 
     john = await someNodeThresh(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNodeThresh(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -102,6 +119,7 @@ async def test_vectorfilter_with_node_propertyfilter():
         )
 
     await adb.install_labels(someNodeBis)
+    await wait_for_indexes_ready()
 
     john = await someNodeBis(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNodeBis(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -143,7 +161,9 @@ async def test_dont_duplicate_vector_filter_node():
         )
 
     await adb.install_labels(someNodeTer)
+    await wait_for_indexes_ready()
     await adb.install_labels(otherNode)
+    await wait_for_indexes_ready()
 
     john = await someNodeTer(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = await someNodeTer(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -181,6 +201,7 @@ async def test_django_filter_w_vector_filter():
         number = FloatProperty()
 
     await adb.install_labels(djangoNode)
+    await wait_for_indexes_ready()
 
     nodeone = await djangoNode(
         name="John", vector=[float(0.5), float(0.5)], number=float(10)
@@ -226,8 +247,11 @@ async def test_vectorfilter_with_relationshipfilter():
         suppliers = AsyncRelationshipFrom(SupplierV, "SUPPLIESV", model=SuppliesVRel)
 
     await adb.install_labels(SupplierV)
+    await wait_for_indexes_ready()
     await adb.install_labels(SuppliesVRel)
+    await wait_for_indexes_ready()
     await adb.install_labels(ProductV)
+    await wait_for_indexes_ready()
 
     supplier1 = await SupplierV(name="Supplier 1").save()
     supplier2 = await SupplierV(name="Supplier 2").save()
@@ -277,6 +301,7 @@ async def test_vectorfilter_nonexistent_attribute():
         )
 
     await adb.install_labels(TestNodeWithVector)
+    await wait_for_indexes_ready()
 
     # Test with non-existent attribute name
     with pytest.raises(AttributeError, match="no attribute 'nonexistent_vector'"):
@@ -304,6 +329,7 @@ async def test_vectorfilter_no_vector_index():
         vector = ArrayProperty(base_property=FloatProperty())  # No vector_index
 
     await adb.install_labels(TestNodeWithoutVector)
+    await wait_for_indexes_ready()
 
     # Test with attribute that exists but has no vector index
     with pytest.raises(AttributeError, match="is not declared with a"):
@@ -331,6 +357,7 @@ async def test_vectorfilter_invalid_threshold_type():
         )
 
     await adb.install_labels(TestNodeWithVectorInvalidType)
+    await wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
     with pytest.raises(
