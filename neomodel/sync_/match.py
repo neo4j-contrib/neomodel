@@ -1116,8 +1116,7 @@ class QueryBuilder:
 
         if self._ast.where:
             query += " WHERE "
-            where_stmts = self._ast.where
-            query += " AND ".join(where_stmts)
+            query += " AND ".join(self._ast.where)
 
         if self._ast.optional_match:
             query += " OPTIONAL MATCH "
