@@ -17,7 +17,7 @@ from neomodel.match_q import Q, QBase
 # The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
 T = TypeVar("T", bound=AsyncStructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import FulltextFilter, SemanticFilter, VectorFilter
+from neomodel.semantic_filters import SemanticFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import (
     RelationshipDirection,

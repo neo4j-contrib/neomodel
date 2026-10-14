@@ -17,7 +17,7 @@ from neomodel.sync_.relationship import StructuredRel
 # The node type a set yields, so ``AsyncNodeSet[User].get()`` returns ``User``.
 T = TypeVar("T", bound=StructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
-from neomodel.semantic_filters import FulltextFilter, SemanticFilter, VectorFilter
+from neomodel.semantic_filters import SemanticFilter
 from neomodel.typing import Subquery, Transformation
 from neomodel.util import (
     RelationshipDirection,
