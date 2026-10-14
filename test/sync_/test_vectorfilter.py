@@ -14,6 +14,10 @@ from neomodel import (
     VectorIndex,
     db,
 )
+from neomodel.constants import (
+    VERSION_VECTOR_INDEXES_SUPPORT,
+    VERSION_VECTOR_SEARCH_CLAUSE_SUPPORT,
+)
 from neomodel.semantic_filters import VectorFilter
 
 
@@ -24,7 +28,7 @@ def test_base_vectorfilter_async():
     """
 
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNode(StructuredNode):
@@ -54,7 +58,7 @@ def test_vectorfilter_thresholding():
     Tests that the vector query is run, and only node above threshold returns.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeThresh(StructuredNode):
@@ -91,7 +95,7 @@ def test_vectorfilter_with_node_propertyfilter():
     Tests that the vector query is run, and "john" node is the only node returned.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeBis(StructuredNode):
@@ -126,7 +130,7 @@ def test_dont_duplicate_vector_filter_node():
     Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeTer(StructuredNode):
@@ -169,7 +173,7 @@ def test_django_filter_w_vector_filter():
     Tests that django filters still work with the vector filter on.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class djangoNode(StructuredNode):
@@ -207,7 +211,7 @@ def test_vectorfilter_with_relationshipfilter():
     Tests that by filtering on a vector similarity and then performing a relationshipfilter
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class SupplierV(StructuredNode):
@@ -266,7 +270,7 @@ def test_vectorfilter_nonexistent_attribute():
     Tests that AttributeError is raised when vector_attribute_name doesn't exist on the source.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithVector(StructuredNode):
@@ -295,7 +299,7 @@ def test_vectorfilter_no_vector_index():
     Tests that AttributeError is raised when the attribute exists but doesn't have a vector index.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithoutVector(StructuredNode):
@@ -320,7 +324,7 @@ def test_vectorfilter_invalid_threshold_type():
     Tests that ValueError is raised when threshold is not a float or None.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithVectorInvalidType(StructuredNode):

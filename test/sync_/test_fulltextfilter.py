@@ -13,6 +13,10 @@ from neomodel import (
     StructuredRel,
     db,
 )
+from neomodel.constants import (
+    VERSION_FULLTEXT_INDEXES_SUPPORT,
+    VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT,
+)
 from neomodel.semantic_filters import FulltextFilter
 
 
@@ -22,8 +26,8 @@ def test_base_fulltextfilter():
     Tests that the fulltextquery is run, node and score are returned.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNode(StructuredNode):
         description = StringProperty(
@@ -56,8 +60,8 @@ def test_fulltextfilter_topk_works():
     Tests that the topk filter works.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodetopk(StructuredNode):
         description = StringProperty(
@@ -88,8 +92,8 @@ def test_fulltextfilter_with_node_propertyfilter():
     Tests that the fulltext query is run, and "thing" node is only node returned.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeBis(StructuredNode):
         description = StringProperty(
@@ -128,8 +132,8 @@ def test_fulltextfilter_threshold():
     Tests that the fulltext query is run, and only nodes above threshold returns.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeThresh(StructuredNode):
         description = StringProperty(
@@ -172,8 +176,8 @@ def test_dont_duplicate_fulltext_filter_node():
     Testing that we are only performing the fulltextfilter and metadata filter on the right nodes.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeTer(StructuredNode):
         description = StringProperty(
@@ -220,8 +224,8 @@ def test_django_filter_w_fulltext_filter():
     Tests that django filters still work with the fulltext filter.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextDjangoNode(StructuredNode):
         description = StringProperty(
@@ -261,8 +265,8 @@ def test_fulltextfilter_with_relationshipfilter():
     Tests that by filtering on fulltext similarity and then peforming a relationshipfilter works.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class SupplierFT(StructuredNode):
         name = StringProperty()
@@ -318,8 +322,8 @@ def test_fulltextfiler_nonexistent_attribute():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFT(StructuredNode):
         name = StringProperty()
@@ -348,8 +352,8 @@ def test_fulltextfiler_no_fulltext_index():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithoutFT(StructuredNode):
         name = StringProperty()
@@ -372,8 +376,8 @@ def test_fulltextfilter_invalid_threshold_type():
     Tests that ValueError is raised when threshold is not a float or None.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFTInvalidType(StructuredNode):
         name = StringProperty()
