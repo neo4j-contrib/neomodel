@@ -45,18 +45,19 @@ Available on
 
 Also check out DeepWiki : [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/neo4j-contrib/neomodel)
 
-# New in 6.0.0
+# New in 7.0.0
 
-From now on, neomodel will use **SemVer (major.minor.patch)** for versioning.
-
-This version introduces a modern configuration system, using a dataclass with typing, runtime and update validation rules, and environment variables support.
-See the [documentation](https://neomodel.readthedocs.io/en/latest/configuration.html) section for more details.
-
-[Semantic Indexes](https://neomodel.readthedocs.io/en/latest/semantic_indexes.html#) (Vector and Full-text) are now natively supported so you do not have to use a custom Cypher query. Special thanks to @greengori11a for this.
+* **Full typing support**: `NodeSet` is now generic over its node class and instance properties resolve to their Python values, so `MyNode.nodes.get()` and `node.some_property` are correctly typed in IDEs and type checkers. The package type-checks cleanly under mypy, enforced in CI.
+* **Django-style bulk operations** on the node set: `MyNode.nodes.bulk_create()`, `bulk_create_or_update()`, `bulk_get_or_create()` and `bulk_save()`, each running in one or two round-trips instead of one per node.
+* **Mutually exclusive relationships** via an `exclusion_group` parameter on `RelationshipTo`/`RelationshipFrom`.
+* **Array membership filters** `includes`/`includes_all`/`includes_any` for `ArrayProperty`, usable in `filter()` and `match()`.
+* **Optional Pydantic bridge** (`neomodel.contrib.pydantic`, install with `neomodel[pydantic]`) to generate Pydantic v2 models from node classes and convert between them.
+* **Lazy node-class discovery**: classes are resolved from the live hierarchy instead of a global registry, so hot-reload (dev servers, Streamlit) always works and `config.allow_reload` is no longer needed.
 
 ### Breaking changes
 
-* List object resolution from Cypher was creating "2-depth" lists for no apparent reason. This release fixes this so that, for example "RETURN collect(node)" will return the nodes directly as a list in the result. In other words, you can extract this list at `results[0][0]` instead of `results[0][0][0]`
+* `RelationshipManager.match()` (and `Traversal.match()`) now returns a `NodeSet`, exposing the full NodeSet API (`get`/`first`/`filter`/`order_by`/...), instead of a `Traversal`.
+* `config.DATABASE_URL` no longer defaults to `bolt://neo4j:foobarbaz@localhost:7687`. A connection must now be configured explicitly, or running a query raises a clear error.
 * See more breaking changes in the [documentation](http://neomodel.readthedocs.org)
 
 # Installation
