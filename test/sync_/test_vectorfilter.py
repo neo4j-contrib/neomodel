@@ -14,10 +14,7 @@ from neomodel import (
     VectorIndex,
     db,
 )
-from neomodel.constants import (
-    VERSION_VECTOR_INDEXES_SUPPORT,
-    VERSION_VECTOR_SEARCH_CLAUSE_SUPPORT,
-)
+from neomodel.constants import VERSION_VECTOR_INDEXES_SUPPORT
 from neomodel.semantic_filters import VectorFilter
 
 

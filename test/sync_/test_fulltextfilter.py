@@ -13,10 +13,7 @@ from neomodel import (
     StructuredRel,
     db,
 )
-from neomodel.constants import (
-    VERSION_FULLTEXT_INDEXES_SUPPORT,
-    VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT,
-)
+from neomodel.constants import VERSION_FULLTEXT_INDEXES_SUPPORT
 from neomodel.semantic_filters import FulltextFilter
 
 

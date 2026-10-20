@@ -34,7 +34,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.14", "3.13", "3.12", "3.11", "3.10"]
-        neo4j-version: ["community", "enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
+        # 2026.09-enterprise exercises the Cypher 25 SEARCH path for both vector
+        # (>= 2026.01) and fulltext (>= 2026.09) semantic filters; 2025.12-enterprise
+        # pins a pre-2026 version so the legacy CALL db.index.*.queryNodes fallback
+        # keeps deterministic coverage even as the floating "enterprise" tag moves on.
+        neo4j-version: ["community", "enterprise", "2026.09-enterprise", "2025.12-enterprise", "5.5-enterprise", "4.4-enterprise", "4.4-community"]
 
     steps:
     - uses: actions/checkout@v3

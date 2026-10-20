@@ -19,11 +19,7 @@ T = TypeVar("T", bound=StructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import SemanticFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import (
-    RelationshipDirection,
-    deprecated,
-    escape_identifier,
-)
+from neomodel.util import RelationshipDirection, deprecated, escape_identifier
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -1080,6 +1076,17 @@ class QueryBuilder:
     def build_query(self) -> str:
         query: str = ""
 
+        if (
+            self._ast.semantic_query is not None
+            and self._ast.semantic_query._use_search_clause
+            and not self._subquery_namespace
+        ):
+            # The SEARCH subclause is Cypher 25 only. Prefix the whole statement
+            # with CYPHER 25 so it runs regardless of the server's default query
+            # language, which may still be Cypher 5 on upgraded 2026.x
+            # deployments (only fresh installs default to Cypher 25).
+            query += "CYPHER 25 "
+
         if self._ast.lookup:
             query += self._ast.lookup
 
@@ -1102,13 +1109,10 @@ class QueryBuilder:
             ) and self._ast.semantic_query._use_search_clause:
                 # Attach the SEARCH subclause to the root node MATCH.
                 node_set_label = self._ast.semantic_query._node_set_label
-                match_stmts = (
-                    [
-                        f"""{match_stmts[0]} {self._ast.semantic_query._build_search_stmt(node_set_label=node_set_label)}  
-                    """
-                    ]
-                    + match_stmts[1:]
+                search_stmt = self._ast.semantic_query._build_search_stmt(
+                    node_set_label=node_set_label
                 )
+                match_stmts = [f"{match_stmts[0]} {search_stmt}"] + match_stmts[1:]
             query += " MATCH " + " MATCH ".join(match_stmts)
 
         if self._ast.where:

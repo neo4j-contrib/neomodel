@@ -1,3 +1,7 @@
+Version 7.0.1 unreleased
+* BREAKING: Semantic filters (VectorFilter/FulltextFilter) now always return the similarity score as the last element of each result tuple (index -1), including when combined with relationship filters - previously the score was dropped in that case.
+* VectorFilter and FulltextFilter now emit the Cypher 25 SEARCH clause on Neo4j versions that support it (vector indexes from 2026.01, fulltext indexes from 2026.09), falling back to the CALL db.index.vector.queryNodes / db.index.fulltext.queryNodes procedures on older versions. No code changes are required. The SEARCH query is prefixed with CYPHER 25 so it runs regardless of the server's default query language. Thanks to @greengori11a (#969).
+
 Version 7.0.0 unreleased
 * BREAKING: RelationshipManager.match() (and the underlying Traversal.match()) now returns a NodeSet as it has always been documented, instead of a Traversal. This means the result now exposes the full NodeSet API (get/first/filter/order_by/...), fixing #277. Code relying on the old Traversal return value may need updating. Thanks to @AntonLydike for the original fix (#642).
 * BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials.

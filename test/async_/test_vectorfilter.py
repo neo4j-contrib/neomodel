@@ -3,7 +3,6 @@ from test._async_compat import mark_async_test
 
 import pytest
 
-
 from neomodel import (
     ArrayProperty,
     AsyncRelationshipFrom,
@@ -15,8 +14,8 @@ from neomodel import (
     VectorIndex,
     adb,
 )
+from neomodel.constants import VERSION_VECTOR_INDEXES_SUPPORT
 from neomodel.semantic_filters import VectorFilter
-from neomodel.constants import VERSION_VECTOR_INDEXES_SUPPORT, VERSION_VECTOR_SEARCH_CLAUSE_SUPPORT
 
 
 async def wait_for_indexes_ready(timeout: int = 30) -> None:

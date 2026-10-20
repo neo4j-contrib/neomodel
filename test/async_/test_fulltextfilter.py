@@ -13,8 +13,8 @@ from neomodel import (
     StringProperty,
     adb,
 )
+from neomodel.constants import VERSION_FULLTEXT_INDEXES_SUPPORT
 from neomodel.semantic_filters import FulltextFilter
-from neomodel.constants import VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT, VERSION_FULLTEXT_INDEXES_SUPPORT
 
 
 async def wait_for_indexes_ready(timeout: int = 30) -> None:
@@ -29,6 +29,7 @@ async def wait_for_indexes_ready(timeout: int = 30) -> None:
     except Exception:
         results, _ = await adb.cypher_query("SHOW INDEXES YIELD name, state")
         raise RuntimeError(f"Indexes not ready: {results}")
+
 
 @mark_async_test
 async def test_base_fulltextfilter():
