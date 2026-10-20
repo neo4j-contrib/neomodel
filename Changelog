@@ -1,5 +1,7 @@
 Version 7.0.1 unreleased
 
+* Fix async adb.impersonate() when used as a decorator, closes #967.
+
 Version 7.0.0 2026-08
 * BREAKING: RelationshipManager.match() (and the underlying Traversal.match()) now returns a NodeSet as it has always been documented, instead of a Traversal. This means the result now exposes the full NodeSet API (get/first/filter/order_by/...), fixing #277. Code relying on the old Traversal return value may need updating. Thanks to @AntonLydike for the original fix (#642).
 * BREAKING: config.DATABASE_URL no longer defaults to bolt://neo4j:foobarbaz@localhost:7687. A connection must now be configured explicitly (config.DATABASE_URL, config.DRIVER, NEOMODEL_DATABASE_URL, or db.set_connection); running a query with no connection configured raises a clear error instead of silently connecting with default credentials.

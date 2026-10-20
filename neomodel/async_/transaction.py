@@ -129,6 +129,9 @@ class ImpersonationHandler:
         self.db.impersonated_user = None
 
     def __call__(self, func: Callable) -> Callable:
+        if AsyncUtil.is_async_code and not iscoroutinefunction(func):
+            raise TypeError(NOT_COROUTINE_ERROR)
+
         async def wrapper(*args: Any, **kwargs: Any) -> Callable:
             with self:
                 return await func(*args, **kwargs)

@@ -32,6 +32,10 @@ def test_impersonate_decorator():
     result = test_decorator()
     assert result == "troygreene"
 
+    # Impersonation must be cleared once the decorated function returns
+    results, _ = db.cypher_query("SHOW CURRENT USER")
+    assert results[0][0] == "neo4j"
+
 
 @mark_sync_test
 def test_impersonate_unauthorized():
