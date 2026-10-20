@@ -128,11 +128,10 @@ class ImpersonationHandler:
     ) -> None:
         self.db.impersonated_user = None
 
-        print("\nException type:", exception_type)
-        print("\nException value:", exception_value)
-        print("\nTraceback:", exception_traceback)
-
     def __call__(self, func: Callable) -> Callable:
+        if Util.is_async_code and not iscoroutinefunction(func):
+            raise TypeError(NOT_COROUTINE_ERROR)
+
         def wrapper(*args: Any, **kwargs: Any) -> Callable:
             with self:
                 return func(*args, **kwargs)

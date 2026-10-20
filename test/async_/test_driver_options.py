@@ -18,6 +18,26 @@ async def test_impersonate():
 
 
 @mark_async_test
+async def test_impersonate_decorator():
+    if not await adb.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
+
+    handler = await adb.impersonate(user="troygreene")
+
+    @handler
+    async def test_decorator():
+        results, _ = await adb.cypher_query("SHOW CURRENT USER")
+        return results[0][0]
+
+    result = await test_decorator()
+    assert result == "troygreene"
+
+    # Impersonation must be cleared once the decorated function returns
+    results, _ = await adb.cypher_query("SHOW CURRENT USER")
+    assert results[0][0] == "neo4j"
+
+
+@mark_async_test
 async def test_impersonate_unauthorized():
     if not await adb.edition_is_enterprise():
         pytest.skip("Skipping test for community edition")
