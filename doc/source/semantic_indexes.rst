@@ -50,6 +50,15 @@ Can be queried using :class:`~neomodel.semantic_filters.FulltextFilter`. Such as
 
 Where the result will be a list of length topk of nodes with the form (ProductNode, score).
 
+.. note:: 
+   The similarity ``score`` is always returned as the **last** element of the result tuple (i.e. at index ``-1``). 
+
+.. note:: 
+   Neomodel transparently selects the fulltext query strategy based on the Neo4j server version. 
+   On Neo4j 2026.09 or higher, fulltext queries are emitted using the Cypher 25 ``SEARCH`` subclause 
+   (``MATCH (node:Label) SEARCH node IN (FULLTEXT INDEX ...) ...``). On older versions it falls back to the 
+   ``CALL db.index.fulltext.queryNodes`` procedure. No changes to your code are required. 
+
 If you would like to filter the nodes based on a threshold (ie. nodes similarity >= threshold), you can use the following::
 
     from neomodel.semantic_filters import FulltextFilter
@@ -65,8 +74,7 @@ Only nodes above threshold = 0.08 will be returned.
 The :class:`~neomodel.semantic_filters.FulltextFilter` can be used in conjunction with the normal filter types.
 
 .. attention:: 
-    If you use FulltextFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
-    Furthermore, all node filters **should** work with FulltextFilter, relationship filters will also work but WILL NOT return the fulltext similarity score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
+    If you use FulltextFilter in conjunction with other node and relationships filters, only nodes that fit all filters will return thus, you may get less than the topk specified.
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^
@@ -123,6 +131,15 @@ Can be queried using :class:`~neomodel.semantic_filters.VectorFilter`. Such as::
 
 Where the result will be a list of length topk of tuples having the form (someNode, score). 
 
+.. note:: 
+   The similarity ``score`` is always returned as the **last** element of the result tuple (i.e. at index ``-1``). 
+
+.. note:: 
+   Neomodel transparently selects the vector query strategy based on the Neo4j server version. 
+   On Neo4j 2026.01 or higher, vector queries are emitted using the Cypher 25 ``SEARCH`` subclause 
+   (``MATCH (node:Label) SEARCH node IN (VECTOR INDEX ...) ...``). On older versions it falls back to the 
+   ``CALL db.index.vector.queryNodes`` procedure. No changes to your code are required. 
+
 If you would like to filter the nodes based on a threshold (ie. nodes similarity >= threshold), you can use the following::
 
     from neomodel.semantic_filters import VectorFilter
@@ -138,8 +155,7 @@ Only nodes above threshold = 0.85 will be returned.
 The :class:`~neomodel.semantic_filters.VectorFilter` can be used in conjunction with the normal filter types.
 
 .. attention:: 
-    If you use VectorFilter in conjunction with normal filter types, only nodes that fit the filters will return thus, you may get less than the topk specified.
-    Furthermore, all node filters **should** work with VectorFilter, relationship filters will also work but WILL NOT return the vector similarity score alongside the relationship filter, instead the topk nodes and their appropriate relationships will be returned.
+    If you use VectorFilter in conjunction with other node and relationships filters, only nodes that fit all filters will return thus, you may get less than the topk specified.
 
 RelationshipProperty
 ^^^^^^^^^^^^^^^^^^^^

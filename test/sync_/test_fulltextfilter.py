@@ -13,7 +13,25 @@ from neomodel import (
     StructuredRel,
     db,
 )
+from neomodel.constants import (
+    VERSION_FULLTEXT_INDEXES_SUPPORT,
+    VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT,
+)
 from neomodel.semantic_filters import FulltextFilter
+
+
+def wait_for_indexes_ready(timeout: int = 30) -> None:
+    """
+    Block until all indexes are ONLINE.
+
+    Uses Neo4j's native db.awaitIndexes which waits server-side for every
+    index (including semantic/vector/fulltext) to finish populating.
+    """
+    try:
+        db.cypher_query(f"CALL db.awaitIndexes({timeout})")
+    except Exception:
+        results, _ = db.cypher_query("SHOW INDEXES YIELD name, state")
+        raise RuntimeError(f"Indexes not ready: {results}")
 
 
 @mark_sync_test
@@ -22,8 +40,8 @@ def test_base_fulltextfilter():
     Tests that the fulltextquery is run, node and score are returned.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNode(StructuredNode):
         description = StringProperty(
@@ -34,6 +52,7 @@ def test_base_fulltextfilter():
         other = StringProperty()
 
     db.install_labels(fulltextNode)
+    wait_for_indexes_ready()
 
     node1 = fulltextNode(other="thing", description="Another thing").save()
 
@@ -56,8 +75,8 @@ def test_fulltextfilter_topk_works():
     Tests that the topk filter works.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodetopk(StructuredNode):
         description = StringProperty(
@@ -67,6 +86,7 @@ def test_fulltextfilter_topk_works():
         )
 
     db.install_labels(fulltextNodetopk)
+    wait_for_indexes_ready()
 
     node1 = fulltextNodetopk(description="this description").save()
     node2 = fulltextNodetopk(description="that description").save()
@@ -88,8 +108,8 @@ def test_fulltextfilter_with_node_propertyfilter():
     Tests that the fulltext query is run, and "thing" node is only node returned.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeBis(StructuredNode):
         description = StringProperty(
@@ -100,6 +120,7 @@ def test_fulltextfilter_with_node_propertyfilter():
         other = StringProperty()
 
     db.install_labels(fulltextNodeBis)
+    wait_for_indexes_ready()
 
     node1 = fulltextNodeBis(other="thing", description="Another thing").save()
 
@@ -128,8 +149,8 @@ def test_fulltextfilter_threshold():
     Tests that the fulltext query is run, and only nodes above threshold returns.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeThresh(StructuredNode):
         description = StringProperty(
@@ -140,6 +161,7 @@ def test_fulltextfilter_threshold():
         other = StringProperty()
 
     db.install_labels(fulltextNodeThresh)
+    wait_for_indexes_ready()
 
     node1 = fulltextNodeThresh(other="thing", description="Another thing").save()
 
@@ -159,7 +181,6 @@ def test_fulltextfilter_threshold():
 
     result = fulltextFilterThresh.all()
 
-    print(result)
     assert len(result) == 1
     assert all(isinstance(x[0], fulltextNodeThresh) for x in result)
     assert result[0][0].other == "thing"
@@ -173,8 +194,8 @@ def test_dont_duplicate_fulltext_filter_node():
     Testing that we are only performing the fulltextfilter and metadata filter on the right nodes.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeTer(StructuredNode):
         description = StringProperty(
@@ -193,7 +214,9 @@ def test_dont_duplicate_fulltext_filter_node():
         other_name = StringProperty()
 
     db.install_labels(fulltextNodeTer)
+    wait_for_indexes_ready()
     db.install_labels(otherfulltextNodeTer)
+    wait_for_indexes_ready()
 
     node1 = fulltextNodeTer(name="John", description="thing one").save()
     node2 = fulltextNodeTer(name="Fred", description="thing two").save()
@@ -221,8 +244,8 @@ def test_django_filter_w_fulltext_filter():
     Tests that django filters still work with the fulltext filter.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextDjangoNode(StructuredNode):
         description = StringProperty(
@@ -234,6 +257,7 @@ def test_django_filter_w_fulltext_filter():
         number = FloatProperty()
 
     db.install_labels(fulltextDjangoNode)
+    wait_for_indexes_ready()
 
     nodeone = fulltextDjangoNode(
         name="John", description="thing one", number=float(10)
@@ -262,8 +286,8 @@ def test_fulltextfilter_with_relationshipfilter():
     Tests that by filtering on fulltext similarity and then peforming a relationshipfilter works.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class SupplierFT(StructuredNode):
         name = StringProperty()
@@ -281,8 +305,11 @@ def test_fulltextfilter_with_relationshipfilter():
         suppliers = RelationshipFrom(SupplierFT, "SUPPLIES", model=SuppliesFTRel)
 
     db.install_labels(SupplierFT)
+    wait_for_indexes_ready()
     db.install_labels(SuppliesFTRel)
+    wait_for_indexes_ready()
     db.install_labels(ProductFT)
+    wait_for_indexes_ready()
 
     supplier1 = SupplierFT(name="Supplier 1").save()
     supplier2 = SupplierFT(name="Supplier 2").save()
@@ -319,8 +346,8 @@ def test_fulltextfiler_nonexistent_attribute():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFT(StructuredNode):
         name = StringProperty()
@@ -331,10 +358,9 @@ def test_fulltextfiler_nonexistent_attribute():
         )
 
     db.install_labels(TestNodeWithFT)
+    wait_for_indexes_ready()
 
-    with pytest.raises(
-        AttributeError, match="Atribute 'nonexistent_fulltext' not found"
-    ):
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
         nodeset = TestNodeWithFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1,
@@ -351,16 +377,17 @@ def test_fulltextfiler_no_fulltext_index():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithoutFT(StructuredNode):
         name = StringProperty()
         fulltext = StringProperty()  # No fulltext_index
 
     db.install_labels(TestNodeWithoutFT)
+    wait_for_indexes_ready()
 
-    with pytest.raises(AttributeError, match="is not declared with a full text index"):
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1, fulltext_attribute_name="fulltext", query_string="something"
@@ -375,8 +402,8 @@ def test_fulltextfilter_invalid_threshold_type():
     Tests that ValueError is raised when threshold is not a float or None.
     """
 
-    if not db.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not db.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFTInvalidType(StructuredNode):
         name = StringProperty()
@@ -387,10 +414,11 @@ def test_fulltextfilter_invalid_threshold_type():
         )
 
     db.install_labels(TestNodeWithFTInvalidType)
+    wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
@@ -404,7 +432,7 @@ def test_fulltextfilter_invalid_threshold_type():
 
     # Test with integer threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(

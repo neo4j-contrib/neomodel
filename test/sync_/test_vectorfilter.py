@@ -14,7 +14,25 @@ from neomodel import (
     VectorIndex,
     db,
 )
+from neomodel.constants import (
+    VERSION_VECTOR_INDEXES_SUPPORT,
+    VERSION_VECTOR_SEARCH_CLAUSE_SUPPORT,
+)
 from neomodel.semantic_filters import VectorFilter
+
+
+def wait_for_indexes_ready(timeout: int = 30) -> None:
+    """
+    Block until all indexes are ONLINE.
+
+    Uses Neo4j's native db.awaitIndexes which waits server-side for every
+    index (including semantic/vector/fulltext) to finish populating.
+    """
+    try:
+        db.cypher_query(f"CALL db.awaitIndexes({timeout})")
+    except Exception:
+        results, _ = db.cypher_query("SHOW INDEXES YIELD name, state")
+        raise RuntimeError(f"Indexes not ready: {results}")
 
 
 @mark_sync_test
@@ -24,7 +42,7 @@ def test_base_vectorfilter_async():
     """
 
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNode(StructuredNode):
@@ -34,6 +52,7 @@ def test_base_vectorfilter_async():
         )
 
     db.install_labels(someNode)
+    wait_for_indexes_ready()
 
     john = someNode(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNode(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -54,7 +73,7 @@ def test_vectorfilter_thresholding():
     Tests that the vector query is run, and only node above threshold returns.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeThresh(StructuredNode):
@@ -64,6 +83,7 @@ def test_vectorfilter_thresholding():
         )
 
     db.install_labels(someNodeThresh)
+    wait_for_indexes_ready()
 
     john = someNodeThresh(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNodeThresh(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -91,7 +111,7 @@ def test_vectorfilter_with_node_propertyfilter():
     Tests that the vector query is run, and "john" node is the only node returned.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeBis(StructuredNode):
@@ -101,6 +121,7 @@ def test_vectorfilter_with_node_propertyfilter():
         )
 
     db.install_labels(someNodeBis)
+    wait_for_indexes_ready()
 
     john = someNodeBis(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNodeBis(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -126,7 +147,7 @@ def test_dont_duplicate_vector_filter_node():
     Testing that we are only perfomring the vectorfilter and metadata filter on the right nodes.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class someNodeTer(StructuredNode):
@@ -142,7 +163,9 @@ def test_dont_duplicate_vector_filter_node():
         )
 
     db.install_labels(someNodeTer)
+    wait_for_indexes_ready()
     db.install_labels(otherNode)
+    wait_for_indexes_ready()
 
     john = someNodeTer(name="John", vector=[float(0.5), float(0.5)]).save()
     fred = someNodeTer(name="Fred", vector=[float(1.0), float(0.0)]).save()
@@ -169,7 +192,7 @@ def test_django_filter_w_vector_filter():
     Tests that django filters still work with the vector filter on.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class djangoNode(StructuredNode):
@@ -180,6 +203,7 @@ def test_django_filter_w_vector_filter():
         number = FloatProperty()
 
     db.install_labels(djangoNode)
+    wait_for_indexes_ready()
 
     nodeone = djangoNode(
         name="John", vector=[float(0.5), float(0.5)], number=float(10)
@@ -197,6 +221,7 @@ def test_django_filter_w_vector_filter():
     result = vector_search_with_django_filter.all()
     assert len(result) == 1  # we only get the one node
     assert isinstance(result[0][0], djangoNode)
+    assert isinstance(result[0][1], float)
     assert result[0][0].number > 5
 
 
@@ -206,7 +231,7 @@ def test_vectorfilter_with_relationshipfilter():
     Tests that by filtering on a vector similarity and then performing a relationshipfilter
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class SupplierV(StructuredNode):
@@ -224,8 +249,11 @@ def test_vectorfilter_with_relationshipfilter():
         suppliers = RelationshipFrom(SupplierV, "SUPPLIESV", model=SuppliesVRel)
 
     db.install_labels(SupplierV)
+    wait_for_indexes_ready()
     db.install_labels(SuppliesVRel)
+    wait_for_indexes_ready()
     db.install_labels(ProductV)
+    wait_for_indexes_ready()
 
     supplier1 = SupplierV(name="Supplier 1").save()
     supplier2 = SupplierV(name="Supplier 2").save()
@@ -265,7 +293,7 @@ def test_vectorfilter_nonexistent_attribute():
     Tests that AttributeError is raised when vector_attribute_name doesn't exist on the source.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithVector(StructuredNode):
@@ -275,11 +303,10 @@ def test_vectorfilter_nonexistent_attribute():
         )
 
     db.install_labels(TestNodeWithVector)
+    wait_for_indexes_ready()
 
     # Test with non-existent attribute name
-    with pytest.raises(
-        AttributeError, match="Attribute 'nonexistent_vector' not found"
-    ):
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_vector'"):
         nodeset = TestNodeWithVector.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3,
@@ -296,7 +323,7 @@ def test_vectorfilter_no_vector_index():
     Tests that AttributeError is raised when the attribute exists but doesn't have a vector index.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithoutVector(StructuredNode):
@@ -304,9 +331,10 @@ def test_vectorfilter_no_vector_index():
         vector = ArrayProperty(base_property=FloatProperty())  # No vector_index
 
     db.install_labels(TestNodeWithoutVector)
+    wait_for_indexes_ready()
 
     # Test with attribute that exists but has no vector index
-    with pytest.raises(AttributeError, match="is not declared with a vector index"):
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutVector.nodes.filter(
             vector_filter=VectorFilter(
                 topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]
@@ -321,7 +349,7 @@ def test_vectorfilter_invalid_threshold_type():
     Tests that ValueError is raised when threshold is not a float or None.
     """
     # Vector Indexes only exist from 5.13 onwards
-    if not db.version_is_higher_than("5.13"):
+    if not db.version_is_higher_than(VERSION_VECTOR_INDEXES_SUPPORT):
         pytest.skip("Vector Index not Generally Available in Neo4j.")
 
     class TestNodeWithVectorInvalidType(StructuredNode):
@@ -331,10 +359,11 @@ def test_vectorfilter_invalid_threshold_type():
         )
 
     db.install_labels(TestNodeWithVectorInvalidType)
+    wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Vector Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(
@@ -348,7 +377,7 @@ def test_vectorfilter_invalid_threshold_type():
 
     # Test with integer threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Vector Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithVectorInvalidType.nodes.filter(
             vector_filter=VectorFilter(

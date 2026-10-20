@@ -14,7 +14,21 @@ from neomodel import (
     adb,
 )
 from neomodel.semantic_filters import FulltextFilter
+from neomodel.constants import VERSION_FULLTEXT_SEARCH_CLAUSE_SUPPORT, VERSION_FULLTEXT_INDEXES_SUPPORT
 
+
+async def wait_for_indexes_ready(timeout: int = 30) -> None:
+    """
+    Block until all indexes are ONLINE.
+
+    Uses Neo4j's native db.awaitIndexes which waits server-side for every
+    index (including semantic/vector/fulltext) to finish populating.
+    """
+    try:
+        await adb.cypher_query(f"CALL db.awaitIndexes({timeout})")
+    except Exception:
+        results, _ = await adb.cypher_query("SHOW INDEXES YIELD name, state")
+        raise RuntimeError(f"Indexes not ready: {results}")
 
 @mark_async_test
 async def test_base_fulltextfilter():
@@ -22,8 +36,8 @@ async def test_base_fulltextfilter():
     Tests that the fulltextquery is run, node and score are returned.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNode(AsyncStructuredNode):
         description = StringProperty(
@@ -34,6 +48,7 @@ async def test_base_fulltextfilter():
         other = StringProperty()
 
     await adb.install_labels(fulltextNode)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNode(other="thing", description="Another thing").save()
 
@@ -58,8 +73,8 @@ async def test_fulltextfilter_topk_works():
     Tests that the topk filter works.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodetopk(AsyncStructuredNode):
         description = StringProperty(
@@ -69,6 +84,7 @@ async def test_fulltextfilter_topk_works():
         )
 
     await adb.install_labels(fulltextNodetopk)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodetopk(description="this description").save()
     node2 = await fulltextNodetopk(description="that description").save()
@@ -90,8 +106,8 @@ async def test_fulltextfilter_with_node_propertyfilter():
     Tests that the fulltext query is run, and "thing" node is only node returned.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeBis(AsyncStructuredNode):
         description = StringProperty(
@@ -102,6 +118,7 @@ async def test_fulltextfilter_with_node_propertyfilter():
         other = StringProperty()
 
     await adb.install_labels(fulltextNodeBis)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeBis(other="thing", description="Another thing").save()
 
@@ -130,8 +147,8 @@ async def test_fulltextfilter_threshold():
     Tests that the fulltext query is run, and only nodes above threshold returns.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeThresh(AsyncStructuredNode):
         description = StringProperty(
@@ -142,6 +159,7 @@ async def test_fulltextfilter_threshold():
         other = StringProperty()
 
     await adb.install_labels(fulltextNodeThresh)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeThresh(other="thing", description="Another thing").save()
 
@@ -161,7 +179,6 @@ async def test_fulltextfilter_threshold():
 
     result = await fulltextFilterThresh.all()
 
-    print(result)
     assert len(result) == 1
     assert all(isinstance(x[0], fulltextNodeThresh) for x in result)
     assert result[0][0].other == "thing"
@@ -175,8 +192,8 @@ async def test_dont_duplicate_fulltext_filter_node():
     Testing that we are only performing the fulltextfilter and metadata filter on the right nodes.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextNodeTer(AsyncStructuredNode):
         description = StringProperty(
@@ -195,7 +212,9 @@ async def test_dont_duplicate_fulltext_filter_node():
         other_name = StringProperty()
 
     await adb.install_labels(fulltextNodeTer)
+    await wait_for_indexes_ready()
     await adb.install_labels(otherfulltextNodeTer)
+    await wait_for_indexes_ready()
 
     node1 = await fulltextNodeTer(name="John", description="thing one").save()
     node2 = await fulltextNodeTer(name="Fred", description="thing two").save()
@@ -223,8 +242,8 @@ async def test_django_filter_w_fulltext_filter():
     Tests that django filters still work with the fulltext filter.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class fulltextDjangoNode(AsyncStructuredNode):
         description = StringProperty(
@@ -236,6 +255,7 @@ async def test_django_filter_w_fulltext_filter():
         number = FloatProperty()
 
     await adb.install_labels(fulltextDjangoNode)
+    await wait_for_indexes_ready()
 
     nodeone = await fulltextDjangoNode(
         name="John", description="thing one", number=float(10)
@@ -264,8 +284,8 @@ async def test_fulltextfilter_with_relationshipfilter():
     Tests that by filtering on fulltext similarity and then peforming a relationshipfilter works.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class SupplierFT(AsyncStructuredNode):
         name = StringProperty()
@@ -283,8 +303,11 @@ async def test_fulltextfilter_with_relationshipfilter():
         suppliers = AsyncRelationshipFrom(SupplierFT, "SUPPLIES", model=SuppliesFTRel)
 
     await adb.install_labels(SupplierFT)
+    await wait_for_indexes_ready()
     await adb.install_labels(SuppliesFTRel)
+    await wait_for_indexes_ready()
     await adb.install_labels(ProductFT)
+    await wait_for_indexes_ready()
 
     supplier1 = await SupplierFT(name="Supplier 1").save()
     supplier2 = await SupplierFT(name="Supplier 2").save()
@@ -321,8 +344,8 @@ async def test_fulltextfiler_nonexistent_attribute():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFT(AsyncStructuredNode):
         name = StringProperty()
@@ -333,10 +356,9 @@ async def test_fulltextfiler_nonexistent_attribute():
         )
 
     await adb.install_labels(TestNodeWithFT)
+    await wait_for_indexes_ready()
 
-    with pytest.raises(
-        AttributeError, match="Atribute 'nonexistent_fulltext' not found"
-    ):
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
         nodeset = TestNodeWithFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1,
@@ -353,16 +375,17 @@ async def test_fulltextfiler_no_fulltext_index():
     Tests that AttributeError is raised when fulltext_attribute_name doesn't exist on the source.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithoutFT(AsyncStructuredNode):
         name = StringProperty()
         fulltext = StringProperty()  # No fulltext_index
 
     await adb.install_labels(TestNodeWithoutFT)
+    await wait_for_indexes_ready()
 
-    with pytest.raises(AttributeError, match="is not declared with a full text index"):
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset = TestNodeWithoutFT.nodes.filter(
             fulltext_filter=FulltextFilter(
                 topk=1, fulltext_attribute_name="fulltext", query_string="something"
@@ -377,8 +400,8 @@ async def test_fulltextfilter_invalid_threshold_type():
     Tests that ValueError is raised when threshold is not a float or None.
     """
 
-    if not await adb.version_is_higher_than("5.16"):
-        pytest.skip("Not supported before 5.16")
+    if not await adb.version_is_higher_than(VERSION_FULLTEXT_INDEXES_SUPPORT):
+        pytest.skip(f"Not supported before {VERSION_FULLTEXT_INDEXES_SUPPORT}")
 
     class TestNodeWithFTInvalidType(AsyncStructuredNode):
         name = StringProperty()
@@ -389,10 +412,11 @@ async def test_fulltextfilter_invalid_threshold_type():
         )
 
     await adb.install_labels(TestNodeWithFTInvalidType)
+    await wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
@@ -406,7 +430,7 @@ async def test_fulltextfilter_invalid_threshold_type():
 
     # Test with integer threshold (invalid type)
     with pytest.raises(
-        ValueError, match="Full Text Filter Threshold must be a float or None."
+        ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
         nodeset = TestNodeWithFTInvalidType.nodes.filter(
             fulltext_filter=FulltextFilter(
