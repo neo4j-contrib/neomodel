@@ -138,17 +138,16 @@ def test_relationship_unique_index_not_supported():
     class TargetNodeForUniqueIndexRelationship(StructuredNode):
         pass
 
+    class NodeWithUniqueIndexRelationship(StructuredNode):
+        has_rel = RelationshipTo(
+            TargetNodeForUniqueIndexRelationship,
+            "UNIQUE_INDEX_REL",
+            model=UniqueIndexRelationship,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
     ):
-
-        class NodeWithUniqueIndexRelationship(StructuredNode):
-            has_rel = RelationshipTo(
-                TargetNodeForUniqueIndexRelationship,
-                "UNIQUE_INDEX_REL",
-                model=UniqueIndexRelationship,
-            )
-
         db.install_labels(NodeWithUniqueIndexRelationship)
 
 
@@ -226,13 +225,12 @@ def test_fulltext_index_not_supported():
     if db.version_is_higher_than("5.16"):
         pytest.skip("Test only for versions lower than 5.16")
 
+    class FullTextIndexNodeOld(StructuredNode):
+        name = StringProperty(fulltext_index=FulltextIndex())
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
-
-        class FullTextIndexNodeOld(StructuredNode):
-            name = StringProperty(fulltext_index=FulltextIndex())
-
         db.install_labels(FullTextIndexNodeOld)
 
 
@@ -293,22 +291,19 @@ def test_rel_fulltext_index_not_supported():
     if db.version_is_higher_than("5.16"):
         pytest.skip("Test only for versions lower than 5.16")
 
+    class FullTextIndexRelOld(StructuredRel):
+        name = StringProperty(fulltext_index=FulltextIndex(eventually_consistent=True))
+
+    class FullTextIndexRelOldNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "FullTextIndexRelOldNode",
+            "FULLTEXT_INDEX_REL_OLD",
+            model=FullTextIndexRelOld,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
-
-        class FullTextIndexRelOld(StructuredRel):
-            name = StringProperty(
-                fulltext_index=FulltextIndex(eventually_consistent=True)
-            )
-
-        class FullTextIndexRelOldNode(StructuredNode):
-            has_rel = RelationshipTo(
-                "FullTextIndexRelOldNode",
-                "FULLTEXT_INDEX_REL_OLD",
-                model=FullTextIndexRelOld,
-            )
-
         db.install_labels(FullTextIndexRelOldNode)
 
 
@@ -358,13 +353,12 @@ def test_vector_index_not_supported():
     if db.version_is_higher_than("5.15"):
         pytest.skip("Test only for versions lower than 5.15")
 
+    class VectorIndexNodeOld(StructuredNode):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.15 or higher"
     ):
-
-        class VectorIndexNodeOld(StructuredNode):
-            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
         db.install_labels(VectorIndexNodeOld)
 
 
@@ -426,20 +420,19 @@ def test_rel_vector_index_not_supported():
     if db.version_is_higher_than("5.18"):
         pytest.skip("Test only for versions lower than 5.18")
 
+    class VectorIndexRelOld(StructuredRel):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+
+    class VectorIndexRelOldNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "VectorIndexRelOldNode",
+            "VECTOR_INDEX_REL_OLD",
+            model=VectorIndexRelOld,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.18 or higher"
     ):
-
-        class VectorIndexRelOld(StructuredRel):
-            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
-        class VectorIndexRelOldNode(StructuredNode):
-            has_rel = RelationshipTo(
-                "VectorIndexRelOldNode",
-                "VECTOR_INDEX_REL_OLD",
-                model=VectorIndexRelOld,
-            )
-
         db.install_labels(VectorIndexRelOldNode)
 
 
@@ -452,46 +445,34 @@ def test_unauthorized_index_creation():
     expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Standard node index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedIndexNode(StructuredNode):
+        name = StringProperty(index=True)
 
-            class UnauthorizedIndexNode(StructuredNode):
-                name = StringProperty(index=True)
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedIndexNode)
 
     # Node uniqueness constraint
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedUniqueIndexNode(StructuredNode):
+        name = StringProperty(unique_index=True)
 
-            class UnauthorizedUniqueIndexNode(StructuredNode):
-                name = StringProperty(unique_index=True)
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedUniqueIndexNode)
 
     # Relationship index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedRelIndex(StructuredRel):
+        name = StringProperty(index=True)
 
-            class UnauthorizedRelIndex(StructuredRel):
-                name = StringProperty(index=True)
+    class UnauthorizedRelIndexNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "UnauthorizedRelIndexNode",
+            "UNAUTHORIZED_REL_INDEX",
+            model=UnauthorizedRelIndex,
+        )
 
-            class UnauthorizedRelIndexNode(StructuredNode):
-                has_rel = RelationshipTo(
-                    "UnauthorizedRelIndexNode",
-                    "UNAUTHORIZED_REL_INDEX",
-                    model=UnauthorizedRelIndex,
-                )
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedRelIndexNode)
 
 
@@ -504,84 +485,64 @@ def test_unauthorized_index_creation_recent_features():
     expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Node fulltext index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedFulltextNode(StructuredNode):
+        name = StringProperty(fulltext_index=FulltextIndex())
 
-            class UnauthorizedFulltextNode(StructuredNode):
-                name = StringProperty(fulltext_index=FulltextIndex())
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedFulltextNode)
 
     # Node vector index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedVectorNode(StructuredNode):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
-            class UnauthorizedVectorNode(StructuredNode):
-                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedVectorNode)
 
     # Relationship uniqueness constraint
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedUniqueRel(StructuredRel):
+        name = StringProperty(unique_index=True)
 
-            class UnauthorizedUniqueRel(StructuredRel):
-                name = StringProperty(unique_index=True)
+    class UnauthorizedUniqueRelNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "UnauthorizedUniqueRelNode",
+            "UNAUTHORIZED_UNIQUE_REL",
+            model=UnauthorizedUniqueRel,
+        )
 
-            class UnauthorizedUniqueRelNode(StructuredNode):
-                has_rel = RelationshipTo(
-                    "UnauthorizedUniqueRelNode",
-                    "UNAUTHORIZED_UNIQUE_REL",
-                    model=UnauthorizedUniqueRel,
-                )
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedUniqueRelNode)
 
     # Relationship fulltext index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedFulltextRel(StructuredRel):
+        name = StringProperty(fulltext_index=FulltextIndex())
 
-            class UnauthorizedFulltextRel(StructuredRel):
-                name = StringProperty(fulltext_index=FulltextIndex())
+    class UnauthorizedFulltextRelNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "UnauthorizedFulltextRelNode",
+            "UNAUTHORIZED_FULLTEXT_REL",
+            model=UnauthorizedFulltextRel,
+        )
 
-            class UnauthorizedFulltextRelNode(StructuredNode):
-                has_rel = RelationshipTo(
-                    "UnauthorizedFulltextRelNode",
-                    "UNAUTHORIZED_FULLTEXT_REL",
-                    model=UnauthorizedFulltextRel,
-                )
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedFulltextRelNode)
 
     # Relationship vector index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with db.impersonate(unauthorized_user):
+    class UnauthorizedVectorRel(StructuredRel):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
-            class UnauthorizedVectorRel(StructuredRel):
-                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+    class UnauthorizedVectorRelNode(StructuredNode):
+        has_rel = RelationshipTo(
+            "UnauthorizedVectorRelNode",
+            "UNAUTHORIZED_VECTOR_REL",
+            model=UnauthorizedVectorRel,
+        )
 
-            class UnauthorizedVectorRelNode(StructuredNode):
-                has_rel = RelationshipTo(
-                    "UnauthorizedVectorRelNode",
-                    "UNAUTHORIZED_VECTOR_REL",
-                    model=UnauthorizedVectorRel,
-                )
-
+    with db.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             db.install_labels(UnauthorizedVectorRelNode)
 
 

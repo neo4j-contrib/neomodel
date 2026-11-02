@@ -1,7 +1,7 @@
 import warnings
 from test._async_compat import mark_async_test
 
-from pytest import raises, skip
+import pytest
 
 from neomodel import AsyncStructuredNode, StringProperty, adb, get_config
 from neomodel.async_._registry import registry
@@ -11,7 +11,7 @@ from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
 @mark_async_test
 async def test_db_specific_node_labels():
     if not await adb.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
     db_one = "one"
     db_two = "two"
     await adb.cypher_query(f"CREATE DATABASE {db_one} IF NOT EXISTS")
@@ -65,7 +65,7 @@ async def test_db_specific_node_labels():
 @mark_async_test
 async def test_resolution_not_defined_class():
     if not await adb.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
 
     class PatientX(AsyncStructuredNode):
         __label__ = "Patient"
@@ -73,7 +73,7 @@ async def test_resolution_not_defined_class():
         name = StringProperty()
 
     await adb.cypher_query("CREATE (n:Gabagool)")
-    with raises(
+    with pytest.raises(
         NodeClassNotDefined,
         match=r"Node with labels Gabagool does not resolve to any of the known objects[\s\S]*Database-specific: db_x.*",
     ):
@@ -136,7 +136,7 @@ async def test_duplicate_labels_raise_on_resolution():
         title = StringProperty()
 
     await adb.cypher_query("CREATE (:DupResolutionLabel {name: 'x'})")
-    with raises(
+    with pytest.raises(
         NodeClassAlreadyDefined,
         match=r"Class .* with labels .* already defined:.*",
     ):
@@ -150,7 +150,7 @@ async def test_class_redefinition_with_target_databases():
     """Redefining a database-specific class is likewise allowed; the latest
     definition wins in that database's registry."""
     if not await adb.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
 
     db_test = "testreloaddb"
     await adb.cypher_query(f"CREATE DATABASE {db_test} IF NOT EXISTS")

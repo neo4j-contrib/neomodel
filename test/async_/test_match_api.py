@@ -3,7 +3,7 @@ from datetime import datetime
 from test._async_compat import mark_async_test
 from unittest.mock import AsyncMock, MagicMock
 
-from pytest import raises, skip, warns
+import pytest
 
 from neomodel import (
     ArrayProperty,
@@ -153,12 +153,12 @@ async def test_get():
     await Coffee(name="1", price=3).save()
     assert await Coffee.nodes.get(name="1")
 
-    with raises(Coffee.DoesNotExist):
+    with pytest.raises(Coffee.DoesNotExist):
         await Coffee.nodes.get(name="2")
 
     await Coffee(name="2", price=3).save()
 
-    with raises(MultipleNodesReturned):
+    with pytest.raises(MultipleNodesReturned):
         await Coffee.nodes.get(price=3)
 
 
@@ -284,18 +284,19 @@ async def test_contains():
     assert asda not in await Coffee.nodes.filter(price__gt=999)
 
     # bad value raises
-    with raises(ValueError, match=r"Expecting StructuredNode instance"):
+    with pytest.raises(ValueError, match=r"Expecting StructuredNode instance"):
         if AsyncUtil.is_async_code:
             assert await Coffee.nodes.check_contains(2)
         else:
             assert 2 in Coffee.nodes
 
     # unsaved
-    with raises(ValueError, match=r"Unsaved node"):
+    unsaved = Coffee()
+    with pytest.raises(ValueError, match=r"Unsaved node"):
         if AsyncUtil.is_async_code:
-            assert await Coffee.nodes.check_contains(Coffee())
+            assert await Coffee.nodes.check_contains(unsaved)
         else:
-            assert Coffee() in Coffee.nodes
+            assert unsaved in Coffee.nodes
 
 
 @mark_async_test
@@ -322,11 +323,12 @@ async def test_order_by():
     assert qb._ast.with_clause == "coffee, rand() as r"
     assert qb._ast.order_by == ["r"]
 
-    with raises(
+    ordered_by_id = Coffee.nodes.order_by("id")
+    with pytest.raises(
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        await Coffee.nodes.order_by("id").all()
+        await ordered_by_id.all()
 
     # Test order by on a relationship
     l = await Supplier(name="lidl2").save()
@@ -352,12 +354,10 @@ async def test_order_by_rawcypher():
         ).all()
     )[0] == d3
 
-    with raises(
+    with pytest.raises(
         ValueError, match=r"RawCypher: Do not include any action that has side effect"
     ):
-        SoftwareDependency.nodes.order_by(
-            RawCypher("DETACH DELETE $n"),
-        )
+        RawCypher("DETACH DELETE $n")
 
 
 @mark_async_test
@@ -387,11 +387,12 @@ async def test_extra_filters():
     assert c3 in coffees_with_id_gte_3
     assert c4 in coffees_with_id_gte_3
 
-    with raises(
+    filtered_by_element_id = Coffee.nodes.filter(elementId="4:xxx:111")
+    with pytest.raises(
         ValueError,
         match=r".*Neo4j internals like id or element_id are not allowed for use in this operation.",
     ):
-        await Coffee.nodes.filter(elementId="4:xxx:111").all()
+        await filtered_by_element_id.all()
 
 
 @mark_async_test
@@ -523,8 +524,10 @@ async def test_q_filters():
     class QQ:
         pass
 
-    with raises(TypeError):
-        await Coffee.nodes.filter(Q(price=5) | QQ()).all()
+    q = Q(price=5)
+    not_a_q = QQ()
+    with pytest.raises(TypeError):
+        _ = q | not_a_q
 
 
 @mark_async_test
@@ -804,7 +807,7 @@ async def test_resolve_subgraph():
     await nescafe.species.connect(arabica)
     await nescafe_gold.species.connect(robusta)
 
-    with raises(
+    with pytest.raises(
         RuntimeError,
         match=re.escape(
             "Nothing to resolve. Make sure to include relations in the result using traverse() or filter()."
@@ -877,16 +880,14 @@ async def test_subquery():
     assert len(result[0]) == 2
     assert result[0][0] == supplier2
 
-    with raises(
+    supps_nodeset = Coffee.nodes.traverse(suppliers="suppliers").annotate(
+        supps=Collect("suppliers")
+    )
+    with pytest.raises(
         RuntimeError,
         match=re.escape("Variable 'unknown' is not returned by subquery."),
     ):
-        result = await Coffee.nodes.subquery(
-            Coffee.nodes.traverse(suppliers="suppliers").annotate(
-                supps=Collect("suppliers")
-            ),
-            ["unknown"],
-        )
+        await Coffee.nodes.subquery(supps_nodeset, ["unknown"])
 
     result_string_context = await subquery.subquery(
         Coffee.nodes.traverse(supps2="suppliers").annotate(supps2=Collect("supps")),
@@ -901,14 +902,13 @@ async def test_subquery():
     assert len(additional_elements) == 1
     assert isinstance(additional_elements[0], list)
 
-    with raises(ValueError, match=r"Wrong variable specified in initial context"):
-        result = await Coffee.nodes.subquery(
-            Coffee.nodes.traverse(suppliers="suppliers").annotate(
-                supps=Collect("suppliers")
-            ),
-            ["supps"],
-            [2],
-        )
+    supps_nodeset = Coffee.nodes.traverse(suppliers="suppliers").annotate(
+        supps=Collect("suppliers")
+    )
+    with pytest.raises(
+        ValueError, match=r"Wrong variable specified in initial context"
+    ):
+        await Coffee.nodes.subquery(supps_nodeset, ["supps"], [2])
 
 
 @mark_async_test
@@ -973,24 +973,22 @@ async def test_intermediate_transform():
     assert result[0][0] == nescafe
     assert result[0][1] == supplier2
 
-    with raises(
+    traversal = Coffee.nodes.traverse(suppliers="suppliers")
+    wrong_source = Collect("suppliers")
+    with pytest.raises(
         ValueError,
         match=re.escape(
             r"Wrong source type specified for variable 'test', should be a string or an instance of NodeNameResolver or RelationNameResolver"
         ),
     ):
-        Coffee.nodes.traverse(suppliers="suppliers").intermediate_transform(
-            {
-                "test": {"source": Collect("suppliers")},
-            }
-        )
-    with raises(
+        traversal.intermediate_transform({"test": {"source": wrong_source}})
+    with pytest.raises(
         ValueError,
         match=re.escape(
             r"You must provide one variable at least when calling intermediate_transform()"
         ),
     ):
-        Coffee.nodes.traverse(suppliers="suppliers").intermediate_transform({})
+        traversal.intermediate_transform({})
 
 
 @mark_async_test
@@ -1094,11 +1092,12 @@ async def test_issue_795():
     await berlin.country.connect(germany)
     await jim.city.connect(berlin)
 
-    with raises(
+    traversal = PersonX.nodes.traverse("country")
+    with pytest.raises(
         RelationshipClassNotDefined,
         match=r"[\s\S]*Note that when using the traverse method, the relationship type must be defined in the model.*",
     ):
-        _ = await PersonX.nodes.traverse("country").all()
+        await traversal.all()
 
 
 @mark_async_test
@@ -1132,8 +1131,9 @@ async def test_exists_filter():
     await berlin.country.connect(germany)
     await jim.city.connect(berlin)
 
-    with raises(ValueError):
-        result = await PersonX.nodes.filter(city__exists="WRONG").all()
+    wrong_exists_filter = PersonX.nodes.filter(city__exists="WRONG")
+    with pytest.raises(ValueError):
+        await wrong_exists_filter.all()
 
     result = await PersonX.nodes.filter(city__exists=True)
     assert result[0] == jim
@@ -1293,7 +1293,7 @@ async def test_parallel_runtime(mocker):
         not await adb.version_is_higher_than("5.13")
         or not await adb.edition_is_enterprise()
     ):
-        skip("Only supported for Enterprise 5.13 and above.")
+        pytest.skip("Only supported for Enterprise 5.13 and above.")
 
     assert await adb.parallel_runtime_available()
 
@@ -1330,7 +1330,7 @@ async def test_parallel_runtime(mocker):
 @mark_async_test
 async def test_parallel_runtime_conflict(mocker):
     if await adb.version_is_higher_than("5.13") and await adb.edition_is_enterprise():
-        skip("Test for unavailable parallel runtime.")
+        pytest.skip("Test for unavailable parallel runtime.")
 
     assert not await adb.parallel_runtime_available()
     mock_transaction_run = mocker.patch(
@@ -1338,16 +1338,21 @@ async def test_parallel_runtime_conflict(mocker):
         new_callable=AsyncMock,
         return_value=create_mock_async_result(),
     )
-    with warns(
+
+    async def query_in_parallel_read_transaction():
+        async with adb.parallel_read_transaction:
+            await Coffee.nodes.all()
+            return adb._parallel_runtime
+
+    with pytest.warns(
         UserWarning,
         match="Parallel runtime is only available in Neo4j Enterprise Edition 5.13",
     ):
-        async with adb.parallel_read_transaction:
-            await Coffee.nodes.all()
-            assert not adb._parallel_runtime
-            assert not assert_last_query_startswith(
-                mock_transaction_run, "CYPHER runtime=parallel"
-            )
+        parallel_runtime = await query_in_parallel_read_transaction()
+    assert not parallel_runtime
+    assert not assert_last_query_startswith(
+        mock_transaction_run, "CYPHER runtime=parallel"
+    )
 
 
 class MemberOfRelationship(AsyncStructuredRel):
@@ -1457,29 +1462,37 @@ async def test_includes_filter_with_traversal():
 async def test_includes_filter_invalid_arguments():
     # NodeSet.filter() defers validation to query build, so force it with .all()
     # includes requires an ArrayProperty
-    with raises(
+    nodeset = Player.nodes.filter(name__includes="striker")
+    with pytest.raises(
         ValueError, match=r"must be an ArrayProperty to use the includes operator"
     ):
-        await Player.nodes.filter(name__includes="striker").all()
+        await nodeset.all()
 
     # includes takes a single element, not a list/tuple
-    with raises(ValueError, match=r"Value must be a single element for includes"):
-        await Player.nodes.filter(tags__includes=["player", "striker"]).all()
+    nodeset = Player.nodes.filter(tags__includes=["player", "striker"])
+    with pytest.raises(
+        ValueError, match=r"Value must be a single element for includes"
+    ):
+        await nodeset.all()
 
     # includes_all / includes_any require an ArrayProperty
-    with raises(
+    nodeset = Player.nodes.filter(name__includes_all=["striker"])
+    with pytest.raises(
         ValueError,
         match=r"must be an ArrayProperty to use the includes_all/includes_any",
     ):
-        await Player.nodes.filter(name__includes_all=["striker"]).all()
-    with raises(
+        await nodeset.all()
+    nodeset = Player.nodes.filter(name__includes_any=["striker"])
+    with pytest.raises(
         ValueError,
         match=r"must be an ArrayProperty to use the includes_all/includes_any",
     ):
-        await Player.nodes.filter(name__includes_any=["striker"]).all()
+        await nodeset.all()
 
     # includes_all / includes_any take a list or tuple, not a single element
-    with raises(ValueError, match=r"Value must be a list or tuple"):
-        await Player.nodes.filter(tags__includes_all="striker").all()
-    with raises(ValueError, match=r"Value must be a list or tuple"):
-        await Player.nodes.filter(tags__includes_any="striker").all()
+    nodeset = Player.nodes.filter(tags__includes_all="striker")
+    with pytest.raises(ValueError, match=r"Value must be a list or tuple"):
+        await nodeset.all()
+    nodeset = Player.nodes.filter(tags__includes_any="striker")
+    with pytest.raises(ValueError, match=r"Value must be a list or tuple"):
+        await nodeset.all()

@@ -202,24 +202,24 @@ def test_multiple_nodes_returned():
     assert isinstance(exc, NeomodelException)
 
 
-def test_does_not_exist():
+def test_does_not_exist(monkeypatch):
     """Test DoesNotExist exception."""
 
     class TestClass:
         pass
 
     # Set the model class
-    DoesNotExist._model_class = TestClass
+    monkeypatch.setattr(DoesNotExist, "_model_class", TestClass)
 
     exc = DoesNotExist("Test does not exist error")
     assert exc.message == "Test does not exist error"
     assert isinstance(exc, NeomodelException)
 
 
-def test_does_not_exist_no_model_class():
+def test_does_not_exist_no_model_class(monkeypatch):
     """Test DoesNotExist exception without model class."""
     # Reset the model class
-    DoesNotExist._model_class = None
+    monkeypatch.setattr(DoesNotExist, "_model_class", None)
 
     with pytest.raises(RuntimeError, match="This class hasn't been setup properly"):
         DoesNotExist("Test error")

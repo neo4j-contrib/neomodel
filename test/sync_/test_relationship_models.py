@@ -2,7 +2,7 @@ from datetime import datetime
 from test._async_compat import mark_sync_test
 from zoneinfo import ZoneInfo
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     DateTimeProperty,
@@ -93,11 +93,11 @@ def test_direction_connect_with_rel_model():
 
     # test deflate checking
     rel.since = "2:30pm"
-    with raises(DeflateError):
+    with pytest.raises(DeflateError):
         rel.save()
 
     # check deflate check via connect
-    with raises(DeflateError):
+    with pytest.raises(DeflateError):
         paul.hates.connect(
             ian,
             {

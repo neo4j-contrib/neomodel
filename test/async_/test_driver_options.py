@@ -2,7 +2,6 @@ from test._async_compat import mark_async_test
 
 import pytest
 from neo4j.exceptions import ClientError
-from pytest import raises
 
 from neomodel import adb
 from neomodel.exceptions import FeatureNotSupported
@@ -42,7 +41,7 @@ async def test_impersonate_unauthorized():
     if not await adb.edition_is_enterprise():
         pytest.skip("Skipping test for community edition")
     with await adb.impersonate(user="unknownuser"):
-        with raises(ClientError):
+        with pytest.raises(ClientError):
             _ = await adb.cypher_query("RETURN 'Gabagool'")
 
 
@@ -67,6 +66,5 @@ async def test_impersonate_multiple_transactions():
 async def test_impersonate_community():
     if await adb.edition_is_enterprise():
         pytest.skip("Skipping test for enterprise edition")
-    with raises(FeatureNotSupported):
-        with await adb.impersonate(user="troygreene"):
-            _ = await adb.cypher_query("RETURN 'Gabagoogoo'")
+    with pytest.raises(FeatureNotSupported):
+        await adb.impersonate(user="troygreene")

@@ -303,14 +303,14 @@ def test_vectorfilter_nonexistent_attribute():
     wait_for_indexes_ready()
 
     # Test with non-existent attribute name
-    with pytest.raises(AttributeError, match="no attribute 'nonexistent_vector'"):
-        nodeset = TestNodeWithVector.nodes.filter(
-            vector_filter=VectorFilter(
-                topk=3,
-                vector_attribute_name="nonexistent_vector",
-                candidate_vector=[0.25, 0],
-            )
+    nodeset = TestNodeWithVector.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3,
+            vector_attribute_name="nonexistent_vector",
+            candidate_vector=[0.25, 0],
         )
+    )
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_vector'"):
         nodeset.all()  # This triggers the build_vector_query call
 
 
@@ -331,12 +331,12 @@ def test_vectorfilter_no_vector_index():
     wait_for_indexes_ready()
 
     # Test with attribute that exists but has no vector index
-    with pytest.raises(AttributeError, match="is not declared with a"):
-        nodeset = TestNodeWithoutVector.nodes.filter(
-            vector_filter=VectorFilter(
-                topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]
-            )
+    nodeset = TestNodeWithoutVector.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3, vector_attribute_name="vector", candidate_vector=[0.25, 0]
         )
+    )
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset.all()  # This triggers the build_vector_query call
 
 
@@ -359,29 +359,29 @@ def test_vectorfilter_invalid_threshold_type():
     wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
+    nodeset = TestNodeWithVectorInvalidType.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3,
+            vector_attribute_name="vector",
+            candidate_vector=[0.25, 0],
+            threshold="0.8",  # Invalid: string instead of float
+        )
+    )
     with pytest.raises(
         ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
-            vector_filter=VectorFilter(
-                topk=3,
-                vector_attribute_name="vector",
-                candidate_vector=[0.25, 0],
-                threshold="0.8",  # Invalid: string instead of float
-            )
-        )
         nodeset.all()  # This triggers the build_vector_query call
 
     # Test with integer threshold (invalid type)
+    nodeset = TestNodeWithVectorInvalidType.nodes.filter(
+        vector_filter=VectorFilter(
+            topk=3,
+            vector_attribute_name="vector",
+            candidate_vector=[0.25, 0],
+            threshold=1,  # Invalid: int instead of float
+        )
+    )
     with pytest.raises(
         ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithVectorInvalidType.nodes.filter(
-            vector_filter=VectorFilter(
-                topk=3,
-                vector_attribute_name="vector",
-                candidate_vector=[0.25, 0],
-                threshold=1,  # Invalid: int instead of float
-            )
-        )
         nodeset.all()  # This triggers the build_vector_query call

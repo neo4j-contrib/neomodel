@@ -2,7 +2,7 @@ import io
 from test._async_compat import mark_sync_test
 from unittest.mock import patch
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     AttemptedCardinalityViolation,
@@ -121,7 +121,7 @@ def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         m.driver.connect(j)
 
     error_message = str(exc_info.value)
@@ -144,7 +144,7 @@ def test_cardinality_zero_or_one():
         CREATE (m)-[:HAS_SCREWDRIVER]->(s)
     """
     )
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
     ):
         m.driver.all()
@@ -154,10 +154,10 @@ def test_cardinality_zero_or_one():
 def test_cardinality_one_or_more():
     m = Monkey(name="jerry").save()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         m.car.all()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         m.car.single()
 
     c = Car(version=2).save()
@@ -168,7 +168,7 @@ def test_cardinality_one_or_more():
     cars = m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         m.car.disconnect(c)
 
     error_message = str(exc_info.value)
@@ -183,7 +183,7 @@ def test_cardinality_one_or_more():
     cars = m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         m.car.disconnect_all()
 
     assert m.car.single() is not None
@@ -193,12 +193,12 @@ def test_cardinality_one_or_more():
 def test_cardinality_one():
     m = Monkey(name="jerry").save()
 
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: none."
     ):
         m.toothbrush.all()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         m.toothbrush.single()
 
     b = ToothBrush(name="Jim").save()
@@ -207,7 +207,7 @@ def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         m.toothbrush.connect(x)
 
     error_message = str(exc_info.value)
@@ -216,10 +216,10 @@ def test_cardinality_one():
         == error_message
     )
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect(b)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect_all()
 
     # Forcing creation of a second ToothBrush to go around
@@ -232,13 +232,13 @@ def test_cardinality_one():
         CREATE (m)-[:HAS_TOOTHBRUSH]->(t)
     """
     )
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
     ):
         m.toothbrush.all()
 
     jp = Monkey(name="Jean-Pierre")
-    with raises(ValueError, match="Node has not been saved cannot connect!"):
+    with pytest.raises(ValueError, match="Node has not been saved cannot connect!"):
         jp.toothbrush.connect(b)
 
 
@@ -265,7 +265,7 @@ def test_relationship_from_one_cardinality_enforced():
     assert pet in owner1.pets.all()
 
     # Second connection should fail due to RelationshipFrom cardinality=One
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         owner2.pets.connect(pet)
 
     stream = io.StringIO()
@@ -301,7 +301,7 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     assert employee in company1.employees.all()
 
     # Second connection should fail due to RelationshipFrom cardinality=ZeroOrOne
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         company2.employees.connect(employee)
 
     stream = io.StringIO()
@@ -329,10 +329,10 @@ def test_relationship_from_one_or_more_cardinality_enforced():
     employee = Employee(name="John").save()
     employee.offices.connect(office)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         employee.offices.disconnect(office)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         employee.offices.disconnect_all()
 
     assert employee.offices.single() is not None
@@ -360,7 +360,7 @@ def test_bidirectional_cardinality_validation():
     assert assistant.boss.single() == manager1
 
     # Second manager trying to connect to same assistant should fail
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         manager2.assistant.connect(assistant)
 
     stream = io.StringIO()

@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, TransactionError
-from pytest import raises
 
 from neomodel import AsyncStructuredNode, StringProperty, UniqueProperty, adb
 from neomodel.async_.database import AsyncDatabase
@@ -47,7 +46,7 @@ async def test_transaction_decorator():
     await in_a_tx("Roger")
 
     # should bail but raise correct error
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         await in_a_tx("Jim", "Roger")
 
     assert "Jim" not in [p.name for p in await APerson.nodes]
@@ -60,9 +59,10 @@ async def test_transaction_as_a_context():
 
     assert await APerson.nodes.filter(name="Tim")
 
-    with raises(UniqueProperty):
+    duplicate = APerson(name="Tim")
+    with pytest.raises(UniqueProperty):
         async with adb.transaction:
-            await APerson(name="Tim").save()
+            await duplicate.save()
 
 
 @mark_async_test
@@ -82,11 +82,16 @@ async def test_read_transaction():
         people = await APerson.nodes
         assert people
 
-    with raises(TransactionError):
+    gina = APerson(name="Gina")
+
+    async def write_in_read_transaction():
         async with adb.read_transaction:
-            with raises(ClientError) as e:
-                await APerson(name="Gina").save()
+            with pytest.raises(ClientError) as e:
+                await gina.save()
             assert e.value.code == "Neo.ClientError.Statement.AccessMode"
+
+    with pytest.raises(TransactionError):
+        await write_in_read_transaction()
 
 
 @mark_async_test
@@ -101,7 +106,7 @@ async def test_write_transaction():
 @mark_async_test
 async def test_double_transaction():
     await adb.begin()
-    with raises(SystemError, match=r"Transaction in progress"):
+    with pytest.raises(SystemError, match=r"Transaction in progress"):
         await adb.begin()
 
     await adb.rollback()
@@ -121,7 +126,7 @@ async def test_bookmark_transaction_decorator():
     assert isinstance(bookmarks, Bookmarks)
 
     # should bail but raise correct error
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         await in_a_tx_with_bookmark("Jane", "Ruth")
 
     assert "Jane" not in [p.name for p in await APerson.nodes]
@@ -135,9 +140,10 @@ async def test_bookmark_transaction_as_a_context():
 
     assert await APerson.nodes.filter(name="Tanya")
 
-    with raises(UniqueProperty):
+    duplicate = APerson(name="Tanya")
+    with pytest.raises(UniqueProperty):
         async with adb.transaction as transaction:
-            await APerson(name="Tanya").save()
+            await duplicate.save()
     assert transaction.last_bookmarks is None
 
 
@@ -207,8 +213,9 @@ async def test_transaction_timeout_explicit(spy_on_db_begin):
 
 @mark_async_test
 async def test_transaction_timeout_fires():
-    with raises(ClientError, match="TransactionTimedOut"):
-        async with adb.transaction(timeout=1):
+    transaction = adb.transaction(timeout=1)
+    with pytest.raises(ClientError, match="TransactionTimedOut"):
+        async with transaction:
             await adb.cypher_query("CALL apoc.util.sleep(3000)")
 
 
@@ -218,7 +225,7 @@ async def test_transaction_timeout_via_config_fires(spy_on_db_begin):
     original = config.transaction_timeout
     try:
         config.transaction_timeout = 1.42
-        with raises(ClientError, match="TransactionTimedOut"):
+        with pytest.raises(ClientError, match="TransactionTimedOut"):
             async with adb.transaction:
                 await adb.cypher_query("CALL apoc.util.sleep(3000)")
     finally:
@@ -329,12 +336,12 @@ async def test_commit_without_transaction_raises():
     # than an AttributeError on None (and must not vanish under python -O - see
     # test_optimized_mode_checks.py).
     assert adb._active_transaction is None
-    with raises(RuntimeError, match="No transaction in progress"):
+    with pytest.raises(RuntimeError, match="No transaction in progress"):
         await adb.commit()
 
 
 @mark_async_test
 async def test_rollback_without_transaction_raises():
     assert adb._active_transaction is None
-    with raises(RuntimeError, match="No transaction in progress"):
+    with pytest.raises(RuntimeError, match="No transaction in progress"):
         await adb.rollback()

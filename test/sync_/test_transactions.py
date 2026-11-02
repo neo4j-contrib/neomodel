@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 import pytest
 from neo4j.api import Bookmarks
 from neo4j.exceptions import ClientError, TransactionError
-from pytest import raises
 
 from neomodel import StringProperty, StructuredNode, UniqueProperty, db
 from neomodel.config import get_config
@@ -47,7 +46,7 @@ def test_transaction_decorator():
     in_a_tx("Roger")
 
     # should bail but raise correct error
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         in_a_tx("Jim", "Roger")
 
     assert "Jim" not in [p.name for p in APerson.nodes]
@@ -60,9 +59,10 @@ def test_transaction_as_a_context():
 
     assert APerson.nodes.filter(name="Tim")
 
-    with raises(UniqueProperty):
+    duplicate = APerson(name="Tim")
+    with pytest.raises(UniqueProperty):
         with db.transaction:
-            APerson(name="Tim").save()
+            duplicate.save()
 
 
 @mark_sync_test
@@ -82,11 +82,16 @@ def test_read_transaction():
         people = APerson.nodes
         assert people
 
-    with raises(TransactionError):
+    gina = APerson(name="Gina")
+
+    def write_in_read_transaction():
         with db.read_transaction:
-            with raises(ClientError) as e:
-                APerson(name="Gina").save()
+            with pytest.raises(ClientError) as e:
+                gina.save()
             assert e.value.code == "Neo.ClientError.Statement.AccessMode"
+
+    with pytest.raises(TransactionError):
+        write_in_read_transaction()
 
 
 @mark_sync_test
@@ -101,7 +106,7 @@ def test_write_transaction():
 @mark_sync_test
 def test_double_transaction():
     db.begin()
-    with raises(SystemError, match=r"Transaction in progress"):
+    with pytest.raises(SystemError, match=r"Transaction in progress"):
         db.begin()
 
     db.rollback()
@@ -121,7 +126,7 @@ def test_bookmark_transaction_decorator():
     assert isinstance(bookmarks, Bookmarks)
 
     # should bail but raise correct error
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         in_a_tx_with_bookmark("Jane", "Ruth")
 
     assert "Jane" not in [p.name for p in APerson.nodes]
@@ -135,9 +140,10 @@ def test_bookmark_transaction_as_a_context():
 
     assert APerson.nodes.filter(name="Tanya")
 
-    with raises(UniqueProperty):
+    duplicate = APerson(name="Tanya")
+    with pytest.raises(UniqueProperty):
         with db.transaction as transaction:
-            APerson(name="Tanya").save()
+            duplicate.save()
     assert transaction.last_bookmarks is None
 
 
@@ -207,8 +213,9 @@ def test_transaction_timeout_explicit(spy_on_db_begin):
 
 @mark_sync_test
 def test_transaction_timeout_fires():
-    with raises(ClientError, match="TransactionTimedOut"):
-        with db.transaction(timeout=1):
+    transaction = db.transaction(timeout=1)
+    with pytest.raises(ClientError, match="TransactionTimedOut"):
+        with transaction:
             db.cypher_query("CALL apoc.util.sleep(3000)")
 
 
@@ -218,7 +225,7 @@ def test_transaction_timeout_via_config_fires(spy_on_db_begin):
     original = config.transaction_timeout
     try:
         config.transaction_timeout = 1.42
-        with raises(ClientError, match="TransactionTimedOut"):
+        with pytest.raises(ClientError, match="TransactionTimedOut"):
             with db.transaction:
                 db.cypher_query("CALL apoc.util.sleep(3000)")
     finally:
@@ -329,12 +336,12 @@ def test_commit_without_transaction_raises():
     # than an AttributeError on None (and must not vanish under python -O - see
     # test_optimized_mode_checks.py).
     assert db._active_transaction is None
-    with raises(RuntimeError, match="No transaction in progress"):
+    with pytest.raises(RuntimeError, match="No transaction in progress"):
         db.commit()
 
 
 @mark_sync_test
 def test_rollback_without_transaction_raises():
     assert db._active_transaction is None
-    with raises(RuntimeError, match="No transaction in progress"):
+    with pytest.raises(RuntimeError, match="No transaction in progress"):
         db.rollback()

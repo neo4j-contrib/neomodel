@@ -62,19 +62,18 @@ def test_cypher():
             RETURN a, b, 3
         """
     )
-    assert "a" in meta and "b" in meta
+    assert "a" in meta
+    assert "b" in meta
 
 
 @mark_sync_test
 def test_cypher_syntax_error():
     jim = User2(email="jim1@test.com").save()
-    try:
-        jim.cypher(f"MATCH a WHERE {db.get_id_method()}(a)={{self}} RETURN xx")
-    except CypherError as e:
-        assert hasattr(e, "message")
-        assert hasattr(e, "code")
-    else:
-        assert False, "CypherError not raised."
+    query = f"MATCH a WHERE {db.get_id_method()}(a)={{self}} RETURN xx"
+    with pytest.raises(CypherError) as exc_info:
+        jim.cypher(query)
+    assert hasattr(exc_info.value, "message")
+    assert hasattr(exc_info.value, "code")
 
 
 @mark_sync_test
@@ -84,14 +83,12 @@ def test_pandas_not_installed(hide_available_pkg):
     # because import error is thrown only when pandas.py is imported
     if not Util.is_async_code:
         pytest.skip("This test is only")
-    with pytest.raises(ImportError):
-        with pytest.warns(
-            UserWarning,
-            match="The neomodel.integration.pandas module expects pandas to be installed",
-        ):
-            from neomodel.integration.pandas import to_dataframe
-
-            _ = to_dataframe(db.cypher_query("MATCH (a) RETURN a.name AS name"))
+    # The import itself warns and then re-raises the ImportError.
+    with pytest.raises(ImportError), pytest.warns(
+        UserWarning,
+        match="The neomodel.integration.pandas module expects pandas to be installed",
+    ):
+        from neomodel.integration.pandas import to_dataframe  # noqa: F401
 
 
 @mark_sync_test
@@ -141,16 +138,12 @@ def test_numpy_not_installed(hide_available_pkg):
     # because import error is thrown only when numpy.py is imported
     if not Util.is_async_code:
         pytest.skip("This test is only")
-    with pytest.raises(ImportError):
-        with pytest.warns(
-            UserWarning,
-            match="The neomodel.integration.numpy module expects numpy to be installed",
-        ):
-            from neomodel.integration.numpy import to_ndarray
-
-            _ = to_ndarray(
-                db.cypher_query("MATCH (a) RETURN a.name AS name ORDER BY name")
-            )
+    # The import itself warns and then re-raises the ImportError.
+    with pytest.raises(ImportError), pytest.warns(
+        UserWarning,
+        match="The neomodel.integration.numpy module expects numpy to be installed",
+    ):
+        from neomodel.integration.numpy import to_ndarray  # noqa: F401
 
 
 @mark_sync_test
@@ -271,8 +264,8 @@ def test_stream_cypher_query_transaction_timeout_via_config_fires():
     original = config.transaction_timeout
     try:
         config.transaction_timeout = 1
-        with pytest.raises(ClientError, match="TransactionTimedOut"):
-            with db.driver.session(database=db._database_name) as session:
+        with db.driver.session(database=db._database_name) as session:
+            with pytest.raises(ClientError, match="TransactionTimedOut"):
                 for _ in db._stream_cypher_query(
                     session,
                     "CALL apoc.util.sleep(3000) RETURN 1",
@@ -430,10 +423,11 @@ def test_stream_cypher_query_unique_violation_raises_unique_property():
         )
 
     runner = QueryRunner(_FakeConnection(driver=None))
+    session = _FakeSession(run)
 
     with pytest.raises(UniqueProperty):
         for _ in runner._stream_cypher_query(
-            _FakeSession(run), "Q", {}, handle_unique=True, resolve_objects=False
+            session, "Q", {}, handle_unique=True, resolve_objects=False
         ):
             pass
 
@@ -446,10 +440,11 @@ def test_stream_cypher_query_constraint_violation_raises_generic():
         raise _constraint_error("Some other constraint was violated")
 
     runner = QueryRunner(_FakeConnection(driver=None))
+    session = _FakeSession(run)
 
     with pytest.raises(ConstraintValidationFailed):
         for _ in runner._stream_cypher_query(
-            _FakeSession(run), "Q", {}, handle_unique=True, resolve_objects=False
+            session, "Q", {}, handle_unique=True, resolve_objects=False
         ):
             pass
 

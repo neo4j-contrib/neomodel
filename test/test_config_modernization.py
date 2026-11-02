@@ -215,7 +215,7 @@ class TestNeomodelConfig:
 class TestBackwardCompatibility:
     """Test backward compatibility with existing config usage."""
 
-    def test_module_level_access(self):
+    def test_module_level_access(self, monkeypatch):
         """Test that module-level attributes work as before."""
         # Test reading values
         assert isinstance(config.DATABASE_URL, str)
@@ -224,97 +224,70 @@ class TestBackwardCompatibility:
         assert isinstance(config.CYPHER_DEBUG, bool)  # type: ignore[attr-defined]
         assert isinstance(config.SLOW_QUERIES, float)  # type: ignore[attr-defined]
 
-        # Test setting values
-        original_url = config.DATABASE_URL
-        config.DATABASE_URL = "bolt://test:test@localhost:7687"
+        # Test setting values (monkeypatch restores the original afterwards)
+        monkeypatch.setattr(config, "DATABASE_URL", "bolt://test:test@localhost:7687")
         assert config.DATABASE_URL == "bolt://test:test@localhost:7687"
 
-        # Restore original value
-        config.DATABASE_URL = original_url
+    def test_all_property_setters(self, monkeypatch):
+        """Test all property setters for backward compatibility.
 
-    def test_all_property_setters(self):
-        """Test all property setters for backward compatibility."""
+        monkeypatch restores every original value at teardown.
+        """
         # Test DRIVER setter
-        original_driver = config.DRIVER
-        config.DRIVER = None
+        monkeypatch.setattr(config, "DRIVER", None)
         assert config.DRIVER is None
-        config.DRIVER = original_driver
 
         # Test DATABASE_NAME setter
-        original_name = config.DATABASE_NAME
-        config.DATABASE_NAME = "test_db"
+        monkeypatch.setattr(config, "DATABASE_NAME", "test_db")
         assert config.DATABASE_NAME == "test_db"
-        config.DATABASE_NAME = original_name
 
         # Test CONNECTION_ACQUISITION_TIMEOUT setter
-        original_timeout = config.CONNECTION_ACQUISITION_TIMEOUT
-        config.CONNECTION_ACQUISITION_TIMEOUT = 120.0
+        monkeypatch.setattr(config, "CONNECTION_ACQUISITION_TIMEOUT", 120.0)
         assert config.CONNECTION_ACQUISITION_TIMEOUT == 120.0
-        config.CONNECTION_ACQUISITION_TIMEOUT = original_timeout
 
         # Test MAX_CONNECTION_LIFETIME setter
-        original_lifetime = config.MAX_CONNECTION_LIFETIME
-        config.MAX_CONNECTION_LIFETIME = 7200
+        monkeypatch.setattr(config, "MAX_CONNECTION_LIFETIME", 7200)
         assert config.MAX_CONNECTION_LIFETIME == 7200
-        config.MAX_CONNECTION_LIFETIME = original_lifetime
 
         # Test MAX_TRANSACTION_RETRY_TIME setter
-        original_retry = config.MAX_TRANSACTION_RETRY_TIME
-        config.MAX_TRANSACTION_RETRY_TIME = 60.0
+        monkeypatch.setattr(config, "MAX_TRANSACTION_RETRY_TIME", 60.0)
         assert config.MAX_TRANSACTION_RETRY_TIME == 60.0
-        config.MAX_TRANSACTION_RETRY_TIME = original_retry
 
         # Test TRANSACTION_TIMEOUT getter/setter
-        original_transaction_timeout = config.TRANSACTION_TIMEOUT
-        config.TRANSACTION_TIMEOUT = 45.0
+        monkeypatch.setattr(config, "TRANSACTION_TIMEOUT", 45.0)
         assert config.TRANSACTION_TIMEOUT == 45.0
-        config.TRANSACTION_TIMEOUT = None
+        monkeypatch.setattr(config, "TRANSACTION_TIMEOUT", None)
         assert config.TRANSACTION_TIMEOUT is None
-        config.TRANSACTION_TIMEOUT = original_transaction_timeout
 
         # Test RESOLVER setter
-        original_resolver = config.RESOLVER
-        config.RESOLVER = None
+        monkeypatch.setattr(config, "RESOLVER", None)
         assert config.RESOLVER is None
-        config.RESOLVER = original_resolver
 
         # Test TRUSTED_CERTIFICATES setter
-        original_certs = config.TRUSTED_CERTIFICATES
-        config.TRUSTED_CERTIFICATES = None
+        monkeypatch.setattr(config, "TRUSTED_CERTIFICATES", None)
         assert config.TRUSTED_CERTIFICATES is None
-        config.TRUSTED_CERTIFICATES = original_certs
 
         # Test USER_AGENT setter
-        original_agent = config.USER_AGENT
-        config.USER_AGENT = "custom-agent/2.0"
+        monkeypatch.setattr(config, "USER_AGENT", "custom-agent/2.0")
         assert config.USER_AGENT == "custom-agent/2.0"
-        config.USER_AGENT = original_agent
 
         # Test ENCRYPTED setter
-        original_encrypted = config.ENCRYPTED
-        config.ENCRYPTED = True
+        monkeypatch.setattr(config, "ENCRYPTED", True)
         assert config.ENCRYPTED is True
-        config.ENCRYPTED = original_encrypted
 
         # Test KEEP_ALIVE setter
-        original_keep_alive = config.KEEP_ALIVE
-        config.KEEP_ALIVE = False
+        monkeypatch.setattr(config, "KEEP_ALIVE", False)
         assert config.KEEP_ALIVE is False
-        config.KEEP_ALIVE = original_keep_alive
 
         # Test CYPHER_DEBUG setter
-        original_cypher_debug = config.CYPHER_DEBUG
-        config.CYPHER_DEBUG = True
+        monkeypatch.setattr(config, "CYPHER_DEBUG", True)
         assert config.CYPHER_DEBUG is True
-        config.CYPHER_DEBUG = original_cypher_debug
 
         # Test SLOW_QUERIES setter
-        original_slow_queries = config.SLOW_QUERIES
-        config.SLOW_QUERIES = 5.0
+        monkeypatch.setattr(config, "SLOW_QUERIES", 5.0)
         assert config.SLOW_QUERIES == 5.0
-        config.SLOW_QUERIES = original_slow_queries
 
-    def test_custom_driver_configuration(self):
+    def test_custom_driver_configuration(self, monkeypatch):
         """Test configuration with a custom Neo4j driver."""
         from unittest.mock import Mock
 
@@ -326,9 +299,8 @@ class TestBackwardCompatibility:
         config_obj = NeomodelConfig(driver=mock_driver)
         assert config_obj.driver is mock_driver
 
-        # Test setting driver via module-level attribute
-        original_driver = config.DRIVER
-        config.DRIVER = mock_driver
+        # Test setting driver via module-level attribute (restored by monkeypatch)
+        monkeypatch.setattr(config, "DRIVER", mock_driver)
         assert config.DRIVER is mock_driver
 
         # Test that driver is accessible through the config
@@ -339,26 +311,23 @@ class TestBackwardCompatibility:
         config_dict = config_obj.to_dict()
         assert "driver" not in config_dict
 
-        # Restore original driver
-        config.DRIVER = original_driver
-
-    def test_validation_on_set(self):
+    def test_validation_on_set(self, monkeypatch):
         """Test that validation occurs when setting module-level attributes."""
         with pytest.raises(ValueError, match="connection_timeout must be positive"):
-            config.CONNECTION_TIMEOUT = -1
+            monkeypatch.setattr(config, "CONNECTION_TIMEOUT", -1)
 
-    def test_validation_revert_on_error(self):
+    def test_validation_revert_on_error(self, monkeypatch):
         """Test that values are reverted when validation fails."""
         original_timeout = config.CONNECTION_TIMEOUT
 
         # This should fail and revert the value
         with pytest.raises(ValueError):
-            config.CONNECTION_TIMEOUT = -1
+            monkeypatch.setattr(config, "CONNECTION_TIMEOUT", -1)
 
         # Value should be reverted to original
         assert config.CONNECTION_TIMEOUT == original_timeout
 
-    def test_validation_revert_multiple_attributes(self):
+    def test_validation_revert_multiple_attributes(self, monkeypatch):
         """Test validation and revert for multiple attributes."""
         original_values = {
             "CONNECTION_TIMEOUT": config.CONNECTION_TIMEOUT,
@@ -367,12 +336,12 @@ class TestBackwardCompatibility:
 
         # Test that each invalid value is reverted
         with pytest.raises(ValueError):
-            config.CONNECTION_TIMEOUT = -1
+            monkeypatch.setattr(config, "CONNECTION_TIMEOUT", -1)
 
         assert config.CONNECTION_TIMEOUT == original_values["CONNECTION_TIMEOUT"]
 
         with pytest.raises(ValueError):
-            config.MAX_CONNECTION_POOL_SIZE = -1
+            monkeypatch.setattr(config, "MAX_CONNECTION_POOL_SIZE", -1)
 
         assert (
             config.MAX_CONNECTION_POOL_SIZE
@@ -381,8 +350,8 @@ class TestBackwardCompatibility:
 
     def test_unknown_config_warning(self):
         """Test warning for unknown configuration options."""
+        config_obj = get_config()
         with pytest.warns(UserWarning, match="Unknown configuration option"):
-            config_obj = get_config()
             config_obj.update(unknown_option="value")
 
 
@@ -562,7 +531,7 @@ class TestEnvironmentVariableSupport:
 class TestIntegration:
     """Test integration with existing neomodel functionality."""
 
-    def test_config_with_properties(self):
+    def test_config_with_properties(self, monkeypatch):
         """Test that configuration works with neomodel properties."""
         from datetime import datetime
 
@@ -571,32 +540,26 @@ class TestIntegration:
         # Test FORCE_TIMEZONE functionality
         prop = DateTimeProperty()
 
+        naive_now = datetime.now()
+
         # Default should not raise error
-        config.FORCE_TIMEZONE = False
-        result = prop.deflate(datetime.now())
+        monkeypatch.setattr(config, "FORCE_TIMEZONE", False)
+        result = prop.deflate(naive_now)
         assert result is not None
 
         # With FORCE_TIMEZONE=True, should raise error for naive datetime
-        config.FORCE_TIMEZONE = True
+        monkeypatch.setattr(config, "FORCE_TIMEZONE", True)
         with pytest.raises(Exception):  # May be ValueError or DeflateError
-            prop.deflate(datetime.now())
+            prop.deflate(naive_now)
 
-        # Restore default
-        config.FORCE_TIMEZONE = False
-
-    def test_config_with_cardinality(self):
+    def test_config_with_cardinality(self, monkeypatch):
         """Test that configuration works with cardinality checking."""
-        # Test SOFT_CARDINALITY_CHECK functionality
-        original_value = config.SOFT_CARDINALITY_CHECK
-
-        config.SOFT_CARDINALITY_CHECK = True
+        # Test SOFT_CARDINALITY_CHECK functionality (restored by monkeypatch)
+        monkeypatch.setattr(config, "SOFT_CARDINALITY_CHECK", True)
         assert config.SOFT_CARDINALITY_CHECK is True
 
-        config.SOFT_CARDINALITY_CHECK = False
+        monkeypatch.setattr(config, "SOFT_CARDINALITY_CHECK", False)
         assert config.SOFT_CARDINALITY_CHECK is False
-
-        # Restore original value
-        config.SOFT_CARDINALITY_CHECK = original_value
 
 
 class TestDeprecationWarnings:

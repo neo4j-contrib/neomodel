@@ -1,10 +1,10 @@
-import pytest
-
 from test.consts import SHAPELY_IS_NOT_INSTALLED_WARNING
 
+import pytest
+
 pytest.importorskip(
-  "shapely",
-  reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
+    "shapely",
+    reason=SHAPELY_IS_NOT_INSTALLED_WARNING,
 )
 
 from neomodel.contrib.spatial_properties import NeomodelPoint
@@ -63,21 +63,34 @@ def test_succesful_initialisation():
     p6 = NeomodelPoint([0, 0, 0])
     p7 = NeomodelPoint(p6)
 
-    assert p1.crs == "cartesian" and p1.x == 0 and p1.y == 0
-    assert p2.crs == "cartesian-3d" and p2.x == 0 and p2.y == 0 and p2.z == 0
+    assert p1.crs == "cartesian"
+    assert p1.x == 0
+    assert p1.y == 0
+    assert p2.crs == "cartesian-3d"
+    assert p2.x == 0
+    assert p2.y == 0
+    assert p2.z == 0
 
-    assert p5.crs == "cartesian" and p5.x == 0 and p5.y == 0
-    assert p6.crs == "cartesian-3d" and p6.x == 0 and p6.y == 0 and p6.z == 0
+    assert p5.crs == "cartesian"
+    assert p5.x == 0
+    assert p5.y == 0
+    assert p6.crs == "cartesian-3d"
+    assert p6.x == 0
+    assert p6.y == 0
+    assert p6.z == 0
 
-    assert p3.crs == "wgs-84" and p3.longitude == 0 and p3.latitude == 0
-    assert (
-        p4.crs == "wgs-84-3d"
-        and p4.longitude == 0
-        and p4.latitude == 0
-        and p4.height == 0
-    )
+    assert p3.crs == "wgs-84"
+    assert p3.longitude == 0
+    assert p3.latitude == 0
+    assert p4.crs == "wgs-84-3d"
+    assert p4.longitude == 0
+    assert p4.latitude == 0
+    assert p4.height == 0
 
-    assert p7.crs == "cartesian-3d" and p7.x == 0 and p7.y == 0 and p7.z == 0
+    assert p7.crs == "cartesian-3d"
+    assert p7.x == 0
+    assert p7.y == 0
+    assert p7.z == 0
 
 
 def test_property_access():
