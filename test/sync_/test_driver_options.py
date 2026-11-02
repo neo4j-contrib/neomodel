@@ -18,6 +18,26 @@ def test_impersonate():
 
 
 @mark_sync_test
+def test_impersonate_decorator():
+    if not db.edition_is_enterprise():
+        pytest.skip("Skipping test for community edition")
+
+    handler = db.impersonate(user="troygreene")
+
+    @handler
+    def test_decorator():
+        results, _ = db.cypher_query("SHOW CURRENT USER")
+        return results[0][0]
+
+    result = test_decorator()
+    assert result == "troygreene"
+
+    # Impersonation must be cleared once the decorated function returns
+    results, _ = db.cypher_query("SHOW CURRENT USER")
+    assert results[0][0] == "neo4j"
+
+
+@mark_sync_test
 def test_impersonate_unauthorized():
     if not db.edition_is_enterprise():
         pytest.skip("Skipping test for community edition")
