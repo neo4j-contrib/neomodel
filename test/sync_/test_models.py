@@ -390,7 +390,7 @@ def test_saved_node_is_hashable():
     # Defining __eq__ would make instances unhashable without __hash__.
     user = User(email="hashable@test.com", age=1).save()
     assert hash(user) == hash(user.element_id)
-    assert {user} == {user}
+    assert user in {user}
 
 
 @mark_sync_test
@@ -410,7 +410,7 @@ def test_unsaved_nodes_hashable_and_distinct():
     a = User(email="unsaved-a@test.com", age=1)
     b = User(email="unsaved-b@test.com", age=1)
     # Hashable (by identity) and not equal, so both coexist in a set.
-    assert hash(a) == hash(a)
+    assert hash(a) == hash(id(a))
     assert a != b
     assert len({a, b}) == 2
 
