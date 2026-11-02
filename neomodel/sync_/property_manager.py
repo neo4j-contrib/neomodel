@@ -60,8 +60,8 @@ class PropertyManager:
     def __properties__(self) -> dict[str, Any]:
         from neomodel.sync_.relationship_manager import RelationshipManager
 
-        return dict(
-            (name, value)
+        return {
+            name: value
             for name, value in vars(self).items()
             if not name.startswith("_")
             and not callable(value)
@@ -72,7 +72,7 @@ class PropertyManager:
                     AliasProperty,
                 ),
             )
-        )
+        }
 
     @classmethod
     def deflate(
@@ -130,8 +130,8 @@ class PropertyManager:
         props = {}
         for baseclass in reversed(cls.__mro__):
             props.update(
-                dict(
-                    (name, property)
+                {
+                    name: property
                     for name, property in vars(baseclass).items()
                     if (aliases and isinstance(property, AliasProperty))
                     or (
@@ -140,6 +140,6 @@ class PropertyManager:
                         and not isinstance(property, AliasProperty)
                     )
                     or (rels and isinstance(property, RelationshipDefinition))
-                )
+                }
             )
         return props

@@ -125,9 +125,8 @@ def test_cardinality_zero_or_one():
         m.driver.connect(j)
 
     error_message = str(exc_info.value)
-    assert (
+    assert error_message == (
         f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
-        == error_message
     )
 
     m.driver.reconnect(h, j)
@@ -172,7 +171,7 @@ def test_cardinality_one_or_more():
         m.car.disconnect(c)
 
     error_message = str(exc_info.value)
-    assert "One or more expected" == error_message
+    assert error_message == "One or more expected"
 
     d = Car(version=3).save()
     m.car.connect(d)
@@ -211,9 +210,8 @@ def test_cardinality_one():
         m.toothbrush.connect(x)
 
     error_message = str(exc_info.value)
-    assert (
+    assert error_message == (
         f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
-        == error_message
     )
 
     with pytest.raises(AttemptedCardinalityViolation):

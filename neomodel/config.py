@@ -202,7 +202,6 @@ class NeomodelConfig:
                     stacklevel=2,
                 )
             # Don't validate here - let the calling code handle validation
-            pass
         else:
             # Mark as initialized after first attribute set
             if name != "_initialized":

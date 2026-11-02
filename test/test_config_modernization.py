@@ -535,6 +535,7 @@ class TestIntegration:
         """Test that configuration works with neomodel properties."""
         from datetime import datetime
 
+        from neomodel.exceptions import DeflateError
         from neomodel.properties import DateTimeProperty
 
         # Test FORCE_TIMEZONE functionality
@@ -549,7 +550,7 @@ class TestIntegration:
 
         # With FORCE_TIMEZONE=True, should raise error for naive datetime
         monkeypatch.setattr(config, "FORCE_TIMEZONE", True)
-        with pytest.raises(Exception):  # May be ValueError or DeflateError
+        with pytest.raises(DeflateError):
             prop.deflate(naive_now)
 
     def test_config_with_cardinality(self, monkeypatch):

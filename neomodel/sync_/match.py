@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, Generic, Iterable, Iterator, TypeVar, Union
+from typing import Any, Generic, Iterable, Iterator, TypeVar
 
 from typing_extensions import Self
 
@@ -22,6 +22,8 @@ from neomodel.typing import Subquery, Transformation
 from neomodel.util import RelationshipDirection, deprecated, escape_identifier
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
+CYPHER_AND = " AND "
+CYPHER_WITH = " WITH "
 
 
 def _rel_helper(
@@ -602,9 +604,7 @@ class QueryBuilder:
 
         return self
 
-    def build_source(
-        self, source: Union["Traversal", "NodeSet", StructuredNode, Any]
-    ) -> str:
+    def build_source(self, source: "Traversal | NodeSet | StructuredNode | Any") -> str:
         if isinstance(source, Traversal):
             return self.build_traversal(source)
         if isinstance(source, NodeSet):
@@ -1033,7 +1033,7 @@ class QueryBuilder:
                         self._query_params[place_holder] = val
                     stmts.append(statement)
 
-            self._ast.where.append(" AND ".join(stmts))
+            self._ast.where.append(CYPHER_AND.join(stmts))
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
@@ -1117,21 +1117,21 @@ class QueryBuilder:
 
         if self._ast.where:
             query += " WHERE "
-            query += " AND ".join(self._ast.where)
+            query += CYPHER_AND.join(self._ast.where)
 
         if self._ast.optional_match:
             query += " OPTIONAL MATCH "
-            query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
+            query += " OPTIONAL MATCH ".join(self._ast.optional_match)
 
         if self._ast.optional_where:
             if self._ast.mixed_filters:
                 # Make sure filtering works as expected with optional match, even if it's not performant...
                 query += " WITH *"
             query += " WHERE "
-            query += " AND ".join(self._ast.optional_where)
+            query += CYPHER_AND.join(self._ast.optional_where)
 
         if self._ast.with_clause:
-            query += " WITH "
+            query += CYPHER_WITH
             query += self._ast.with_clause
 
         returned_items: list[str] = []
@@ -1139,7 +1139,7 @@ class QueryBuilder:
             for subquery in self.node_set._subqueries:
                 query += " CALL {"
                 if subquery["initial_context"]:
-                    query += " WITH "
+                    query += CYPHER_WITH
                     context: list[str] = []
                     for var in subquery["initial_context"]:
                         if isinstance(var, (NodeNameResolver, RelationNameResolver)):
@@ -1165,7 +1165,7 @@ class QueryBuilder:
 
         if hasattr(self.node_set, "_intermediate_transforms"):
             for transform in self.node_set._intermediate_transforms:
-                query += " WITH "
+                query += CYPHER_WITH
                 query += "DISTINCT " if transform.get("distinct") else ""
                 injected_vars: list = []
                 # Reset return list since we'll probably invalidate most variables
@@ -1506,7 +1506,7 @@ class NodeNameResolver:
 
 @dataclass
 class BaseFunction:
-    input_name: Union[str, "BaseFunction", NodeNameResolver, RelationNameResolver]
+    input_name: "str | BaseFunction | NodeNameResolver | RelationNameResolver"
 
     def __post_init__(self) -> None:
         self._internal_name: str = ""
@@ -2023,7 +2023,7 @@ class NodeSet(BaseSet[T]):
                     context_var, (NodeNameResolver, RelationNameResolver, RawCypher)
                 ):
                     raise ValueError(
-                        f"Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
+                        "Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
                     )
         self._subqueries.append(
             {

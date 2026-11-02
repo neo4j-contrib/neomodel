@@ -63,7 +63,7 @@ def test_string_property_exceeds_max_length():
     valid_string = "Owen"
     normalised_string = a_string_property.normalize(valid_string)
     assert (
-        valid_string == normalised_string
+        normalised_string == valid_string
     ), "StringProperty max_length test passed but values do not match."
 
 
