@@ -1,4 +1,4 @@
-Version 7.0.1 unreleased
+Version 7.1.0 unreleased
 
 * Fix async adb.impersonate() when used as a decorator, closes #967.
 
