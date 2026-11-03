@@ -362,7 +362,7 @@ class StructuredNode(NodeBase):
         from neomodel.sync_.match import _rel_helper, _rel_merge_helper
 
         query_params["source_id"] = db.parse_element_id(relationship.source.element_id)
-        query = f"MATCH (source:{relationship.source.__label__}) WHERE {db.get_id_method()}(source) = $source_id\n "
+        query = f"MATCH (source:{escape_label(relationship.source.__label__)}) WHERE {db.get_id_method()}(source) = $source_id\n "
         query += "WITH source\n UNWIND $merge_params as params \n "
         query += "MERGE "
         if rel_props:
@@ -429,7 +429,7 @@ class StructuredNode(NodeBase):
         # property maps, rather than issuing one CREATE per node.
         query = (
             "UNWIND $create_params AS create_param\n"
-            f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+            f"CREATE (n:{':'.join(escape_label(cls.inherited_labels()))})\n"
             "SET n = create_param\n"
         )
 
@@ -562,7 +562,7 @@ class StructuredNode(NodeBase):
             ]
             create_query = (
                 "UNWIND $create_params AS create_param\n"
-                f"CREATE (n:{':'.join(cls.inherited_labels())})\n"
+                f"CREATE (n:{':'.join(escape_label(cls.inherited_labels()))})\n"
                 "SET n = create_param\n"
                 "RETURN n"
             )

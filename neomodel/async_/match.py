@@ -479,9 +479,9 @@ def generate_traversal_from_path(
         lhs_name = None
         if not stmt:
             lhs_label = source_class_iterator.__label__
-            lhs_name = lhs_label.lower()
+            lhs_name = source_class_iterator.__name__.lower()
             if create_ids and not namespace:
-                lhs_ident = f"{lhs_name}:{lhs_label}"
+                lhs_ident = f"{lhs_name}:`{lhs_label}`"
             else:
                 lhs_ident = lhs_name
         else:
@@ -494,17 +494,17 @@ def generate_traversal_from_path(
             rel_ident = rel_id_generator()
             if relation.relation_filtering:
                 rhs_name = rel_ident
-                rhs_ident = f":{rhs_label}"
+                rhs_ident = f":`{rhs_label}`"
             else:
                 if index + 1 == len(parts) and relation.alias:
                     # If an alias is defined, use it to store the last hop in the path
                     rhs_name = relation.alias
                 else:
-                    rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
+                    rhs_name = f"{relationship.definition['node_class'].__name__.lower()}_{rel_iterator}"
                     rhs_name = node_id_generator(rhs_name, rel_iterator)
-                rhs_ident = f"{rhs_name}:{rhs_label}"
+                rhs_ident = f"{rhs_name}:`{rhs_label}`"
         else:
-            rhs_ident = f":{rhs_label}"
+            rhs_ident = f":`{rhs_label}`"
 
         stmt = _rel_helper(
             lhs=lhs_ident,
@@ -623,7 +623,7 @@ class AsyncQueryBuilder:
             if inspect.isclass(source.source) and issubclass(
                 source.source, AsyncStructuredNode
             ):
-                ident = self.build_label(source.source.__label__.lower(), source.source)
+                ident = self.build_label(source.source.__name__.lower(), source.source)
             else:
                 ident = await self.build_source(source.source)
 
@@ -751,7 +751,7 @@ class AsyncQueryBuilder:
         traverse a relationship from a node to a set of nodes
         """
         # build source
-        rhs_label = ":" + traversal.target_class.__label__
+        rhs_label = ":" + escape_label(traversal.target_class.__label__)
 
         # build source
         rel_ident = self.create_relation_identifier()
@@ -855,7 +855,7 @@ class AsyncQueryBuilder:
         """
         match nodes by a label
         """
-        ident_w_label = ident + ":" + cls.__label__
+        ident_w_label = f"{ident}:`{cls.__label__}`"
 
         if not self._ast.return_clause:
             if (
@@ -881,7 +881,7 @@ class AsyncQueryBuilder:
 
         for _, value in node_set.must_match.items():
             if isinstance(value, dict):
-                label = ":" + value["node_class"].__label__
+                label = ":" + escape_label(value["node_class"].__label__)
                 stmt = f"EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **value)})"
                 self._ast.where.append(stmt)
             else:

@@ -749,7 +749,7 @@ class QueryBuilder:
         traverse a relationship from a node to a set of nodes
         """
         # build source
-        rhs_label = ":" + traversal.target_class.__label__
+        rhs_label = ":" + escape_label(traversal.target_class.__label__)
 
         # build source
         rel_ident = self.create_relation_identifier()
@@ -879,7 +879,7 @@ class QueryBuilder:
 
         for _, value in node_set.must_match.items():
             if isinstance(value, dict):
-                label = ":" + value["node_class"].__label__
+                label = ":" + escape_label(value["node_class"].__label__)
                 stmt = f"EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **value)})"
                 self._ast.where.append(stmt)
             else:
@@ -887,7 +887,7 @@ class QueryBuilder:
 
         for _, val in node_set.dont_match.items():
             if isinstance(val, dict):
-                label = ":" + val["node_class"].__label__
+                label = ":" + escape_label(val["node_class"].__label__)
                 stmt = f"NOT EXISTS ({_rel_helper(lhs=source_ident, rhs=label, ident='', **val)})"
                 self._ast.where.append(stmt)
             else:

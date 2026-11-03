@@ -348,7 +348,7 @@ class RelationshipManager:
 
         :return:
         """
-        rhs = "b:" + self.definition["node_class"].__label__
+        rhs = "b:" + escape_label(self.definition["node_class"].__label__)
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
         q = f"MATCH (a) WHERE {db.get_id_method()}(a)=$self MATCH " + rel + " DELETE r"
         self.source.cypher(q)
