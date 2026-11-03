@@ -51,6 +51,97 @@ SRID_TO_CRS = {
     4979: "wgs-84-3d",
 }
 
+
+def _validate_crs(crs):
+    if crs is not None and crs not in ACCEPTABLE_CRS:
+        raise ValueError(
+            f"Invalid CRS({crs}). Expected one of {','.join(ACCEPTABLE_CRS)}"
+        )
+
+
+def _check_vector_dimensions(dimensions):
+    if dimensions < 2 or dimensions > 3:
+        raise ValueError(
+            f"Invalid vector dimensions. Expected 2 or 3, received {dimensions}"
+        )
+
+
+def _unpack_coordinate_iterable(coordinates, z):
+    """
+    Read x, y[, z] from a coordinate tuple or list. z is only overridden when the
+    iterable has three components.
+    """
+    _check_vector_dimensions(len(coordinates))
+    if len(coordinates) == 3:
+        z = coordinates[2]
+    return coordinates[0], coordinates[1], z
+
+
+def _crs_from_shapely_point(point, crs):
+    """
+    Infer the CRS of a plain shapely Point, unless one was given explicitly.
+
+    This allows NeomodelPoint((0,0),crs="wgs-84") which will interpret the tuple as
+    (longitude,latitude) even though it was not specified as such with the named arguments.
+
+    NOTE: Notice the indexing on the coordinates `point.coords[0]`. Coordinates are always an
+    iterable which for Points has length of 1 but for other geometrical objects (e.g. boundaries)
+    might be longer. This will come back to bite you, if you assume that `coords` is what it pretends
+    to be (i.e. coords gives access to the actual coordinates NOT an iterable).
+    """
+    dimensions = len(point.coords[0])
+    _check_vector_dimensions(dimensions)
+    if crs is not None:
+        return crs
+    return "cartesian" if dimensions == 2 else "cartesian-3d"
+
+
+def _resolve_coordinates(crs, x, y, z, longitude, latitude, height):
+    """
+    Resolve the CRS and coordinates of a point given either x,y[,z] or
+    longitude,latitude[,height].
+
+    :return: a (crs, coordinates) tuple, coordinates being a tuple of 2 or 3 floats
+    """
+    # Initialisation is either via x,y[,z] XOR longitude,latitude[,height]. Specifying both leads to an error.
+    if any(i is not None for i in [x, y, z]) and any(
+        i is not None for i in [latitude, longitude, height]
+    ):
+        raise ValueError(
+            "Invalid instantiation via arguments. "
+            "A Point can be defined either by x,y,z coordinates OR latitude,longitude,height but not "
+            "a combination of these terms"
+        )
+
+    # Specifying no initialisation argument at this point in the constructor is flagged as an error
+    if all(i is None for i in [x, y, z, latitude, longitude, height]):
+        raise ValueError(
+            "Invalid instantiation via no arguments. "
+            "A Point needs default values either in x,y,z or longitude, latitude, height coordinates"
+        )
+
+    _x, _y, _z = None, None, None
+    default_crs = None
+    # Geographical Point Initialisation
+    if latitude is not None and longitude is not None:
+        _x, _y, _z = longitude, latitude, height
+        default_crs = "wgs-84" if height is None else "wgs-84-3d"
+    # Geometrical Point Initialisation
+    elif x is not None and y is not None:
+        _x, _y, _z = x, y, z
+        default_crs = "cartesian" if z is None else "cartesian-3d"
+    if crs is None:
+        crs = default_crs
+
+    if _z is None:
+        if "-3d" in crs:
+            raise ValueError(f"Invalid vector dimensions(2) for given CRS({crs}).")
+        return crs, (float(_x), float(_y))
+    if "-3d" not in crs:
+        raise ValueError(f"Invalid vector dimensions(3) for given CRS({crs}).")
+    return crs, (float(_x), float(_y), float(_z))
+
+
 # Taking into account the Shapely 2.0.0 changes in the way POINT objects are initialisd.
 if int("".join(shapely_version.split(".")[0:3])) < 200:
 
@@ -102,116 +193,36 @@ if int("".join(shapely_version.split(".")[0:3])) < 200:
             latitude = kwargs.pop("latitude", None)
             height = kwargs.pop("height", None)
 
-            _x, _y, _z = None, None, None
-
             # CRS validity check is common to both types of constructors that follow
-            if crs is not None and crs not in ACCEPTABLE_CRS:
-                raise ValueError(
-                    f"Invalid CRS({crs}). Expected one of {','.join(ACCEPTABLE_CRS)}"
-                )
+            _validate_crs(crs)
             self._crs = crs
 
             # If positional arguments have been supplied, then this is a possible call to the copy constructor or
             # initialisation by a coordinate iterable as per ShapelyPoint constructor.
             if len(args) > 0:
+                point = args[0]
                 # If a coordinate iterable was passed, emulate a call with x,y[,z] parameters
-                if isinstance(args[0], (tuple, list)):
-                    # Check dimensionality of tuple
-                    if len(args[0]) < 2 or len(args[0]) > 3:
-                        raise ValueError(
-                            f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0])}"
-                        )
-                    x = args[0][0]
-                    y = args[0][1]
-                    if len(args[0]) == 3:
-                        z = args[0][2]
+                if isinstance(point, (tuple, list)):
+                    x, y, z = _unpack_coordinate_iterable(point, z)
                 # If another "Point" was passed, then this is a call to the copy constructor
-                elif isinstance(args[0], ShapelyPoint):
-                    super().__init__(args[0])
+                elif isinstance(point, ShapelyPoint):
+                    super().__init__(point)
                     # If the other Point was a NeomodelPoint then it bears the CRS that is used to
                     # interpret the points and this has to be carried over.
-                    if isinstance(args[0], NeomodelPoint):
-                        self._crs = args[0]._crs
+                    if isinstance(point, NeomodelPoint):
+                        self._crs = point._crs
                     else:
-                        # This allows NeomodelPoint((0,0),crs="wgs-84") which will interpret the tuple as
-                        # (longitude,latitude) even though it was not specified as such with the named arguments.
-                        #
-                        # NOTE: Notice the indexing on the coordinates `args[0].coords[0]`. Coordinates are always an
-                        # iterable which for Points has length of 1 but for other geometrical objects (e.g. boundaries)
-                        # might be longer. This will come back to bite you, if you assume that `coords` is what it pretends
-                        # to be (i.e. coords gives access to the actual coordinates NOT an iterable).
-                        #
-                        if len(args[0].coords[0]) == 2:
-                            if crs is None:
-                                self._crs = "cartesian"
-                        elif len(args[0].coords[0]) == 3:
-                            if crs is None:
-                                self._crs = "cartesian-3d"
-                        else:
-                            raise ValueError(
-                                f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0])}"
-                            )
+                        self._crs = _crs_from_shapely_point(point, crs)
                     return
                 else:
                     raise TypeError(
-                        f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0])}"
+                        f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(point)}"
                     )
 
-            # Initialisation is either via x,y[,z] XOR longitude,latitude[,height]. Specifying both leads to an error.
-            if any(i is not None for i in [x, y, z]) and any(
-                i is not None for i in [latitude, longitude, height]
-            ):
-                raise ValueError(
-                    "Invalid instantiation via arguments. "
-                    "A Point can be defined either by x,y,z coordinates OR latitude,longitude,height but not "
-                    "a combination of these terms"
-                )
-
-            # Specifying no initialisation argument at this point in the constructor is flagged as an error
-            if all(i is None for i in [x, y, z, latitude, longitude, height]):
-                raise ValueError(
-                    "Invalid instantiation via no arguments. "
-                    "A Point needs default values either in x,y,z or longitude, latitude, height coordinates"
-                )
-
-            # Geographical Point Initialisation
-            if latitude is not None and longitude is not None:
-                if height is not None:
-                    if self._crs is None:
-                        self._crs = "wgs-84-3d"
-                    _z = height
-                else:
-                    if self._crs is None:
-                        self._crs = "wgs-84"
-                _x = longitude
-                _y = latitude
-
-            # Geometrical Point Initialisation
-            if x is not None and y is not None:
-                if z is not None:
-                    if self._crs is None:
-                        self._crs = "cartesian-3d"
-                    _z = z
-                else:
-                    if self._crs is None:
-                        self._crs = "cartesian"
-                _x = x
-                _y = y
-
-            if _z is None:
-                if "-3d" not in self._crs:
-                    super().__init__((float(_x), float(_y)), **kwargs)
-                else:
-                    raise ValueError(
-                        f"Invalid vector dimensions(2) for given CRS({self._crs})."
-                    )
-            else:
-                if "-3d" in self._crs:
-                    super().__init__((float(_x), float(_y), float(_z)), **kwargs)
-                else:
-                    raise ValueError(
-                        f"Invalid vector dimensions(3) for given CRS({self._crs})."
-                    )
+            self._crs, coordinates = _resolve_coordinates(
+                crs, x, y, z, longitude, latitude, height
+            )
+            super().__init__(coordinates, **kwargs)
 
         @property
         def crs(self):
@@ -324,120 +335,37 @@ else:
             latitude = kwargs.pop("latitude", None)
             height = kwargs.pop("height", None)
 
-            _x, _y, _z = None, None, None
-
             # CRS validity check is common to both types of constructors that follow
-            if crs is not None and crs not in ACCEPTABLE_CRS:
-                raise ValueError(
-                    f"Invalid CRS({crs}). Expected one of {','.join(ACCEPTABLE_CRS)}"
-                )
+            _validate_crs(crs)
             self._crs = crs
 
             # If positional arguments have been supplied, then this is a possible call to the copy constructor or
             # initialisation by a coordinate iterable as per ShapelyPoint constructor.
             if len(args) > 0:
+                point = args[0]
                 # If a coordinate iterable was passed, emulate a call with x,y[,z] parameters
-                if isinstance(args[0], (tuple, list)):
-                    # Check dimensionality of tuple
-                    if len(args[0]) < 2 or len(args[0]) > 3:
-                        raise ValueError(
-                            f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0])}"
-                        )
-                    x = args[0][0]
-                    y = args[0][1]
-                    if len(args[0]) == 3:
-                        z = args[0][2]
+                if isinstance(point, (tuple, list)):
+                    x, y, z = _unpack_coordinate_iterable(point, z)
                 # If another "Point" was passed, then this is a call to the copy constructor
-                elif isinstance(args[0], (ShapelyPoint, NeomodelPoint)):
-                    if isinstance(args[0], ShapelyPoint):
-                        self._shapely_point = ShapelyPoint(args[0])
-                    # If the other Point was a NeomodelPoint then it bears the CRS that is used to
-                    # interpret the points and this has to be carried over.
-                    if isinstance(args[0], NeomodelPoint):
-                        self._shapely_point = ShapelyPoint(args[0].coords)
-                        self._crs = args[0].crs
-                    else:
-                        # This allows NeomodelPoint((0,0),crs="wgs-84") which will interpret the tuple as
-                        # (longitude,latitude) even though it was not specified as such with the named arguments.
-                        #
-                        # NOTE: Notice the indexing on the coordinates `args[0].coords[0]`. Coordinates are always an
-                        # iterable which for Points has length of 1 but for other geometrical objects (e.g. boundaries)
-                        # might be longer. This will come back to bite you, if you assume that `coords` is what it pretends
-                        # to be (i.e. coords gives access to the actual coordinates NOT an iterable).
-                        #
-                        if len(args[0].coords[0]) == 2:
-                            if crs is None:
-                                self._crs = "cartesian"
-                        elif len(args[0].coords[0]) == 3:
-                            if crs is None:
-                                self._crs = "cartesian-3d"
-                        else:
-                            raise ValueError(
-                                f"Invalid vector dimensions. Expected 2 or 3, received {len(args[0].coords[0])}"
-                            )
+                elif isinstance(point, NeomodelPoint):
+                    # A NeomodelPoint bears the CRS that is used to interpret the points and this has to be
+                    # carried over.
+                    self._shapely_point = ShapelyPoint(point.coords)
+                    self._crs = point.crs
+                    return
+                elif isinstance(point, ShapelyPoint):
+                    self._shapely_point = ShapelyPoint(point)
+                    self._crs = _crs_from_shapely_point(point, crs)
                     return
                 else:
                     raise TypeError(
-                        f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(args[0])}"
+                        f"Invalid object passed to copy constructor. Expected NeomodelPoint or shapely Point, received {type(point)}"
                     )
 
-            # Initialisation is either via x,y[,z] XOR longitude,latitude[,height]. Specifying both leads to an error.
-            if any(i is not None for i in [x, y, z]) and any(
-                i is not None for i in [latitude, longitude, height]
-            ):
-                raise ValueError(
-                    "Invalid instantiation via arguments. "
-                    "A Point can be defined either by x,y,z coordinates OR latitude,longitude,height but not "
-                    "a combination of these terms"
-                )
-
-            # Specifying no initialisation argument at this point in the constructor is flagged as an error
-            if all(i is None for i in [x, y, z, latitude, longitude, height]):
-                raise ValueError(
-                    "Invalid instantiation via no arguments. "
-                    "A Point needs default values either in x,y,z or longitude, latitude, height coordinates"
-                )
-
-            # Geographical Point Initialisation
-            if latitude is not None and longitude is not None:
-                if height is not None:
-                    if self._crs is None:
-                        self._crs = "wgs-84-3d"
-                    _z = height
-                else:
-                    if self._crs is None:
-                        self._crs = "wgs-84"
-                _x = longitude
-                _y = latitude
-
-            # Geometrical Point Initialisation
-            if x is not None and y is not None:
-                if z is not None:
-                    if self._crs is None:
-                        self._crs = "cartesian-3d"
-                    _z = z
-                else:
-                    if self._crs is None:
-                        self._crs = "cartesian"
-                _x = x
-                _y = y
-
-            if _z is None:
-                if "-3d" not in self._crs:
-                    self._shapely_point = ShapelyPoint((float(_x), float(_y)))
-                else:
-                    raise ValueError(
-                        f"Invalid vector dimensions(2) for given CRS({self._crs})."
-                    )
-            else:
-                if "-3d" in self._crs:
-                    self._shapely_point = ShapelyPoint(
-                        (float(_x), float(_y), float(_z))
-                    )
-                else:
-                    raise ValueError(
-                        f"Invalid vector dimensions(3) for given CRS({self._crs})."
-                    )
+            self._crs, coordinates = _resolve_coordinates(
+                crs, x, y, z, longitude, latitude, height
+            )
+            self._shapely_point = ShapelyPoint(coordinates)
 
         @property
         def crs(self):

@@ -131,6 +131,21 @@ def _is_unique_constraint_violation(message: str) -> bool:
     return any(marker in message for marker in _UNIQUE_VIOLATION_MARKERS)
 
 
+def _raise_for_constraint_violation(e: ClientError, handle_unique: bool) -> None:
+    """
+    Translate a constraint validation ClientError into a neomodel exception.
+    Returns without raising for any other ClientError.
+    """
+    if e.code != "Neo.ClientError.Schema.ConstraintValidationFailed":
+        return
+    message = getattr(e, "message", None)
+    if message is None:
+        raise ConstraintValidationFailed("A constraint validation failed") from e
+    if handle_unique and _is_unique_constraint_violation(message):
+        raise UniqueProperty(message) from e
+    raise ConstraintValidationFailed(message) from e
+
+
 class AsyncQueryRunner:
     """Runs Cypher and resolves results against a connection manager."""
 
@@ -332,15 +347,7 @@ class AsyncQueryRunner:
                 results = self._result_resolution(results)
 
         except ClientError as e:
-            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if hasattr(e, "message") and e.message is not None:
-                    if _is_unique_constraint_violation(e.message) and handle_unique:
-                        raise UniqueProperty(e.message) from e
-                    raise ConstraintValidationFailed(e.message) from e
-                raise ConstraintValidationFailed(
-                    "A constraint validation failed"
-                ) from e
-
+            _raise_for_constraint_violation(e, handle_unique)
             # Any other ClientError propagates unchanged (with its traceback).
             raise
         except SessionExpired:
@@ -409,14 +416,6 @@ class AsyncQueryRunner:
             _log_slow_query(query, params, tte)
 
         except ClientError as e:
-            if e.code == "Neo.ClientError.Schema.ConstraintValidationFailed":
-                if hasattr(e, "message") and e.message is not None:
-                    if _is_unique_constraint_violation(e.message) and handle_unique:
-                        raise UniqueProperty(e.message) from e
-                    raise ConstraintValidationFailed(e.message) from e
-                raise ConstraintValidationFailed(
-                    "A constraint validation failed"
-                ) from e
-
+            _raise_for_constraint_violation(e, handle_unique)
             # Any other ClientError propagates unchanged (with its traceback).
             raise

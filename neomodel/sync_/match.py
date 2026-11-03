@@ -652,27 +652,33 @@ class QueryBuilder:
         else:
             order_by = []
             for elm in source.order_by_elements:
-                if isinstance(elm, RawCypher):
-                    order_by.append(elm.render({"n": ident}))
-                    continue
-                is_rel_property = "|" in elm
-                if "__" not in elm and not is_rel_property:
-                    prop = elm.split(" ")[0] if " " in elm else elm
-                    if prop not in source.source_class.defined_properties(rels=False):
-                        raise ValueError(
-                            f"No such property {prop} on {source.source_class.__name__}. "
-                            f"Note that Neo4j internals like id or element_id are not allowed "
-                            f"for use in this operation."
-                        )
-                    order_by.append(f"{ident}.{elm}")
-                else:
-                    path, prop = elm.rsplit("__" if not is_rel_property else "|", 1)
-                    result = self.lookup_query_variable(
-                        path, return_relation=is_rel_property
-                    )
-                    if result:
-                        order_by.append(f"{result[0]}.{prop}")
+                rendered = self._render_order_by_element(ident, source, elm)
+                if rendered:
+                    order_by.append(rendered)
             self._ast.order_by = order_by
+
+    def _render_order_by_element(
+        self, ident: str, source: "NodeSet", elm: Any
+    ) -> str | None:
+        """
+        Render one order_by element as Cypher, or None if it targets a path
+        that is not part of the query.
+        """
+        if isinstance(elm, RawCypher):
+            return elm.render({"n": ident})
+        is_rel_property = "|" in elm
+        if "__" not in elm and not is_rel_property:
+            prop = elm.split(" ")[0]
+            if prop not in source.source_class.defined_properties(rels=False):
+                raise ValueError(
+                    f"No such property {prop} on {source.source_class.__name__}. "
+                    f"Note that Neo4j internals like id or element_id are not allowed "
+                    f"for use in this operation."
+                )
+            return f"{ident}.{elm}"
+        path, prop = elm.rsplit("|" if is_rel_property else "__", 1)
+        result = self.lookup_query_variable(path, return_relation=is_rel_property)
+        return f"{result[0]}.{prop}" if result else None
 
     def build_semantic_query(self):
         semantic_filter = self.node_set.semantic_query
@@ -1009,31 +1015,28 @@ class QueryBuilder:
                     negate = True
                     row = row["__NOT__"]
 
-                for prop, operator_and_val in row.items():
-                    operator, val = operator_and_val
-                    if operator in _UNARY_OPERATORS:
-                        # unary operators do not have a parameter
-                        statement = (
-                            f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
-                        )
-                    elif operator in _ARRAY_FORMAT_OPERATORS:
-                        # these operators are templates referencing the property
-                        # and value directly, so they are formatted, not appended
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        self._query_params[place_holder] = val
-                        formatted = operator.format(
-                            ident=ident,
-                            prop=prop,
-                            val=f"${place_holder}",
-                        )
-                        statement = f"{'NOT ' if negate else ''}{formatted}"
-                    else:
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
-                        self._query_params[place_holder] = val
-                    stmts.append(statement)
+                for prop, (operator, val) in row.items():
+                    stmts.append(
+                        self._build_filter_statement(ident, prop, operator, val, negate)
+                    )
 
             self._ast.where.append(CYPHER_AND.join(stmts))
+
+    def _build_filter_statement(
+        self, ident: str, prop: str, operator: str, val: Any, negate: bool
+    ) -> str:
+        """Render a single property filter, registering its parameter if any."""
+        if operator in _UNARY_OPERATORS:
+            # unary operators do not have a parameter
+            return f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
+        place_holder = self._register_place_holder(ident + "_" + prop)
+        self._query_params[place_holder] = val
+        if operator in _ARRAY_FORMAT_OPERATORS:
+            # these operators are templates referencing the property
+            # and value directly, so they are formatted, not appended
+            formatted = operator.format(ident=ident, prop=prop, val=f"${place_holder}")
+            return f"{'NOT ' if negate else ''}{formatted}"
+        return f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
@@ -1050,11 +1053,14 @@ class QueryBuilder:
 
         # Check if relation is coming from an optional MATCH
         # (declared using traverse)
-        is_optional_relation = False
-        for relation in self.node_set.relations_to_fetch:
-            if relation.value == path:
-                is_optional_relation = relation.optional
-                break
+        is_optional_relation = next(
+            (
+                relation.optional
+                for relation in self.node_set.relations_to_fetch
+                if relation.value == path
+            ),
+            False,
+        )
 
         subgraph = subgraph[traversals[0]]
         if len(traversals) == 1:
@@ -1799,26 +1805,17 @@ class NodeSet(BaseSet[T]):
 
             new_args = []
             for arg in args:
-                if isinstance(arg, SemanticFilter):
-                    if not self.semantic_query:
-                        self.semantic_query = arg
-                    continue
+                if not isinstance(arg, SemanticFilter):
+                    new_args.append(arg)
+                elif not self.semantic_query:
+                    self.semantic_query = arg
 
-                new_args.append(arg)
-
-            if (
-                kwargs.get("vector_filter")
-                and isinstance(kwargs["vector_filter"], SemanticFilter)
-                and not self.semantic_query
-            ):
-                self.semantic_query = kwargs.pop("vector_filter")
-
-            if (
-                kwargs.get("fulltext_filter")
-                and isinstance(kwargs["fulltext_filter"], SemanticFilter)
-                and not self.semantic_query
-            ):
-                self.semantic_query = kwargs.pop("fulltext_filter")
+            for key in ("vector_filter", "fulltext_filter"):
+                if (
+                    isinstance(kwargs.get(key), SemanticFilter)
+                    and not self.semantic_query
+                ):
+                    self.semantic_query = kwargs.pop(key)
 
             self.q_filters = Q(self.q_filters & Q(*tuple(new_args), **kwargs))
 
@@ -1848,25 +1845,30 @@ class NodeSet(BaseSet[T]):
         if "?" in props:
             self.order_by_elements.append("?")
         else:
-            for prop in props:
-                if isinstance(prop, RawCypher):
-                    self.order_by_elements.append(prop)
-                    continue
-                prop = prop.strip()
-                if prop.startswith("-"):
-                    prop = prop[1:]
-                    desc = True
-                else:
-                    desc = False
-
-                if prop in self.source_class.defined_properties(rels=False):
-                    property_obj = getattr(self.source_class, prop)
-                    if isinstance(property_obj, AliasProperty):
-                        prop = property_obj.aliased_to()
-
-                self.order_by_elements.append(prop + (" DESC" if desc else ""))
+            self.order_by_elements.extend(
+                self._parse_order_by_element(prop) for prop in props
+            )
 
         return self
+
+    def _parse_order_by_element(self, prop: Any) -> Any:
+        """
+        Normalise one order_by argument: strip the leading minus into a DESC
+        suffix and resolve aliases to the property they point to.
+        """
+        if isinstance(prop, RawCypher):
+            return prop
+        prop = prop.strip()
+        desc = prop.startswith("-")
+        if desc:
+            prop = prop[1:]
+
+        if prop in self.source_class.defined_properties(rels=False):
+            property_obj = getattr(self.source_class, prop)
+            if isinstance(property_obj, AliasProperty):
+                prop = property_obj.aliased_to()
+
+        return prop + (" DESC" if desc else "")
 
     def _register_relation_to_fetch(
         self, relation_def: Any, alias: str | None = None

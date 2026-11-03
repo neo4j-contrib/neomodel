@@ -57,10 +57,7 @@ def ensure_connection(func: Callable) -> Callable:
 
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Callable:
         # Sort out where to find url
-        if hasattr(self, "db"):
-            _db = self.db
-        else:
-            _db = self
+        _db = getattr(self, "db", self)
 
         if not _db.driver:
             # The driver is process-wide (shared across threads and async
@@ -69,23 +66,28 @@ def ensure_connection(func: Callable) -> Callable:
             # of each racing to create their own.
             with _db._connection_lock:
                 if not _db.driver:
-                    config = get_config()
-                    if hasattr(config, "database_url") and config.database_url:
-                        _db.set_connection(url=config.database_url)
-                    elif hasattr(config, "driver") and config.driver:
-                        _db.set_connection(driver=config.driver)
-                    else:
-                        raise ValueError(
-                            "No Neo4j connection has been configured. Set "
-                            "`neomodel.config.DATABASE_URL` (or the NEOMODEL_DATABASE_URL "
-                            "environment variable), provide a driver via "
-                            "`neomodel.config.DRIVER`, or call `db.set_connection(...)` "
-                            "before running queries."
-                        )
+                    _connect_from_config(_db)
 
         return func(self, *args, **kwargs)
 
     return wrapper
+
+
+def _connect_from_config(_db: Any) -> None:
+    """Establish the connection from the configured database URL or driver."""
+    config = get_config()
+    if getattr(config, "database_url", None):
+        _db.set_connection(url=config.database_url)
+    elif getattr(config, "driver", None):
+        _db.set_connection(driver=config.driver)
+    else:
+        raise ValueError(
+            "No Neo4j connection has been configured. Set "
+            "`neomodel.config.DATABASE_URL` (or the NEOMODEL_DATABASE_URL "
+            "environment variable), provide a driver via "
+            "`neomodel.config.DRIVER`, or call `db.set_connection(...)` "
+            "before running queries."
+        )
 
 
 class ConnectionManager:
