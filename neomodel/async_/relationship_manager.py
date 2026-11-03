@@ -22,6 +22,7 @@ from neomodel.util import (
     RelationshipDirection,
     enumerate_traceback,
     get_graph_entity_properties,
+    escape_label
 )
 
 if TYPE_CHECKING:
@@ -367,7 +368,7 @@ class AsyncRelationshipManager:
 
         :return:
         """
-        rhs = "b:" + self.definition["node_class"].__label__
+        rhs = "b:" + escape_label(self.definition["node_class"].__label__)
         rel = _rel_helper(lhs="a", rhs=rhs, ident="r", **self.definition)
         q = (
             f"MATCH (a) WHERE {await adb.get_id_method()}(a)=$self MATCH "
