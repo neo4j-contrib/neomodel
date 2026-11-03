@@ -19,7 +19,7 @@ T = TypeVar("T", bound=StructuredNode)
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection, deprecated
+from neomodel.util import RelationshipDirection, deprecated, escape_label
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 

@@ -17,6 +17,7 @@ from neomodel.util import (
     RelationshipDirection,
     enumerate_traceback,
     get_graph_entity_properties,
+    escape_label
 )
 
 if TYPE_CHECKING:
