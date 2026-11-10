@@ -75,8 +75,9 @@ def test_three_distinct_classes_same_label_form_a_duplicate():
     entry = global_idx[frozenset(["Tri"])]
     assert isinstance(entry, _DuplicateLabels)
     assert len(entry.live_classes()) == 3
+    labels = frozenset(["Tri"])
     with pytest.raises(NodeClassAlreadyDefined):
-        reg.get_class(frozenset(["Tri"]), None)
+        reg.get_class(labels, None)
 
 
 def test_subclass_is_not_added_to_existing_duplicate():
@@ -96,7 +97,8 @@ def test_subclass_is_not_added_to_existing_duplicate():
     assert isinstance(entry, _DuplicateLabels)
     live = entry.live_classes()
     # C is subsumed by A (a subclass), so it is not a new clashing member.
-    assert C not in live and set(live) == {A, B}
+    assert C not in live
+    assert set(live) == {A, B}
 
 
 def test_index_insert_keeps_the_more_derived_class():

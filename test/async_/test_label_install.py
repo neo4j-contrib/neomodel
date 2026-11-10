@@ -138,17 +138,16 @@ async def test_relationship_unique_index_not_supported():
     class TargetNodeForUniqueIndexRelationship(AsyncStructuredNode):
         pass
 
+    class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            TargetNodeForUniqueIndexRelationship,
+            "UNIQUE_INDEX_REL",
+            model=UniqueIndexRelationship,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.7 or higher"
     ):
-
-        class NodeWithUniqueIndexRelationship(AsyncStructuredNode):
-            has_rel = AsyncRelationshipTo(
-                TargetNodeForUniqueIndexRelationship,
-                "UNIQUE_INDEX_REL",
-                model=UniqueIndexRelationship,
-            )
-
         await adb.install_labels(NodeWithUniqueIndexRelationship)
 
 
@@ -226,13 +225,12 @@ async def test_fulltext_index_not_supported():
     if await adb.version_is_higher_than("5.16"):
         pytest.skip("Test only for versions lower than 5.16")
 
+    class FullTextIndexNodeOld(AsyncStructuredNode):
+        name = StringProperty(fulltext_index=FulltextIndex())
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
-
-        class FullTextIndexNodeOld(AsyncStructuredNode):
-            name = StringProperty(fulltext_index=FulltextIndex())
-
         await adb.install_labels(FullTextIndexNodeOld)
 
 
@@ -293,22 +291,19 @@ async def test_rel_fulltext_index_not_supported():
     if await adb.version_is_higher_than("5.16"):
         pytest.skip("Test only for versions lower than 5.16")
 
+    class FullTextIndexRelOld(AsyncStructuredRel):
+        name = StringProperty(fulltext_index=FulltextIndex(eventually_consistent=True))
+
+    class FullTextIndexRelOldNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "FullTextIndexRelOldNode",
+            "FULLTEXT_INDEX_REL_OLD",
+            model=FullTextIndexRelOld,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.16 or higher"
     ):
-
-        class FullTextIndexRelOld(AsyncStructuredRel):
-            name = StringProperty(
-                fulltext_index=FulltextIndex(eventually_consistent=True)
-            )
-
-        class FullTextIndexRelOldNode(AsyncStructuredNode):
-            has_rel = AsyncRelationshipTo(
-                "FullTextIndexRelOldNode",
-                "FULLTEXT_INDEX_REL_OLD",
-                model=FullTextIndexRelOld,
-            )
-
         await adb.install_labels(FullTextIndexRelOldNode)
 
 
@@ -358,13 +353,12 @@ async def test_vector_index_not_supported():
     if await adb.version_is_higher_than("5.15"):
         pytest.skip("Test only for versions lower than 5.15")
 
+    class VectorIndexNodeOld(AsyncStructuredNode):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.15 or higher"
     ):
-
-        class VectorIndexNodeOld(AsyncStructuredNode):
-            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
         await adb.install_labels(VectorIndexNodeOld)
 
 
@@ -426,20 +420,19 @@ async def test_rel_vector_index_not_supported():
     if await adb.version_is_higher_than("5.18"):
         pytest.skip("Test only for versions lower than 5.18")
 
+    class VectorIndexRelOld(AsyncStructuredRel):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+
+    class VectorIndexRelOldNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "VectorIndexRelOldNode",
+            "VECTOR_INDEX_REL_OLD",
+            model=VectorIndexRelOld,
+        )
+
     with pytest.raises(
         FeatureNotSupported, match=r".*Please upgrade to Neo4j 5.18 or higher"
     ):
-
-        class VectorIndexRelOld(AsyncStructuredRel):
-            embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
-        class VectorIndexRelOldNode(AsyncStructuredNode):
-            has_rel = AsyncRelationshipTo(
-                "VectorIndexRelOldNode",
-                "VECTOR_INDEX_REL_OLD",
-                model=VectorIndexRelOld,
-            )
-
         await adb.install_labels(VectorIndexRelOldNode)
 
 
@@ -452,46 +445,34 @@ async def test_unauthorized_index_creation():
     expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Standard node index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedIndexNode(AsyncStructuredNode):
+        name = StringProperty(index=True)
 
-            class UnauthorizedIndexNode(AsyncStructuredNode):
-                name = StringProperty(index=True)
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedIndexNode)
 
     # Node uniqueness constraint
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedUniqueIndexNode(AsyncStructuredNode):
+        name = StringProperty(unique_index=True)
 
-            class UnauthorizedUniqueIndexNode(AsyncStructuredNode):
-                name = StringProperty(unique_index=True)
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedUniqueIndexNode)
 
     # Relationship index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedRelIndex(AsyncStructuredRel):
+        name = StringProperty(index=True)
 
-            class UnauthorizedRelIndex(AsyncStructuredRel):
-                name = StringProperty(index=True)
+    class UnauthorizedRelIndexNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "UnauthorizedRelIndexNode",
+            "UNAUTHORIZED_REL_INDEX",
+            model=UnauthorizedRelIndex,
+        )
 
-            class UnauthorizedRelIndexNode(AsyncStructuredNode):
-                has_rel = AsyncRelationshipTo(
-                    "UnauthorizedRelIndexNode",
-                    "UNAUTHORIZED_REL_INDEX",
-                    model=UnauthorizedRelIndex,
-                )
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedRelIndexNode)
 
 
@@ -506,84 +487,64 @@ async def test_unauthorized_index_creation_recent_features():
     expected_message_index = r".*Schema operation.* not allowed for user.*"
 
     # Node fulltext index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedFulltextNode(AsyncStructuredNode):
+        name = StringProperty(fulltext_index=FulltextIndex())
 
-            class UnauthorizedFulltextNode(AsyncStructuredNode):
-                name = StringProperty(fulltext_index=FulltextIndex())
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedFulltextNode)
 
     # Node vector index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedVectorNode(AsyncStructuredNode):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
-            class UnauthorizedVectorNode(AsyncStructuredNode):
-                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedVectorNode)
 
     # Relationship uniqueness constraint
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedUniqueRel(AsyncStructuredRel):
+        name = StringProperty(unique_index=True)
 
-            class UnauthorizedUniqueRel(AsyncStructuredRel):
-                name = StringProperty(unique_index=True)
+    class UnauthorizedUniqueRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "UnauthorizedUniqueRelNode",
+            "UNAUTHORIZED_UNIQUE_REL",
+            model=UnauthorizedUniqueRel,
+        )
 
-            class UnauthorizedUniqueRelNode(AsyncStructuredNode):
-                has_rel = AsyncRelationshipTo(
-                    "UnauthorizedUniqueRelNode",
-                    "UNAUTHORIZED_UNIQUE_REL",
-                    model=UnauthorizedUniqueRel,
-                )
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedUniqueRelNode)
 
     # Relationship fulltext index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedFulltextRel(AsyncStructuredRel):
+        name = StringProperty(fulltext_index=FulltextIndex())
 
-            class UnauthorizedFulltextRel(AsyncStructuredRel):
-                name = StringProperty(fulltext_index=FulltextIndex())
+    class UnauthorizedFulltextRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "UnauthorizedFulltextRelNode",
+            "UNAUTHORIZED_FULLTEXT_REL",
+            model=UnauthorizedFulltextRel,
+        )
 
-            class UnauthorizedFulltextRelNode(AsyncStructuredNode):
-                has_rel = AsyncRelationshipTo(
-                    "UnauthorizedFulltextRelNode",
-                    "UNAUTHORIZED_FULLTEXT_REL",
-                    model=UnauthorizedFulltextRel,
-                )
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedFulltextRelNode)
 
     # Relationship vector index
-    with pytest.raises(
-        ClientError,
-        match=expected_message_index,
-    ):
-        with await adb.impersonate(unauthorized_user):
+    class UnauthorizedVectorRel(AsyncStructuredRel):
+        embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
 
-            class UnauthorizedVectorRel(AsyncStructuredRel):
-                embedding = ArrayProperty(FloatProperty(), vector_index=VectorIndex())
+    class UnauthorizedVectorRelNode(AsyncStructuredNode):
+        has_rel = AsyncRelationshipTo(
+            "UnauthorizedVectorRelNode",
+            "UNAUTHORIZED_VECTOR_REL",
+            model=UnauthorizedVectorRel,
+        )
 
-            class UnauthorizedVectorRelNode(AsyncStructuredNode):
-                has_rel = AsyncRelationshipTo(
-                    "UnauthorizedVectorRelNode",
-                    "UNAUTHORIZED_VECTOR_REL",
-                    model=UnauthorizedVectorRel,
-                )
-
+    with await adb.impersonate(unauthorized_user):
+        with pytest.raises(ClientError, match=expected_message_index):
             await adb.install_labels(UnauthorizedVectorRelNode)
 
 

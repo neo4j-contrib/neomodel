@@ -4,6 +4,7 @@ Additional tests for neomodel.properties module to improve coverage.
 
 import pytest
 
+from neomodel.exceptions import DeflateError, InflateError
 from neomodel.properties import (
     FulltextIndex,
     Property,
@@ -41,7 +42,7 @@ def test_validator_decorator_inflate_error():
     prop.name = "test"
     prop.owner = "TestClass"
 
-    with pytest.raises(Exception):  # Should raise InflateError
+    with pytest.raises(InflateError):
         prop.inflate("test_value")
 
 
@@ -62,7 +63,7 @@ def test_validator_decorator_deflate_error():
     prop.name = "test"
     prop.owner = "TestClass"
 
-    with pytest.raises(Exception):  # Should raise DeflateError
+    with pytest.raises(DeflateError):
         prop.deflate("test_value")
 
 

@@ -12,8 +12,8 @@ needs no connection. They now run once here as plain sync unit tests.
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+import pytest
 from neo4j import time
-from pytest import mark, raises
 
 from neomodel import StructuredNode, get_config
 from neomodel.exceptions import DeflateError, InflateError
@@ -45,25 +45,25 @@ def test_string_property_exceeds_max_length():
     max_length must be a positive non-zero number.
     """
     # Try to define a property that has both choices and max_length
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         some_string_property = StringProperty(
             choices={"One": "1", "Two": "2"}, max_length=22
         )
 
     # Try to define a string property that has a negative zero length
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         another_string_property = StringProperty(max_length=-35)
 
     # Try to validate a long string
     a_string_property = StringProperty(required=True, max_length=5)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         a_string_property.normalize("The quick brown fox jumps over the lazy dog")
 
     # Try to validate a "valid" string, as per the max_length setting.
     valid_string = "Owen"
     normalised_string = a_string_property.normalize(valid_string)
     assert (
-        valid_string == normalised_string
+        normalised_string == valid_string
     ), "StringProperty max_length test passed but values do not match."
 
 
@@ -72,21 +72,15 @@ def test_deflate_inflate():
     prop.name = "age"
     prop.owner = FooBar
 
-    try:
+    with pytest.raises(InflateError) as exc_info:
         prop.inflate("six")
-    except InflateError as e:
-        assert "inflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    assert "inflate property" in str(exc_info.value)
 
-    try:
+    with pytest.raises(DeflateError) as exc_info:
         prop.deflate("six")
-    except DeflateError as e:
-        assert "deflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    assert "deflate property" in str(exc_info.value)
 
-    with raises(ValueError, match="Unknown Property method tartiflate"):
+    with pytest.raises(ValueError, match="Unknown Property method tartiflate"):
 
         class CheeseProperty(IntegerProperty):
             @validator
@@ -121,16 +115,16 @@ def test_datetimes_timezones():
     assert time1.utctimetuple() < time2.utctimetuple()
     assert time1.tzname() == "UTC"
 
-    with raises(ValueError, match="too many defaults"):
-        _ = DateTimeFormatProperty(
-            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
-        )
+    old_default = datetime(1900, 1, 1, 0, 0, 0)
+    with pytest.raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(default_now=True, default=old_default)
 
     config = get_config()
     prev_force_timezone = config.force_timezone
     config.force_timezone = True
-    with raises(ValueError, match=r".*No timezone provided."):
-        prop.deflate(datetime.now())
+    naive_now = datetime.now()
+    with pytest.raises(ValueError, match=r".*No timezone provided."):
+        prop.deflate(naive_now)
 
     config.force_timezone = prev_force_timezone
 
@@ -155,13 +149,12 @@ def test_datetime_format():
     assert prop.deflate(some_datetime) == "2019-03-19 15:36:25"
     assert prop.inflate("2019-03-19 15:36:25") == some_datetime
 
-    with raises(ValueError, match=r"datetime object expected, got.*"):
+    with pytest.raises(ValueError, match=r"datetime object expected, got.*"):
         prop.deflate(1234)
 
-    with raises(ValueError, match="too many defaults"):
-        _ = DateTimeFormatProperty(
-            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
-        )
+    old_default = datetime(1900, 1, 1, 0, 0, 0)
+    with pytest.raises(ValueError, match="too many defaults"):
+        _ = DateTimeFormatProperty(default_now=True, default=old_default)
 
     secondProp = DateTimeFormatProperty(default_now=True)
     assert secondProp.has_default
@@ -182,13 +175,12 @@ def test_datetime_neo4j_format():
     assert prop.deflate(some_datetime) == time.DateTime(2022, 12, 10, 14, 00, 00)
     assert prop.inflate(time.DateTime(2022, 12, 10, 14, 00, 00)) == some_datetime
 
-    with raises(ValueError, match=r"datetime object expected, got.*"):
+    with pytest.raises(ValueError, match=r"datetime object expected, got.*"):
         prop.deflate(1234)
 
-    with raises(ValueError, match="too many defaults"):
-        _ = DateTimeNeo4jFormatProperty(
-            default_now=True, default=datetime(1900, 1, 1, 0, 0, 0)
-        )
+    old_default = datetime(1900, 1, 1, 0, 0, 0)
+    with pytest.raises(ValueError, match="too many defaults"):
+        _ = DateTimeNeo4jFormatProperty(default_now=True, default=old_default)
 
     secondProp = DateTimeNeo4jFormatProperty(default_now=True)
     assert secondProp.has_default
@@ -205,22 +197,17 @@ def test_datetime_exceptions():
     prop.owner = FooBar
     faulty = "dgdsg"
 
-    try:
+    with pytest.raises(InflateError) as exc_info:
         prop.inflate(faulty)
-    except InflateError as e:
-        assert "inflate property" in str(e)
-    else:
-        assert False, "InflateError not raised."
+    assert "inflate property" in str(exc_info.value)
 
-    try:
+    with pytest.raises(DeflateError) as exc_info:
         prop.deflate(faulty)
-    except DeflateError as e:
-        assert "deflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    assert "deflate property" in str(exc_info.value)
 
-    with raises(ValueError, match="too many defaults"):
-        _ = DateTimeProperty(default_now=True, default=datetime(1900, 1, 1, 0, 0, 0))
+    old_default = datetime(1900, 1, 1, 0, 0, 0)
+    with pytest.raises(ValueError, match="too many defaults"):
+        _ = DateTimeProperty(default_now=True, default=old_default)
 
 
 def test_date_exceptions():
@@ -229,31 +216,25 @@ def test_date_exceptions():
     prop.owner = FooBar
     faulty = "2012-14-13"
 
-    try:
+    with pytest.raises(InflateError) as exc_info:
         prop.inflate(faulty)
-    except InflateError as e:
-        assert "inflate property" in str(e)
-    else:
-        assert False, "InflateError not raised."
+    assert "inflate property" in str(exc_info.value)
 
-    try:
+    with pytest.raises(DeflateError) as exc_info:
         prop.deflate(faulty)
-    except DeflateError as e:
-        assert "deflate property" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    assert "deflate property" in str(exc_info.value)
 
 
 def test_base_exceptions():
     # default-required conflict
-    with raises(
+    with pytest.raises(
         ValueError,
         match="The arguments `required` and `default` are mutually exclusive.",
     ):
         _ = StringProperty(default="kakapo", required=True)
 
     # unique_index - index conflict
-    with raises(
+    with pytest.raises(
         ValueError,
         match="The arguments `unique_index` and `index` are mutually exclusive.",
     ):
@@ -261,7 +242,7 @@ def test_base_exceptions():
 
     # no default value
     kakapo = StringProperty()
-    with raises(ValueError, match="No default value specified"):
+    with pytest.raises(ValueError, match="No default value specified"):
         kakapo.default_value()
 
     # missing normalize method
@@ -269,7 +250,7 @@ def test_base_exceptions():
         pass
 
     woops = WoopsProperty()
-    with raises(NotImplementedError, match="Specialize normalize method"):
+    with pytest.raises(NotImplementedError, match="Specialize normalize method"):
         woops.normalize("kakapo")
 
 
@@ -310,7 +291,7 @@ def test_indexed():
     assert not_indexed.is_indexed is False
 
 
-@mark.parametrize("normalized_class", (NormalizedProperty,))
+@pytest.mark.parametrize("normalized_class", (NormalizedProperty,))
 def test_normalized_property(normalized_class):
     class TestProperty(normalized_class):
         def normalize(self, value):
@@ -341,7 +322,7 @@ def test_regex_property():
     class MissingExpression(RegexProperty):
         pass
 
-    with raises(AttributeError):
+    with pytest.raises(AttributeError):
         MissingExpression()
 
     class TestProperty(RegexProperty):
@@ -358,7 +339,7 @@ def test_regex_property():
     assert getattr(prop, "_called", False)
     assert result == "foo bar"
 
-    with raises(DeflateError):
+    with pytest.raises(DeflateError):
         prop.deflate("qux")
 
 
@@ -369,13 +350,14 @@ def test_email_property():
     result = prop.inflate("foo@example.com")
     assert result == "foo@example.com"
 
-    with raises(DeflateError):
+    with pytest.raises(DeflateError):
         prop.deflate("foo@example")
 
 
 def test_illegal_array_base_prop_raises():
-    with raises(ValueError):
-        ArrayProperty(StringProperty(index=True))
+    indexed_base = StringProperty(index=True)
+    with pytest.raises(ValueError):
+        ArrayProperty(indexed_base)
 
 
 def test_alias_property():

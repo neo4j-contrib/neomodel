@@ -1,7 +1,7 @@
 import warnings
 from test._async_compat import mark_async_test
 
-from pytest import raises, warns
+import pytest
 
 from neomodel import (
     AsyncOne,
@@ -50,10 +50,11 @@ async def test_exclusion_blocks_sibling_connect():
     await owner.cat.connect(cat)
 
     # dog and fish share the "pet" group with cat, which is already connected
-    with raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
+    with pytest.raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
         await owner.dog.connect(dog)
-    with raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
-        await owner.fish.connect(await Fish(name="Nemo").save())
+    fish = await Fish(name="Nemo").save()
+    with pytest.raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
+        await owner.fish.connect(fish)
 
 
 @mark_async_test
@@ -68,7 +69,7 @@ async def test_exclusion_is_orthogonal_to_cardinality():
     # cat is ZeroOrOne: a second cat violates its own cardinality, not exclusion
     from neomodel import AttemptedCardinalityViolation
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await owner.cat.connect(cat2)
 
 
@@ -94,8 +95,9 @@ async def test_exclusion_applies_on_replace():
 
     # replace() connects a new edge in the group -> still blocked while cat holds
     # one. fish is ZeroOrOne, so its disconnect_all()/replace() is permitted.
-    with raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
-        await owner.fish.replace(await Fish(name="Nemo").save())
+    fish = await Fish(name="Nemo").save()
+    with pytest.raises(MutualExclusionViolation, match=r"mutual exclusion group 'pet'"):
+        await owner.fish.replace(fish)
 
 
 @mark_async_test
@@ -113,15 +115,14 @@ async def test_exclusion_allows_connect_after_disconnect():
 
 
 def test_single_member_exclusion_group_warns():
-    with warns(
+    # The warning is emitted by the node metaclass, at class creation time.
+    solo_rel = AsyncRelationshipTo("JealousCat", "HAS_SOLO", exclusion_group="lonely")
+    with pytest.warns(
         UserWarning, match=r"exclusion group 'lonely' on .* has a single member"
     ):
 
         class OneMemberGroup(AsyncStructuredNode):
-            name = StringProperty(required=True)
-            solo = AsyncRelationshipTo(
-                "JealousCat", "HAS_SOLO", exclusion_group="lonely"
-            )
+            solo = solo_rel
 
 
 def test_valid_exclusion_group_does_not_warn():

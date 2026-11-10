@@ -1,6 +1,6 @@
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     IntegerProperty,
@@ -47,13 +47,13 @@ class SuperHero(PersonWithRels):
 def test_actions_on_deleted_node():
     u = PersonWithRels(name="Jim2", age=3).save()
     u.delete()
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         u.is_from.connect(None)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         u.is_from.get()
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         u.save()
 
 
@@ -126,7 +126,8 @@ def test_search_and_filter_and_exclude():
     assert result[0].code == "ZY"
 
     result = fred.is_from.exclude(code="ZZ").exclude(code="ZY")
-    assert result[0].code == "ZX" and len(result) == 1
+    assert len(result) == 1
+    assert result[0].code == "ZX"
 
     result = fred.is_from.exclude(Q(code__contains="Y"))
     assert len(result) == 2
@@ -205,5 +206,5 @@ def test_props_relationship():
     c2 = Country(code="LA").save()
     assert c2
 
-    with raises(NotImplementedError):
+    with pytest.raises(NotImplementedError):
         c.inhabitant.connect(u, properties={"city": "Thessaloniki"})

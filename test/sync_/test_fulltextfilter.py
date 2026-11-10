@@ -357,14 +357,14 @@ def test_fulltextfiler_nonexistent_attribute():
     db.install_labels(TestNodeWithFT)
     wait_for_indexes_ready()
 
-    with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
-        nodeset = TestNodeWithFT.nodes.filter(
-            fulltext_filter=FulltextFilter(
-                topk=1,
-                fulltext_attribute_name="nonexistent_fulltext",
-                query_string="something",
-            )
+    nodeset = TestNodeWithFT.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=1,
+            fulltext_attribute_name="nonexistent_fulltext",
+            query_string="something",
         )
+    )
+    with pytest.raises(AttributeError, match="no attribute 'nonexistent_fulltext'"):
         nodeset.all()
 
 
@@ -384,12 +384,12 @@ def test_fulltextfiler_no_fulltext_index():
     db.install_labels(TestNodeWithoutFT)
     wait_for_indexes_ready()
 
-    with pytest.raises(AttributeError, match="is not declared with a"):
-        nodeset = TestNodeWithoutFT.nodes.filter(
-            fulltext_filter=FulltextFilter(
-                topk=1, fulltext_attribute_name="fulltext", query_string="something"
-            )
+    nodeset = TestNodeWithoutFT.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=1, fulltext_attribute_name="fulltext", query_string="something"
         )
+    )
+    with pytest.raises(AttributeError, match="is not declared with a"):
         nodeset.all()
 
 
@@ -414,29 +414,29 @@ def test_fulltextfilter_invalid_threshold_type():
     wait_for_indexes_ready()
 
     # Test with string threshold (invalid type)
+    nodeset = TestNodeWithFTInvalidType.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=1,
+            fulltext_attribute_name="fulltext",
+            query_string="something",
+            threshold="0.5",  # Invalid: string instead of float
+        )
+    )
     with pytest.raises(
         ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithFTInvalidType.nodes.filter(
-            fulltext_filter=FulltextFilter(
-                topk=1,
-                fulltext_attribute_name="fulltext",
-                query_string="something",
-                threshold="0.5",  # Invalid: string instead of float
-            )
-        )
         nodeset.all()
 
     # Test with integer threshold (invalid type)
+    nodeset = TestNodeWithFTInvalidType.nodes.filter(
+        fulltext_filter=FulltextFilter(
+            topk=1,
+            fulltext_attribute_name="fulltext",
+            query_string="something",
+            threshold=1,  # Invalid: int instead of float
+        )
+    )
     with pytest.raises(
         ValueError, match="Semantic Filter Threshold must be a float or None."
     ):
-        nodeset = TestNodeWithFTInvalidType.nodes.filter(
-            fulltext_filter=FulltextFilter(
-                topk=1,
-                fulltext_attribute_name="fulltext",
-                query_string="something",
-                threshold=1,  # Invalid: int instead of float
-            )
-        )
         nodeset.all()

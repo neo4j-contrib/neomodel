@@ -2,7 +2,7 @@ from datetime import datetime
 from test._async_compat import mark_sync_test
 from zoneinfo import ZoneInfo
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     DateTimeProperty,
@@ -125,7 +125,7 @@ def test_batch_create_or_update():
 @mark_sync_test
 def test_batch_validation():
     # test validation in batch create
-    with raises(DeflateError):
+    with pytest.raises(DeflateError):
         Customer.create(
             {"email": "jim1@aol.com", "age": "x"},
         )
@@ -140,7 +140,7 @@ def test_batch_index_violation():
         {"email": "jim6@aol.com", "age": 3},
     )
     assert users
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         Customer.create(
             {"email": "jim6@aol.com", "age": 3},
             {"email": "jim7@aol.com", "age": 5},
@@ -753,7 +753,7 @@ def test_merge_key_with_create_or_update_multiple_keys():
 def test_merge_by_key_rejects_unknown_property():
     """A merge_by key that is not a defined property must be rejected, rather
     than being interpolated into the MERGE pattern (Cypher injection)."""
-    with raises(ValueError, match="not a defined property"):
+    with pytest.raises(ValueError, match="not a defined property"):
         MergeKeyTestNode.create_or_update(
             {"name": "Eve", "email": "eve@example.com"},
             merge_by={"keys": ["email`}) DETACH DELETE n //"]},
@@ -909,18 +909,18 @@ def test_nodeset_bulk_save():
 
 @mark_sync_test
 def test_deprecated_batch_classmethods_still_work_and_warn():
-    from pytest import warns
-
-    with warns(DeprecationWarning, match=r"create\(\) is deprecated.*bulk_create"):
+    with pytest.warns(
+        DeprecationWarning, match=r"create\(\) is deprecated.*bulk_create"
+    ):
         created = BatchFruit.create({"name": "grape"})
     assert created[0].name == "grape"
 
-    with warns(
+    with pytest.warns(
         DeprecationWarning, match=r"get_or_create\(\) is deprecated.*bulk_get_or_create"
     ):
         BatchFruit.get_or_create({"name": "grape"})
 
-    with warns(
+    with pytest.warns(
         DeprecationWarning,
         match=r"create_or_update\(\) is deprecated.*bulk_create_or_update",
     ):

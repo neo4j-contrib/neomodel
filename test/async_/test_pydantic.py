@@ -73,7 +73,8 @@ def test_defaults_are_carried_over():
     instance = model(name="x")
     # Static default and callable default (UniqueIdProperty) both apply.
     assert instance.active is True
-    assert isinstance(instance.uid, str) and len(instance.uid) == 32
+    assert isinstance(instance.uid, str)
+    assert len(instance.uid) == 32
 
 
 def test_element_id_field_is_optional_and_toggleable():
@@ -90,7 +91,8 @@ def test_include_and_exclude():
     assert set(only.model_fields) == {"name", "age"}
 
     without = to_pydantic_model(PydanticPerson, exclude={"uid", "created"})
-    assert "uid" not in without.model_fields and "created" not in without.model_fields
+    assert "uid" not in without.model_fields
+    assert "created" not in without.model_fields
 
     with pytest.raises(ValueError, match="Unknown propert"):
         to_pydantic_model(PydanticPerson, include={"nope"})
@@ -122,7 +124,8 @@ def test_from_pydantic_builds_unsaved_node_and_ignores_extras():
     dto = create_model(name="Bob", role="user", element_id="4:abc:1")
     node = from_pydantic(PydanticPerson, dto)
     assert isinstance(node, PydanticPerson)
-    assert node.name == "Bob" and node.role == "user"
+    assert node.name == "Bob"
+    assert node.role == "user"
     assert node.element_id is None  # element_id is ignored; the node is unsaved
 
     # Also accepts a plain mapping.

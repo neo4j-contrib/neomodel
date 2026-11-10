@@ -1,7 +1,7 @@
 import warnings
 from test._async_compat import mark_sync_test
 
-from pytest import raises, skip
+import pytest
 
 from neomodel import StringProperty, StructuredNode, db, get_config
 from neomodel.exceptions import NodeClassAlreadyDefined, NodeClassNotDefined
@@ -11,7 +11,7 @@ from neomodel.sync_._registry import registry
 @mark_sync_test
 def test_db_specific_node_labels():
     if not db.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
     db_one = "one"
     db_two = "two"
     db.cypher_query(f"CREATE DATABASE {db_one} IF NOT EXISTS")
@@ -61,7 +61,7 @@ def test_db_specific_node_labels():
 @mark_sync_test
 def test_resolution_not_defined_class():
     if not db.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
 
     class PatientX(StructuredNode):
         __label__ = "Patient"
@@ -69,7 +69,7 @@ def test_resolution_not_defined_class():
         name = StringProperty()
 
     db.cypher_query("CREATE (n:Gabagool)")
-    with raises(
+    with pytest.raises(
         NodeClassNotDefined,
         match=r"Node with labels Gabagool does not resolve to any of the known objects[\s\S]*Database-specific: db_x.*",
     ):
@@ -132,7 +132,7 @@ def test_duplicate_labels_raise_on_resolution():
         title = StringProperty()
 
     db.cypher_query("CREATE (:DupResolutionLabel {name: 'x'})")
-    with raises(
+    with pytest.raises(
         NodeClassAlreadyDefined,
         match=r"Class .* with labels .* already defined:.*",
     ):
@@ -144,7 +144,7 @@ def test_class_redefinition_with_target_databases():
     """Redefining a database-specific class is likewise allowed; the latest
     definition wins in that database's registry."""
     if not db.edition_is_enterprise():
-        skip("Skipping test for community edition")
+        pytest.skip("Skipping test for community edition")
 
     db_test = "testreloaddb"
     db.cypher_query(f"CREATE DATABASE {db_test} IF NOT EXISTS")

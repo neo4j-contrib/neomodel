@@ -83,20 +83,13 @@ class ModelDefinitionException(NeomodelException):
         :return: str
         """
         output = "\n".join(
-            map(
-                lambda x: f"{','.join(x[0])} --> {x[1]}",
-                self.current_node_class_registry.items(),
-            )
+            f"{','.join(labels)} --> {cls}"
+            for labels, cls in self.current_node_class_registry.items()
         )
         for db, db_registry in self.current_db_specific_node_class_registry.items():
             output += f"\n\nDatabase-specific: {db}\n"
             output += "\n".join(
-                list(
-                    map(
-                        lambda x: f"{','.join(x[0])} --> {x[1]}",
-                        db_registry.items(),
-                    )
-                )
+                f"{','.join(labels)} --> {cls}" for labels, cls in db_registry.items()
             )
         return output
 

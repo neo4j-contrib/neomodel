@@ -1,7 +1,7 @@
 from datetime import datetime
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     DateProperty,
@@ -53,8 +53,9 @@ def test_issue_72():
 
 @mark_sync_test
 def test_required():
-    with raises(RequiredProperty):
-        User(age=3).save()
+    user = User(age=3)
+    with pytest.raises(RequiredProperty):
+        user.save()
 
 
 def test_repr_and_str():
@@ -123,8 +124,9 @@ def test_save_node_without_properties():
 def test_unique():
     db.install_labels(User)
     User(email="jim1@test.com", age=3).save()
-    with raises(UniqueProperty):
-        User(email="jim1@test.com", age=3).save()
+    duplicate = User(email="jim1@test.com", age=3)
+    with pytest.raises(UniqueProperty):
+        duplicate.save()
 
 
 @mark_sync_test
@@ -172,7 +174,7 @@ def test_not_updated_on_unique_error():
     Customer2(email="jim@bob.com", age=7).save()
     test = Customer2(email="jim1@bob.com", age=2).save()
     test.email = "jim@bob.com"
-    with raises(UniqueProperty):
+    with pytest.raises(UniqueProperty):
         test.save()
     customers = Customer2.nodes
     assert customers[0].email != customers[1].email
@@ -221,7 +223,7 @@ def test_refresh():
         c = Customer2.inflate(999)
     else:
         c = Customer2.inflate("4:xxxxxx:999")
-    with raises(Customer2.DoesNotExist):
+    with pytest.raises(Customer2.DoesNotExist):
         c.refresh()
 
 
@@ -321,38 +323,38 @@ def test_date_property():
 
 def test_reserved_property_keys():
     error_match = r".*is not allowed as it conflicts with neomodel internals.*"
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesDeletedNode(StructuredNode):
             deleted = StringProperty()
 
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesIdNode(StructuredNode):
             id = StringProperty()
 
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesElementIdNode(StructuredNode):
             element_id = StringProperty()
 
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesIdRel(StructuredRel):
             id = StringProperty()
 
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesElementIdRel(StructuredRel):
             element_id = StringProperty()
 
     error_match = r"Property names 'source' and 'target' are not allowed as they conflict with neomodel internals."
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesSourceRel(StructuredRel):
             source = StringProperty()
 
-    with raises(ValueError, match=error_match):
+    with pytest.raises(ValueError, match=error_match):
 
         class ReservedPropertiesTargetRel(StructuredRel):
             target = StringProperty()
@@ -365,13 +367,13 @@ def test_pre_action_check_blocks_unsaved_node():
     unsaved = User(email="unsaved@test.com", age=1)
     assert unsaved.element_id is None
 
-    with raises(ValueError, match="unsaved node"):
+    with pytest.raises(ValueError, match="unsaved node"):
         unsaved.refresh()
-    with raises(ValueError, match="unsaved node"):
+    with pytest.raises(ValueError, match="unsaved node"):
         unsaved.labels()
-    with raises(ValueError, match="unsaved node"):
+    with pytest.raises(ValueError, match="unsaved node"):
         unsaved.cypher("MATCH (n) RETURN n")
-    with raises(ValueError, match="unsaved node"):
+    with pytest.raises(ValueError, match="unsaved node"):
         unsaved.delete()
 
 
@@ -381,7 +383,7 @@ def test_pre_action_check_blocks_deleted_node():
     user.delete()
 
     # The deleted check takes precedence over the unsaved one.
-    with raises(ValueError, match="deleted node"):
+    with pytest.raises(ValueError, match="deleted node"):
         user.refresh()
 
 

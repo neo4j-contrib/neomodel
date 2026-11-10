@@ -1,15 +1,8 @@
 from test._async_compat import mark_sync_test
 
 import pytest
-from pytest import raises
 
-from neomodel import (
-    IntegerProperty,
-    StringProperty,
-    StructuredNode,
-    UniqueProperty,
-    db,
-)
+from neomodel import IntegerProperty, StringProperty, StructuredNode, UniqueProperty, db
 from neomodel.exceptions import ConstraintValidationFailed
 
 
@@ -22,13 +15,11 @@ class Human(StructuredNode):
 def test_unique_error():
     db.install_labels(Human)
     Human(name="j1m", age=13).save()
-    try:
-        Human(name="j1m", age=14).save()
-    except UniqueProperty as e:
-        assert str(e).find("j1m")
-        assert str(e).find("name")
-    else:
-        assert False, "UniqueProperty not raised."
+    duplicate = Human(name="j1m", age=14)
+    with pytest.raises(UniqueProperty) as exc_info:
+        duplicate.save()
+    assert "j1m" in str(exc_info.value)
+    assert "name" in str(exc_info.value)
 
 
 @mark_sync_test
@@ -38,8 +29,9 @@ def test_existence_constraint_error():
     db.cypher_query(
         "CREATE CONSTRAINT test_existence_constraint FOR (n:Human) REQUIRE n.age IS NOT NULL"
     )
-    with raises(ConstraintValidationFailed, match=r"must have the property"):
-        Human(name="Scarlett").save()
+    scarlett = Human(name="Scarlett")
+    with pytest.raises(ConstraintValidationFailed, match=r"must have the property"):
+        scarlett.save()
 
     db.cypher_query("DROP CONSTRAINT test_existence_constraint")
 
@@ -67,7 +59,7 @@ def test_escaped_chars():
 
 @mark_sync_test
 def test_does_not_exist():
-    with raises(Human.DoesNotExist):
+    with pytest.raises(Human.DoesNotExist):
         Human.nodes.get(name="XXXX")
 
 

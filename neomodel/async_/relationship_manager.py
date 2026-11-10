@@ -124,6 +124,23 @@ class AsyncRelationshipManager:
         if not hasattr(obj, "element_id"):
             raise ValueError("Can't perform operation on unsaved node " + repr(obj))
 
+    async def _check_inverse_cardinality(self, node: "AsyncStructuredNode") -> None:
+        """Check the cardinality on the remote end of the relationship, if defined."""
+        for rel_name, rel_def in node.defined_properties(
+            rels=True, aliases=False, properties=False
+        ).items():
+            # In order to find the inverse relationship, we need to check
+            # that the relationship type is the same, the direction is
+            # opposite, and the node class is the same as the source.
+            if (
+                rel_def.definition["relation_type"] == self.definition["relation_type"]
+                and rel_def.definition["direction"] != self.definition["direction"]
+                and rel_def.definition["node_class"] == self.source_class
+            ):
+                inverse_rel = getattr(node, rel_name)
+                await inverse_rel.check_cardinality(self.source)
+                return
+
     @check_source
     async def connect(
         self, node: "AsyncStructuredNode", properties: dict[str, Any] | None = None
@@ -139,24 +156,7 @@ class AsyncRelationshipManager:
         self._check_node(node)
         await self.check_cardinality(node)
         await self.check_mutual_exclusion()
-
-        # Check for cardinality on the remote end.
-        for rel_name, rel_def in node.defined_properties(
-            rels=True, aliases=False, properties=False
-        ).items():
-            # In order to find the inverse relationship, we need to check
-            # that the relationship type is the same, the direction is
-            # opposite, and the node class is the same as the source.
-            if (
-                rel_def.definition["relation_type"] == self.definition["relation_type"]
-                and rel_def.definition["direction"] != self.definition["direction"]
-                and rel_def.definition["node_class"] == self.source_class
-            ):
-                # If we have found the inverse relationship, we need to check
-                # its cardinality.
-                inverse_rel = getattr(node, rel_name)
-                await inverse_rel.check_cardinality(self.source)
-                break
+        await self._check_inverse_cardinality(node)
 
         if not self.definition["model"] and properties:
             raise NotImplementedError(
@@ -559,39 +559,43 @@ class AsyncRelationshipDefinition:
     def lookup_node_class(self) -> None:
         if not isinstance(self._raw_class, str):
             self.definition["node_class"] = self._raw_class
+            return
+
+        name = self._raw_class
+        if name.find(".") == -1:
+            module = self.module_name
         else:
-            name = self._raw_class
-            if name.find(".") == -1:
-                module = self.module_name
-            else:
-                module, _, name = name.rpartition(".")
+            module, _, name = name.rpartition(".")
 
-            if module not in sys.modules:
-                # yet another hack to get around python semantics
-                # __name__ is the namespace of the parent module for __init__.py files,
-                # and the namespace of the current module for other .py files,
-                # therefore there's a need to define the namespace differently for
-                # these two cases in order for . in relative imports to work correctly
-                # (i.e. to mean the same thing for both cases).
-                # For example in the comments below, namespace == myapp, always
-                if not hasattr(self, "module_file"):
-                    raise ImportError(f"Couldn't lookup '{name}'")
+        if module not in sys.modules:
+            module = self._import_module(module, name)
+        self.definition["node_class"] = getattr(sys.modules[module], name)
 
-                if "__init__.py" in self.module_file:
-                    # e.g. myapp/__init__.py -[__name__]-> myapp
-                    namespace = self.module_name
-                else:
-                    # e.g. myapp/models.py -[__name__]-> myapp.models
-                    namespace = self.module_name.rpartition(".")[0]
+    def _import_module(self, module: str, name: str) -> str:
+        """Import the module holding class ``name``, resolving relative imports."""
+        # yet another hack to get around python semantics
+        # __name__ is the namespace of the parent module for __init__.py files,
+        # and the namespace of the current module for other .py files,
+        # therefore there's a need to define the namespace differently for
+        # these two cases in order for . in relative imports to work correctly
+        # (i.e. to mean the same thing for both cases).
+        # For example in the comments below, namespace == myapp, always
+        if not hasattr(self, "module_file"):
+            raise ImportError(f"Couldn't lookup '{name}'")
 
-                # load a module from a namespace (e.g. models from myapp)
-                if module:
-                    module = import_module(module, namespace).__name__
-                # load the namespace itself (e.g. myapp)
-                # (otherwise it would look like import . from myapp)
-                else:
-                    module = import_module(namespace).__name__
-            self.definition["node_class"] = getattr(sys.modules[module], name)
+        if "__init__.py" in self.module_file:
+            # e.g. myapp/__init__.py -[__name__]-> myapp
+            namespace = self.module_name
+        else:
+            # e.g. myapp/models.py -[__name__]-> myapp.models
+            namespace = self.module_name.rpartition(".")[0]
+
+        # load a module from a namespace (e.g. models from myapp)
+        if module:
+            return import_module(module, namespace).__name__
+        # load the namespace itself (e.g. myapp)
+        # (otherwise it would look like import . from myapp)
+        return import_module(namespace).__name__
 
     def build_manager(
         self, source: "AsyncStructuredNode", name: str

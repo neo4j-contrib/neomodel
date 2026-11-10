@@ -2,7 +2,7 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Generic, Iterable, TypeVar, Union
+from typing import Any, AsyncIterator, Generic, Iterable, TypeVar
 
 from typing_extensions import Self
 
@@ -22,6 +22,8 @@ from neomodel.typing import Subquery, Transformation
 from neomodel.util import RelationshipDirection, deprecated, escape_identifier
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
+CYPHER_AND = " AND "
+CYPHER_WITH = " WITH "
 
 
 def _rel_helper(
@@ -605,7 +607,7 @@ class AsyncQueryBuilder:
         return self
 
     async def build_source(
-        self, source: Union["AsyncTraversal", "AsyncNodeSet", AsyncStructuredNode, Any]
+        self, source: "AsyncTraversal | AsyncNodeSet | AsyncStructuredNode | Any"
     ) -> str:
         if isinstance(source, AsyncTraversal):
             return await self.build_traversal(source)
@@ -654,27 +656,33 @@ class AsyncQueryBuilder:
         else:
             order_by = []
             for elm in source.order_by_elements:
-                if isinstance(elm, RawCypher):
-                    order_by.append(elm.render({"n": ident}))
-                    continue
-                is_rel_property = "|" in elm
-                if "__" not in elm and not is_rel_property:
-                    prop = elm.split(" ")[0] if " " in elm else elm
-                    if prop not in source.source_class.defined_properties(rels=False):
-                        raise ValueError(
-                            f"No such property {prop} on {source.source_class.__name__}. "
-                            f"Note that Neo4j internals like id or element_id are not allowed "
-                            f"for use in this operation."
-                        )
-                    order_by.append(f"{ident}.{elm}")
-                else:
-                    path, prop = elm.rsplit("__" if not is_rel_property else "|", 1)
-                    result = self.lookup_query_variable(
-                        path, return_relation=is_rel_property
-                    )
-                    if result:
-                        order_by.append(f"{result[0]}.{prop}")
+                rendered = self._render_order_by_element(ident, source, elm)
+                if rendered:
+                    order_by.append(rendered)
             self._ast.order_by = order_by
+
+    def _render_order_by_element(
+        self, ident: str, source: "AsyncNodeSet", elm: Any
+    ) -> str | None:
+        """
+        Render one order_by element as Cypher, or None if it targets a path
+        that is not part of the query.
+        """
+        if isinstance(elm, RawCypher):
+            return elm.render({"n": ident})
+        is_rel_property = "|" in elm
+        if "__" not in elm and not is_rel_property:
+            prop = elm.split(" ")[0]
+            if prop not in source.source_class.defined_properties(rels=False):
+                raise ValueError(
+                    f"No such property {prop} on {source.source_class.__name__}. "
+                    f"Note that Neo4j internals like id or element_id are not allowed "
+                    f"for use in this operation."
+                )
+            return f"{ident}.{elm}"
+        path, prop = elm.rsplit("|" if is_rel_property else "__", 1)
+        result = self.lookup_query_variable(path, return_relation=is_rel_property)
+        return f"{result[0]}.{prop}" if result else None
 
     async def build_semantic_query(self):
         semantic_filter = self.node_set.semantic_query
@@ -1011,31 +1019,28 @@ class AsyncQueryBuilder:
                     negate = True
                     row = row["__NOT__"]
 
-                for prop, operator_and_val in row.items():
-                    operator, val = operator_and_val
-                    if operator in _UNARY_OPERATORS:
-                        # unary operators do not have a parameter
-                        statement = (
-                            f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
-                        )
-                    elif operator in _ARRAY_FORMAT_OPERATORS:
-                        # these operators are templates referencing the property
-                        # and value directly, so they are formatted, not appended
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        self._query_params[place_holder] = val
-                        formatted = operator.format(
-                            ident=ident,
-                            prop=prop,
-                            val=f"${place_holder}",
-                        )
-                        statement = f"{'NOT ' if negate else ''}{formatted}"
-                    else:
-                        place_holder = self._register_place_holder(ident + "_" + prop)
-                        statement = f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
-                        self._query_params[place_holder] = val
-                    stmts.append(statement)
+                for prop, (operator, val) in row.items():
+                    stmts.append(
+                        self._build_filter_statement(ident, prop, operator, val, negate)
+                    )
 
-            self._ast.where.append(" AND ".join(stmts))
+            self._ast.where.append(CYPHER_AND.join(stmts))
+
+    def _build_filter_statement(
+        self, ident: str, prop: str, operator: str, val: Any, negate: bool
+    ) -> str:
+        """Render a single property filter, registering its parameter if any."""
+        if operator in _UNARY_OPERATORS:
+            # unary operators do not have a parameter
+            return f"{'NOT' if negate else ''} {ident}.{prop} {operator}"
+        place_holder = self._register_place_holder(ident + "_" + prop)
+        self._query_params[place_holder] = val
+        if operator in _ARRAY_FORMAT_OPERATORS:
+            # these operators are templates referencing the property
+            # and value directly, so they are formatted, not appended
+            formatted = operator.format(ident=ident, prop=prop, val=f"${place_holder}")
+            return f"{'NOT ' if negate else ''}{formatted}"
+        return f"{'NOT' if negate else ''} {ident}.{prop} {operator} ${place_holder}"
 
     def lookup_query_variable(
         self, path: str, return_relation: bool = False
@@ -1052,11 +1057,14 @@ class AsyncQueryBuilder:
 
         # Check if relation is coming from an optional MATCH
         # (declared using traverse)
-        is_optional_relation = False
-        for relation in self.node_set.relations_to_fetch:
-            if relation.value == path:
-                is_optional_relation = relation.optional
-                break
+        is_optional_relation = next(
+            (
+                relation.optional
+                for relation in self.node_set.relations_to_fetch
+                if relation.value == path
+            ),
+            False,
+        )
 
         subgraph = subgraph[traversals[0]]
         if len(traversals) == 1:
@@ -1076,155 +1084,16 @@ class AsyncQueryBuilder:
         return variable_to_return, subgraph["target"], is_optional_relation
 
     def build_query(self) -> str:
-        query: str = ""
+        query = self._build_query_prefix()
+        query += self._build_match_clauses()
 
-        if (
-            self._ast.semantic_query is not None
-            and self._ast.semantic_query._use_search_clause
-            and not self._subquery_namespace
-        ):
-            # The SEARCH subclause is Cypher 25 only. Prefix the whole statement
-            # with CYPHER 25 so it runs regardless of the server's default query
-            # language, which may still be Cypher 5 on upgraded 2026.x
-            # deployments (only fresh installs default to Cypher 25).
-            query += "CYPHER 25 "
-
-        if self._ast.lookup:
-            query += self._ast.lookup
-
-        if (self._ast.semantic_query is not None) and (
-            not self._ast.semantic_query._use_search_clause
-        ):
-            query += self._ast.semantic_query._build_legacy_call(
-                node_set_label=self._ast.semantic_query._node_set_label
-            )
-
-        # Instead of using only one MATCH statement for every relation
-        # to follow, we use one MATCH per relation (to avoid cartesian
-        # product issues...).
-        # There might be optimizations to be done, using projections,
-        # or pusing patterns instead of a chain of OPTIONAL MATCH.
-        if self._ast.match:
-            match_stmts = self._ast.match
-            if (
-                self._ast.semantic_query is not None
-            ) and self._ast.semantic_query._use_search_clause:
-                # Attach the SEARCH subclause to the root node MATCH.
-                node_set_label = self._ast.semantic_query._node_set_label
-                search_stmt = self._ast.semantic_query._build_search_stmt(
-                    node_set_label=node_set_label
-                )
-                match_stmts = [f"{match_stmts[0]} {search_stmt}"] + match_stmts[1:]
-            query += " MATCH " + " MATCH ".join(match_stmts)
-
-        if self._ast.where:
-            query += " WHERE "
-            query += " AND ".join(self._ast.where)
-
-        if self._ast.optional_match:
-            query += " OPTIONAL MATCH "
-            query += " OPTIONAL MATCH ".join(i for i in self._ast.optional_match)
-
-        if self._ast.optional_where:
-            if self._ast.mixed_filters:
-                # Make sure filtering works as expected with optional match, even if it's not performant...
-                query += " WITH *"
-            query += " WHERE "
-            query += " AND ".join(self._ast.optional_where)
-
-        if self._ast.with_clause:
-            query += " WITH "
-            query += self._ast.with_clause
-
-        returned_items: list[str] = []
-        if hasattr(self.node_set, "_subqueries"):
-            for subquery in self.node_set._subqueries:
-                query += " CALL {"
-                if subquery["initial_context"]:
-                    query += " WITH "
-                    context: list[str] = []
-                    for var in subquery["initial_context"]:
-                        if isinstance(var, (NodeNameResolver, RelationNameResolver)):
-                            context.append(var.resolve(self))
-                        else:
-                            context.append(var)
-                    query += ",".join(context)
-
-                query += f"{subquery['query']} }} "
-                self._query_params.update(subquery["query_params"])
-                for varname in subquery["return_set"]:
-                    # We declare the returned variables as "virtual" relations of the
-                    # root node class to make sure they will be translated by a call to
-                    # resolve_subgraph() (otherwise, they will be lost).
-                    # This is probably a temporary solution until we find something better...
-                    self._ast.subgraph[varname] = {
-                        "target": None,  # We don't need target class in this use case
-                        "children": {},
-                        "variable_name": varname,
-                        "rel_variable_name": varname,
-                    }
-                returned_items += subquery["return_set"]
-
-        if hasattr(self.node_set, "_intermediate_transforms"):
-            for transform in self.node_set._intermediate_transforms:
-                query += " WITH "
-                query += "DISTINCT " if transform.get("distinct") else ""
-                injected_vars: list = []
-                # Reset return list since we'll probably invalidate most variables
-                self._ast.return_clause = ""
-                self._ast.additional_return = []
-                returned_items = []
-                for name, varprops in transform["vars"].items():
-                    source = varprops["source"]
-                    if isinstance(source, (NodeNameResolver, RelationNameResolver)):
-                        transformation = source.resolve(self)
-                    else:
-                        transformation = source
-                    if varprops.get("source_prop"):
-                        transformation += f".{varprops['source_prop']}"
-                    transformation += f" AS {name}"
-                    if varprops.get("include_in_return"):
-                        returned_items += [name]
-                    injected_vars.append(transformation)
-                query += ",".join(injected_vars)
-                if not transform["ordering"]:
-                    continue
-                query += " ORDER BY "
-                ordering: list = []
-                for item in transform["ordering"]:
-                    if isinstance(item, RawCypher):
-                        ordering.append(item.render({}))
-                        continue
-                    if item.startswith("-"):
-                        ordering.append(f"{item[1:]} DESC")
-                    else:
-                        ordering.append(item)
-                query += ",".join(ordering)
+        subqueries, returned_items = self._build_subqueries()
+        query += subqueries
+        transforms, returned_items = self._build_intermediate_transforms(returned_items)
+        query += transforms
 
         query += " RETURN "
-        if self._ast.return_clause and not self._subquery_namespace:
-            returned_items.append(self._ast.return_clause)
-        if self._ast.additional_return:
-            returned_items += self._ast.additional_return
-        if hasattr(self.node_set, "_extra_results"):
-            for props in self.node_set._extra_results:
-                leftpart = props["vardef"].render(self)
-                varname = (
-                    props["alias"]
-                    if props.get("alias")
-                    else props["vardef"].get_internal_name()
-                )
-                if varname in returned_items:
-                    # We're about to override an existing variable, delete it first to
-                    # avoid duplicate error
-                    returned_items.remove(varname)
-                returned_items.append(f"{leftpart} AS {varname}")
-
-        if self._ast.semantic_query is not None and not self._ast.is_count:
-            # This ensures that when a semantic query is used, score is the last thing that is always returned
-            returned_items.append("score")
-
-        query += ", ".join(returned_items)
+        query += ", ".join(self._build_return_items(returned_items))
 
         if self._ast.order_by:
             query += " ORDER BY "
@@ -1239,6 +1108,173 @@ class AsyncQueryBuilder:
             query += f" LIMIT {self._ast.limit}"
 
         return query
+
+    def _build_query_prefix(self) -> str:
+        """Build what comes before the MATCH clauses: Cypher version, lookup, legacy semantic call."""
+        query = ""
+        semantic_query = self._ast.semantic_query
+
+        if (
+            semantic_query is not None
+            and semantic_query._use_search_clause
+            and not self._subquery_namespace
+        ):
+            # The SEARCH subclause is Cypher 25 only. Prefix the whole statement
+            # with CYPHER 25 so it runs regardless of the server's default query
+            # language, which may still be Cypher 5 on upgraded 2026.x
+            # deployments (only fresh installs default to Cypher 25).
+            query += "CYPHER 25 "
+
+        if self._ast.lookup:
+            query += self._ast.lookup
+
+        if semantic_query is not None and not semantic_query._use_search_clause:
+            query += semantic_query._build_legacy_call(
+                node_set_label=semantic_query._node_set_label
+            )
+
+        return query
+
+    def _build_match_clauses(self) -> str:
+        """Build the MATCH, WHERE, OPTIONAL MATCH and WITH clauses."""
+        query = ""
+
+        # Instead of using only one MATCH statement for every relation
+        # to follow, we use one MATCH per relation (to avoid cartesian
+        # product issues...).
+        # There might be optimizations to be done, using projections,
+        # or pusing patterns instead of a chain of OPTIONAL MATCH.
+        if self._ast.match:
+            match_stmts = self._ast.match
+            semantic_query = self._ast.semantic_query
+            if semantic_query is not None and semantic_query._use_search_clause:
+                # Attach the SEARCH subclause to the root node MATCH.
+                search_stmt = semantic_query._build_search_stmt(
+                    node_set_label=semantic_query._node_set_label
+                )
+                match_stmts = [f"{match_stmts[0]} {search_stmt}"] + match_stmts[1:]
+            query += " MATCH " + " MATCH ".join(match_stmts)
+
+        if self._ast.where:
+            query += " WHERE "
+            query += CYPHER_AND.join(self._ast.where)
+
+        if self._ast.optional_match:
+            query += " OPTIONAL MATCH "
+            query += " OPTIONAL MATCH ".join(self._ast.optional_match)
+
+        if self._ast.optional_where:
+            if self._ast.mixed_filters:
+                # Make sure filtering works as expected with optional match, even if it's not performant...
+                query += " WITH *"
+            query += " WHERE "
+            query += CYPHER_AND.join(self._ast.optional_where)
+
+        if self._ast.with_clause:
+            query += CYPHER_WITH
+            query += self._ast.with_clause
+
+        return query
+
+    def _resolve_variable(self, var: Any) -> Any:
+        if isinstance(var, (NodeNameResolver, RelationNameResolver)):
+            return var.resolve(self)
+        return var
+
+    def _build_subqueries(self) -> tuple[str, list[str]]:
+        """Build the CALL {} subqueries, returning them with the variables they return."""
+        query = ""
+        returned_items: list[str] = []
+        for subquery in getattr(self.node_set, "_subqueries", []):
+            query += " CALL {"
+            if subquery["initial_context"]:
+                query += CYPHER_WITH
+                query += ",".join(
+                    self._resolve_variable(var) for var in subquery["initial_context"]
+                )
+
+            query += f"{subquery['query']} }} "
+            self._query_params.update(subquery["query_params"])
+            for varname in subquery["return_set"]:
+                # We declare the returned variables as "virtual" relations of the
+                # root node class to make sure they will be translated by a call to
+                # resolve_subgraph() (otherwise, they will be lost).
+                # This is probably a temporary solution until we find something better...
+                self._ast.subgraph[varname] = {
+                    "target": None,  # We don't need target class in this use case
+                    "children": {},
+                    "variable_name": varname,
+                    "rel_variable_name": varname,
+                }
+            returned_items += subquery["return_set"]
+        return query, returned_items
+
+    def _build_intermediate_transforms(
+        self, returned_items: list[str]
+    ) -> tuple[str, list[str]]:
+        """
+        Build the WITH clauses of intermediate transforms. Each transform replaces
+        the returned items with the variables it includes in the return.
+        """
+        query = ""
+        for transform in getattr(self.node_set, "_intermediate_transforms", []):
+            # Reset return list since we'll probably invalidate most variables
+            self._ast.return_clause = ""
+            self._ast.additional_return = []
+            transform_stmt, returned_items = self._build_intermediate_transform(
+                transform
+            )
+            query += transform_stmt
+        return query, returned_items
+
+    def _build_intermediate_transform(self, transform: dict) -> tuple[str, list[str]]:
+        query = CYPHER_WITH
+        query += "DISTINCT " if transform.get("distinct") else ""
+        injected_vars: list = []
+        returned_items: list[str] = []
+        for name, varprops in transform["vars"].items():
+            transformation = self._resolve_variable(varprops["source"])
+            if varprops.get("source_prop"):
+                transformation += f".{varprops['source_prop']}"
+            transformation += f" AS {name}"
+            if varprops.get("include_in_return"):
+                returned_items.append(name)
+            injected_vars.append(transformation)
+        query += ",".join(injected_vars)
+        if transform["ordering"]:
+            query += " ORDER BY "
+            query += ",".join(
+                self._render_transform_ordering(item) for item in transform["ordering"]
+            )
+        return query, returned_items
+
+    @staticmethod
+    def _render_transform_ordering(item: Any) -> str:
+        if isinstance(item, RawCypher):
+            return item.render({})
+        if item.startswith("-"):
+            return f"{item[1:]} DESC"
+        return item
+
+    def _build_return_items(self, returned_items: list[str]) -> list[str]:
+        if self._ast.return_clause and not self._subquery_namespace:
+            returned_items.append(self._ast.return_clause)
+        if self._ast.additional_return:
+            returned_items += self._ast.additional_return
+        for props in getattr(self.node_set, "_extra_results", []):
+            leftpart = props["vardef"].render(self)
+            varname = props.get("alias") or props["vardef"].get_internal_name()
+            if varname in returned_items:
+                # We're about to override an existing variable, delete it first to
+                # avoid duplicate error
+                returned_items.remove(varname)
+            returned_items.append(f"{leftpart} AS {varname}")
+
+        if self._ast.semantic_query is not None and not self._ast.is_count:
+            # This ensures that when a semantic query is used, score is the last thing that is always returned
+            returned_items.append("score")
+
+        return returned_items
 
     async def _count(self) -> int:
         self._ast.is_count = True
@@ -1510,7 +1546,7 @@ class NodeNameResolver:
 
 @dataclass
 class BaseFunction:
-    input_name: Union[str, "BaseFunction", NodeNameResolver, RelationNameResolver]
+    input_name: "str | BaseFunction | NodeNameResolver | RelationNameResolver"
 
     def __post_init__(self) -> None:
         self._internal_name: str = ""
@@ -1803,26 +1839,17 @@ class AsyncNodeSet(AsyncBaseSet[T]):
 
             new_args = []
             for arg in args:
-                if isinstance(arg, SemanticFilter):
-                    if not self.semantic_query:
-                        self.semantic_query = arg
-                    continue
+                if not isinstance(arg, SemanticFilter):
+                    new_args.append(arg)
+                elif not self.semantic_query:
+                    self.semantic_query = arg
 
-                new_args.append(arg)
-
-            if (
-                kwargs.get("vector_filter")
-                and isinstance(kwargs["vector_filter"], SemanticFilter)
-                and not self.semantic_query
-            ):
-                self.semantic_query = kwargs.pop("vector_filter")
-
-            if (
-                kwargs.get("fulltext_filter")
-                and isinstance(kwargs["fulltext_filter"], SemanticFilter)
-                and not self.semantic_query
-            ):
-                self.semantic_query = kwargs.pop("fulltext_filter")
+            for key in ("vector_filter", "fulltext_filter"):
+                if (
+                    isinstance(kwargs.get(key), SemanticFilter)
+                    and not self.semantic_query
+                ):
+                    self.semantic_query = kwargs.pop(key)
 
             self.q_filters = Q(self.q_filters & Q(*tuple(new_args), **kwargs))
 
@@ -1852,25 +1879,30 @@ class AsyncNodeSet(AsyncBaseSet[T]):
         if "?" in props:
             self.order_by_elements.append("?")
         else:
-            for prop in props:
-                if isinstance(prop, RawCypher):
-                    self.order_by_elements.append(prop)
-                    continue
-                prop = prop.strip()
-                if prop.startswith("-"):
-                    prop = prop[1:]
-                    desc = True
-                else:
-                    desc = False
-
-                if prop in self.source_class.defined_properties(rels=False):
-                    property_obj = getattr(self.source_class, prop)
-                    if isinstance(property_obj, AliasProperty):
-                        prop = property_obj.aliased_to()
-
-                self.order_by_elements.append(prop + (" DESC" if desc else ""))
+            self.order_by_elements.extend(
+                self._parse_order_by_element(prop) for prop in props
+            )
 
         return self
+
+    def _parse_order_by_element(self, prop: Any) -> Any:
+        """
+        Normalise one order_by argument: strip the leading minus into a DESC
+        suffix and resolve aliases to the property they point to.
+        """
+        if isinstance(prop, RawCypher):
+            return prop
+        prop = prop.strip()
+        desc = prop.startswith("-")
+        if desc:
+            prop = prop[1:]
+
+        if prop in self.source_class.defined_properties(rels=False):
+            property_obj = getattr(self.source_class, prop)
+            if isinstance(property_obj, AliasProperty):
+                prop = property_obj.aliased_to()
+
+        return prop + (" DESC" if desc else "")
 
     def _register_relation_to_fetch(
         self, relation_def: Any, alias: str | None = None
@@ -2029,7 +2061,7 @@ class AsyncNodeSet(AsyncBaseSet[T]):
                     context_var, (NodeNameResolver, RelationNameResolver, RawCypher)
                 ):
                     raise ValueError(
-                        f"Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
+                        "Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
                     )
         self._subqueries.append(
             {

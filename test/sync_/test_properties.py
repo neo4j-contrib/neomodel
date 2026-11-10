@@ -1,6 +1,6 @@
 from test._async_compat import mark_sync_test
 
-from pytest import raises
+import pytest
 
 from neomodel import Relationship, StructuredNode, StructuredRel, db
 from neomodel.contrib import SemiStructuredNode
@@ -20,17 +20,15 @@ def test_string_property_w_choice():
         SEXES = {"F": "Female", "M": "Male", "O": "Other"}
         sex = StringProperty(required=True, choices=SEXES)
 
-    try:
-        TestChoices(sex="Z").save()
-    except DeflateError as e:
-        assert "choice" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    invalid_choice = TestChoices(sex="Z")
+    with pytest.raises(DeflateError) as exc_info:
+        invalid_choice.save()
+    assert "choice" in str(exc_info.value)
 
     node = TestChoices(sex="M").save()
     assert node.get_sex_display() == "Male"
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
 
         class WrongChoices(StructuredNode):
             WRONG = "wrong"
@@ -196,16 +194,16 @@ def test_uid_property():
 
     matched_exception = r".*argument ignored by.*"
     # Test ignored arguments
-    with raises(ValueError, match=matched_exception):
+    with pytest.raises(ValueError, match=matched_exception):
         _ = UniqueIdProperty(required=False)
 
-    with raises(ValueError, match=matched_exception):
+    with pytest.raises(ValueError, match=matched_exception):
         _ = UniqueIdProperty(unique_index=False)
 
-    with raises(ValueError, match=matched_exception):
+    with pytest.raises(ValueError, match=matched_exception):
         _ = UniqueIdProperty(index=False)
 
-    with raises(ValueError, match=matched_exception):
+    with pytest.raises(ValueError, match=matched_exception):
         _ = UniqueIdProperty(default="kakapo")
 
 
@@ -224,12 +222,10 @@ def test_array_properties():
     assert "Tim" in ap1.untyped_arr
 
     # typed
-    try:
-        ArrayProps(uid="2", typed_arr=["a", "b"]).save()
-    except DeflateError as e:
-        assert "unsaved node" in str(e)
-    else:
-        assert False, "DeflateError not raised."
+    invalid_typed = ArrayProps(uid="2", typed_arr=["a", "b"])
+    with pytest.raises(DeflateError) as exc_info:
+        invalid_typed.save()
+    assert "unsaved node" in str(exc_info.value)
 
     ap2 = ArrayProps(uid="2", typed_arr=[1, 2]).save()
     assert 1 in ap2.typed_arr
@@ -239,11 +235,12 @@ def test_array_properties():
     class Kakapo:
         pass
 
-    with raises(TypeError, match="Expecting neomodel Property"):
+    with pytest.raises(TypeError, match="Expecting neomodel Property"):
         ArrayProperty(Kakapo)
 
-    with raises(TypeError, match="Cannot have nested ArrayProperty"):
-        ArrayProperty(ArrayProperty())
+    inner_array = ArrayProperty()
+    with pytest.raises(TypeError, match="Cannot have nested ArrayProperty"):
+        ArrayProperty(inner_array)
 
 
 @mark_sync_test
@@ -265,8 +262,8 @@ def test_unique_index_prop_not_required():
         unconstrained_property = StringProperty()
 
     # Create a node with a missing required property
-    with raises(RequiredProperty):
-        x = ConstrainedTestNode(required_property="required", unique_property="unique")
+    x = ConstrainedTestNode(required_property="required", unique_property="unique")
+    with pytest.raises(RequiredProperty):
         x.save()
 
     # Create a node with a missing unique (but not required) property.
@@ -297,8 +294,8 @@ def test_unique_index_prop_enforced():
     # Named
     z = UniqueNullableNameNode(name="named")
     z.save()
-    with raises(UniqueProperty):
-        a = UniqueNullableNameNode(name="named")
+    a = UniqueNullableNameNode(name="named")
+    with pytest.raises(UniqueProperty):
         a.save()
 
     # Check nodes are in database

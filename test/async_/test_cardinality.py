@@ -2,7 +2,7 @@ import io
 from test._async_compat import mark_async_test
 from unittest.mock import patch
 
-from pytest import raises
+import pytest
 
 from neomodel import (
     AsyncOne,
@@ -125,13 +125,12 @@ async def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = await ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         await m.driver.connect(j)
 
     error_message = str(exc_info.value)
-    assert (
+    assert error_message == (
         f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
-        == error_message
     )
 
     await m.driver.reconnect(h, j)
@@ -148,7 +147,7 @@ async def test_cardinality_zero_or_one():
         CREATE (m)-[:HAS_SCREWDRIVER]->(s)
     """
     )
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
     ):
         await m.driver.all()
@@ -158,10 +157,10 @@ async def test_cardinality_zero_or_one():
 async def test_cardinality_one_or_more():
     m = await Monkey(name="jerry").save()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         await m.car.all()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         await m.car.single()
 
     c = await Car(version=2).save()
@@ -172,11 +171,11 @@ async def test_cardinality_one_or_more():
     cars = await m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         await m.car.disconnect(c)
 
     error_message = str(exc_info.value)
-    assert "One or more expected" == error_message
+    assert error_message == "One or more expected"
 
     d = await Car(version=3).save()
     await m.car.connect(d)
@@ -187,7 +186,7 @@ async def test_cardinality_one_or_more():
     cars = await m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await m.car.disconnect_all()
 
     assert await m.car.single() is not None
@@ -197,12 +196,12 @@ async def test_cardinality_one_or_more():
 async def test_cardinality_one():
     m = await Monkey(name="jerry").save()
 
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: none."
     ):
         await m.toothbrush.all()
 
-    with raises(CardinalityViolation):
+    with pytest.raises(CardinalityViolation):
         await m.toothbrush.single()
 
     b = await ToothBrush(name="Jim").save()
@@ -211,19 +210,18 @@ async def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = await ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation) as exc_info:
+    with pytest.raises(AttemptedCardinalityViolation) as exc_info:
         await m.toothbrush.connect(x)
 
     error_message = str(exc_info.value)
-    assert (
+    assert error_message == (
         f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
-        == error_message
     )
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await m.toothbrush.disconnect(b)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await m.toothbrush.disconnect_all()
 
     # Forcing creation of a second ToothBrush to go around
@@ -236,13 +234,13 @@ async def test_cardinality_one():
         CREATE (m)-[:HAS_TOOTHBRUSH]->(t)
     """
     )
-    with raises(
+    with pytest.raises(
         CardinalityViolation, match=r"CardinalityViolation: Expected: .*, got: 2."
     ):
         await m.toothbrush.all()
 
     jp = Monkey(name="Jean-Pierre")
-    with raises(ValueError, match="Node has not been saved cannot connect!"):
+    with pytest.raises(ValueError, match="Node has not been saved cannot connect!"):
         await jp.toothbrush.connect(b)
 
 
@@ -269,7 +267,7 @@ async def test_relationship_from_one_cardinality_enforced():
     assert pet in await owner1.pets.all()
 
     # Second connection should fail due to RelationshipFrom cardinality=One
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await owner2.pets.connect(pet)
 
     stream = io.StringIO()
@@ -305,7 +303,7 @@ async def test_relationship_from_zero_or_one_cardinality_enforced():
     assert employee in await company1.employees.all()
 
     # Second connection should fail due to RelationshipFrom cardinality=ZeroOrOne
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await company2.employees.connect(employee)
 
     stream = io.StringIO()
@@ -333,10 +331,10 @@ async def test_relationship_from_one_or_more_cardinality_enforced():
     employee = await Employee(name="John").save()
     await employee.offices.connect(office)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await employee.offices.disconnect(office)
 
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await employee.offices.disconnect_all()
 
     assert await employee.offices.single() is not None
@@ -364,7 +362,7 @@ async def test_bidirectional_cardinality_validation():
     assert await assistant.boss.single() == manager1
 
     # Second manager trying to connect to same assistant should fail
-    with raises(AttemptedCardinalityViolation):
+    with pytest.raises(AttemptedCardinalityViolation):
         await manager2.assistant.connect(assistant)
 
     stream = io.StringIO()

@@ -60,8 +60,8 @@ class AsyncPropertyManager:
     def __properties__(self) -> dict[str, Any]:
         from neomodel.async_.relationship_manager import AsyncRelationshipManager
 
-        return dict(
-            (name, value)
+        return {
+            name: value
             for name, value in vars(self).items()
             if not name.startswith("_")
             and not callable(value)
@@ -72,7 +72,7 @@ class AsyncPropertyManager:
                     AliasProperty,
                 ),
             )
-        )
+        }
 
     @classmethod
     def deflate(
@@ -130,8 +130,8 @@ class AsyncPropertyManager:
         props = {}
         for baseclass in reversed(cls.__mro__):
             props.update(
-                dict(
-                    (name, property)
+                {
+                    name: property
                     for name, property in vars(baseclass).items()
                     if (aliases and isinstance(property, AliasProperty))
                     or (
@@ -140,6 +140,6 @@ class AsyncPropertyManager:
                         and not isinstance(property, AliasProperty)
                     )
                     or (rels and isinstance(property, AsyncRelationshipDefinition))
-                )
+                }
             )
         return props

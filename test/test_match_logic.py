@@ -8,7 +8,7 @@ were therefore transpiled and run twice behind a live Neo4j session, even
 though the behaviour is identical in both worlds and needs no connection.
 """
 
-from pytest import raises
+import pytest
 
 from neomodel import IntegerProperty, Q, StringProperty, StructuredNode
 from neomodel.sync_.match import Traversal
@@ -39,7 +39,7 @@ def test_qbase():
 def test_traversal_definition_keys_are_valid():
     muckefuck = _Coffee(name="Mukkefuck", price=1)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         Traversal(
             muckefuck,
             "a_name",

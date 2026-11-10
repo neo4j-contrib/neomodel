@@ -174,21 +174,26 @@ def generate_arrows_json(classes):
                 "style": {},
                 "labels": [cls.__name__],
                 "properties": {
-                    prop: parse_property_key(
-                        cls.defined_properties(aliases=False, rels=False)[prop]
-                    )
-                    for prop in cls.defined_properties(aliases=False, rels=False)
+                    prop: parse_property_key(definition)
+                    for prop, definition in cls.defined_properties(
+                        aliases=False, rels=False
+                    ).items()
                 },
             }
         )
 
         # Prepare relationships
-        for _, rel in cls.defined_properties(aliases=False, properties=False).items():
-            target_cls = [
-                _class for _class in classes if _class.__name__ == rel._raw_class
-            ][0]
-            target_idx = classes.index(target_cls)
+        for rel in cls.defined_properties(aliases=False, properties=False).values():
+            target_idx = next(
+                i
+                for i, _class in enumerate(classes)
+                if _class.__name__ == rel._raw_class
+            )
             target_id = f"n{target_idx}"
+            if isinstance(rel, (RelationshipTo, AsyncRelationshipTo)):
+                from_id, to_id = node_id, target_id
+            else:
+                from_id, to_id = target_id, node_id
             # Create edges
             edges.append(
                 {
@@ -196,22 +201,8 @@ def generate_arrows_json(classes):
                     "type": rel.definition["relation_type"],
                     "style": {},
                     "properties": {},
-                    "fromId": (
-                        node_id
-                        if (
-                            isinstance(rel, RelationshipTo)
-                            or isinstance(rel, AsyncRelationshipTo)
-                        )
-                        else target_id
-                    ),
-                    "toId": (
-                        target_id
-                        if (
-                            isinstance(rel, RelationshipTo)
-                            or isinstance(rel, AsyncRelationshipTo)
-                        )
-                        else node_id
-                    ),
+                    "fromId": from_id,
+                    "toId": to_id,
                 }
             )
 

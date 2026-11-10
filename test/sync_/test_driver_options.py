@@ -2,7 +2,6 @@ from test._async_compat import mark_sync_test
 
 import pytest
 from neo4j.exceptions import ClientError
-from pytest import raises
 
 from neomodel import db
 from neomodel.exceptions import FeatureNotSupported
@@ -42,7 +41,7 @@ def test_impersonate_unauthorized():
     if not db.edition_is_enterprise():
         pytest.skip("Skipping test for community edition")
     with db.impersonate(user="unknownuser"):
-        with raises(ClientError):
+        with pytest.raises(ClientError):
             _ = db.cypher_query("RETURN 'Gabagool'")
 
 
@@ -67,6 +66,5 @@ def test_impersonate_multiple_transactions():
 def test_impersonate_community():
     if db.edition_is_enterprise():
         pytest.skip("Skipping test for enterprise edition")
-    with raises(FeatureNotSupported):
-        with db.impersonate(user="troygreene"):
-            _ = db.cypher_query("RETURN 'Gabagoogoo'")
+    with pytest.raises(FeatureNotSupported):
+        db.impersonate(user="troygreene")
